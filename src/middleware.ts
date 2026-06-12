@@ -1,10 +1,12 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // Rotas internas exigem autenticação
   const isInternalRoute =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/vagas/gerenciar") ||
@@ -25,7 +27,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    // Aplicar middleware em todas as rotas exceto assets estáticos
     "/((?!_next/static|_next/image|favicon.ico|logo|images).*)",
   ],
 };

@@ -1,0 +1,210 @@
+// Portal de Carreiras — WG Baterias
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Usuários internos (RH) ───────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN_RH     // Acesso total: criar/editar vagas, ver candidatos, gerar análise IA
+  VIEWER_RH    // Somente leitura: ver vagas e candidatos
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          UserRole  @default(VIEWER_RH)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// NextAuth sessions (opcional — usado se migrar para OAuth)
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+
+  @@map("sessions")
+}
+
+// ─── Vagas ────────────────────────────────────────────────────────────────────
+
+enum JobStatus {
+  ACTIVE    // Publicada e recebendo candidaturas
+  PAUSED    // Pausada temporariamente (não aparece no portal)
+  CLOSED    // Encerrada
+}
+
+enum Modality {
+  PRESENTIAL  // Presencial
+  REMOTE      // Remoto
+  HYBRID      // Híbrido
+}
+
+enum ContractType {
+  CLT
+  PJ
+  INTERNSHIP    // Estágio
+  APPRENTICE    // Jovem aprendiz
+  TEMPORARY     // Temporário
+  OTHER
+}
+
+model Job {
+  id                   String       @id @default(cuid())
+  title                String
+  department           String?
+  city                 String
+  state                String       // UF (ex: "SP")
+  modality             Modality
+  contractType         ContractType @default(CLT)
+  description          String       @db.Text
+  responsibilities     String       @db.Text
+  requiredRequirements String       @db.Text
+  desiredRequirements  String?      @db.Text
+  benefits             String?      @db.Text
+  workSchedule         String?      // Ex: "Seg a Sex, 08h-17h"
+  closingDate          DateTime?    // Data limite opcional
+  status               JobStatus    @default(ACTIVE)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  applications         Application[]
+
+  @@map("jobs")
+}
+
+// ─── Candidatos ───────────────────────────────────────────────────────────────
+
+model Candidate {
+  id                    String   @id @default(cuid())
+  fullName              String
+  email                 String
+  phone                 String
+  city                  String
+  state                 String   // UF
+  notes                 String?  @db.Text
+  privacyAcceptance     Boolean  @default(false)
+  privacyAcceptedAt     DateTime?
+  talentPoolAcceptance  Boolean  @default(false)
+  talentPoolAcceptedAt  DateTime?
+  // LGPD: campos para anonimização a pedido
+  anonymized            Boolean  @default(false)
+  anonymizedAt          DateTime?
+  createdAt             DateTime @default(now())
+
+  applications          Application[]
+
+  @@map("candidates")
+}
+
+// ─── Candidaturas ─────────────────────────────────────────────────────────────
+
+enum ApplicationStatus {
+  RECEIVED           // Recebido
+  HR_REVIEW          // Em análise RH
+  SELECTED_INTERVIEW // Selecionado para entrevista
+  INTERVIEW_SCHEDULED // Entrevista agendada
+  INTERVIEWED        // Entrevistado
+  SENT_TO_MANAGER    // Enviado ao gestor
+  APPROVED           // Aprovado
+  REJECTED           // Reprovado
+  NO_SHOW            // Não compareceu
+  TALENT_POOL        // Banco de talentos
+}
+
+model Application {
+  id             String            @id @default(cuid())
+  candidateId    String
+  jobId          String
+  resumeFilePath String            // Caminho privado do arquivo
+  resumeFileName String            // Nome original do arquivo
+  status         ApplicationStatus @default(RECEIVED)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  candidate      Candidate         @relation(fields: [candidateId], references: [id])
+  job            Job               @relation(fields: [jobId], references: [id])
+  aiReview       AiReview?
+  statusHistory  StatusHistory[]
+
+  // Evitar candidatura duplicada para a mesma vaga
+  @@unique([candidateId, jobId])
+  @@map("applications")
+}
+
+// ─── Histórico de status ──────────────────────────────────────────────────────
+
+model StatusHistory {
+  id            String            @id @default(cuid())
+  applicationId String
+  fromStatus    ApplicationStatus?
+  toStatus      ApplicationStatus
+  changedById   String?           // ID do usuário RH que alterou
+  changedByName String?           // Nome (desnormalizado para histórico)
+  note          String?           // Observação opcional
+  createdAt     DateTime          @default(now())
+
+  application   Application       @relation(fields: [applicationId], references: [id])
+
+  @@map("status_history")
+}
+
+// ─── Análise de IA ────────────────────────────────────────────────────────────
+
+model AiReview {
+  id                    String      @id @default(cuid())
+  applicationId         String      @unique
+  // Campos da análise estruturada
+  resumeSummary         String      @db.Text
+  adherenceLevel        String      // "Alta", "Média" ou "Baixa"
+  requiredMet           String      @db.Text  // JSON array ou texto formatado
+  requiredNotEvidenced  String      @db.Text
+  desiredMet            String      @db.Text
+  strengths             String      @db.Text
+  interviewAttention    String      @db.Text
+  suggestedQuestions    String      @db.Text
+  finalNote             String      @db.Text
+  modelUsed             String      // Ex: "claude-sonnet-4-5-20251001"
+  isMock                Boolean     @default(false) // true = análise simulada
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  application           Application @relation(fields: [applicationId], references: [id])
+
+  @@map("ai_reviews")
+}
+
+// ─── Logs de auditoria ────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userEmail  String?  // Desnormalizado para manter histórico mesmo se usuário for removido
+  action     String   // Ex: "JOB_CREATED", "STATUS_CHANGED", "AI_REVIEW_GENERATED"
+  entityType String   // Ex: "job", "application", "candidate"
+  entityId   String
+  metadata   String?  @db.Text  // JSON com detalhes adicionais (sem dados sensíveis)
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}

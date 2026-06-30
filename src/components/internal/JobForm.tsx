@@ -29,6 +29,12 @@ export default function JobForm({ job }: Props) {
     benefits: job?.benefits ?? "",
   });
 
+  // Novos campos opcionais do card
+  const [salaryRange, setSalaryRange] = useState(job?.salaryRange ?? "");
+  const [highlightBenefit, setHighlightBenefit] = useState(
+    job?.highlightBenefit ?? ""
+  );
+
   function setRich(key: keyof typeof richFields) {
     return (html: string) => setRichFields((prev) => ({ ...prev, [key]: html }));
   }
@@ -44,6 +50,7 @@ export default function JobForm({ job }: Props) {
     const body = {
       title: formData.get("title"),
       department: formData.get("department") || undefined,
+      company: formData.get("company") || undefined,
       city: formData.get("city"),
       state: formData.get("state"),
       modality: formData.get("modality"),
@@ -54,6 +61,11 @@ export default function JobForm({ job }: Props) {
       desiredRequirements: richFields.desiredRequirements || undefined,
       benefits: richFields.benefits || undefined,
       workSchedule: formData.get("workSchedule") || undefined,
+      salaryRange: salaryRange || undefined,
+      openings: formData.get("openings")
+        ? Number(formData.get("openings"))
+        : undefined,
+      highlightBenefit: highlightBenefit || undefined,
       closingDate: formData.get("closingDate") || null,
       tallyFormUrl: formData.get("tallyFormUrl") || undefined,
       status: formData.get("status"),
@@ -110,6 +122,51 @@ export default function JobForm({ job }: Props) {
             type="text"
             name="department"
             defaultValue={job?.department ?? ""}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Empresa / Unidade</label>
+          <input
+            type="text"
+            name="company"
+            defaultValue={job?.company ?? ""}
+            placeholder="Ex: WG Baterias SP"
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Faixa Salarial</label>
+          <input
+            type="text"
+            value={salaryRange}
+            onChange={(e) => setSalaryRange(e.target.value)}
+            placeholder="Ex: R$ 2.500 – R$ 3.000"
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Quantidade de Vagas</label>
+          <input
+            type="number"
+            name="openings"
+            defaultValue={job?.openings ?? ""}
+            min={1}
+            placeholder="Ex: 2"
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Benefício em Destaque</label>
+          <input
+            type="text"
+            value={highlightBenefit}
+            onChange={(e) => setHighlightBenefit(e.target.value)}
+            placeholder="Ex: Plano de Saúde"
             className={inputClass}
           />
         </div>

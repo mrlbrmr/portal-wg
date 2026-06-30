@@ -69,6 +69,7 @@ model Job {
   id                   String       @id @default(cuid())
   title                String
   department           String?
+  company              String?      // Empresa / unidade (ex: "WG Baterias SP")
   city                 String
   state                String       // UF (ex: "SP")
   modality             Modality
@@ -79,11 +80,36 @@ model Job {
   desiredRequirements  String?      @db.Text
   benefits             String?      @db.Text
   workSchedule         String?      // Ex: "Seg a Sex, 08h-17h"
-  closingDate          DateTime?    // Data limite opcional
-  tallyFormUrl         String?      // Link do formulário Tally para candidatura
+  salaryRange          String?      // Faixa salarial (ex: "R$ 2.500 – R$ 3.000")
+  openings             Int?         // Quantidade de vagas
+  highlightBenefit     String?      // Benefício em destaque (ex: "Plano de Saúde")
+  closingDate          DateTime?
+  tallyFormUrl         String?
   status               JobStatus    @default(ACTIVE)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
   @@map("jobs")
+}
+
+// ─── Configurações da Homepage ────────────────────────────────────────────────
+
+model HomepageConfig {
+  id                   String   @id
+  showDepartment       Boolean  @default(true)
+  showLocation         Boolean  @default(true)
+  showModality         Boolean  @default(true)
+  showContractType     Boolean  @default(true)
+  showCompany          Boolean  @default(false)
+  showWorkSchedule     Boolean  @default(false)
+  showSalary           Boolean  @default(false)
+  showHighlightBenefit Boolean  @default(false)
+  showOpenings         Boolean  @default(false)
+  showFilters          Boolean  @default(true)
+  showJobCounter       Boolean  @default(true)
+  jobsSectionTitle     String   @default("Vagas abertas")
+  jobsSectionSubtitle  String   @default("Encontre a oportunidade ideal para crescer com o Grupo WG.")
+  updatedAt            DateTime @updatedAt
+
+  @@map("homepage_config")
 }

@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { MapPin, ArrowRight } from "lucide-react";
+import { MapPin, ArrowRight, Clock, Building2, Wallet, Star, Users } from "lucide-react";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import type { Job } from "@prisma/client";
+import type { HomepageConfigData } from "@/lib/homepage-config";
 
 interface Props {
   job: Job;
+  config: HomepageConfigData;
 }
 
-export default function JobCard({ job }: Props) {
+export default function JobCard({ job, config }: Props) {
   return (
     <Link
       href={`/vagas/${job.id}`}
@@ -18,24 +20,78 @@ export default function JobCard({ job }: Props) {
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
+          {/* Cargo — sempre visível */}
           <h3 className="text-base font-semibold text-white group-hover:text-wg-green transition-colors duration-200 truncate">
             {job.title}
           </h3>
-          {job.department && (
+
+          {/* Área / departamento */}
+          {config.showDepartment && job.department && (
             <p className="text-sm text-wg-gray mt-0.5">{job.department}</p>
           )}
 
+          {/* Empresa / unidade */}
+          {config.showCompany && job.company && (
+            <p className="flex items-center gap-1 text-xs text-wg-gray mt-0.5">
+              <Building2 className="w-3 h-3 flex-shrink-0" />
+              {job.company}
+            </p>
+          )}
+
           <div className="flex flex-wrap items-center gap-2 mt-3">
-            <span className="flex items-center gap-1 text-xs text-wg-gray">
-              <MapPin className="w-3.5 h-3.5 text-wg-green flex-shrink-0" />
-              {job.city} / {job.state}
-            </span>
-            <span className="inline-flex items-center bg-wg-green/10 text-wg-green text-xs font-medium px-2.5 py-0.5 rounded-full">
-              {MODALITY_LABELS[job.modality]}
-            </span>
-            <span className="inline-flex items-center bg-wg-card-2 border border-wg-border text-wg-gray text-xs px-2.5 py-0.5 rounded-full">
-              {CONTRACT_TYPE_LABELS[job.contractType]}
-            </span>
+            {/* Cidade / UF */}
+            {config.showLocation && (
+              <span className="flex items-center gap-1 text-xs text-wg-gray">
+                <MapPin className="w-3.5 h-3.5 text-wg-green flex-shrink-0" />
+                {job.city} / {job.state}
+              </span>
+            )}
+
+            {/* Modalidade */}
+            {config.showModality && (
+              <span className="inline-flex items-center bg-wg-green/10 text-wg-green text-xs font-medium px-2.5 py-0.5 rounded-full">
+                {MODALITY_LABELS[job.modality]}
+              </span>
+            )}
+
+            {/* Tipo de contrato */}
+            {config.showContractType && (
+              <span className="inline-flex items-center bg-wg-card-2 border border-wg-border text-wg-gray text-xs px-2.5 py-0.5 rounded-full">
+                {CONTRACT_TYPE_LABELS[job.contractType]}
+              </span>
+            )}
+
+            {/* Jornada / horário */}
+            {config.showWorkSchedule && job.workSchedule && (
+              <span className="flex items-center gap-1 text-xs text-wg-gray">
+                <Clock className="w-3 h-3 flex-shrink-0" />
+                {job.workSchedule}
+              </span>
+            )}
+
+            {/* Salário */}
+            {config.showSalary && job.salaryRange && (
+              <span className="flex items-center gap-1 text-xs text-wg-gray">
+                <Wallet className="w-3 h-3 flex-shrink-0" />
+                {job.salaryRange}
+              </span>
+            )}
+
+            {/* Benefício destaque */}
+            {config.showHighlightBenefit && job.highlightBenefit && (
+              <span className="flex items-center gap-1 text-xs text-wg-gray">
+                <Star className="w-3 h-3 flex-shrink-0 text-wg-green" />
+                {job.highlightBenefit}
+              </span>
+            )}
+
+            {/* Quantidade de vagas */}
+            {config.showOpenings && job.openings && job.openings > 0 && (
+              <span className="flex items-center gap-1 text-xs text-wg-gray">
+                <Users className="w-3 h-3 flex-shrink-0" />
+                {job.openings} {job.openings === 1 ? "vaga" : "vagas"}
+              </span>
+            )}
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_CONFIG } from "@/lib/homepage-config";
 import JobCard from "@/components/public/JobCard";
 import JobFilters from "@/components/public/JobFilters";
 import { AnimateIn } from "@/components/ui/AnimateIn";
@@ -55,10 +56,12 @@ export default async function HomePage({
   if (params.department)
     where.department = { contains: params.department, mode: "insensitive" };
 
-  const [jobs, totalActive] = await Promise.all([
+  const [jobs, totalActive, rawConfig] = await Promise.all([
     prisma.job.findMany({ where, orderBy: { createdAt: "desc" } }),
     prisma.job.count({ where: { status: "ACTIVE" } }),
+    prisma.homepageConfig.findUnique({ where: { id: "singleton" } }),
   ]);
+  const config = rawConfig ?? DEFAULT_CONFIG;
 
   const hasActiveFilters = Object.keys(params).length > 0;
 
@@ -139,16 +142,18 @@ export default async function HomePage({
             </a>
 
             {/* Indicador de vagas */}
-            <div
-              className="flex justify-center mt-10 animate-fade-up"
-              style={{ animationDelay: "580ms" }}
-            >
-              <div className="flex items-center gap-2.5 bg-black/50 border border-white/15 backdrop-blur-sm rounded-full px-6 py-3 text-base font-semibold text-white">
-                <Briefcase className="w-5 h-5" />
-                {totalActive}{" "}
-                {totalActive === 1 ? "vaga aberta" : "vagas abertas"}
+            {config.showJobCounter && (
+              <div
+                className="flex justify-center mt-10 animate-fade-up"
+                style={{ animationDelay: "580ms" }}
+              >
+                <div className="flex items-center gap-2.5 bg-black/50 border border-white/15 backdrop-blur-sm rounded-full px-6 py-3 text-base font-semibold text-white">
+                  <Briefcase className="w-5 h-5" />
+                  {totalActive}{" "}
+                  {totalActive === 1 ? "vaga aberta" : "vagas abertas"}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -211,9 +216,11 @@ export default async function HomePage({
                 <p className="text-wg-green text-xs font-semibold uppercase tracking-widest mb-2">
                   Oportunidades
                 </p>
-                <h2 className="text-3xl font-black text-white">Vagas abertas</h2>
+                <h2 className="text-3xl font-black text-white">
+                  {config.jobsSectionTitle}
+                </h2>
                 <p className="text-wg-gray mt-1.5 text-sm">
-                  Encontre a oportunidade ideal para crescer com o Grupo WG.
+                  {config.jobsSectionSubtitle}
                 </p>
               </div>
               {jobs.length > 0 && (
@@ -226,9 +233,11 @@ export default async function HomePage({
           </AnimateIn>
 
           {/* Filtros */}
-          <Suspense fallback={null}>
-            <JobFilters />
-          </Suspense>
+          {config.showFilters && (
+            <Suspense fallback={null}>
+              <JobFilters />
+            </Suspense>
+          )}
 
           {/* Lista de vagas */}
           {jobs.length === 0 ? (
@@ -253,7 +262,7 @@ export default async function HomePage({
             <div className="flex flex-col gap-3">
               {jobs.map((job, i) => (
                 <AnimateIn key={job.id} delay={i * 60}>
-                  <JobCard job={job} />
+                  <JobCard job={job} config={config} />
                 </AnimateIn>
               ))}
             </div>

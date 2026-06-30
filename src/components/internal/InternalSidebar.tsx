@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Briefcase, Plus } from "lucide-react";
+import { LayoutDashboard, Briefcase, Plus, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -16,7 +16,10 @@ export default function InternalSidebar({ role }: Props) {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/vagas/gerenciar", label: "Vagas", icon: Briefcase },
     ...(role === "ADMIN_RH"
-      ? [{ href: "/vagas/nova", label: "Nova Vaga", icon: Plus }]
+      ? [
+          { href: "/vagas/nova", label: "Nova Vaga", icon: Plus },
+          { href: "/configuracoes", label: "Configurações", icon: Settings },
+        ]
       : []),
   ];
 

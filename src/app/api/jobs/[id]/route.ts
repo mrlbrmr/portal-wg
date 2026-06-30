@@ -6,7 +6,8 @@ import { Modality, ContractType, JobStatus } from "@prisma/client";
 
 const updateJobSchema = z.object({
   title: z.string().min(2).optional(),
-  department: z.string().optional(),
+  department: z.string().optional().nullable(),
+  company: z.string().optional().nullable(),
   city: z.string().min(2).optional(),
   state: z.string().length(2).optional(),
   modality: z.nativeEnum(Modality).optional(),
@@ -17,6 +18,9 @@ const updateJobSchema = z.object({
   desiredRequirements: z.string().optional().nullable(),
   benefits: z.string().optional().nullable(),
   workSchedule: z.string().optional().nullable(),
+  salaryRange: z.string().optional().nullable(),
+  openings: z.number().int().positive().optional().nullable(),
+  highlightBenefit: z.string().optional().nullable(),
   closingDate: z.string().optional().nullable(),
   tallyFormUrl: z.string().url("URL inválida").optional().nullable().or(z.literal("")),
   status: z.nativeEnum(JobStatus).optional(),

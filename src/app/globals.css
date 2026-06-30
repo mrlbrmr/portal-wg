@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply text-gray-900 bg-gray-50;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -11,4 +15,69 @@
   * {
     box-sizing: border-box;
   }
+
+  /* Foco acessível */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-wg-green rounded;
+  }
 }
+
+/* Respeita preferência por redução de movimento */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  /* Renderização pública do conteúdo HTML gerado pelo TipTap */
+  .rich-text p {
+    @apply mb-2 leading-relaxed;
+  }
+  .rich-text p:last-child {
+    @apply mb-0;
+  }
+  .rich-text strong {
+    @apply font-semibold;
+  }
+  .rich-text em {
+    @apply italic;
+  }
+  .rich-text ul {
+    @apply list-disc pl-5 mb-2 space-y-0.5;
+  }
+  .rich-text ol {
+    @apply list-decimal pl-5 mb-2 space-y-0.5;
+  }
+  .rich-text li {
+    @apply leading-relaxed;
+  }
+  .rich-text li:last-child {
+    @apply mb-0;
+  }
+}
+
+/* Editor TipTap — fora de @layer para garantir prioridade máxima sobre o reset do Tailwind */
+.rich-editor ul,
+.rich-editor ol {
+  padding-left: 1.25rem;
+  margin: 0.375rem 0;
+}
+.rich-editor ul {
+  list-style-type: disc;
+}
+.rich-editor ol {
+  list-style-type: decimal;
+}
+.rich-editor li {
+  line-height: 1.6;
+  margin: 0.1rem 0;
+}
+.rich-editor p {
+  margin: 0.2rem 0;
+}
+.rich-editor p:first-child { margin-top: 0; }
+.rich-editor p:last-child { margin-bottom: 0; }

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
-import { MapPin, Clock, Briefcase, ChevronLeft, ArrowRight } from "lucide-react";
+import { MapPin, Clock, Briefcase, ChevronLeft, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 
 interface Props {
@@ -47,7 +47,7 @@ export default async function JobPage({ params }: Props) {
       {/* Breadcrumb */}
       <Link
         href="/"
-        className="inline-flex items-center gap-1 text-sm text-orange-600 hover:text-orange-700 mb-6"
+        className="inline-flex items-center gap-1 text-sm text-wg-green hover:text-wg-green-bright transition-colors mb-6"
       >
         <ChevronLeft className="w-4 h-4" />
         Voltar às vagas
@@ -62,27 +62,31 @@ export default async function JobPage({ params }: Props) {
               <span className="text-sm text-gray-500">{job.department}</span>
             )}
           </div>
-          <Link
-            href={`/candidatar?jobId=${job.id}`}
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors"
-          >
-            Candidatar-se
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          {job.tallyFormUrl && (
+            <a
+              href={job.tallyFormUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-5 py-2.5 rounded-full transition-colors"
+            >
+              Candidatar-se
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-600">
           <span className="flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-orange-500" />
+            <MapPin className="w-4 h-4 text-wg-green" />
             {job.city} / {job.state}
           </span>
           <span className="flex items-center gap-1.5">
-            <Briefcase className="w-4 h-4 text-orange-500" />
+            <Briefcase className="w-4 h-4 text-wg-green" />
             {MODALITY_LABELS[job.modality]} · {CONTRACT_TYPE_LABELS[job.contractType]}
           </span>
           {job.workSchedule && (
             <span className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-orange-500" />
+              <Clock className="w-4 h-4 text-wg-green" />
               {job.workSchedule}
             </span>
           )}
@@ -93,32 +97,30 @@ export default async function JobPage({ params }: Props) {
       {sections.map((section) => (
         <div key={section.title} className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
           <h2 className="text-lg font-semibold text-gray-900 mb-3">{section.title}</h2>
-          <div className="text-gray-700 leading-relaxed whitespace-pre-line text-sm">
-            {section.content}
-          </div>
+          <div
+            className="rich-text text-sm text-gray-700"
+            dangerouslySetInnerHTML={{ __html: section.content }}
+          />
         </div>
       ))}
 
       {/* CTA final */}
-      <div className="bg-orange-50 border border-orange-200 rounded-xl p-6 text-center">
-        <p className="text-gray-700 mb-4">
-          Tem o perfil que buscamos? Envie sua candidatura agora!
-        </p>
-        <Link
-          href={`/candidatar?jobId=${job.id}`}
-          className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
-        >
-          Candidatar-se a esta vaga
-          <ArrowRight className="w-4 h-4" />
-        </Link>
-        <p className="text-xs text-gray-400 mt-3">
-          Seus dados serão tratados com sigilo, conforme nosso{" "}
-          <Link href="/privacidade" className="underline hover:text-orange-500">
-            Aviso de Privacidade
-          </Link>
-          .
-        </p>
-      </div>
+      {job.tallyFormUrl && (
+        <div className="bg-wg-green/5 border border-wg-green/20 rounded-xl p-6 text-center">
+          <p className="text-wg-gray mb-4">
+            Tem o perfil que buscamos? Envie sua candidatura agora!
+          </p>
+          <a
+            href={job.tallyFormUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-8 py-3 rounded-full transition-colors"
+          >
+            Candidatar-se a esta vaga
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
+      )}
     </div>
   );
 }

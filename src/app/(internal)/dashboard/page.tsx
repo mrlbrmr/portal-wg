@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Briefcase, Users, Clock, TrendingUp } from "lucide-react";
+import { Briefcase, PauseCircle, XCircle, Plus } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Dashboard — RH" };
@@ -9,88 +9,106 @@ export const metadata: Metadata = { title: "Dashboard — RH" };
 export default async function DashboardPage() {
   const session = await auth();
 
-  const [activeJobs, totalApplications, recentApplications, byStatus] = await Promise.all([
+  const [activeJobs, pausedJobs, closedJobs] = await Promise.all([
     prisma.job.count({ where: { status: "ACTIVE" } }),
-    prisma.application.count(),
-    prisma.application.findMany({
-      take: 8,
-      orderBy: { createdAt: "desc" },
-      include: {
-        candidate: { select: { fullName: true } },
-        job: { select: { title: true } },
-      },
-    }),
-    prisma.application.groupBy({
-      by: ["status"],
-      _count: { status: true },
-    }),
+    prisma.job.count({ where: { status: "PAUSED" } }),
+    prisma.job.count({ where: { status: "CLOSED" } }),
   ]);
 
-  const received = byStatus.find((s) => s.status === "RECEIVED")?._count.status || 0;
-  const inReview = byStatus.find((s) => s.status === "HR_REVIEW")?._count.status || 0;
+  const recentJobs = await prisma.job.findMany({
+    take: 6,
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, status: true, city: true, state: true, createdAt: true },
+  });
+
+  const statusBadge: Record<string, string> = {
+    ACTIVE: "bg-wg-green/10 text-wg-green",
+    PAUSED: "bg-yellow-500/10 text-yellow-400",
+    CLOSED: "bg-wg-border text-wg-gray",
+  };
+  const statusLabel: Record<string, string> = {
+    ACTIVE: "Ativa",
+    PAUSED: "Pausada",
+    CLOSED: "Encerrada",
+  };
 
   const stats = [
-    { label: "Vagas Ativas", value: activeJobs, icon: Briefcase, color: "bg-orange-100 text-orange-600", href: "/vagas/gerenciar" },
-    { label: "Total de Candidaturas", value: totalApplications, icon: Users, color: "bg-blue-100 text-blue-600", href: null },
-    { label: "Aguardando Análise", value: received, icon: Clock, color: "bg-yellow-100 text-yellow-600", href: null },
-    { label: "Em Análise RH", value: inReview, icon: TrendingUp, color: "bg-purple-100 text-purple-600", href: null },
+    {
+      label: "Vagas Ativas",
+      value: activeJobs,
+      icon: Briefcase,
+      iconClass: "bg-wg-green/10 text-wg-green",
+      href: "/vagas/gerenciar",
+    },
+    {
+      label: "Vagas Pausadas",
+      value: pausedJobs,
+      icon: PauseCircle,
+      iconClass: "bg-yellow-500/10 text-yellow-400",
+      href: "/vagas/gerenciar",
+    },
+    {
+      label: "Vagas Encerradas",
+      value: closedJobs,
+      icon: XCircle,
+      iconClass: "bg-wg-border text-wg-gray",
+      href: "/vagas/gerenciar",
+    },
   ];
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-white">
           Olá, {session?.user.name?.split(" ")[0]} 👋
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Painel de Gente &amp; Gestão — WG Baterias</p>
+        <p className="text-wg-gray text-sm mt-1">Painel de Gente &amp; Gestão — WG Baterias</p>
       </div>
 
       {/* Cards de métricas */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-4 mb-8">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${stat.color}`}>
+          <div key={stat.label} className="bg-wg-card border border-wg-border rounded-xl p-4">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${stat.iconClass}`}>
               <stat.icon className="w-5 h-5" />
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-            <div className="text-sm text-gray-500 mt-0.5">{stat.label}</div>
-            {stat.href && (
-              <Link href={stat.href} className="text-xs text-orange-600 hover:underline mt-1 block">
-                Ver detalhes →
-              </Link>
-            )}
+            <div className="text-2xl font-bold text-white">{stat.value}</div>
+            <div className="text-sm text-wg-gray mt-0.5">{stat.label}</div>
+            <Link href={stat.href} className="text-xs text-wg-green hover:text-wg-green-bright underline mt-1 block transition-colors">
+              Ver detalhes →
+            </Link>
           </div>
         ))}
       </div>
 
-      {/* Candidaturas recentes */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Candidaturas Recentes</h2>
-          <Link href="/candidatos" className="text-sm text-orange-600 hover:underline">
+      {/* Vagas recentes */}
+      <div className="bg-wg-card border border-wg-border rounded-xl mb-6">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-wg-border">
+          <h2 className="font-semibold text-white">Vagas Recentes</h2>
+          <Link href="/vagas/gerenciar" className="text-sm text-wg-green hover:text-wg-green-bright transition-colors">
             Ver todas
           </Link>
         </div>
 
-        {recentApplications.length === 0 ? (
-          <div className="px-5 py-10 text-center text-gray-400 text-sm">
-            Nenhuma candidatura ainda.
+        {recentJobs.length === 0 ? (
+          <div className="px-5 py-10 text-center text-wg-gray text-sm">
+            Nenhuma vaga cadastrada ainda.
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
-            {recentApplications.map((app) => (
+          <div className="divide-y divide-wg-border">
+            {recentJobs.map((job) => (
               <Link
-                key={app.id}
-                href={`/candidatos/${app.id}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
+                key={job.id}
+                href={`/vagas/${job.id}/editar`}
+                className="flex items-center justify-between px-5 py-3 hover:bg-wg-card-2 transition-colors"
               >
                 <div>
-                  <span className="text-sm font-medium text-gray-900">
-                    {app.candidate.fullName}
-                  </span>
-                  <span className="text-xs text-gray-400 ml-2">→ {app.job.title}</span>
+                  <span className="text-sm font-medium text-white">{job.title}</span>
+                  <span className="text-xs text-wg-gray ml-2">{job.city}/{job.state}</span>
                 </div>
-                <StatusBadge status={app.status} />
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge[job.status]}`}>
+                  {statusLabel[job.status]}
+                </span>
               </Link>
             ))}
           </div>
@@ -99,52 +117,23 @@ export default async function DashboardPage() {
 
       {/* Atalhos rápidos */}
       {session?.user.role === "ADMIN_RH" && (
-        <div className="mt-6 grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Link
             href="/vagas/nova"
-            className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl p-4 flex items-center gap-3 transition-colors"
+            className="bg-wg-green hover:bg-wg-green-bright text-black rounded-xl p-4 flex items-center gap-3 transition-colors font-medium"
           >
-            <Briefcase className="w-5 h-5" />
-            <span className="font-medium">Nova Vaga</span>
+            <Plus className="w-5 h-5" />
+            Nova Vaga
           </Link>
           <Link
             href="/vagas/gerenciar"
-            className="bg-white hover:bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center gap-3 transition-colors"
+            className="bg-wg-card hover:bg-wg-card-2 border border-wg-border rounded-xl p-4 flex items-center gap-3 transition-colors"
           >
-            <TrendingUp className="w-5 h-5 text-orange-500" />
-            <span className="font-medium text-gray-700">Gerenciar Vagas</span>
+            <Briefcase className="w-5 h-5 text-wg-green" />
+            <span className="font-medium text-white">Gerenciar Vagas</span>
           </Link>
         </div>
       )}
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    RECEIVED: "bg-blue-100 text-blue-700",
-    HR_REVIEW: "bg-yellow-100 text-yellow-700",
-    SELECTED_INTERVIEW: "bg-purple-100 text-purple-700",
-    APPROVED: "bg-green-100 text-green-700",
-    REJECTED: "bg-red-100 text-red-700",
-    TALENT_POOL: "bg-teal-100 text-teal-700",
-  };
-  const labels: Record<string, string> = {
-    RECEIVED: "Recebido",
-    HR_REVIEW: "Em análise",
-    SELECTED_INTERVIEW: "Selecionado",
-    INTERVIEW_SCHEDULED: "Agendado",
-    INTERVIEWED: "Entrevistado",
-    SENT_TO_MANAGER: "Enviado ao gestor",
-    APPROVED: "Aprovado",
-    REJECTED: "Reprovado",
-    NO_SHOW: "Não compareceu",
-    TALENT_POOL: "Banco de talentos",
-  };
-
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] || "bg-gray-100 text-gray-600"}`}>
-      {labels[status] || status}
-    </span>
   );
 }

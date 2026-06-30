@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { Modality, ContractType, JobStatus } from "@prisma/client";
 
@@ -19,6 +18,7 @@ const updateJobSchema = z.object({
   benefits: z.string().optional().nullable(),
   workSchedule: z.string().optional().nullable(),
   closingDate: z.string().optional().nullable(),
+  tallyFormUrl: z.string().url("URL inválida").optional().nullable().or(z.literal("")),
   status: z.nativeEnum(JobStatus).optional(),
 });
 
@@ -30,14 +30,10 @@ export async function GET(
   const { id } = await params;
   const session = await auth();
 
-  const job = await prisma.job.findUnique({
-    where: { id },
-    include: session ? { _count: { select: { applications: true } } } : undefined,
-  });
+  const job = await prisma.job.findUnique({ where: { id } });
 
   if (!job) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
 
-  // Usuários não autenticados só veem vagas ativas
   if (!session && job.status !== "ACTIVE") {
     return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
   }
@@ -62,7 +58,7 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, ...rest } = parsed.data;
+  const { closingDate, tallyFormUrl, ...rest } = parsed.data;
 
   const job = await prisma.job.update({
     where: { id },
@@ -71,17 +67,26 @@ export async function PATCH(
       ...(closingDate !== undefined
         ? { closingDate: typeof closingDate === "string" ? new Date(closingDate) : null }
         : {}),
+      ...(tallyFormUrl !== undefined
+        ? { tallyFormUrl: tallyFormUrl || null }
+        : {}),
     },
   });
 
-  await logAudit({
-    userId: session.user.id,
-    userEmail: session.user.email ?? undefined,
-    action: "JOB_UPDATED",
-    entityType: "job",
-    entityId: job.id,
-    metadata: { changes: Object.keys(parsed.data) },
-  });
-
   return NextResponse.json(job);
+}
+
+// DELETE /api/jobs/[id]
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session || session.user.role !== "ADMIN_RH") {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
+  await prisma.job.delete({ where: { id } });
+  return NextResponse.json({ success: true });
 }

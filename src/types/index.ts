@@ -1,58 +1,13 @@
 import type {
   Job,
-  Candidate,
-  Application,
-  AiReview,
-  StatusHistory,
   User,
-  AuditLog,
   JobStatus,
-  ApplicationStatus,
   Modality,
   ContractType,
   UserRole,
 } from "@prisma/client";
 
-// Re-exportar enums do Prisma para uso no frontend
-export type {
-  Job,
-  Candidate,
-  Application,
-  AiReview,
-  StatusHistory,
-  User,
-  AuditLog,
-  JobStatus,
-  ApplicationStatus,
-  Modality,
-  ContractType,
-  UserRole,
-};
-
-// Tipos compostos para o painel interno
-export type ApplicationWithDetails = Application & {
-  candidate: Candidate;
-  job: Pick<Job, "id" | "title" | "city" | "state">;
-  aiReview: AiReview | null;
-  statusHistory: StatusHistory[];
-};
-
-export type JobWithApplicationCount = Job & {
-  _count: { applications: number };
-};
-
-// Tipos de formulários (validados com Zod nas API routes)
-export interface ApplicationFormData {
-  fullName: string;
-  email: string;
-  phone: string;
-  city: string;
-  state: string;
-  jobId: string;
-  notes?: string;
-  privacyAcceptance: boolean;
-  talentPoolAcceptance: boolean;
-}
+export type { Job, User, JobStatus, Modality, ContractType, UserRole };
 
 export interface JobFormData {
   title: string;
@@ -68,10 +23,10 @@ export interface JobFormData {
   benefits?: string;
   workSchedule?: string;
   closingDate?: string;
+  tallyFormUrl?: string;
   status: JobStatus;
 }
 
-// Extensão do tipo de sessão do NextAuth
 declare module "next-auth" {
   interface Session {
     user: {

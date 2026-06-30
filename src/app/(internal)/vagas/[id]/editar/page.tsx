@@ -20,8 +20,8 @@ export default async function EditarVagaPage({ params }: Props) {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Editar Vaga</h1>
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <h1 className="text-2xl font-bold text-white mb-6">Editar Vaga</h1>
+      <div className="bg-wg-card border border-wg-border rounded-xl p-6">
         <JobForm job={job} />
       </div>
     </div>

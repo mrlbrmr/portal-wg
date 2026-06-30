@@ -10,6 +10,9 @@ const MODALITIES = [
   { value: "HYBRID", label: "Híbrido" },
 ];
 
+const inputClass =
+  "bg-wg-card border border-wg-border rounded-full px-4 py-2 text-sm text-white placeholder:text-wg-gray focus:outline-none focus:border-wg-green transition-colors";
+
 export default function JobFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,16 +39,16 @@ export default function JobFilters() {
         placeholder="Cidade..."
         defaultValue={searchParams.get("city") || ""}
         onChange={(e) => updateFilter("city", e.target.value)}
-        className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 w-36"
+        className={`${inputClass} w-36`}
       />
 
       <select
         defaultValue={searchParams.get("modality") || ""}
         onChange={(e) => updateFilter("modality", e.target.value)}
-        className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+        className={`${inputClass} bg-wg-card`}
       >
         {MODALITIES.map((m) => (
-          <option key={m.value} value={m.value}>
+          <option key={m.value} value={m.value} className="bg-wg-card text-white">
             {m.label}
           </option>
         ))}
@@ -56,13 +59,13 @@ export default function JobFilters() {
         placeholder="Área / departamento..."
         defaultValue={searchParams.get("department") || ""}
         onChange={(e) => updateFilter("department", e.target.value)}
-        className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 w-48"
+        className={`${inputClass} w-48`}
       />
 
       {hasFilters && (
         <button
           onClick={() => router.push("/")}
-          className="text-sm text-orange-600 hover:text-orange-700 underline"
+          className="text-sm text-wg-green hover:text-wg-green-bright underline transition-colors"
         >
           Limpar filtros
         </button>

@@ -1,7 +1,8 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { Zap, LogOut, ExternalLink } from "lucide-react";
+import { LogOut, ExternalLink } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 interface Props {
@@ -10,37 +11,42 @@ interface Props {
 
 export default function InternalHeader({ user }: Props) {
   return (
-    <header className="bg-white border-b border-gray-200 h-14 flex items-center px-6 sticky top-0 z-40">
-      <div className="flex items-center gap-2 flex-1">
-        <div className="w-7 h-7 bg-orange-500 rounded-lg flex items-center justify-center">
-          <Zap className="w-4 h-4 text-white" />
+    <header className="bg-black border-b border-wg-border h-14 flex items-center px-6 sticky top-0 z-40">
+      <div className="flex items-center gap-2.5 flex-1">
+        <div className="bg-white rounded-lg overflow-hidden p-1">
+          <Image
+            src="/logo-wg.png"
+            alt="Grupo WG"
+            width={80}
+            height={40}
+            className="h-6 w-auto"
+          />
         </div>
-        <span className="font-bold text-gray-900 text-sm">WG Baterias</span>
-        <span className="text-gray-300 text-xs mx-2">|</span>
-        <span className="text-gray-500 text-xs">Painel RH</span>
+        <span className="text-wg-border text-xs mx-1">|</span>
+        <span className="text-wg-gray text-xs">Painel RH</span>
       </div>
 
       <div className="flex items-center gap-4">
-        <a
+        <Link
           href="/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-gray-400 hover:text-orange-500 flex items-center gap-1 transition-colors"
+          className="text-xs text-wg-gray hover:text-wg-green flex items-center gap-1 transition-colors"
         >
           Portal público
           <ExternalLink className="w-3 h-3" />
-        </a>
+        </Link>
 
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-600 hidden sm:block">{user.name}</span>
-          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+          <span className="text-wg-gray hidden sm:block">{user.name}</span>
+          <span className="text-xs bg-wg-green/10 text-wg-green px-2 py-0.5 rounded-full font-medium">
             {user.role === "ADMIN_RH" ? "Admin RH" : "Visualizador"}
           </span>
         </div>
 
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-500 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-wg-gray hover:text-red-400 transition-colors"
         >
           <LogOut className="w-4 h-4" />
           <span className="hidden sm:block">Sair</span>

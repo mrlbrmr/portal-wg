@@ -1,33 +1,29 @@
-import { getToken } from "next-auth/jwt";
-import { NextRequest, NextResponse } from "next/server";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export async function middleware(req: NextRequest) {
+const { auth } = NextAuth(authConfig);
+
+export default auth((req: NextRequest & { auth: unknown }) => {
   const { pathname } = req.nextUrl;
+  const session = req.auth;
 
   const isInternalRoute =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/vagas/gerenciar") ||
-    pathname.startsWith("/candidatos") ||
-    pathname.startsWith("/api/jobs") ||
-    pathname.startsWith("/api/applications") ||
-    pathname.startsWith("/api/ai-review") ||
-    pathname.startsWith("/api/candidates");
+    pathname.startsWith("/vagas/nova") ||
+    (pathname.startsWith("/vagas/") && pathname.endsWith("/editar")) ||
+    pathname.startsWith("/api/jobs");
 
-  if (isInternalRoute) {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
-
-    if (!token) {
-      const loginUrl = new URL("/login", req.nextUrl.origin);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+  if (isInternalRoute && !session) {
+    const loginUrl = new URL("/login", req.nextUrl.origin);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [

@@ -1,14 +1,46 @@
 import { Suspense } from "react";
+import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import JobCard from "@/components/public/JobCard";
 import JobFilters from "@/components/public/JobFilters";
-import { Briefcase, MapPin, Users } from "lucide-react";
+import { AnimateIn } from "@/components/ui/AnimateIn";
+import {
+  Briefcase,
+  ArrowRight,
+  Zap,
+  TrendingUp,
+  Globe,
+  Heart,
+} from "lucide-react";
 
 interface SearchParams {
   city?: string;
   modality?: string;
   department?: string;
 }
+
+const FEATURES = [
+  {
+    icon: Zap,
+    title: "Energia que move pessoas",
+    desc: "Um ambiente de trabalho dinâmico, com propósito e movimento.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Desenvolvimento profissional",
+    desc: "Oportunidades reais de crescimento e aprendizado contínuo.",
+  },
+  {
+    icon: Globe,
+    title: "Presença nacional",
+    desc: "Atuação em todo o território brasileiro com referência no setor.",
+  },
+  {
+    icon: Heart,
+    title: "Ambiente colaborativo",
+    desc: "Pessoas que se ajudam e constroem resultados juntas.",
+  },
+];
 
 export default async function HomePage({
   searchParams,
@@ -20,97 +52,210 @@ export default async function HomePage({
   const where: Record<string, unknown> = { status: "ACTIVE" };
   if (params.city) where.city = { contains: params.city, mode: "insensitive" };
   if (params.modality) where.modality = params.modality;
-  if (params.department) where.department = { contains: params.department, mode: "insensitive" };
+  if (params.department)
+    where.department = { contains: params.department, mode: "insensitive" };
 
   const [jobs, totalActive] = await Promise.all([
-    prisma.job.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-    }),
+    prisma.job.findMany({ where, orderBy: { createdAt: "desc" } }),
     prisma.job.count({ where: { status: "ACTIVE" } }),
   ]);
 
+  const hasActiveFilters = Object.keys(params).length > 0;
+
   return (
     <div>
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-orange-500 to-orange-600 text-white py-16 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">
-            Faça parte do Grupo WG
-          </h1>
-          <p className="text-orange-100 text-lg mb-8 max-w-2xl mx-auto">
-            Há mais de 30 anos conectando energia e movimento. Venha crescer com
-            a gente e fazer parte de uma equipe que move o Brasil.
-          </p>
-          <div className="flex flex-wrap justify-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <Briefcase className="w-5 h-5" />
-              <span>{totalActive} {totalActive === 1 ? "vaga aberta" : "vagas abertas"}</span>
+      {/* ── HERO ── */}
+      <section className="relative overflow-hidden min-h-[540px] md:min-h-[620px] flex items-center">
+        {/* Imagem de fundo com baixa opacidade */}
+        <Image
+          src="/hero-bg.png"
+          alt=""
+          fill
+          priority
+          className="object-cover object-center opacity-35"
+        />
+        {/* Overlay preto */}
+        <div className="absolute inset-0 bg-black/70" />
+
+        <div className="relative z-10 w-full py-20 md:py-28 px-4">
+          <div className="max-w-5xl mx-auto text-center">
+            {/* Logo WG — primeira a aparecer */}
+            <div
+              className="flex justify-center mb-8 animate-fade-in"
+              style={{ animationDelay: "0ms" }}
+            >
+              <Image
+                src="/logo-wg-branca.png"
+                alt="Grupo WG"
+                width={220}
+                height={110}
+                className="h-20 w-auto animate-float-subtle"
+                priority
+              />
             </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              <span>São Paulo e região</span>
+
+            {/* Badge superior */}
+            <div
+              className="inline-flex items-center gap-2 bg-wg-green/20 border border-wg-green/35
+                backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-medium text-wg-green mb-6
+                animate-fade-up"
+              style={{ animationDelay: "120ms" }}
+            >
+              <Zap className="w-4 h-4" />
+              Portal de Carreiras — Energia que move o Brasil
             </div>
-            <div className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              <span>CLT, PJ, Estágio</span>
+
+            {/* Título */}
+            <h1
+              className="text-4xl md:text-6xl font-black text-white leading-tight mb-6 animate-fade-up"
+              style={{ animationDelay: "220ms" }}
+            >
+              Faça parte do{" "}
+              <span className="text-wg-green">Grupo WG</span>
+            </h1>
+
+            {/* Subtítulo */}
+            <p
+              className="text-white/85 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-up"
+              style={{ animationDelay: "340ms" }}
+            >
+              Há mais de 30 anos conectando energia, movimento e pessoas. Venha
+              crescer com uma equipe que move o Brasil.
+            </p>
+
+            {/* CTA */}
+            <a
+              href="#vagas"
+              className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright
+                hover:-translate-y-0.5 active:scale-[0.97]
+                text-black font-bold px-8 py-4 rounded-full text-base
+                transition-all duration-200
+                shadow-lg shadow-wg-green/30 hover:shadow-[0_8px_28px_rgba(144,203,70,0.5)]
+                animate-fade-up"
+              style={{ animationDelay: "460ms" }}
+            >
+              Ver vagas abertas
+              <ArrowRight className="w-5 h-5 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </a>
+
+            {/* Indicador de vagas */}
+            <div
+              className="flex justify-center mt-10 animate-fade-up"
+              style={{ animationDelay: "580ms" }}
+            >
+              <div className="flex items-center gap-2.5 bg-black/50 border border-white/15 backdrop-blur-sm rounded-full px-6 py-3 text-base font-semibold text-white">
+                <Briefcase className="w-5 h-5" />
+                {totalActive}{" "}
+                {totalActive === 1 ? "vaga aberta" : "vagas abertas"}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Sobre o Grupo WG */}
-      <section className="bg-white py-12 px-4 border-b">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Sobre o Grupo WG</h2>
-          <div className="grid md:grid-cols-2 gap-8 text-gray-600 leading-relaxed">
-            <p>
-              O <strong className="text-gray-900">Grupo WG</strong> é uma empresa
-              brasileira com atuação no setor automotivo, especializada em baterias,
-              peças e acessórios. Com décadas de experiência e presença em todo o
-              território nacional, somos referência em qualidade, atendimento e
-              inovação.
-            </p>
-            <p>
-              Acreditamos que o sucesso da empresa é construído pelas pessoas.
-              Por isso, investimos no desenvolvimento dos nossos colaboradores,
-              oferecemos um ambiente de trabalho saudável e oportunidades reais
-              de crescimento de carreira.
-            </p>
+      {/* ── SOBRE O GRUPO WG ── */}
+      <section className="bg-wg-dark py-16 md:py-20 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-12 items-start">
+            {/* Coluna de texto */}
+            <AnimateIn>
+              <p className="text-wg-green text-xs font-semibold uppercase tracking-widest mb-3">
+                Sobre nós
+              </p>
+              <h2 className="text-3xl md:text-4xl font-black text-white leading-tight mb-6">
+                Nós somos o{" "}
+                <span className="text-wg-green">Grupo WG</span>
+              </h2>
+              <p className="text-wg-gray leading-relaxed mb-4">
+                O <strong className="text-white">Grupo WG</strong> é uma
+                empresa brasileira com atuação no setor automotivo,
+                especializada em baterias, peças e acessórios. Com décadas de
+                experiência e presença em todo o território nacional, somos
+                referência em qualidade, atendimento e inovação.
+              </p>
+              <p className="text-wg-gray leading-relaxed">
+                Acreditamos que o sucesso da empresa é construído pelas pessoas.
+                Por isso, investimos no desenvolvimento dos nossos
+                colaboradores, oferecemos um ambiente de trabalho saudável e
+                oportunidades reais de crescimento de carreira.
+              </p>
+            </AnimateIn>
+
+            {/* Cards de diferenciais com stagger */}
+            <div className="grid grid-cols-2 gap-3">
+              {FEATURES.map((f, i) => (
+                <AnimateIn key={f.title} delay={i * 80}>
+                  <div className="bg-wg-card border border-wg-border rounded-2xl p-5
+                    hover:border-wg-green/50 hover:-translate-y-0.5
+                    hover:shadow-[0_4px_20px_rgba(144,203,70,0.08)]
+                    transition-all duration-200 h-full">
+                    <f.icon className="w-6 h-6 text-wg-green mb-3" />
+                    <h3 className="text-white font-semibold text-sm mb-1.5 leading-snug">
+                      {f.title}
+                    </h3>
+                    <p className="text-wg-gray text-xs leading-relaxed">{f.desc}</p>
+                  </div>
+                </AnimateIn>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Vagas */}
-      <section className="py-10 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Vagas Abertas</h2>
-            {jobs.length > 0 && (
-              <span className="text-sm text-gray-500">
-                {jobs.length} {jobs.length === 1 ? "resultado" : "resultados"}
-              </span>
-            )}
-          </div>
+      {/* ── VAGAS ABERTAS ── */}
+      <section id="vagas" className="bg-black py-14 md:py-18 px-4">
+        <div className="max-w-5xl mx-auto">
+          {/* Cabeçalho da seção */}
+          <AnimateIn>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+              <div>
+                <p className="text-wg-green text-xs font-semibold uppercase tracking-widest mb-2">
+                  Oportunidades
+                </p>
+                <h2 className="text-3xl font-black text-white">Vagas abertas</h2>
+                <p className="text-wg-gray mt-1.5 text-sm">
+                  Encontre a oportunidade ideal para crescer com o Grupo WG.
+                </p>
+              </div>
+              {jobs.length > 0 && (
+                <span className="text-sm text-wg-gray flex-shrink-0">
+                  {jobs.length}{" "}
+                  {jobs.length === 1 ? "resultado" : "resultados"}
+                </span>
+              )}
+            </div>
+          </AnimateIn>
 
+          {/* Filtros */}
           <Suspense fallback={null}>
             <JobFilters />
           </Suspense>
 
+          {/* Lista de vagas */}
           {jobs.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">
-              <Briefcase className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium">Nenhuma vaga encontrada</p>
-              <p className="text-sm mt-1">
-                {Object.keys(params).length > 0
-                  ? "Tente outros filtros ou confira todas as vagas."
-                  : "No momento não há vagas abertas. Volte em breve!"}
-              </p>
-            </div>
+            <AnimateIn>
+              <div className="bg-wg-card border border-wg-border rounded-2xl p-12 text-center">
+                <div className="w-14 h-14 bg-wg-green/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                  <Briefcase className="w-7 h-7 text-wg-green" />
+                </div>
+                <p className="text-white text-lg font-semibold mb-2">
+                  {hasActiveFilters
+                    ? "Nenhuma vaga encontrada"
+                    : "No momento, não temos vagas abertas"}
+                </p>
+                <p className="text-wg-gray text-sm max-w-sm mx-auto leading-relaxed">
+                  {hasActiveFilters
+                    ? "Tente outros filtros ou confira todas as vagas disponíveis."
+                    : "Mas continue acompanhando nosso portal. Em breve, novas oportunidades podem surgir."}
+                </p>
+              </div>
+            </AnimateIn>
           ) : (
-            <div className="flex flex-col gap-4">
-              {jobs.map((job) => (
-                <JobCard key={job.id} job={job} />
+            <div className="flex flex-col gap-3">
+              {jobs.map((job, i) => (
+                <AnimateIn key={job.id} delay={i * 60}>
+                  <JobCard job={job} />
+                </AnimateIn>
               ))}
             </div>
           )}

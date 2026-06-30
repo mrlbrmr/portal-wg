@@ -43,8 +43,7 @@ next-env.d.ts
 
 # Vercel
 .vercel
+.env.vercel.check
 
 # Claude Code
 .claude/
-
-.vercel

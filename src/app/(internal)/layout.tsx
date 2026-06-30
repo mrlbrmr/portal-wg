@@ -8,7 +8,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
   if (!session) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-wg-dark">
       <InternalHeader user={session.user} />
       <div className="flex">
         <InternalSidebar role={session.user.role} />

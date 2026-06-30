@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { logAudit } from "@/lib/audit";
 import { z } from "zod";
 import { Modality, ContractType, JobStatus } from "@prisma/client";
 
@@ -19,6 +18,7 @@ const jobSchema = z.object({
   benefits: z.string().optional(),
   workSchedule: z.string().optional(),
   closingDate: z.string().optional().nullable(),
+  tallyFormUrl: z.string().url("URL inválida").optional().or(z.literal("")),
   status: z.nativeEnum(JobStatus).default("ACTIVE"),
 });
 
@@ -35,7 +35,6 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {};
 
-  // Usuários não autenticados só veem vagas ativas
   if (!session) {
     where.status = "ACTIVE";
   } else if (searchParams.get("status")) {
@@ -52,7 +51,6 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
-      include: session ? { _count: { select: { applications: true } } } : undefined,
     }),
     prisma.job.count({ where }),
   ]);
@@ -73,22 +71,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, ...rest } = parsed.data;
+  const { closingDate, tallyFormUrl, ...rest } = parsed.data;
 
   const job = await prisma.job.create({
     data: {
       ...rest,
       closingDate: typeof closingDate === "string" ? new Date(closingDate) : null,
+      tallyFormUrl: tallyFormUrl || null,
     },
-  });
-
-  await logAudit({
-    userId: session.user.id,
-    userEmail: session.user.email ?? undefined,
-    action: "JOB_CREATED",
-    entityType: "job",
-    entityId: job.id,
-    metadata: { title: job.title },
   });
 
   return NextResponse.json(job, { status: 201 });

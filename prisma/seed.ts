@@ -7,7 +7,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Iniciando seed...");
 
-  // Criar usuário Admin RH de desenvolvimento
   const passwordHash = await bcrypt.hash("admin123", 12);
 
   const admin = await prisma.user.upsert({
@@ -23,7 +22,6 @@ async function main() {
 
   console.log("✅ Usuário admin criado:", admin.email);
 
-  // Criar usuário Visualizador
   const viewerHash = await bcrypt.hash("viewer123", 12);
 
   const viewer = await prisma.user.upsert({
@@ -39,7 +37,6 @@ async function main() {
 
   console.log("✅ Usuário visualizador criado:", viewer.email);
 
-  // Criar vagas de exemplo
   const job1 = await prisma.job.create({
     data: {
       title: "Vendedor Externo",
@@ -54,6 +51,7 @@ async function main() {
       desiredRequirements: "- Experiência no setor automotivo ou de baterias\n- Conhecimento em CRM\n- Ensino superior em andamento",
       benefits: "- Salário fixo + comissão\n- VT ou ajuda de custo combustível\n- VR\n- Plano de saúde\n- Seguro de vida",
       workSchedule: "Segunda a Sexta, 08h às 17h48",
+      tallyFormUrl: null,
       status: JobStatus.ACTIVE,
     },
   });
@@ -72,6 +70,7 @@ async function main() {
       desiredRequirements: "- Experiência com recrutamento e seleção\n- Conhecimento em sistemas de RH (TOTVS, SAP)\n- Pós-graduação em RH",
       benefits: "- VT\n- VR\n- Plano de saúde\n- Seguro de vida\n- Gympass",
       workSchedule: "Segunda a Sexta, 08h às 17h",
+      tallyFormUrl: null,
       status: JobStatus.ACTIVE,
     },
   });

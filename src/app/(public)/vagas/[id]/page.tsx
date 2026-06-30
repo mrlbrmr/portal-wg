@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
-import { MapPin, Clock, Briefcase, ChevronLeft, ExternalLink } from "lucide-react";
+import { sanitizeRichText } from "@/lib/sanitize";
+import { MapPin, Clock, Briefcase, ChevronLeft, ExternalLink, Mail } from "lucide-react";
 import type { Metadata } from "next";
 
 interface Props {
@@ -13,12 +14,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const job = await prisma.job.findUnique({
     where: { id, status: "ACTIVE" },
-    select: { title: true, city: true, state: true },
+    select: { title: true, city: true, state: true, department: true },
   });
   if (!job) return { title: "Vaga não encontrada" };
   return {
     title: `${job.title} — ${job.city}/${job.state}`,
-    description: `Vaga de ${job.title} no Grupo WG Baterias em ${job.city}/${job.state}. Candidate-se agora!`,
+    description: `Vaga de ${job.title}${job.department ? ` em ${job.department}` : ""} no Grupo WG Baterias em ${job.city}/${job.state}. Candidate-se agora!`,
+    openGraph: {
+      title: `${job.title} — Carreiras WG`,
+      description: `Oportunidade em ${job.city}/${job.state}. Faça parte do Grupo WG!`,
+    },
   };
 }
 
@@ -99,17 +104,17 @@ export default async function JobPage({ params }: Props) {
           <h2 className="text-lg font-semibold text-gray-900 mb-3">{section.title}</h2>
           <div
             className="rich-text text-sm text-gray-700"
-            dangerouslySetInnerHTML={{ __html: section.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichText(section.content) }}
           />
         </div>
       ))}
 
       {/* CTA final */}
-      {job.tallyFormUrl && (
-        <div className="bg-wg-green/5 border border-wg-green/20 rounded-xl p-6 text-center">
-          <p className="text-wg-gray mb-4">
-            Tem o perfil que buscamos? Envie sua candidatura agora!
-          </p>
+      <div className="bg-wg-green/5 border border-wg-green/20 rounded-xl p-6 text-center">
+        <p className="text-wg-gray mb-4">
+          Tem o perfil que buscamos? Envie sua candidatura agora!
+        </p>
+        {job.tallyFormUrl ? (
           <a
             href={job.tallyFormUrl}
             target="_blank"
@@ -119,8 +124,16 @@ export default async function JobPage({ params }: Props) {
             Candidatar-se a esta vaga
             <ExternalLink className="w-4 h-4" />
           </a>
-        </div>
-      )}
+        ) : (
+          <a
+            href="mailto:carreiras@wgbaterias.com.br"
+            className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-8 py-3 rounded-full transition-colors"
+          >
+            <Mail className="w-4 h-4" />
+            Enviar currículo por e-mail
+          </a>
+        )}
+      </div>
     </div>
   );
 }

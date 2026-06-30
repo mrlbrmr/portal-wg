@@ -21,7 +21,7 @@ export default function JobCard({ job, config }: Props) {
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           {/* Cargo — sempre visível */}
-          <h3 className="text-base font-semibold text-white group-hover:text-wg-green transition-colors duration-200 truncate">
+          <h3 className="text-base font-semibold text-white group-hover:text-wg-green transition-colors duration-200 line-clamp-2">
             {job.title}
           </h3>
 

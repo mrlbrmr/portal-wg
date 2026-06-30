@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 const MODALITIES = [
   { value: "", label: "Todas as modalidades" },
@@ -16,6 +16,7 @@ const inputClass =
 export default function JobFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const updateFilter = useCallback(
     (key: string, value: string) => {
@@ -30,6 +31,16 @@ export default function JobFilters() {
     [router, searchParams]
   );
 
+  const updateFilterDebounced = useCallback(
+    (key: string, value: string) => {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        updateFilter(key, value);
+      }, 500);
+    },
+    [updateFilter]
+  );
+
   const hasFilters = searchParams.size > 0;
 
   return (
@@ -38,7 +49,7 @@ export default function JobFilters() {
         type="text"
         placeholder="Cidade..."
         defaultValue={searchParams.get("city") || ""}
-        onChange={(e) => updateFilter("city", e.target.value)}
+        onChange={(e) => updateFilterDebounced("city", e.target.value)}
         className={`${inputClass} w-36`}
       />
 
@@ -58,7 +69,7 @@ export default function JobFilters() {
         type="text"
         placeholder="Área / departamento..."
         defaultValue={searchParams.get("department") || ""}
-        onChange={(e) => updateFilter("department", e.target.value)}
+        onChange={(e) => updateFilterDebounced("department", e.target.value)}
         className={`${inputClass} w-48`}
       />
 

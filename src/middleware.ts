@@ -14,7 +14,9 @@ export default auth((req: NextRequest & { auth: unknown }) => {
     pathname.startsWith("/vagas/gerenciar") ||
     pathname.startsWith("/vagas/nova") ||
     (pathname.startsWith("/vagas/") && pathname.endsWith("/editar")) ||
-    pathname.startsWith("/api/jobs");
+    pathname.startsWith("/configuracoes") ||
+    pathname.startsWith("/api/jobs") ||
+    pathname.startsWith("/api/homepage-config");
 
   if (isInternalRoute && !session) {
     const loginUrl = new URL("/login", req.nextUrl.origin);

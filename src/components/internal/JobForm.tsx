@@ -16,6 +16,12 @@ const inputClass =
 
 const labelClass = "block text-sm font-medium text-wg-gray mb-1";
 
+const REQUIRED_RICH_FIELDS: { key: "description" | "responsibilities" | "requiredRequirements"; label: string }[] = [
+  { key: "description", label: "Descrição da vaga" },
+  { key: "responsibilities", label: "Responsabilidades" },
+  { key: "requiredRequirements", label: "Requisitos Obrigatórios" },
+];
+
 export default function JobForm({ job }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +35,6 @@ export default function JobForm({ job }: Props) {
     benefits: job?.benefits ?? "",
   });
 
-  // Novos campos opcionais do card
   const [salaryRange, setSalaryRange] = useState(job?.salaryRange ?? "");
   const [highlightBenefit, setHighlightBenefit] = useState(
     job?.highlightBenefit ?? ""
@@ -39,10 +44,27 @@ export default function JobForm({ job }: Props) {
     return (html: string) => setRichFields((prev) => ({ ...prev, [key]: html }));
   }
 
+  function validateRichFields(): string | null {
+    for (const { key, label } of REQUIRED_RICH_FIELDS) {
+      const text = richFields[key].replace(/<[^>]*>/g, "").trim();
+      if (text.length < 10) {
+        return `O campo "${label}" é obrigatório (mínimo 10 caracteres de texto).`;
+      }
+    }
+    return null;
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+
+    const richError = validateRichFields();
+    if (richError) {
+      setError(richError);
+      return;
+    }
+
+    setIsLoading(true);
 
     const form = e.currentTarget;
     const formData = new FormData(form);
@@ -77,24 +99,33 @@ export default function JobForm({ job }: Props) {
     try {
       const res = await fetch(url, {
         method,
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        setError(
-          data.error?.fieldErrors
-            ? Object.values(data.error.fieldErrors).flat().join(", ")
-            : data.error || "Erro ao salvar vaga"
-        );
+        let message = "Erro ao salvar vaga";
+        try {
+          const data = await res.json();
+          if (data.error?.fieldErrors) {
+            message = Object.values(data.error.fieldErrors).flat().join(", ");
+          } else if (data.error?.formErrors?.length) {
+            message = data.error.formErrors.join(", ");
+          } else if (typeof data.error === "string") {
+            message = data.error;
+          }
+        } catch {
+          message = `Erro ${res.status}: ${res.statusText || "falha na requisição"}`;
+        }
+        setError(message);
         return;
       }
 
       setSaved(true);
       setTimeout(() => router.push("/vagas/gerenciar"), 800);
-    } catch {
-      setError("Erro de conexão. Tente novamente.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro de conexão. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
@@ -306,6 +337,9 @@ export default function JobForm({ job }: Props) {
             {f.required && <span className="text-red-400">*</span>}
           </label>
           <RichTextEditor content={richFields[f.key]} onChange={setRich(f.key)} />
+          {f.required && (
+            <p className="text-xs text-wg-gray mt-1">Campo obrigatório — preencha com pelo menos uma frase.</p>
+          )}
         </div>
       ))}
 

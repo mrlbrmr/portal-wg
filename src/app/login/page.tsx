@@ -8,7 +8,8 @@ import { Zap, Loader2, AlertCircle } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const raw = searchParams.get("callbackUrl");
+  const callbackUrl = raw && raw.startsWith("/") ? raw : "/dashboard";
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

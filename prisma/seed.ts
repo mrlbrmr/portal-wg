@@ -37,38 +37,52 @@ async function main() {
 
   console.log("✅ Usuário visualizador criado:", viewer.email);
 
-  const job1 = await prisma.job.create({
-    data: {
+  const descVendedor = "<p>Buscamos um profissional dinâmico e orientado a resultados para integrar nossa equipe comercial, atuando na prospecção e manutenção de clientes na região de São Paulo.</p>";
+  const respVendedor = "<ul><li>Prospectar novos clientes na carteira</li><li>Visitar clientes ativos e inativos</li><li>Atingir metas mensais de vendas</li><li>Elaborar relatórios de visitas</li><li>Participar de treinamentos de produto</li></ul>";
+  const reqVendedor = "<ul><li>Ensino médio completo</li><li>Experiência mínima de 1 ano em vendas externas</li><li>CNH categoria B e veículo próprio</li><li>Habilidade de negociação</li></ul>";
+
+  const job1 = await prisma.job.upsert({
+    where: { id: "seed-vendedor-externo" },
+    update: {},
+    create: {
+      id: "seed-vendedor-externo",
       title: "Vendedor Externo",
       department: "Comercial",
       city: "São Paulo",
       state: "SP",
       modality: Modality.PRESENTIAL,
       contractType: ContractType.CLT,
-      description: "Buscamos um profissional dinâmico e orientado a resultados para integrar nossa equipe comercial, atuando na prospecção e manutenção de clientes na região de São Paulo.",
-      responsibilities: "- Prospectar novos clientes na carteira\n- Visitar clientes ativos e inativos\n- Atingir metas mensais de vendas\n- Elaborar relatórios de visitas\n- Participar de treinamentos de produto",
-      requiredRequirements: "- Ensino médio completo\n- Experiência mínima de 1 ano em vendas externas\n- CNH categoria B\n- Veículo próprio\n- Habilidade de negociação",
-      desiredRequirements: "- Experiência no setor automotivo ou de baterias\n- Conhecimento em CRM\n- Ensino superior em andamento",
-      benefits: "- Salário fixo + comissão\n- VT ou ajuda de custo combustível\n- VR\n- Plano de saúde\n- Seguro de vida",
+      description: descVendedor,
+      responsibilities: respVendedor,
+      requiredRequirements: reqVendedor,
+      desiredRequirements: "<ul><li>Experiência no setor automotivo ou de baterias</li><li>Conhecimento em CRM</li></ul>",
+      benefits: "<ul><li>Salário fixo + comissão</li><li>VT ou ajuda de custo combustível</li><li>VR</li><li>Plano de saúde</li><li>Seguro de vida</li></ul>",
       workSchedule: "Segunda a Sexta, 08h às 17h48",
       tallyFormUrl: null,
       status: JobStatus.ACTIVE,
     },
   });
 
-  const job2 = await prisma.job.create({
-    data: {
+  const descRH = "<p>Oportunidade para profissional de RH atuar em empresa sólida do setor de energia automotiva, apoiando processos de recrutamento, integração e administração de pessoal.</p>";
+  const respRH = "<ul><li>Apoiar processos seletivos</li><li>Conduzir integrações de novos colaboradores</li><li>Administrar documentação de pessoal</li><li>Apoiar ações de treinamento e desenvolvimento</li></ul>";
+  const reqRH = "<ul><li>Ensino superior em Psicologia, Administração, Gestão de RH ou áreas afins</li><li>Experiência de pelo menos 6 meses em RH</li><li>Pacote Office intermediário</li></ul>";
+
+  const job2 = await prisma.job.upsert({
+    where: { id: "seed-assistente-rh" },
+    update: {},
+    create: {
+      id: "seed-assistente-rh",
       title: "Assistente de RH",
       department: "Gente & Gestão",
       city: "São Paulo",
       state: "SP",
       modality: Modality.HYBRID,
       contractType: ContractType.CLT,
-      description: "Oportunidade para profissional de RH atuar em empresa sólida do setor de energia automotiva, apoiando processos de recrutamento, integração e administração de pessoal.",
-      responsibilities: "- Apoiar processos seletivos\n- Conduzir integrações de novos colaboradores\n- Administrar documentação de pessoal\n- Apoiar ações de treinamento e desenvolvimento\n- Atender demandas dos colaboradores",
-      requiredRequirements: "- Ensino superior em Psicologia, Administração, Gestão de RH ou áreas afins\n- Experiência de pelo menos 6 meses em RH\n- Pacote Office intermediário",
-      desiredRequirements: "- Experiência com recrutamento e seleção\n- Conhecimento em sistemas de RH (TOTVS, SAP)\n- Pós-graduação em RH",
-      benefits: "- VT\n- VR\n- Plano de saúde\n- Seguro de vida\n- Gympass",
+      description: descRH,
+      responsibilities: respRH,
+      requiredRequirements: reqRH,
+      desiredRequirements: "<ul><li>Experiência com recrutamento e seleção</li><li>Conhecimento em sistemas de RH (TOTVS, SAP)</li></ul>",
+      benefits: "<ul><li>VT</li><li>VR</li><li>Plano de saúde</li><li>Seguro de vida</li><li>Gympass</li></ul>",
       workSchedule: "Segunda a Sexta, 08h às 17h",
       tallyFormUrl: null,
       status: JobStatus.ACTIVE,

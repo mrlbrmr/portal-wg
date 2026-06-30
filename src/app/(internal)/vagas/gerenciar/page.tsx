@@ -13,6 +13,7 @@ export default async function GerenciarVagasPage() {
 
   const jobs = await prisma.job.findMany({
     orderBy: { createdAt: "desc" },
+    take: 200,
   });
 
   const statusBadge: Record<string, string> = {

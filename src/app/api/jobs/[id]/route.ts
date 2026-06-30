@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Modality, ContractType, JobStatus } from "@prisma/client";
+
+function richText(minChars: number, message: string) {
+  return z
+    .string()
+    .refine((html) => html.replace(/<[^>]*>/g, "").trim().length >= minChars, message);
+}
 
 const updateJobSchema = z.object({
   title: z.string().min(2).optional(),
@@ -12,9 +19,9 @@ const updateJobSchema = z.object({
   state: z.string().length(2).optional(),
   modality: z.nativeEnum(Modality).optional(),
   contractType: z.nativeEnum(ContractType).optional(),
-  description: z.string().min(10).optional(),
-  responsibilities: z.string().min(10).optional(),
-  requiredRequirements: z.string().min(10).optional(),
+  description: richText(10, "Descrição obrigatória").optional(),
+  responsibilities: richText(10, "Responsabilidades obrigatórias").optional(),
+  requiredRequirements: richText(10, "Requisitos obrigatórios são necessários").optional(),
   desiredRequirements: z.string().optional().nullable(),
   benefits: z.string().optional().nullable(),
   workSchedule: z.string().optional().nullable(),
@@ -26,7 +33,6 @@ const updateJobSchema = z.object({
   status: z.nativeEnum(JobStatus).optional(),
 });
 
-// GET /api/jobs/[id]
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -45,7 +51,6 @@ export async function GET(
   return NextResponse.json(job);
 }
 
-// PATCH /api/jobs/[id]
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -56,7 +61,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
-  const body = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Corpo da requisição inválido" }, { status: 400 });
+  }
+
   const parsed = updateJobSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -69,7 +80,7 @@ export async function PATCH(
     data: {
       ...rest,
       ...(closingDate !== undefined
-        ? { closingDate: typeof closingDate === "string" ? new Date(closingDate) : null }
+        ? { closingDate: typeof closingDate === "string" && closingDate ? new Date(closingDate) : null }
         : {}),
       ...(tallyFormUrl !== undefined
         ? { tallyFormUrl: tallyFormUrl || null }
@@ -77,10 +88,14 @@ export async function PATCH(
     },
   });
 
+  revalidatePath("/");
+  revalidatePath("/vagas/gerenciar");
+  revalidatePath("/dashboard");
+  revalidatePath(`/vagas/${id}`);
+
   return NextResponse.json(job);
 }
 
-// DELETE /api/jobs/[id]
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -92,5 +107,10 @@ export async function DELETE(
   }
 
   await prisma.job.delete({ where: { id } });
+
+  revalidatePath("/");
+  revalidatePath("/vagas/gerenciar");
+  revalidatePath("/dashboard");
+
   return NextResponse.json({ success: true });
 }

@@ -38,21 +38,21 @@ export default async function DashboardPage() {
       value: activeJobs,
       icon: Briefcase,
       iconClass: "bg-wg-green/10 text-wg-green",
-      href: "/vagas/gerenciar",
+      href: "/vagas/gerenciar?status=ACTIVE",
     },
     {
       label: "Vagas Pausadas",
       value: pausedJobs,
       icon: PauseCircle,
       iconClass: "bg-yellow-500/10 text-yellow-400",
-      href: "/vagas/gerenciar",
+      href: "/vagas/gerenciar?status=PAUSED",
     },
     {
       label: "Vagas Encerradas",
       value: closedJobs,
       icon: XCircle,
       iconClass: "bg-wg-border text-wg-gray",
-      href: "/vagas/gerenciar",
+      href: "/vagas/gerenciar?status=CLOSED",
     },
   ];
 

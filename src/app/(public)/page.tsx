@@ -119,8 +119,8 @@ export default async function HomePage({
               className="text-white/85 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-up"
               style={{ animationDelay: "340ms" }}
             >
-              Há mais de 30 anos conectando energia, movimento e pessoas. Venha
-              crescer com uma equipe que move o Brasil.
+              Desde 2002, o Grupo WG conecta energia, movimento e pessoas nas
+              regiões Sul e Sudeste do Brasil. Venha crescer com a nossa equipe.
             </p>
 
             {/* CTA */}
@@ -167,11 +167,10 @@ export default async function HomePage({
                 <span className="text-wg-green">Grupo WG</span>
               </h2>
               <p className="text-wg-gray leading-relaxed mb-4">
-                O <strong className="text-white">Grupo WG</strong> é uma
-                empresa brasileira com atuação no setor automotivo,
-                especializada em baterias, peças e acessórios. Com décadas de
-                experiência e presença em todo o território nacional, somos
-                referência em qualidade, atendimento e inovação.
+                Desde 2002, o <strong className="text-white">Grupo WG</strong>{" "}
+                conecta energia, movimento e pessoas nas regiões Sul e Sudeste
+                do Brasil. Atuamos no setor automotivo, especializados em
+                baterias, com referência em qualidade, atendimento e inovação.
               </p>
               <p className="text-wg-gray leading-relaxed">
                 Acreditamos que o sucesso da empresa é construído pelas pessoas.

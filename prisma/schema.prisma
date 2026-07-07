@@ -84,14 +84,29 @@ model Job {
   salaryRange          String?      // Faixa salarial (ex: "R$ 2.500 – R$ 3.000")
   openings             Int?         // Quantidade de vagas
   highlightBenefit     String?      // Benefício em destaque (ex: "Plano de Saúde")
+  responsible          String?      // Recrutador responsável pelo processo
   slug                 String?      @unique
   closingDate          DateTime?
+  hiringDeadline       DateTime?    // Prazo interno alvo de contratação
   tallyFormUrl         String?
   status               JobStatus    @default(ACTIVE)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
+  statusHistory        JobStatusHistory[]
+
   @@map("jobs")
+}
+
+model JobStatusHistory {
+  id        String    @id @default(cuid())
+  jobId     String
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status    JobStatus
+  changedBy String
+  changedAt DateTime  @default(now())
+
+  @@map("job_status_history")
 }
 
 // ─── Configurações da Homepage ────────────────────────────────────────────────

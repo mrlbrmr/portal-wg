@@ -2,9 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { JOB_STATUS_LABELS, MODALITY_LABELS, formatDate } from "@/lib/utils";
-import { Plus, ExternalLink } from "lucide-react";
+import { Plus, ExternalLink, Link2 } from "lucide-react";
 import { JobActions } from "@/components/internal/JobActions";
 import { JobSortFilter } from "@/components/internal/JobSortFilter";
+import { DuplicateJobButton } from "@/components/internal/DuplicateJobButton";
+import { ExportCsvButton } from "@/components/internal/ExportCsvButton";
 import type { Metadata } from "next";
 import { JobStatus } from "@prisma/client";
 
@@ -55,17 +57,20 @@ export default async function GerenciarVagasPage({
 
   return (
     <div className="max-w-4xl">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-5 gap-3">
         <h1 className="text-2xl font-bold text-white">Vagas</h1>
-        {session?.user.role === "ADMIN_RH" && (
-          <Link
-            href="/vagas/nova"
-            className="flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Nova vaga
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <ExportCsvButton status={params.status} />
+          {session?.user.role === "ADMIN_RH" && (
+            <Link
+              href="/vagas/nova"
+              className="flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Nova vaga
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
@@ -109,11 +114,26 @@ export default async function GerenciarVagasPage({
                 <span>·</span>
                 <span>Criada em {formatDate(job.createdAt)}</span>
               </div>
-              {!job.tallyFormUrl && job.status === "ACTIVE" && (
-                <p className="text-xs text-yellow-500 mt-1.5">
-                  ⚠ Link do Tally não configurado
-                </p>
-              )}
+              <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                {!job.tallyFormUrl && job.status === "ACTIVE" && (
+                  <p className="text-xs text-yellow-500">⚠ Link do Tally não configurado</p>
+                )}
+                {job.tallyFormUrl && (
+                  <a
+                    href={job.tallyFormUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-wg-gray hover:text-wg-green flex items-center gap-1 transition-colors"
+                    title="Abrir formulário Tally"
+                  >
+                    <Link2 className="w-3 h-3" />
+                    Formulário Tally
+                  </a>
+                )}
+                {job.responsible && (
+                  <span className="text-xs text-wg-gray">👤 {job.responsible}</span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-3 flex-shrink-0">
@@ -137,6 +157,7 @@ export default async function GerenciarVagasPage({
                   >
                     Editar
                   </Link>
+                  <DuplicateJobButton jobId={job.id} jobTitle={job.title} />
                   <JobActions
                     jobId={job.id}
                     jobTitle={job.title}

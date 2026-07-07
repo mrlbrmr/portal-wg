@@ -29,7 +29,9 @@ const updateJobSchema = z.object({
   salaryRange: z.string().optional().nullable(),
   openings: z.number().int().positive().optional().nullable(),
   highlightBenefit: z.string().optional().nullable(),
+  responsible: z.string().optional().nullable(),
   closingDate: z.string().optional().nullable(),
+  hiringDeadline: z.string().optional().nullable(),
   tallyFormUrl: z.string().url("URL inválida").optional().nullable().or(z.literal("")),
   status: z.nativeEnum(JobStatus).optional(),
 });
@@ -74,23 +76,27 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, tallyFormUrl, title, city, ...rest } = parsed.data;
+  const { closingDate, hiringDeadline, tallyFormUrl, title, city, ...rest } = parsed.data;
+
+  // Buscar estado atual para rastrear mudança de status e regenerar slug
+  const current = await prisma.job.findUnique({
+    where: { id },
+    select: { title: true, city: true, status: true },
+  });
+  if (!current) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
 
   // Regenerar slug se título ou cidade mudaram
   let slugUpdate: { slug: string } | undefined;
   if (title || city) {
-    const current = await prisma.job.findUnique({ where: { id }, select: { title: true, city: true } });
-    if (current) {
-      const newTitle = title ?? current.title;
-      const newCity = city ?? current.city;
-      const baseSlug = generateSlug(newTitle, newCity);
-      let slug = baseSlug;
-      let counter = 1;
-      while (await prisma.job.findFirst({ where: { slug, NOT: { id } } })) {
-        slug = `${baseSlug}-${++counter}`;
-      }
-      slugUpdate = { slug };
+    const newTitle = title ?? current.title;
+    const newCity = city ?? current.city;
+    const baseSlug = generateSlug(newTitle, newCity);
+    let slug = baseSlug;
+    let counter = 1;
+    while (await prisma.job.findFirst({ where: { slug, NOT: { id } } })) {
+      slug = `${baseSlug}-${++counter}`;
     }
+    slugUpdate = { slug };
   }
 
   const job = await prisma.job.update({
@@ -103,11 +109,25 @@ export async function PATCH(
       ...(closingDate !== undefined
         ? { closingDate: typeof closingDate === "string" && closingDate ? new Date(closingDate) : null }
         : {}),
+      ...(hiringDeadline !== undefined
+        ? { hiringDeadline: typeof hiringDeadline === "string" && hiringDeadline ? new Date(hiringDeadline) : null }
+        : {}),
       ...(tallyFormUrl !== undefined
         ? { tallyFormUrl: tallyFormUrl || null }
         : {}),
     },
   });
+
+  // Registrar mudança de status no histórico
+  if (parsed.data.status && parsed.data.status !== current.status) {
+    await prisma.jobStatusHistory.create({
+      data: {
+        jobId: id,
+        status: parsed.data.status,
+        changedBy: session.user.name ?? session.user.email ?? "Admin",
+      },
+    });
+  }
 
   revalidatePath("/");
   revalidatePath("/vagas/gerenciar");

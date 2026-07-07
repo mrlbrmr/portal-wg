@@ -1,18 +1,44 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Briefcase, PauseCircle, XCircle, Plus } from "lucide-react";
+import { Briefcase, PauseCircle, XCircle, Plus, FileText, AlertTriangle, Clock, Calendar } from "lucide-react";
 import type { Metadata } from "next";
+import type { ElementType } from "react";
 
 export const metadata: Metadata = { title: "Dashboard — RH" };
 
 export default async function DashboardPage() {
   const session = await auth();
 
-  const [activeJobs, pausedJobs, closedJobs] = await Promise.all([
+  const now = new Date();
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const [
+    activeJobs,
+    pausedJobs,
+    closedJobs,
+    draftJobs,
+    activeWithoutTally,
+    expiringSoon,
+    openedLong,
+    thisMonthCount,
+    lastMonthCount,
+  ] = await Promise.all([
     prisma.job.count({ where: { status: "ACTIVE" } }),
     prisma.job.count({ where: { status: "PAUSED" } }),
     prisma.job.count({ where: { status: "CLOSED" } }),
+    prisma.job.count({ where: { status: "DRAFT" } }),
+    prisma.job.count({ where: { status: "ACTIVE", tallyFormUrl: null } }),
+    prisma.job.count({
+      where: { status: "ACTIVE", closingDate: { gte: now, lte: sevenDaysFromNow } },
+    }),
+    prisma.job.count({ where: { status: "ACTIVE", createdAt: { lte: thirtyDaysAgo } } }),
+    prisma.job.count({ where: { createdAt: { gte: startOfThisMonth, lt: startOfNextMonth } } }),
+    prisma.job.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
   ]);
 
   const recentJobs = await prisma.job.findMany({
@@ -22,11 +48,13 @@ export default async function DashboardPage() {
   });
 
   const statusBadge: Record<string, string> = {
+    DRAFT: "bg-blue-500/10 text-blue-400",
     ACTIVE: "bg-wg-green/10 text-wg-green",
     PAUSED: "bg-yellow-500/10 text-yellow-400",
     CLOSED: "bg-wg-border text-wg-gray",
   };
   const statusLabel: Record<string, string> = {
+    DRAFT: "Rascunho",
     ACTIVE: "Ativa",
     PAUSED: "Pausada",
     CLOSED: "Encerrada",
@@ -36,25 +64,63 @@ export default async function DashboardPage() {
     {
       label: "Vagas Ativas",
       value: activeJobs,
-      icon: Briefcase,
+      icon: Briefcase as ElementType,
       iconClass: "bg-wg-green/10 text-wg-green",
       href: "/vagas/gerenciar?status=ACTIVE",
     },
     {
+      label: "Rascunhos",
+      value: draftJobs,
+      icon: FileText as ElementType,
+      iconClass: "bg-blue-500/10 text-blue-400",
+      href: "/vagas/gerenciar?status=DRAFT",
+    },
+    {
       label: "Vagas Pausadas",
       value: pausedJobs,
-      icon: PauseCircle,
+      icon: PauseCircle as ElementType,
       iconClass: "bg-yellow-500/10 text-yellow-400",
       href: "/vagas/gerenciar?status=PAUSED",
     },
     {
       label: "Vagas Encerradas",
       value: closedJobs,
-      icon: XCircle,
+      icon: XCircle as ElementType,
       iconClass: "bg-wg-border text-wg-gray",
       href: "/vagas/gerenciar?status=CLOSED",
     },
   ];
+
+  const monthDiff = thisMonthCount - lastMonthCount;
+  const monthTrend =
+    monthDiff > 0 ? `+${monthDiff} vs mês anterior` :
+    monthDiff < 0 ? `${monthDiff} vs mês anterior` :
+    "igual ao mês anterior";
+
+  type Alert = { icon: ElementType; color: string; bg: string; message: string; href: string };
+  const alerts: Alert[] = [
+    activeWithoutTally > 0 && {
+      icon: AlertTriangle as ElementType,
+      color: "text-red-400",
+      bg: "bg-red-500/10 border-red-500/20",
+      message: `${activeWithoutTally} vaga${activeWithoutTally > 1 ? "s ativas sem" : " ativa sem"} link do Tally — candidatos não conseguem se inscrever`,
+      href: "/vagas/gerenciar?status=ACTIVE",
+    },
+    expiringSoon > 0 && {
+      icon: Clock as ElementType,
+      color: "text-yellow-400",
+      bg: "bg-yellow-500/10 border-yellow-500/20",
+      message: `${expiringSoon} vaga${expiringSoon > 1 ? "s encerram" : " encerra"} nos próximos 7 dias`,
+      href: "/vagas/gerenciar?status=ACTIVE",
+    },
+    openedLong > 0 && {
+      icon: Calendar as ElementType,
+      color: "text-orange-400",
+      bg: "bg-orange-500/10 border-orange-500/20",
+      message: `${openedLong} vaga${openedLong > 1 ? "s abertas" : " aberta"} há mais de 30 dias — verificar andamento`,
+      href: "/vagas/gerenciar?status=ACTIVE",
+    },
+  ].filter(Boolean) as Alert[];
 
   return (
     <div>
@@ -65,8 +131,24 @@ export default async function DashboardPage() {
         <p className="text-wg-gray text-sm mt-1">Painel de Gente &amp; Gestão — WG Baterias</p>
       </div>
 
+      {/* Alertas proativos */}
+      {alerts.length > 0 && (
+        <div className="flex flex-col gap-2 mb-6">
+          {alerts.map((alert, i) => (
+            <Link
+              key={i}
+              href={alert.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition-opacity hover:opacity-80 ${alert.bg}`}
+            >
+              <alert.icon className={`w-4 h-4 shrink-0 ${alert.color}`} />
+              <span className={alert.color}>{alert.message}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* Cards de métricas */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {stats.map((stat) => (
           <div key={stat.label} className="bg-wg-card border border-wg-border rounded-xl p-4">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${stat.iconClass}`}>
@@ -79,6 +161,20 @@ export default async function DashboardPage() {
             </Link>
           </div>
         ))}
+      </div>
+
+      {/* Tendência mensal */}
+      <div className="bg-wg-card border border-wg-border rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-wg-gray">Vagas publicadas este mês</p>
+          <p className="text-2xl font-bold text-white mt-0.5">{thisMonthCount}</p>
+        </div>
+        <div className="text-right">
+          <p className={`text-sm font-medium ${monthDiff > 0 ? "text-wg-green" : monthDiff < 0 ? "text-red-400" : "text-wg-gray"}`}>
+            {monthTrend}
+          </p>
+          <p className="text-xs text-wg-gray mt-0.5">{lastMonthCount} no mês anterior</p>
+        </div>
       </div>
 
       {/* Vagas recentes */}

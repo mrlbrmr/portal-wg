@@ -30,7 +30,9 @@ const jobSchema = z.object({
   salaryRange: z.string().optional(),
   openings: z.number().int().positive().optional(),
   highlightBenefit: z.string().optional(),
+  responsible: z.string().optional(),
   closingDate: z.string().optional().nullable(),
+  hiringDeadline: z.string().optional().nullable(),
   tallyFormUrl: z.string().url("URL inválida").optional().or(z.literal("")),
   status: z.nativeEnum(JobStatus).default("ACTIVE"),
 });
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, tallyFormUrl, title, city, ...rest } = parsed.data;
+  const { closingDate, hiringDeadline, tallyFormUrl, title, city, ...rest } = parsed.data;
 
   // Gerar slug único
   const baseSlug = generateSlug(title, city);
@@ -128,8 +130,13 @@ export async function POST(req: NextRequest) {
       ...rest,
       slug,
       closingDate: typeof closingDate === "string" && closingDate ? new Date(closingDate) : null,
+      hiringDeadline: typeof hiringDeadline === "string" && hiringDeadline ? new Date(hiringDeadline) : null,
       tallyFormUrl: tallyFormUrl || null,
     },
+  });
+
+  await prisma.jobStatusHistory.create({
+    data: { jobId: job.id, status: job.status, changedBy: session.user.name ?? session.user.email ?? "Sistema" },
   });
 
   revalidatePath("/");

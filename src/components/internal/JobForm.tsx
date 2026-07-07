@@ -89,7 +89,9 @@ export default function JobForm({ job }: Props) {
         : undefined,
       highlightBenefit: highlightBenefit || undefined,
       closingDate: formData.get("closingDate") || null,
+      hiringDeadline: formData.get("hiringDeadline") || null,
       tallyFormUrl: formData.get("tallyFormUrl") || undefined,
+      responsible: formData.get("responsible") || undefined,
       status: formData.get("status"),
     };
 
@@ -322,6 +324,36 @@ export default function JobForm({ job }: Props) {
             Cole aqui o link do formulário Tally desta vaga. Aparecerá como botão
             &quot;Candidatar-se&quot; no portal.
           </p>
+        </div>
+
+        <div className="col-span-2 border-t border-wg-border pt-4">
+          <p className="text-xs font-medium text-wg-gray uppercase tracking-wider mb-3">Informações internas (não aparecem no portal)</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Responsável pelo processo</label>
+              <input
+                type="text"
+                name="responsible"
+                defaultValue={job?.responsible ?? ""}
+                placeholder="Ex: Maria Fernanda"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Prazo de contratação</label>
+              <input
+                type="date"
+                name="hiringDeadline"
+                defaultValue={
+                  job?.hiringDeadline
+                    ? new Date(job.hiringDeadline).toISOString().split("T")[0]
+                    : ""
+                }
+                className={inputClass}
+              />
+              <p className="text-xs text-wg-gray mt-1">Data-alvo para fechar a seleção.</p>
+            </div>
+          </div>
         </div>
       </div>
 

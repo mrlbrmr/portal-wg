@@ -70,7 +70,7 @@ export default async function HomePage({
       {/* ── HERO ── */}
       <section
         className="relative min-h-[560px] md:min-h-[640px] flex items-center"
-        style={{ background: "#7FD400" }}
+        style={{ background: "#96DB4F" }}
       >
         {/* Dot texture */}
         <div
@@ -164,7 +164,7 @@ export default async function HomePage({
       {/* ── ARCO DE TRANSIÇÃO verde → escuro ── */}
       <div
         className="overflow-hidden"
-        style={{ background: "#7FD400" }}
+        style={{ background: "#96DB4F" }}
         aria-hidden="true"
       >
         <div

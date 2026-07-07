@@ -48,7 +48,7 @@ export default async function JobPage({ params }: Props) {
   ];
 
   return (
-    <div className="bg-black min-h-screen">
+    <div className="bg-gray-50 min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-10">
         {/* Breadcrumb */}
         <Link
@@ -60,12 +60,12 @@ export default async function JobPage({ params }: Props) {
         </Link>
 
         {/* Cabeçalho da vaga */}
-        <div className="bg-wg-card border border-wg-border rounded-2xl p-6 mb-4">
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-4 shadow-sm">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-2">{job.title}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{job.title}</h1>
               {job.department && (
-                <span className="text-sm text-wg-gray">{job.department}</span>
+                <span className="text-sm text-gray-500">{job.department}</span>
               )}
             </div>
             {job.tallyFormUrl && (
@@ -81,7 +81,7 @@ export default async function JobPage({ params }: Props) {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-4 mt-4 text-sm text-wg-gray">
+          <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-600">
             <span className="flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-wg-green" />
               {job.city} / {job.state}
@@ -101,18 +101,18 @@ export default async function JobPage({ params }: Props) {
 
         {/* Seções da vaga */}
         {sections.map((section) => (
-          <div key={section.title} className="bg-wg-card border border-wg-border rounded-2xl p-6 mb-4">
-            <h2 className="text-base font-semibold text-white mb-3">{section.title}</h2>
+          <div key={section.title} className="bg-white border border-gray-200 rounded-2xl p-6 mb-4 shadow-sm">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">{section.title}</h2>
             <div
-              className="rich-text text-sm text-wg-gray leading-relaxed"
+              className="rich-text text-sm text-gray-700 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: sanitizeRichText(section.content) }}
             />
           </div>
         ))}
 
         {/* CTA final */}
-        <div className="bg-wg-card border border-wg-green/25 rounded-2xl p-8 text-center mt-2">
-          <p className="text-wg-gray mb-5">
+        <div className="bg-wg-green/5 border border-wg-green/25 rounded-2xl p-8 text-center mt-2">
+          <p className="text-gray-600 mb-5">
             Tem o perfil que buscamos? Envie sua candidatura agora!
           </p>
           {job.tallyFormUrl ? (

@@ -47,7 +47,7 @@ export default function PublicHeader() {
               className={`text-xs font-semibold tracking-wide transition-colors duration-200 ${
                 scrolled
                   ? "text-wg-green group-hover:text-wg-green-bright"
-                  : "text-black/70 group-hover:text-black"
+                  : "text-white/90 group-hover:text-white"
               }`}
             >
               Carreiras

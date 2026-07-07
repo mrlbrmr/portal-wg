@@ -1,0 +1,50 @@
+"use client";
+
+import { useState } from "react";
+import InternalHeader from "./InternalHeader";
+import InternalSidebar from "./InternalSidebar";
+
+interface Props {
+  user: { name?: string | null; email?: string | null; role: string };
+  children: React.ReactNode;
+}
+
+export default function InternalShell({ user, children }: Props) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-wg-dark">
+      <InternalHeader
+        user={user}
+        onMenuClick={() => setSidebarOpen((o) => !o)}
+      />
+
+      <div className="flex">
+        {/* Overlay mobile */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 z-30 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar: drawer mobile / estático desktop */}
+        <div
+          className={`
+            fixed top-14 left-0 bottom-0 z-40
+            md:relative md:top-auto md:bottom-auto md:z-auto
+            transition-transform duration-200 ease-in-out
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          `}
+        >
+          <InternalSidebar
+            role={user.role}
+            onNavClick={() => setSidebarOpen(false)}
+          />
+        </div>
+
+        <main className="flex-1 p-6 min-w-0">{children}</main>
+      </div>
+    </div>
+  );
+}

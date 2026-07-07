@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Briefcase, Plus, Settings } from "lucide-react";
+import { LayoutDashboard, Briefcase, Plus, Settings, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
   role: string;
+  onNavClick?: () => void;
 }
 
-export default function InternalSidebar({ role }: Props) {
+export default function InternalSidebar({ role, onNavClick }: Props) {
   const pathname = usePathname();
 
   const links = [
@@ -18,6 +19,7 @@ export default function InternalSidebar({ role }: Props) {
     ...(role === "ADMIN_RH"
       ? [
           { href: "/vagas/nova", label: "Nova Vaga", icon: Plus },
+          { href: "/usuarios", label: "Usuários", icon: Users },
           { href: "/configuracoes", label: "Configurações", icon: Settings },
         ]
       : []),
@@ -27,11 +29,12 @@ export default function InternalSidebar({ role }: Props) {
     <aside className="w-52 border-r border-wg-border bg-black min-h-[calc(100vh-56px)] p-3 flex-shrink-0">
       <nav className="flex flex-col gap-1">
         {links.map((link) => {
-          const isActive = pathname.startsWith(link.href);
+          const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
           return (
             <Link
               key={link.href}
               href={link.href}
+              onClick={onNavClick}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive

@@ -18,6 +18,7 @@ interface SearchParams {
   city?: string;
   modality?: string;
   department?: string;
+  query?: string;
 }
 
 const FEATURES = [
@@ -50,11 +51,16 @@ export default async function HomePage({
 }) {
   const params = await searchParams;
 
-  const where: Record<string, unknown> = { status: "ACTIVE" };
+  const now = new Date();
+  const where: Record<string, unknown> = {
+    status: "ACTIVE",
+    OR: [{ closingDate: null }, { closingDate: { gte: now } }],
+  };
   if (params.city) where.city = { contains: params.city, mode: "insensitive" };
   if (params.modality) where.modality = params.modality;
   if (params.department)
     where.department = { contains: params.department, mode: "insensitive" };
+  if (params.query) where.title = { contains: params.query, mode: "insensitive" };
 
   const [jobs, totalActive, rawConfig] = await Promise.all([
     prisma.job.findMany({ where, orderBy: { createdAt: "desc" } }),

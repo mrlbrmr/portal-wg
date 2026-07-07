@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Modality, ContractType, JobStatus } from "@prisma/client";
+import { generateSlug } from "@/lib/utils";
 
 function richText(minChars: number, message: string) {
   return z
@@ -73,12 +74,32 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, tallyFormUrl, ...rest } = parsed.data;
+  const { closingDate, tallyFormUrl, title, city, ...rest } = parsed.data;
+
+  // Regenerar slug se título ou cidade mudaram
+  let slugUpdate: { slug: string } | undefined;
+  if (title || city) {
+    const current = await prisma.job.findUnique({ where: { id }, select: { title: true, city: true } });
+    if (current) {
+      const newTitle = title ?? current.title;
+      const newCity = city ?? current.city;
+      const baseSlug = generateSlug(newTitle, newCity);
+      let slug = baseSlug;
+      let counter = 1;
+      while (await prisma.job.findFirst({ where: { slug, NOT: { id } } })) {
+        slug = `${baseSlug}-${++counter}`;
+      }
+      slugUpdate = { slug };
+    }
+  }
 
   const job = await prisma.job.update({
     where: { id },
     data: {
       ...rest,
+      ...(title ? { title } : {}),
+      ...(city ? { city } : {}),
+      ...slugUpdate,
       ...(closingDate !== undefined
         ? { closingDate: typeof closingDate === "string" && closingDate ? new Date(closingDate) : null }
         : {}),
@@ -92,6 +113,7 @@ export async function PATCH(
   revalidatePath("/vagas/gerenciar");
   revalidatePath("/dashboard");
   revalidatePath(`/vagas/${id}`);
+  if (job.slug) revalidatePath(`/vagas/${job.slug}`);
 
   return NextResponse.json(job);
 }

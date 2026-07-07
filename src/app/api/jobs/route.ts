@@ -3,9 +3,9 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus } from "@prisma/client";
+import { Modality, ContractType, JobStatus, Prisma } from "@prisma/client";
+import { generateSlug } from "@/lib/utils";
 
-// Valida conteúdo real do HTML (sem contar as tags)
 function richText(minChars: number, message: string) {
   return z
     .string()
@@ -41,13 +41,21 @@ export async function GET(req: NextRequest) {
   const city = searchParams.get("city");
   const modality = searchParams.get("modality");
   const department = searchParams.get("department");
+  const query = searchParams.get("query");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
 
-  const where: Record<string, unknown> = {};
+  const now = new Date();
+
+  const where: Prisma.JobWhereInput = {};
 
   if (!session) {
+    // Portal público: só vagas ACTIVE e dentro do prazo
     where.status = "ACTIVE";
+    where.OR = [
+      { closingDate: null },
+      { closingDate: { gte: now } },
+    ];
   } else {
     const rawStatus = searchParams.get("status");
     if (rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
@@ -60,6 +68,7 @@ export async function GET(req: NextRequest) {
     where.modality = modality as Modality;
   }
   if (department) where.department = { contains: department, mode: "insensitive" };
+  if (query) where.title = { contains: query, mode: "insensitive" };
 
   const [jobs, total] = await Promise.all([
     prisma.job.findMany({
@@ -92,11 +101,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, tallyFormUrl, ...rest } = parsed.data;
+  const { closingDate, tallyFormUrl, title, city, ...rest } = parsed.data;
+
+  // Gerar slug único
+  const baseSlug = generateSlug(title, city);
+  let slug = baseSlug;
+  let counter = 1;
+  while (await prisma.job.findUnique({ where: { slug } })) {
+    slug = `${baseSlug}-${++counter}`;
+  }
 
   const job = await prisma.job.create({
     data: {
+      title,
+      city,
       ...rest,
+      slug,
       closingDate: typeof closingDate === "string" && closingDate ? new Date(closingDate) : null,
       tallyFormUrl: tallyFormUrl || null,
     },

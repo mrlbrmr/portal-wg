@@ -1,18 +1,28 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { LogOut, ExternalLink } from "lucide-react";
+import { LogOut, ExternalLink, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 interface Props {
   user: { name?: string | null; email?: string | null; role: string };
+  onMenuClick?: () => void;
 }
 
-export default function InternalHeader({ user }: Props) {
+export default function InternalHeader({ user, onMenuClick }: Props) {
   return (
-    <header className="bg-black border-b border-wg-border h-14 flex items-center px-6 sticky top-0 z-40">
+    <header className="bg-black border-b border-wg-border h-14 flex items-center px-4 md:px-6 sticky top-0 z-40">
       <div className="flex items-center gap-2.5 flex-1">
+        {/* Hamburguer — só mobile */}
+        <button
+          onClick={onMenuClick}
+          className="md:hidden p-1.5 text-wg-gray hover:text-white transition-colors mr-1"
+          aria-label="Abrir menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         <div className="bg-white rounded-lg overflow-hidden p-1">
           <Image
             src="/logo-wg.png"
@@ -26,14 +36,14 @@ export default function InternalHeader({ user }: Props) {
         <span className="text-wg-gray text-xs">Painel RH</span>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 md:gap-4">
         <Link
           href="/"
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-wg-gray hover:text-wg-green flex items-center gap-1 transition-colors"
         >
-          Portal público
+          <span className="hidden sm:block">Portal público</span>
           <ExternalLink className="w-3 h-3" />
         </Link>
 

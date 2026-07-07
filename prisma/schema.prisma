@@ -83,6 +83,7 @@ model Job {
   salaryRange          String?      // Faixa salarial (ex: "R$ 2.500 – R$ 3.000")
   openings             Int?         // Quantidade de vagas
   highlightBenefit     String?      // Benefício em destaque (ex: "Plano de Saúde")
+  slug                 String?      @unique
   closingDate          DateTime?
   tallyFormUrl         String?
   status               JobStatus    @default(ACTIVE)

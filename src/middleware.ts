@@ -15,8 +15,10 @@ export default auth((req: NextRequest & { auth: unknown }) => {
     pathname.startsWith("/vagas/nova") ||
     (pathname.startsWith("/vagas/") && pathname.endsWith("/editar")) ||
     pathname.startsWith("/configuracoes") ||
+    pathname.startsWith("/usuarios") ||
     pathname.startsWith("/api/jobs") ||
-    pathname.startsWith("/api/homepage-config");
+    pathname.startsWith("/api/homepage-config") ||
+    pathname.startsWith("/api/users");
 
   if (isInternalRoute && !session) {
     const loginUrl = new URL("/login", req.nextUrl.origin);

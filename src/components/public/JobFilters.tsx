@@ -34,9 +34,7 @@ export default function JobFilters() {
   const updateFilterDebounced = useCallback(
     (key: string, value: string) => {
       clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        updateFilter(key, value);
-      }, 500);
+      debounceRef.current = setTimeout(() => updateFilter(key, value), 400);
     },
     [updateFilter]
   );
@@ -45,12 +43,21 @@ export default function JobFilters() {
 
   return (
     <div className="flex flex-wrap gap-3 mb-6">
+      {/* Busca por título / palavra-chave */}
+      <input
+        type="text"
+        placeholder="Buscar cargo..."
+        defaultValue={searchParams.get("query") || ""}
+        onChange={(e) => updateFilterDebounced("query", e.target.value)}
+        className={`${inputClass} w-44`}
+      />
+
       <input
         type="text"
         placeholder="Cidade..."
         defaultValue={searchParams.get("city") || ""}
         onChange={(e) => updateFilterDebounced("city", e.target.value)}
-        className={`${inputClass} w-36`}
+        className={`${inputClass} w-32`}
       />
 
       <select

@@ -12,7 +12,7 @@ interface Props {
 export default function JobCard({ job, config }: Props) {
   return (
     <Link
-      href={`/vagas/${job.id}`}
+      href={`/vagas/${job.slug ?? job.id}`}
       className="block bg-wg-card border border-wg-border rounded-2xl p-5
         hover:border-wg-green hover:-translate-y-1
         hover:shadow-[0_8px_32px_rgba(144,203,70,0.13)]

@@ -45,6 +45,7 @@ model Session {
 // ─── Vagas ────────────────────────────────────────────────────────────────────
 
 enum JobStatus {
+  DRAFT     // Rascunho — visível só no painel, não aparece no portal
   ACTIVE    // Publicada no portal
   PAUSED    // Pausada temporariamente (não aparece no portal)
   CLOSED    // Encerrada

@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { MapPin, ArrowRight, Clock, Building2, Wallet, Star, Users } from "lucide-react";
+import { MapPin, ArrowRight, Clock, Building2, Wallet, Star, Users, Sparkles } from "lucide-react";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import type { Job } from "@prisma/client";
 import type { HomepageConfigData } from "@/lib/homepage-config";
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface Props {
   job: Job;
@@ -10,6 +12,8 @@ interface Props {
 }
 
 export default function JobCard({ job, config }: Props) {
+  const isNew = Date.now() - new Date(job.createdAt as Date | string).getTime() < SEVEN_DAYS_MS;
+
   return (
     <Link
       href={`/vagas/${job.slug ?? job.id}`}
@@ -20,10 +24,18 @@ export default function JobCard({ job, config }: Props) {
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          {/* Cargo — sempre visível */}
-          <h3 className="text-base font-semibold text-white group-hover:text-wg-green transition-colors duration-200 line-clamp-2">
-            {job.title}
-          </h3>
+          {/* Cargo + badge Nova */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base font-semibold text-white group-hover:text-wg-green transition-colors duration-200 line-clamp-2">
+              {job.title}
+            </h3>
+            {isNew && (
+              <span className="inline-flex items-center gap-0.5 bg-wg-green text-black text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                <Sparkles className="w-2.5 h-2.5" />
+                Nova
+              </span>
+            )}
+          </div>
 
           {/* Área / departamento */}
           {config.showDepartment && job.department && (

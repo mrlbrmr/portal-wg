@@ -47,6 +47,7 @@ export default async function GerenciarVagasPage({
   });
 
   const statusBadge: Record<string, string> = {
+    DRAFT: "bg-blue-500/10 text-blue-400",
     ACTIVE: "bg-wg-green/10 text-wg-green",
     PAUSED: "bg-yellow-500/10 text-yellow-400",
     CLOSED: "bg-wg-border text-wg-gray",

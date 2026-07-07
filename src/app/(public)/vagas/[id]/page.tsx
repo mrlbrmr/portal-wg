@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import { sanitizeRichText } from "@/lib/sanitize";
-import { MapPin, Clock, Briefcase, ChevronLeft, ExternalLink, Mail } from "lucide-react";
+import { MapPin, Clock, Briefcase, ChevronLeft, ExternalLink, Mail, ArrowRight } from "lucide-react";
+import { ShareButton } from "@/components/public/ShareButton";
 import type { Metadata } from "next";
 
 interface Props {
@@ -11,7 +12,6 @@ interface Props {
 }
 
 async function findJob(slugOrId: string) {
-  // Tenta por slug primeiro, depois por ID (compatibilidade retroativa)
   return (
     (await prisma.job.findFirst({ where: { slug: slugOrId, status: "ACTIVE" } })) ??
     (await prisma.job.findFirst({ where: { id: slugOrId, status: "ACTIVE" } }))
@@ -37,9 +37,28 @@ export default async function JobPage({ params }: Props) {
   const job = await findJob(id);
   if (!job) notFound();
 
+  const now = new Date();
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiraswg.vercel.app";
   const jobUrl = `${baseUrl}/vagas/${job.slug ?? job.id}`;
+
+  // Vagas similares — mesmo departamento OU mesma cidade, excluindo a atual
+  const similarWhere = {
+    id: { not: job.id },
+    status: "ACTIVE" as const,
+    AND: [
+      { OR: [{ closingDate: null }, { closingDate: { gte: now } }] },
+      ...(job.department
+        ? [{ OR: [{ department: job.department }, { city: job.city }] }]
+        : [{ city: job.city }]),
+    ],
+  };
+  const similar = await prisma.job.findMany({
+    where: similarWhere,
+    take: 3,
+    orderBy: { createdAt: "desc" },
+    select: { id: true, slug: true, title: true, city: true, state: true, modality: true, department: true },
+  });
 
   // JSON-LD JobPosting — melhora visibilidade no Google
   const jsonLd = {
@@ -113,17 +132,28 @@ export default async function JobPage({ params }: Props) {
                   <span className="text-sm text-gray-500">{job.department}</span>
                 )}
               </div>
-              {job.tallyFormUrl && (
-                <a
-                  href={job.tallyFormUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-5 py-2.5 rounded-full transition-colors"
-                >
-                  Candidatar-se
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <ShareButton url={jobUrl} />
+                {job.tallyFormUrl ? (
+                  <a
+                    href={job.tallyFormUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-5 py-2.5 rounded-full transition-colors"
+                  >
+                    Candidatar-se
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                ) : (
+                  <a
+                    href="mailto:carreiras@wgbaterias.com.br"
+                    className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-5 py-2.5 rounded-full transition-colors"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Enviar currículo
+                  </a>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-600">
@@ -183,6 +213,35 @@ export default async function JobPage({ params }: Props) {
               </a>
             )}
           </div>
+
+          {/* Vagas similares */}
+          {similar.length > 0 && (
+            <div className="mt-10">
+              <h2 className="text-base font-semibold text-gray-700 mb-4">Outras oportunidades</h2>
+              <div className="flex flex-col gap-3">
+                {similar.map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/vagas/${s.slug ?? s.id}`}
+                    className="flex items-center justify-between bg-white border border-gray-200 hover:border-wg-green/40 rounded-xl px-5 py-4 transition-colors group"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 group-hover:text-wg-green transition-colors">
+                        {s.title}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {s.city} / {s.state}
+                        {s.department ? ` · ${s.department}` : ""}
+                        {" · "}
+                        {MODALITY_LABELS[s.modality]}
+                      </p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-wg-green transition-colors shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

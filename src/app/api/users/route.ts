@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { rateLimit } from "@/lib/rate-limit";
 
 const createUserSchema = z.object({
   name: z.string().min(2, "Nome obrigatório"),
@@ -34,6 +35,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const { allowed, retryAfter } = rateLimit(ip, { limit: 10, windowMs: 60_000 });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Muitas requisições. Tente novamente em instantes." },
+      { status: 429, headers: { "Retry-After": String(retryAfter ?? 60) } }
+    );
+  }
+
   const session = await auth();
   if (!session || session.user.role !== "ADMIN_RH") {
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });

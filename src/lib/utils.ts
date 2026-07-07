@@ -24,6 +24,7 @@ export function formatDateTime(date: Date | string): string {
 }
 
 export const JOB_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Rascunho",
   ACTIVE: "Ativa",
   PAUSED: "Pausada",
   CLOSED: "Encerrada",

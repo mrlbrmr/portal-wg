@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CONFIG } from "@/lib/homepage-config";
-import JobCard from "@/components/public/JobCard";
 import JobFilters from "@/components/public/JobFilters";
+import { LoadMoreJobs } from "@/components/public/LoadMoreJobs";
 import { AnimateIn } from "@/components/ui/AnimateIn";
 import {
   Briefcase,
@@ -13,6 +13,8 @@ import {
   Globe,
   Heart,
 } from "lucide-react";
+
+const PAGE_SIZE = 9;
 
 interface SearchParams {
   city?: string;
@@ -62,8 +64,9 @@ export default async function HomePage({
     where.department = { contains: params.department, mode: "insensitive" };
   if (params.query) where.title = { contains: params.query, mode: "insensitive" };
 
-  const [jobs, totalActive, rawConfig] = await Promise.all([
-    prisma.job.findMany({ where, orderBy: { createdAt: "desc" } }),
+  const [jobs, total, totalActive, rawConfig] = await Promise.all([
+    prisma.job.findMany({ where, orderBy: { createdAt: "desc" }, take: PAGE_SIZE }),
+    prisma.job.count({ where }),
     prisma.job.count({ where: { status: "ACTIVE" } }),
     prisma.homepageConfig.findUnique({ where: { id: "singleton" } }),
   ]);
@@ -280,13 +283,13 @@ export default async function HomePage({
               </div>
             </AnimateIn>
           ) : (
-            <div className="flex flex-col gap-3">
-              {jobs.map((job, i) => (
-                <AnimateIn key={job.id} delay={i * 60}>
-                  <JobCard job={job} config={config} />
-                </AnimateIn>
-              ))}
-            </div>
+            <LoadMoreJobs
+              initialJobs={jobs}
+              total={total}
+              filters={params}
+              config={config}
+              pageSize={PAGE_SIZE}
+            />
           )}
         </div>
       </section>

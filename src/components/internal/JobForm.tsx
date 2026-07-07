@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BRAZIL_STATES } from "@/lib/utils";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, ExternalLink } from "lucide-react";
 import { RichTextEditor } from "@/components/internal/RichTextEditor";
 import type { Job } from "@prisma/client";
 
@@ -211,7 +211,8 @@ export default function JobForm({ job }: Props) {
             defaultValue={job?.status || "ACTIVE"}
             className={inputClass}
           >
-            <option value="ACTIVE" className="bg-wg-card">Ativa</option>
+            <option value="DRAFT" className="bg-wg-card">Rascunho — só no painel</option>
+            <option value="ACTIVE" className="bg-wg-card">Ativa — publicada no portal</option>
             <option value="PAUSED" className="bg-wg-card">Pausada</option>
             <option value="CLOSED" className="bg-wg-card">Encerrada</option>
           </select>
@@ -343,33 +344,67 @@ export default function JobForm({ job }: Props) {
         </div>
       ))}
 
+      {/* Progresso das seções obrigatórias */}
+      {(() => {
+        const filled = REQUIRED_RICH_FIELDS.filter(
+          ({ key }) => richFields[key].replace(/<[^>]*>/g, "").trim().length >= 10
+        ).length;
+        const total = REQUIRED_RICH_FIELDS.length;
+        return (
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex-1 h-1.5 bg-wg-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-wg-green transition-all duration-300 rounded-full"
+                style={{ width: `${(filled / total) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-wg-gray shrink-0">
+              {filled}/{total} seções preenchidas
+            </span>
+          </div>
+        );
+      })()}
+
       {error && (
         <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
           {error}
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={isLoading || saved}
-        className="w-full bg-wg-green hover:bg-wg-green-bright disabled:opacity-50 text-black font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Salvando...
-          </>
-        ) : saved ? (
-          <>
-            <Check className="w-4 h-4" />
-            Salvo! Redirecionando...
-          </>
-        ) : job ? (
-          "Salvar alterações"
-        ) : (
-          "Publicar vaga"
+      <div className="flex gap-3">
+        {job?.status === "ACTIVE" && (
+          <a
+            href={`/vagas/${job.slug ?? job.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 border border-wg-border hover:border-wg-green/50 text-wg-gray hover:text-wg-green px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Ver prévia
+          </a>
         )}
-      </button>
+        <button
+          type="submit"
+          disabled={isLoading || saved}
+          className="flex-1 bg-wg-green hover:bg-wg-green-bright disabled:opacity-50 text-black font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Salvando...
+            </>
+          ) : saved ? (
+            <>
+              <Check className="w-4 h-4" />
+              Salvo! Redirecionando...
+            </>
+          ) : job ? (
+            "Salvar alterações"
+          ) : (
+            "Publicar vaga"
+          )}
+        </button>
+      </div>
     </form>
   );
 }

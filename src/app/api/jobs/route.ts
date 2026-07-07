@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Modality, ContractType, JobStatus, Prisma } from "@prisma/client";
 import { generateSlug } from "@/lib/utils";
+import { rateLimit } from "@/lib/rate-limit";
 
 function richText(minChars: number, message: string) {
   return z
@@ -84,6 +85,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const { allowed, retryAfter } = rateLimit(ip, { limit: 30, windowMs: 60_000 });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Muitas requisições. Tente novamente em instantes." },
+      { status: 429, headers: { "Retry-After": String(retryAfter ?? 60) } }
+    );
+  }
+
   const session = await auth();
   if (!session || session.user.role !== "ADMIN_RH") {
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });

@@ -36,7 +36,7 @@ export default function PublicHeader() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
             <Image
-              src={scrolled ? "/logo-wg-branca.png" : "/logo-wg-transparent.png"}
+              src="/logo-wg-branca.png"
               alt="Grupo WG"
               width={100}
               height={50}

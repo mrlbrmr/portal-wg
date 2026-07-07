@@ -90,7 +90,7 @@ export default async function HomePage({
               style={{ animationDelay: "0ms" }}
             >
               <Image
-                src="/logo-wg-transparent.png"
+                src="/logo-wg-branca.png"
                 alt="Grupo WG"
                 width={220}
                 height={110}

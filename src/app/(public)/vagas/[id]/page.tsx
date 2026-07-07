@@ -6,17 +6,24 @@ import { sanitizeRichText } from "@/lib/sanitize";
 import { MapPin, Clock, Briefcase, ChevronLeft, ExternalLink, Mail, ArrowRight } from "lucide-react";
 import { ShareButton } from "@/components/public/ShareButton";
 import type { Metadata } from "next";
+import { cache } from "react";
+
+// ISR: revalida automaticamente a cada 60s; revalidatePath() em edições força imediato
+export const revalidate = 60;
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
-async function findJob(slugOrId: string) {
-  return (
-    (await prisma.job.findFirst({ where: { slug: slugOrId, status: "ACTIVE" } })) ??
-    (await prisma.job.findFirst({ where: { id: slugOrId, status: "ACTIVE" } }))
-  );
-}
+// cache() deduplica a query dentro do mesmo request (compartilhada entre generateMetadata e JobPage)
+const findJob = cache(async (slugOrId: string) => {
+  return prisma.job.findFirst({
+    where: {
+      status: "ACTIVE",
+      OR: [{ slug: slugOrId }, { id: slugOrId }],
+    },
+  });
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;

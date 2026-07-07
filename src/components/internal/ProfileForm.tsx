@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { Loader2, Check } from "lucide-react";
 
 interface Props {
@@ -16,6 +17,7 @@ const inputClass =
 const labelClass = "block text-sm font-medium text-wg-gray mb-1";
 
 export function ProfileForm({ user }: Props) {
+  const { update } = useSession();
   const [nameLoading, setNameLoading] = useState(false);
   const [nameSuccess, setNameSuccess] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -47,6 +49,7 @@ export function ProfileForm({ user }: Props) {
         return;
       }
 
+      await update({ name });
       setNameSuccess(true);
       setTimeout(() => setNameSuccess(false), 3000);
     } catch {

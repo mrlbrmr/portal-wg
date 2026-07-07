@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const outfit = Outfit({ subsets: ["latin"], display: "swap" });
@@ -37,7 +38,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className={outfit.className}>{children}</body>
+      <body className={outfit.className}>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

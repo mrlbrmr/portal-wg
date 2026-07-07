@@ -68,27 +68,29 @@ export default async function HomePage({
   return (
     <div>
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden min-h-[540px] md:min-h-[620px] flex items-center">
-        {/* Imagem de fundo com baixa opacidade */}
-        <Image
-          src="/hero-bg.png"
-          alt=""
-          fill
-          priority
-          className="object-cover object-center opacity-35"
+      <section
+        className="relative min-h-[560px] md:min-h-[640px] flex items-center"
+        style={{ background: "#7FD400" }}
+      >
+        {/* Dot texture */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(0,0,0,0.13) 1px, transparent 1px)",
+            backgroundSize: "18px 18px",
+          }}
         />
-        {/* Overlay preto */}
-        <div className="absolute inset-0 bg-black/70" />
 
         <div className="relative z-10 w-full py-20 md:py-28 px-4">
           <div className="max-w-5xl mx-auto text-center">
-            {/* Logo WG — primeira a aparecer */}
+            {/* Logo WG — versão escura sobre fundo verde */}
             <div
               className="flex justify-center mb-8 animate-fade-in"
               style={{ animationDelay: "0ms" }}
             >
               <Image
-                src="/logo-wg-branca.png"
+                src="/logo-wg-transparent.png"
                 alt="Grupo WG"
                 width={220}
                 height={110}
@@ -99,8 +101,8 @@ export default async function HomePage({
 
             {/* Badge superior */}
             <div
-              className="inline-flex items-center gap-2 bg-wg-green/20 border border-wg-green/35
-                backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-medium text-wg-green mb-6
+              className="inline-flex items-center gap-2 bg-black/15 border border-black/20
+                rounded-full px-4 py-1.5 text-sm font-semibold text-black mb-6
                 animate-fade-up"
               style={{ animationDelay: "120ms" }}
             >
@@ -110,16 +112,18 @@ export default async function HomePage({
 
             {/* Título */}
             <h1
-              className="text-4xl md:text-6xl font-black text-white leading-tight mb-6 animate-fade-up"
+              className="text-4xl md:text-6xl font-black text-black leading-tight mb-6 animate-fade-up"
               style={{ animationDelay: "220ms" }}
             >
               Faça parte do{" "}
-              <span className="text-wg-green">Grupo WG</span>
+              <span className="underline decoration-black/30 underline-offset-4">
+                Grupo WG
+              </span>
             </h1>
 
             {/* Subtítulo */}
             <p
-              className="text-white/85 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-up"
+              className="text-black/70 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-up"
               style={{ animationDelay: "340ms" }}
             >
               Desde 2002, o Grupo WG conecta energia, movimento e pessoas nas
@@ -129,16 +133,15 @@ export default async function HomePage({
             {/* CTA */}
             <a
               href="#vagas"
-              className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright
-                hover:-translate-y-0.5 active:scale-[0.97]
-                text-black font-bold px-8 py-4 rounded-full text-base
-                transition-all duration-200
-                shadow-lg shadow-wg-green/30 hover:shadow-[0_8px_28px_rgba(144,203,70,0.5)]
+              className="inline-flex items-center gap-2 bg-black text-white font-bold
+                px-8 py-4 rounded-full text-base
+                hover:bg-black/80 hover:-translate-y-0.5 active:scale-[0.97]
+                transition-all duration-200 shadow-lg shadow-black/20
                 animate-fade-up"
               style={{ animationDelay: "460ms" }}
             >
               Ver vagas abertas
-              <ArrowRight className="w-5 h-5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <ArrowRight className="w-5 h-5" />
             </a>
 
             {/* Indicador de vagas */}
@@ -147,7 +150,7 @@ export default async function HomePage({
                 className="flex justify-center mt-10 animate-fade-up"
                 style={{ animationDelay: "580ms" }}
               >
-                <div className="flex items-center gap-2.5 bg-black/50 border border-white/15 backdrop-blur-sm rounded-full px-6 py-3 text-base font-semibold text-white">
+                <div className="flex items-center gap-2.5 bg-black/15 border border-black/20 rounded-full px-6 py-3 text-base font-semibold text-black">
                   <Briefcase className="w-5 h-5" />
                   {totalActive}{" "}
                   {totalActive === 1 ? "vaga aberta" : "vagas abertas"}
@@ -157,6 +160,18 @@ export default async function HomePage({
           </div>
         </div>
       </section>
+
+      {/* ── ARCO DE TRANSIÇÃO verde → escuro ── */}
+      <div
+        className="overflow-hidden"
+        style={{ background: "#7FD400" }}
+        aria-hidden="true"
+      >
+        <div
+          className="bg-wg-dark h-16 md:h-24 w-[115%] -ml-[7.5%]"
+          style={{ borderRadius: "50% 50% 0 0 / 100% 100% 0 0" }}
+        />
+      </div>
 
       {/* ── SOBRE O GRUPO WG ── */}
       <section className="bg-wg-dark py-16 md:py-20 px-4">
@@ -185,7 +200,7 @@ export default async function HomePage({
               </p>
             </AnimateIn>
 
-            {/* Cards de diferenciais com stagger */}
+            {/* Cards de diferenciais */}
             <div className="grid grid-cols-2 gap-3">
               {FEATURES.map((f, i) => (
                 <AnimateIn key={f.title} delay={i * 80}>

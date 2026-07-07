@@ -4,15 +4,45 @@ import Link from "next/link";
 import { JOB_STATUS_LABELS, MODALITY_LABELS, formatDate } from "@/lib/utils";
 import { Plus, ExternalLink } from "lucide-react";
 import { JobActions } from "@/components/internal/JobActions";
+import { JobSortFilter } from "@/components/internal/JobSortFilter";
 import type { Metadata } from "next";
+import { JobStatus } from "@prisma/client";
 
 export const metadata: Metadata = { title: "Gerenciar Vagas — RH" };
 
-export default async function GerenciarVagasPage() {
-  const session = await auth();
+type OrderBy =
+  | { createdAt: "asc" | "desc" }
+  | { city: "asc" | "desc" }
+  | { state: "asc" | "desc" }
+  | { title: "asc" | "desc" };
+
+const SORT_MAP: Record<string, OrderBy> = {
+  date_desc: { createdAt: "desc" },
+  date_asc:  { createdAt: "asc" },
+  city_asc:  { city: "asc" },
+  state_asc: { state: "asc" },
+  title_asc: { title: "asc" },
+};
+
+export default async function GerenciarVagasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; status?: string }>;
+}) {
+  const [session, params] = await Promise.all([auth(), searchParams]);
+
+  const sortKey = params.sort && SORT_MAP[params.sort] ? params.sort : "date_desc";
+  const orderBy = SORT_MAP[sortKey];
+
+  const where: Record<string, unknown> = {};
+  const rawStatus = params.status;
+  if (rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
+    where.status = rawStatus as JobStatus;
+  }
 
   const jobs = await prisma.job.findMany({
-    orderBy: { createdAt: "desc" },
+    where,
+    orderBy,
     take: 200,
   });
 
@@ -24,7 +54,7 @@ export default async function GerenciarVagasPage() {
 
   return (
     <div className="max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-white">Vagas</h1>
         {session?.user.role === "ADMIN_RH" && (
           <Link
@@ -37,10 +67,17 @@ export default async function GerenciarVagasPage() {
         )}
       </div>
 
+      <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+        <JobSortFilter />
+        <span className="text-xs text-wg-gray">
+          {jobs.length} {jobs.length === 1 ? "vaga" : "vagas"}
+        </span>
+      </div>
+
       <div className="flex flex-col gap-3">
         {jobs.length === 0 && (
           <div className="text-center py-16 text-wg-gray">
-            Nenhuma vaga cadastrada ainda.
+            Nenhuma vaga encontrada.
           </div>
         )}
 
@@ -52,7 +89,9 @@ export default async function GerenciarVagasPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <h2 className="font-semibold text-white">{job.title}</h2>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge[job.status]}`}>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge[job.status]}`}
+                >
                   {JOB_STATUS_LABELS[job.status]}
                 </span>
               </div>
@@ -60,7 +99,12 @@ export default async function GerenciarVagasPage() {
                 <span>{job.city} / {job.state}</span>
                 <span>·</span>
                 <span>{MODALITY_LABELS[job.modality]}</span>
-                {job.department && <><span>·</span><span>{job.department}</span></>}
+                {job.department && (
+                  <>
+                    <span>·</span>
+                    <span>{job.department}</span>
+                  </>
+                )}
                 <span>·</span>
                 <span>Criada em {formatDate(job.createdAt)}</span>
               </div>

@@ -11,9 +11,10 @@ const config: Config = {
     extend: {
       colors: {
         wg: {
-          green:       "#90CB46",
+          green:          "#90CB46",
           "green-bright": "#98DB55",
           "green-dark":   "#4F6930",
+          "green-vivid":  "#7FD400",
           dark:        "#0C0D0C",
           card:        "#151515",
           "card-2":    "#1C1D1D",

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Briefcase, Plus, Settings, Users } from "lucide-react";
+import { LayoutDashboard, Briefcase, Plus, Settings, Users, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -23,6 +23,7 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
           { href: "/configuracoes", label: "Configurações", icon: Settings },
         ]
       : []),
+    { href: "/perfil", label: "Meu Perfil", icon: UserCircle },
   ];
 
   return (

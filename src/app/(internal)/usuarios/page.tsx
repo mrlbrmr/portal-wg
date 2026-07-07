@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Pencil } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { UserToggleActions } from "@/components/internal/UserToggleActions";
 import type { Metadata } from "next";
@@ -70,13 +70,23 @@ export default async function UsuariosPage() {
                   </p>
                 </div>
 
-                {user.id !== session?.user.id && (
-                  <UserToggleActions
-                    userId={user.id}
-                    currentRole={user.role}
-                    isActive={user.active}
-                  />
-                )}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {user.id !== session?.user.id && (
+                    <UserToggleActions
+                      userId={user.id}
+                      currentRole={user.role}
+                      isActive={user.active}
+                    />
+                  )}
+                  <Link
+                    href={user.id === session?.user.id ? "/perfil" : `/usuarios/${user.id}/editar`}
+                    className="inline-flex items-center gap-1 text-xs border border-wg-border hover:border-wg-green/50 text-wg-gray hover:text-wg-green px-2.5 py-1.5 rounded-lg transition-colors"
+                    title="Editar"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    Editar
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

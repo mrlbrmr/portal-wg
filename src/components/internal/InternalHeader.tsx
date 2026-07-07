@@ -47,12 +47,15 @@ export default function InternalHeader({ user, onMenuClick }: Props) {
           <ExternalLink className="w-3 h-3" />
         </Link>
 
-        <div className="flex items-center gap-2 text-sm">
+        <Link
+          href="/perfil"
+          className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity"
+        >
           <span className="text-wg-gray hidden sm:block">{user.name}</span>
           <span className="text-xs bg-wg-green/10 text-wg-green px-2 py-0.5 rounded-full font-medium">
             {user.role === "ADMIN_RH" ? "Admin RH" : "Visualizador"}
           </span>
-        </div>
+        </Link>
 
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}

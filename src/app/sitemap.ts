@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
+import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl =
@@ -7,7 +8,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const jobs = await prisma.job.findMany({
     where: {
-      status: "ACTIVE",
+      status: { in: PUBLIC_JOB_STATUS_LIST },
       OR: [{ closingDate: null }, { closingDate: { gte: new Date() } }],
     },
     select: { id: true, slug: true, updatedAt: true },

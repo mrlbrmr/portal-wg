@@ -50,7 +50,7 @@ export function JobActions({ jobId, jobTitle, status }: Props) {
             <button
               onClick={() => setPendingAction("cancel")}
               disabled={loading !== null}
-              title="Encerrar vaga"
+              title="Cancelar vaga"
               className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors disabled:opacity-50"
             >
               <XCircle className="w-4 h-4" />
@@ -70,9 +70,9 @@ export function JobActions({ jobId, jobTitle, status }: Props) {
 
       <ConfirmModal
         isOpen={pendingAction === "cancel"}
-        title={`Encerrar vaga?`}
-        message={`"${jobTitle}" ficará encerrada e deixará de aparecer no portal público.`}
-        confirmLabel="Sim, encerrar"
+        title={`Cancelar vaga?`}
+        message={`"${jobTitle}" será marcada como Cancelada e deixará de aparecer no portal público.`}
+        confirmLabel="Sim, cancelar"
         variant="warning"
         onConfirm={() => { setPendingAction(null); execute("cancel"); }}
         onCancel={() => setPendingAction(null)}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BRAZIL_STATES } from "@/lib/utils";
+import { BRAZIL_STATES, isPublicJobStatus } from "@/lib/utils";
 import { Loader2, Check, ExternalLink } from "lucide-react";
 import { RichTextEditor } from "@/components/internal/RichTextEditor";
 import type { Job } from "@prisma/client";
@@ -39,6 +39,7 @@ export default function JobForm({ job }: Props) {
   const [highlightBenefit, setHighlightBenefit] = useState(
     job?.highlightBenefit ?? ""
   );
+  const [applyMode, setApplyMode] = useState<string>(job?.applyMode ?? "EXTERNAL");
 
   function setRich(key: keyof typeof richFields) {
     return (html: string) => setRichFields((prev) => ({ ...prev, [key]: html }));
@@ -91,6 +92,7 @@ export default function JobForm({ job }: Props) {
       closingDate: formData.get("closingDate") || null,
       hiringDeadline: formData.get("hiringDeadline") || null,
       tallyFormUrl: formData.get("tallyFormUrl") || undefined,
+      applyMode: formData.get("applyMode") || "EXTERNAL",
       responsible: formData.get("responsible") || undefined,
       status: formData.get("status"),
     };
@@ -215,8 +217,11 @@ export default function JobForm({ job }: Props) {
           >
             <option value="DRAFT" className="bg-wg-card">Rascunho — só no painel</option>
             <option value="ACTIVE" className="bg-wg-card">Ativa — publicada no portal</option>
-            <option value="PAUSED" className="bg-wg-card">Pausada</option>
-            <option value="CLOSED" className="bg-wg-card">Encerrada</option>
+            <option value="SCREENING" className="bg-wg-card">Triagem — no portal (etapa interna)</option>
+            <option value="INTERVIEW" className="bg-wg-card">Entrevistas — no portal (etapa interna)</option>
+            <option value="ADMISSION" className="bg-wg-card">Admissão — no portal (etapa interna)</option>
+            <option value="PAUSED" className="bg-wg-card">Pausada — fora do portal</option>
+            <option value="CLOSED" className="bg-wg-card">Cancelada — fora do portal</option>
           </select>
         </div>
 
@@ -311,6 +316,26 @@ export default function JobForm({ job }: Props) {
 
         <div className="col-span-2">
           <label className={labelClass}>
+            Modo de inscrição <span className="text-red-400">*</span>
+          </label>
+          <select
+            name="applyMode"
+            value={applyMode}
+            onChange={(e) => setApplyMode(e.target.value)}
+            className={inputClass}
+          >
+            <option value="EXTERNAL" className="bg-wg-card">Externo — link do Tally ou e-mail</option>
+            <option value="NATIVE" className="bg-wg-card">Formulário no portal — inscrição direta (LGPD)</option>
+          </select>
+          <p className="text-xs text-wg-gray mt-1">
+            {applyMode === "NATIVE"
+              ? "O candidato preenche nome, e-mail, celular e anexa o currículo direto na página da vaga. As candidaturas aparecem no painel (Kanban)."
+              : "A vaga usa o link do Tally (abaixo) ou, se vazio, um botão de e-mail."}
+          </p>
+        </div>
+
+        <div className="col-span-2">
+          <label className={labelClass}>
             Link do formulário Tally (candidatura)
           </label>
           <input
@@ -318,11 +343,13 @@ export default function JobForm({ job }: Props) {
             name="tallyFormUrl"
             defaultValue={job?.tallyFormUrl ?? ""}
             placeholder="https://tally.so/r/..."
-            className={inputClass}
+            disabled={applyMode === "NATIVE"}
+            className={`${inputClass} ${applyMode === "NATIVE" ? "opacity-50" : ""}`}
           />
           <p className="text-xs text-wg-gray mt-1">
-            Cole aqui o link do formulário Tally desta vaga. Aparecerá como botão
-            &quot;Candidatar-se&quot; no portal.
+            {applyMode === "NATIVE"
+              ? "Não usado no modo Formulário no portal."
+              : "Cole aqui o link do formulário Tally desta vaga. Aparecerá como botão “Candidatar-se” no portal."}
           </p>
         </div>
 
@@ -404,7 +431,7 @@ export default function JobForm({ job }: Props) {
       )}
 
       <div className="flex gap-3">
-        {job?.status === "ACTIVE" && (
+        {job && isPublicJobStatus(job.status) && (
           <a
             href={`/vagas/${job.slug ?? job.id}`}
             target="_blank"

@@ -13,9 +13,13 @@ const SORT_OPTIONS = [
 
 const STATUS_OPTIONS = [
   { value: "", label: "Todos os status" },
+  { value: "DRAFT", label: "Rascunho" },
   { value: "ACTIVE", label: "Ativa" },
+  { value: "SCREENING", label: "Triagem" },
+  { value: "INTERVIEW", label: "Entrevistas" },
+  { value: "ADMISSION", label: "Admissão" },
   { value: "PAUSED", label: "Pausada" },
-  { value: "CLOSED", label: "Encerrada" },
+  { value: "CLOSED", label: "Cancelada" },
 ];
 
 function JobSortFilterInner() {

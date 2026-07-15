@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CONFIG } from "@/lib/homepage-config";
+import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import JobFilters from "@/components/public/JobFilters";
 import { LoadMoreJobs } from "@/components/public/LoadMoreJobs";
 import { AnimateIn } from "@/components/ui/AnimateIn";
@@ -55,7 +56,7 @@ export default async function HomePage({
 
   const now = new Date();
   const where: Record<string, unknown> = {
-    status: "ACTIVE",
+    status: { in: PUBLIC_JOB_STATUS_LIST },
     OR: [{ closingDate: null }, { closingDate: { gte: now } }],
   };
   if (params.city) where.city = { contains: params.city, mode: "insensitive" };
@@ -67,7 +68,7 @@ export default async function HomePage({
   const [jobs, total, totalActive, rawConfig] = await Promise.all([
     prisma.job.findMany({ where, orderBy: { createdAt: "desc" }, take: PAGE_SIZE }),
     prisma.job.count({ where }),
-    prisma.job.count({ where: { status: "ACTIVE" } }),
+    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST } } }),
     prisma.homepageConfig.findUnique({ where: { id: "singleton" } }),
   ]);
   const config = rawConfig ?? DEFAULT_CONFIG;

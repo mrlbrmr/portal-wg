@@ -45,10 +45,13 @@ model Session {
 // ─── Vagas ────────────────────────────────────────────────────────────────────
 
 enum JobStatus {
-  DRAFT     // Rascunho — visível só no painel, não aparece no portal
-  ACTIVE    // Publicada no portal
-  PAUSED    // Pausada temporariamente (não aparece no portal)
-  CLOSED    // Encerrada
+  DRAFT      // Rascunho — visível só no painel, não aparece no portal
+  ACTIVE     // Publicada no portal (aberta)
+  SCREENING  // Triagem — etapa interna; vaga segue visível no portal
+  INTERVIEW  // Entrevistas — etapa interna; vaga segue visível no portal
+  ADMISSION  // Admissão — etapa interna; vaga segue visível no portal
+  PAUSED     // Pausada temporariamente (não aparece no portal)
+  CLOSED     // Cancelada/Encerrada (não aparece no portal)
 }
 
 enum Modality {
@@ -64,6 +67,22 @@ enum ContractType {
   APPRENTICE    // Jovem aprendiz
   TEMPORARY     // Temporário
   OTHER
+}
+
+// Como a vaga recebe candidaturas
+enum ApplyMode {
+  EXTERNAL   // Tally / e-mail (comportamento legado — default)
+  NATIVE     // Formulário de inscrição nativo do portal
+}
+
+// Etapas do funil de seleção (colunas do Kanban)
+enum ApplicationStage {
+  NEW         // Novo
+  SCREENING   // Triagem
+  INTERVIEW   // Entrevista
+  OFFER       // Proposta
+  HIRED       // Contratado
+  REJECTED    // Reprovado
 }
 
 model Job {
@@ -89,13 +108,53 @@ model Job {
   closingDate          DateTime?
   hiringDeadline       DateTime?    // Prazo interno alvo de contratação
   tallyFormUrl         String?
+  applyMode            ApplyMode    @default(EXTERNAL)  // EXTERNAL = Tally/e-mail (legado); NATIVE = formulário do portal
   status               JobStatus    @default(ACTIVE)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
   statusHistory        JobStatusHistory[]
+  applications         Application[]
 
   @@map("jobs")
+}
+
+// ─── Candidaturas (inscrições nativas do portal) ──────────────────────────────
+// LGPD: dados pessoais NUNCA são expostos publicamente — acesso só na área
+// autenticada. O currículo fica em storage privado (Vercel Blob), acessível
+// apenas via rota autenticada com URL assinada de curta duração.
+
+model Application {
+  id            String           @id @default(cuid())
+  jobId         String
+  job           Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fullName      String
+  email         String
+  phone         String
+  resumeUrl     String?          // URL privada no Vercel Blob (não pública)
+  resumeName    String?          // Nome original do arquivo enviado
+  stage         ApplicationStage @default(NEW)
+  notes         String?          @db.Text  // Anotações internas do RH
+  consentAt     DateTime         // Momento do consentimento LGPD
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  stageHistory  ApplicationStageHistory[]
+
+  @@index([jobId, stage])
+  @@index([createdAt])
+  @@map("applications")
+}
+
+model ApplicationStageHistory {
+  id            String           @id @default(cuid())
+  applicationId String
+  application   Application      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  stage         ApplicationStage
+  changedBy     String
+  changedAt     DateTime         @default(now())
+
+  @@map("application_stage_history")
 }
 
 model JobStatusHistory {

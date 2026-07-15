@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { JobStatus } from "@prisma/client";
+import { isPublicJobStatus } from "@/lib/utils";
 
 const MODALITY_LABELS: Record<string, string> = {
   PRESENTIAL: "Presencial",
@@ -12,8 +13,11 @@ const MODALITY_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Rascunho",
   ACTIVE: "Ativa",
+  SCREENING: "Triagem",
+  INTERVIEW: "Entrevistas",
+  ADMISSION: "Admissão",
   PAUSED: "Pausada",
-  CLOSED: "Encerrada",
+  CLOSED: "Cancelada",
 };
 
 const CONTRACT_LABELS: Record<string, string> = {
@@ -72,7 +76,7 @@ export async function GET(req: NextRequest) {
     new Date(j.createdAt).toLocaleDateString("pt-BR"),
     j.closingDate ? new Date(j.closingDate).toLocaleDateString("pt-BR") : "",
     j.hiringDeadline ? new Date(j.hiringDeadline).toLocaleDateString("pt-BR") : "",
-    j.status === "ACTIVE" ? `${appUrl}/vagas/${j.slug ?? j.id}` : "",
+    isPublicJobStatus(j.status) ? `${appUrl}/vagas/${j.slug ?? j.id}` : "",
   ]);
 
   const bom = "﻿";

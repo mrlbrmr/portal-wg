@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import Link from "next/link";
-import { JOB_STATUS_LABELS, MODALITY_LABELS, formatDate } from "@/lib/utils";
-import { Plus, ExternalLink, Link2 } from "lucide-react";
+import { JOB_STATUS_LABELS, MODALITY_LABELS, formatDate, isPublicJobStatus } from "@/lib/utils";
+import { Plus, ExternalLink, Link2, Users, List, LayoutGrid } from "lucide-react";
 import { JobActions } from "@/components/internal/JobActions";
 import { JobSortFilter } from "@/components/internal/JobSortFilter";
 import { DuplicateJobButton } from "@/components/internal/DuplicateJobButton";
 import { ExportCsvButton } from "@/components/internal/ExportCsvButton";
+import { JobKanbanBoard, type KanbanJob } from "@/components/internal/JobKanbanBoard";
 import type { Metadata } from "next";
 import { JobStatus } from "@prisma/client";
 
@@ -29,16 +30,18 @@ const SORT_MAP: Record<string, OrderBy> = {
 export default async function GerenciarVagasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; status?: string }>;
+  searchParams: Promise<{ sort?: string; status?: string; view?: string }>;
 }) {
   const [session, params] = await Promise.all([auth(), searchParams]);
 
   const sortKey = params.sort && SORT_MAP[params.sort] ? params.sort : "date_desc";
   const orderBy = SORT_MAP[sortKey];
+  const view = params.view === "kanban" ? "kanban" : "list";
 
   const where: Record<string, unknown> = {};
   const rawStatus = params.status;
-  if (rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
+  // No Kanban as colunas SÃO os status — não aplicamos o filtro de status.
+  if (view !== "kanban" && rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
     where.status = rawStatus as JobStatus;
   }
 
@@ -48,15 +51,43 @@ export default async function GerenciarVagasPage({
     take: 200,
   });
 
+  // Contagem de candidaturas por vaga (para o link "Candidatos")
+  const appCounts = await prisma.application.groupBy({
+    by: ["jobId"],
+    _count: { _all: true },
+    where: { jobId: { in: jobs.map((j) => j.id) } },
+  });
+  const countByJob = new Map(appCounts.map((c) => [c.jobId, c._count._all]));
+
+  const kanbanJobs: KanbanJob[] = jobs.map((job) => ({
+    id: job.id,
+    title: job.title,
+    city: job.city,
+    state: job.state,
+    modality: job.modality,
+    status: job.status,
+    applyMode: job.applyMode,
+    createdAt: job.createdAt.toISOString(),
+    candidateCount: countByJob.get(job.id) ?? 0,
+  }));
+  const canManage = session?.user.role === "ADMIN_RH";
+
+  // Preserva o sort atual nos links do alternador de visão
+  const toggleQS = (v: "list" | "kanban") =>
+    `/vagas/gerenciar?view=${v}&sort=${sortKey}`;
+
   const statusBadge: Record<string, string> = {
     DRAFT: "bg-blue-500/10 text-blue-400",
     ACTIVE: "bg-wg-green/10 text-wg-green",
-    PAUSED: "bg-yellow-500/10 text-yellow-400",
+    SCREENING: "bg-amber-500/10 text-amber-400",
+    INTERVIEW: "bg-purple-500/10 text-purple-400",
+    ADMISSION: "bg-cyan-500/10 text-cyan-400",
+    PAUSED: "bg-orange-500/10 text-orange-400",
     CLOSED: "bg-wg-border text-wg-gray",
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className={view === "kanban" ? "" : "max-w-4xl"}>
       <div className="flex items-center justify-between mb-5 gap-3">
         <h1 className="text-2xl font-bold text-white">Vagas</h1>
         <div className="flex items-center gap-2">
@@ -75,11 +106,43 @@ export default async function GerenciarVagasPage({
 
       <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
         <JobSortFilter />
-        <span className="text-xs text-wg-gray">
-          {jobs.length} {jobs.length === 1 ? "vaga" : "vagas"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-wg-gray">
+            {jobs.length} {jobs.length === 1 ? "vaga" : "vagas"}
+          </span>
+          {/* Alternador Lista / Kanban */}
+          <div className="flex items-center bg-wg-card border border-wg-border rounded-lg p-0.5">
+            <Link
+              href={toggleQS("list")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                view === "list" ? "bg-wg-green/15 text-wg-green" : "text-wg-gray hover:text-white"
+              }`}
+              title="Ver em lista"
+            >
+              <List className="w-3.5 h-3.5" />
+              Lista
+            </Link>
+            <Link
+              href={toggleQS("kanban")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                view === "kanban" ? "bg-wg-green/15 text-wg-green" : "text-wg-gray hover:text-white"
+              }`}
+              title="Ver em Kanban por status"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Kanban
+            </Link>
+          </div>
+        </div>
       </div>
 
+      {view === "kanban" ? (
+        jobs.length === 0 ? (
+          <div className="text-center py-16 text-wg-gray">Nenhuma vaga encontrada.</div>
+        ) : (
+          <JobKanbanBoard jobs={kanbanJobs} canManage={canManage} />
+        )
+      ) : (
       <div className="flex flex-col gap-3">
         {jobs.length === 0 && (
           <div className="text-center py-16 text-wg-gray">
@@ -115,7 +178,10 @@ export default async function GerenciarVagasPage({
                 <span>Criada em {formatDate(job.createdAt)}</span>
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                {!job.tallyFormUrl && job.status === "ACTIVE" && (
+                {job.applyMode === "NATIVE" && (
+                  <span className="text-xs text-wg-green flex items-center gap-1">✓ Inscrição pelo portal</span>
+                )}
+                {job.applyMode === "EXTERNAL" && !job.tallyFormUrl && isPublicJobStatus(job.status) && (
                   <p className="text-xs text-yellow-500">⚠ Link do Tally não configurado</p>
                 )}
                 {job.tallyFormUrl && (
@@ -137,7 +203,17 @@ export default async function GerenciarVagasPage({
             </div>
 
             <div className="flex items-center gap-3 flex-shrink-0">
-              {job.status === "ACTIVE" && (
+              {(job.applyMode === "NATIVE" || (countByJob.get(job.id) ?? 0) > 0) && (
+                <Link
+                  href={`/vagas/${job.id}/candidatos`}
+                  className="flex items-center gap-1.5 text-sm border border-wg-border hover:border-wg-green/50 text-wg-gray hover:text-wg-green px-3 py-1.5 rounded-lg transition-colors"
+                  title="Ver candidatos"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>{countByJob.get(job.id) ?? 0}</span>
+                </Link>
+              )}
+              {isPublicJobStatus(job.status) && (
                 <Link
                   href={`/vagas/${job.id}`}
                   target="_blank"
@@ -169,6 +245,7 @@ export default async function GerenciarVagasPage({
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

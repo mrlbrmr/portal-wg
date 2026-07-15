@@ -27,7 +27,10 @@ export default async function EditarVagaPage({ params }: Props) {
   const statusBadge: Record<string, string> = {
     DRAFT: "bg-blue-500/10 text-blue-400",
     ACTIVE: "bg-wg-green/10 text-wg-green",
-    PAUSED: "bg-yellow-500/10 text-yellow-400",
+    SCREENING: "bg-amber-500/10 text-amber-400",
+    INTERVIEW: "bg-purple-500/10 text-purple-400",
+    ADMISSION: "bg-cyan-500/10 text-cyan-400",
+    PAUSED: "bg-orange-500/10 text-orange-400",
     CLOSED: "bg-wg-border text-wg-gray",
   };
 

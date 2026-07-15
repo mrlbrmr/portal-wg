@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/prisma";
 import { MODALITY_LABELS } from "@/lib/utils";
+import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -8,11 +9,11 @@ export const contentType = "image/png";
 async function findJob(slugOrId: string) {
   return (
     (await prisma.job.findFirst({
-      where: { slug: slugOrId, status: "ACTIVE" },
+      where: { slug: slugOrId, status: { in: PUBLIC_JOB_STATUS_LIST } },
       select: { title: true, city: true, state: true, department: true, modality: true },
     })) ??
     (await prisma.job.findFirst({
-      where: { id: slugOrId, status: "ACTIVE" },
+      where: { id: slugOrId, status: { in: PUBLIC_JOB_STATUS_LIST } },
       select: { title: true, city: true, state: true, department: true, modality: true },
     }))
   );

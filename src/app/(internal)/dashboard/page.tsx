@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Briefcase, PauseCircle, XCircle, Plus, FileText, AlertTriangle, Clock, Calendar } from "lucide-react";
+import { Briefcase, PauseCircle, XCircle, Plus, FileText, AlertTriangle, Clock, Calendar, Users } from "lucide-react";
+import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import type { Metadata } from "next";
 import type { ElementType } from "react";
 
@@ -27,18 +28,22 @@ export default async function DashboardPage() {
     openedLong,
     thisMonthCount,
     lastMonthCount,
+    totalApplications,
+    newApplications,
   ] = await Promise.all([
     prisma.job.count({ where: { status: "ACTIVE" } }),
     prisma.job.count({ where: { status: "PAUSED" } }),
     prisma.job.count({ where: { status: "CLOSED" } }),
     prisma.job.count({ where: { status: "DRAFT" } }),
-    prisma.job.count({ where: { status: "ACTIVE", tallyFormUrl: null } }),
+    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST }, applyMode: "EXTERNAL", tallyFormUrl: null } }),
     prisma.job.count({
-      where: { status: "ACTIVE", closingDate: { gte: now, lte: sevenDaysFromNow } },
+      where: { status: { in: PUBLIC_JOB_STATUS_LIST }, closingDate: { gte: now, lte: sevenDaysFromNow } },
     }),
-    prisma.job.count({ where: { status: "ACTIVE", createdAt: { lte: thirtyDaysAgo } } }),
+    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST }, createdAt: { lte: thirtyDaysAgo } } }),
     prisma.job.count({ where: { createdAt: { gte: startOfThisMonth, lt: startOfNextMonth } } }),
     prisma.job.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+    prisma.application.count(),
+    prisma.application.count({ where: { stage: "NEW" } }),
   ]);
 
   const recentJobs = await prisma.job.findMany({
@@ -47,17 +52,53 @@ export default async function DashboardPage() {
     select: { id: true, title: true, status: true, city: true, state: true, createdAt: true },
   });
 
+  const recentApplications = await prisma.application.findMany({
+    take: 5,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      fullName: true,
+      stage: true,
+      createdAt: true,
+      jobId: true,
+      job: { select: { title: true } },
+    },
+  });
+
   const statusBadge: Record<string, string> = {
     DRAFT: "bg-blue-500/10 text-blue-400",
     ACTIVE: "bg-wg-green/10 text-wg-green",
-    PAUSED: "bg-yellow-500/10 text-yellow-400",
+    SCREENING: "bg-amber-500/10 text-amber-400",
+    INTERVIEW: "bg-purple-500/10 text-purple-400",
+    ADMISSION: "bg-cyan-500/10 text-cyan-400",
+    PAUSED: "bg-orange-500/10 text-orange-400",
     CLOSED: "bg-wg-border text-wg-gray",
   };
   const statusLabel: Record<string, string> = {
     DRAFT: "Rascunho",
     ACTIVE: "Ativa",
+    SCREENING: "Triagem",
+    INTERVIEW: "Entrevistas",
+    ADMISSION: "Admissão",
     PAUSED: "Pausada",
-    CLOSED: "Encerrada",
+    CLOSED: "Cancelada",
+  };
+
+  const stageLabel: Record<string, string> = {
+    NEW: "Novo",
+    SCREENING: "Triagem",
+    INTERVIEW: "Entrevista",
+    OFFER: "Proposta",
+    HIRED: "Contratado",
+    REJECTED: "Reprovado",
+  };
+  const stageBadge: Record<string, string> = {
+    NEW: "bg-blue-500/10 text-blue-400",
+    SCREENING: "bg-amber-500/10 text-amber-400",
+    INTERVIEW: "bg-purple-500/10 text-purple-400",
+    OFFER: "bg-cyan-500/10 text-cyan-400",
+    HIRED: "bg-wg-green/10 text-wg-green",
+    REJECTED: "bg-red-500/10 text-red-400",
   };
 
   const stats = [
@@ -83,7 +124,7 @@ export default async function DashboardPage() {
       href: "/vagas/gerenciar?status=PAUSED",
     },
     {
-      label: "Vagas Encerradas",
+      label: "Vagas Canceladas",
       value: closedJobs,
       icon: XCircle as ElementType,
       iconClass: "bg-wg-border text-wg-gray",
@@ -175,6 +216,46 @@ export default async function DashboardPage() {
           </p>
           <p className="text-xs text-wg-gray mt-0.5">{lastMonthCount} no mês anterior</p>
         </div>
+      </div>
+
+      {/* Candidaturas */}
+      <div className="bg-wg-card border border-wg-border rounded-xl mb-6">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-wg-border">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-wg-green" />
+            <h2 className="font-semibold text-white">Candidaturas</h2>
+            <span className="text-xs text-wg-gray">
+              {totalApplications} no total
+              {newApplications > 0 && (
+                <span className="ml-2 text-blue-400">· {newApplications} nova{newApplications > 1 ? "s" : ""}</span>
+              )}
+            </span>
+          </div>
+        </div>
+
+        {recentApplications.length === 0 ? (
+          <div className="px-5 py-10 text-center text-wg-gray text-sm">
+            Nenhuma candidatura recebida ainda.
+          </div>
+        ) : (
+          <div className="divide-y divide-wg-border">
+            {recentApplications.map((app) => (
+              <Link
+                key={app.id}
+                href={`/vagas/${app.jobId}/candidatos`}
+                className="flex items-center justify-between px-5 py-3 hover:bg-wg-card-2 transition-colors gap-3"
+              >
+                <div className="min-w-0">
+                  <span className="text-sm font-medium text-white">{app.fullName}</span>
+                  <span className="text-xs text-wg-gray ml-2">{app.job.title}</span>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${stageBadge[app.stage]}`}>
+                  {stageLabel[app.stage]}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Vagas recentes */}

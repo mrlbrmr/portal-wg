@@ -14,12 +14,16 @@ export default auth((req: NextRequest & { auth: unknown }) => {
     pathname.startsWith("/vagas/gerenciar") ||
     pathname.startsWith("/vagas/nova") ||
     (pathname.startsWith("/vagas/") && pathname.endsWith("/editar")) ||
+    (pathname.startsWith("/vagas/") && pathname.endsWith("/candidatos")) ||
     pathname.startsWith("/configuracoes") ||
     pathname.startsWith("/perfil") ||
     pathname.startsWith("/usuarios") ||
     pathname.startsWith("/api/jobs") ||
     pathname.startsWith("/api/homepage-config") ||
-    pathname.startsWith("/api/users");
+    pathname.startsWith("/api/users") ||
+    // Mutação/leitura de candidatura individual é interna.
+    // Atenção: POST /api/applications (exato) é PÚBLICO — só protegemos subrotas.
+    /^\/api\/applications\/.+/.test(pathname);
 
   if (isInternalRoute && !session) {
     const loginUrl = new URL("/login", req.nextUrl.origin);

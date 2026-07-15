@@ -3,8 +3,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus } from "@prisma/client";
-import { generateSlug } from "@/lib/utils";
+import { Modality, ContractType, JobStatus, ApplyMode } from "@prisma/client";
+import { generateSlug, isPublicJobStatus } from "@/lib/utils";
 
 function richText(minChars: number, message: string) {
   return z
@@ -33,6 +33,7 @@ const updateJobSchema = z.object({
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
   tallyFormUrl: z.string().url("URL inválida").optional().nullable().or(z.literal("")),
+  applyMode: z.nativeEnum(ApplyMode).optional(),
   status: z.nativeEnum(JobStatus).optional(),
 });
 
@@ -47,7 +48,7 @@ export async function GET(
 
   if (!job) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
 
-  if (!session && job.status !== "ACTIVE") {
+  if (!session && !isPublicJobStatus(job.status)) {
     return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
   }
 

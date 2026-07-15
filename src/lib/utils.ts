@@ -26,9 +26,21 @@ export function formatDateTime(date: Date | string): string {
 export const JOB_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Rascunho",
   ACTIVE: "Ativa",
+  SCREENING: "Triagem",
+  INTERVIEW: "Entrevistas",
+  ADMISSION: "Admissão",
   PAUSED: "Pausada",
-  CLOSED: "Encerrada",
+  CLOSED: "Cancelada",
 };
+
+// Status em que a vaga fica VISÍVEL no portal público (e aceitando inscrições).
+// Triagem/Entrevistas/Admissão são etapas internas mas a vaga segue publicada;
+// só sai do ar em Rascunho, Pausada e Cancelada.
+export const PUBLIC_JOB_STATUSES = ["ACTIVE", "SCREENING", "INTERVIEW", "ADMISSION"] as const;
+
+export function isPublicJobStatus(status: string): boolean {
+  return (PUBLIC_JOB_STATUSES as readonly string[]).includes(status);
+}
 
 export const MODALITY_LABELS: Record<string, string> = {
   PRESENTIAL: "Presencial",

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Users, List, LayoutGrid } from "lucide-react";
+import { ExternalLink, Users, List, LayoutGrid, ChevronDown } from "lucide-react";
 import {
   JOB_STATUS_LABELS,
   MODALITY_LABELS,
@@ -15,6 +15,7 @@ import {
   normalizeText,
 } from "@/lib/utils";
 import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
+import { JobDetailsPanel } from "@/components/internal/JobDetailsPanel";
 import { PriorityBadge } from "@/components/internal/PriorityBadge";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { FilterBar } from "@/components/internal/FilterBar";
@@ -116,6 +117,7 @@ export function JobsExplorer({
   const [sort, setSort] = useState(
     SORT_OPTIONS.some((o) => o.value === initialSort) ? initialSort : "date_desc"
   );
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const query = useDebouncedValue(search, 300);
 
@@ -250,8 +252,9 @@ export function JobsExplorer({
           {filtered.map((job) => (
             <div
               key={job.id}
-              className="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-wg-green/50"
+              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-wg-green/50"
             >
+              <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex flex-wrap items-center gap-2">
                   <h2 className="font-semibold text-gray-900">{job.title}</h2>
@@ -293,6 +296,21 @@ export function JobsExplorer({
               </div>
 
               <div className="flex flex-shrink-0 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedId((cur) => (cur === job.id ? null : job.id))
+                  }
+                  aria-expanded={expandedId === job.id}
+                  title={expandedId === job.id ? "Recolher detalhes" : "Ver detalhes"}
+                  className="rounded-lg border border-gray-300 p-1.5 text-gray-500 transition-colors hover:border-wg-green hover:text-wg-green-dark"
+                >
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${
+                      expandedId === job.id ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
                 <Link
                   href={`/vagas/${job.id}/candidatos`}
                   className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:border-wg-green hover:text-wg-green-dark"
@@ -320,6 +338,9 @@ export function JobsExplorer({
                   />
                 )}
               </div>
+              </div>
+
+              {expandedId === job.id && <JobDetailsPanel jobId={job.id} />}
             </div>
           ))}
         </div>

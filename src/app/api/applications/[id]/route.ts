@@ -6,11 +6,48 @@ import { z } from "zod";
 import { ApplicationStage } from "@prisma/client";
 import { deleteResume } from "@/lib/storage";
 
-// Rotas internas — mutação de candidatura. Exigem ADMIN_RH.
+// Rotas internas — leitura/mutação de candidatura.
 // LGPD: nenhuma dessas rotas é pública (protegidas por auth + middleware).
 
+// GET: ficha completa da candidatura + histórico de etapas. Qualquer usuário
+// interno autenticado pode ver; só ADMIN_RH altera (PATCH/DELETE).
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
+  const application = await prisma.application.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      phone: true,
+      resumeName: true,
+      stage: true,
+      notes: true,
+      createdAt: true,
+      stageHistory: {
+        orderBy: { changedAt: "asc" },
+        select: { id: true, stage: true, changedBy: true, changedAt: true },
+      },
+    },
+  });
+  if (!application) {
+    return NextResponse.json({ error: "Candidatura não encontrada" }, { status: 404 });
+  }
+
+  return NextResponse.json(application);
+}
+
 const patchSchema = z.object({
-  stage: z.nativeEnum(ApplicationStage),
+  stage: z.nativeEnum(ApplicationStage).optional(),
+  notes: z.string().max(5000).nullable().optional(),
 });
 
 export async function PATCH(
@@ -32,7 +69,7 @@ export async function PATCH(
 
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Etapa inválida" }, { status: 400 });
+    return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
   }
 
   const current = await prisma.application.findUnique({
@@ -43,13 +80,18 @@ export async function PATCH(
     return NextResponse.json({ error: "Candidatura não encontrada" }, { status: 404 });
   }
 
+  const data: { stage?: ApplicationStage; notes?: string | null } = {};
+  if (parsed.data.stage !== undefined) data.stage = parsed.data.stage;
+  if (parsed.data.notes !== undefined) data.notes = parsed.data.notes;
+
   const application = await prisma.application.update({
     where: { id },
-    data: { stage: parsed.data.stage },
-    select: { id: true, stage: true, jobId: true },
+    data,
+    select: { id: true, stage: true, jobId: true, notes: true },
   });
 
-  if (parsed.data.stage !== current.stage) {
+  // Só registra no histórico quando a etapa realmente muda.
+  if (parsed.data.stage && parsed.data.stage !== current.stage) {
     await prisma.applicationStageHistory.create({
       data: {
         applicationId: id,
@@ -62,7 +104,7 @@ export async function PATCH(
   revalidatePath(`/vagas/${application.jobId}/candidatos`);
   revalidatePath("/dashboard");
 
-  return NextResponse.json({ ok: true, stage: application.stage });
+  return NextResponse.json({ ok: true, stage: application.stage, notes: application.notes });
 }
 
 export async function DELETE(

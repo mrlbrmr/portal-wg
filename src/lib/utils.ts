@@ -51,6 +51,25 @@ export function isPublicJobStatus(status: string): boolean {
   return (PUBLIC_JOB_STATUSES as readonly string[]).includes(status);
 }
 
+// Etapas do funil de candidatura (colunas do Kanban de candidatos)
+export const APPLICATION_STAGE_LABELS: Record<string, string> = {
+  NEW: "Novo",
+  SCREENING: "Triagem",
+  INTERVIEW: "Entrevista",
+  OFFER: "Proposta",
+  HIRED: "Contratado",
+  REJECTED: "Reprovado",
+};
+
+export const APPLICATION_STAGE_BADGE: Record<string, string> = {
+  NEW: "bg-blue-100 text-blue-700",
+  SCREENING: "bg-amber-100 text-amber-700",
+  INTERVIEW: "bg-purple-100 text-purple-700",
+  OFFER: "bg-cyan-100 text-cyan-700",
+  HIRED: "bg-wg-green/15 text-wg-green-dark",
+  REJECTED: "bg-red-100 text-red-700",
+};
+
 export const MODALITY_LABELS: Record<string, string> = {
   PRESENTIAL: "Presencial",
   REMOTE: "Remoto",

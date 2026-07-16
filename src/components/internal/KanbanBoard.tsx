@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Download, Mail, Phone, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import {
   KanbanBoardShell,
   type KanbanColumnDef,
 } from "@/components/internal/KanbanBoardShell";
+import { CandidateDrawer } from "@/components/internal/CandidateDrawer";
 
 export interface KanbanApplication {
   id: string;
@@ -32,7 +34,10 @@ const STAGES: KanbanColumnDef[] = [
 ];
 
 export function KanbanBoard({ applications, canManage }: Props) {
+  const [detailId, setDetailId] = useState<string | null>(null);
+
   return (
+    <>
     <KanbanBoardShell<KanbanApplication>
       initialItems={applications}
       columns={STAGES}
@@ -68,7 +73,14 @@ export function KanbanBoard({ applications, canManage }: Props) {
       renderCard={(a, api) => (
         <>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{a.fullName}</p>
+            <button
+              type="button"
+              onClick={() => setDetailId(a.id)}
+              className="block max-w-full truncate text-left text-sm font-medium text-gray-900 transition-colors hover:text-wg-green-dark"
+              title="Abrir ficha do candidato"
+            >
+              {a.fullName}
+            </button>
             <p className="text-[11px] text-gray-500 mt-0.5">{formatDate(a.createdAt)}</p>
           </div>
 
@@ -114,5 +126,12 @@ export function KanbanBoard({ applications, canManage }: Props) {
         </>
       )}
     />
+
+    <CandidateDrawer
+      applicationId={detailId}
+      canManage={canManage}
+      onClose={() => setDetailId(null)}
+    />
+    </>
   );
 }

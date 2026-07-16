@@ -3,7 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Users, Pencil } from "lucide-react";
-import { MODALITY_LABELS, formatDate, isPublicJobStatus } from "@/lib/utils";
+import {
+  MODALITY_LABELS,
+  STALE_JOB_DAYS,
+  formatAge,
+  daysSince,
+  isPublicJobStatus,
+} from "@/lib/utils";
+import { PriorityBadge } from "@/components/internal/PriorityBadge";
 
 export interface KanbanJob {
   id: string;
@@ -12,6 +19,7 @@ export interface KanbanJob {
   state: string;
   modality: string;
   status: string;
+  priority: string;
   createdAt: string; // ISO
   candidateCount: number;
 }
@@ -120,11 +128,22 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
                       canManage ? "cursor-grab active:cursor-grabbing" : ""
                     } ${dragId === j.id ? "opacity-50" : ""}`}
                   >
-                    <p className="text-sm font-medium text-gray-900 leading-snug">{j.title}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-900 leading-snug">{j.title}</p>
+                      <PriorityBadge priority={j.priority} className="shrink-0" />
+                    </div>
                     <p className="text-[11px] text-gray-500 mt-1">
                       {j.city}/{j.state} · {MODALITY_LABELS[j.modality]}
                     </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">Criada em {formatDate(j.createdAt)}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Criada {formatAge(j.createdAt)}
+                      {isPublicJobStatus(j.status) &&
+                        daysSince(j.createdAt) >= STALE_JOB_DAYS && (
+                          <span className="ml-1 font-medium text-amber-700">
+                            · parada
+                          </span>
+                        )}
+                    </p>
 
                     <div className="mt-2.5 flex items-center gap-3 flex-wrap">
                       <Link

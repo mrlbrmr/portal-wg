@@ -81,6 +81,33 @@ export const JOB_PRIORITY_ORDER: Record<string, number> = {
   URGENT: 3,
 };
 
+// Cores do badge de prioridade (tema claro do admin)
+export const JOB_PRIORITY_BADGE: Record<string, string> = {
+  LOW: "bg-gray-100 text-gray-600",
+  MEDIUM: "bg-gray-100 text-gray-500",
+  HIGH: "bg-amber-100 text-amber-700",
+  URGENT: "bg-red-100 text-red-700",
+};
+
+/** Dias inteiros decorridos desde a data informada (nunca negativo). */
+export function daysSince(date: Date | string): number {
+  const diff = Date.now() - new Date(date).getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+}
+
+/** Rótulo relativo curto de idade: "hoje", "há 3 dias", "há 2 meses". */
+export function formatAge(date: Date | string): string {
+  const d = daysSince(date);
+  if (d === 0) return "hoje";
+  if (d === 1) return "há 1 dia";
+  if (d < 30) return `há ${d} dias`;
+  const months = Math.round(d / 30);
+  return months === 1 ? "há 1 mês" : `há ${months} meses`;
+}
+
+// A partir de quantos dias uma vaga aberta é considerada "parada" (destaque).
+export const STALE_JOB_DAYS = 30;
+
 export function generateSlug(title: string, city: string): string {
   const accentMap: Record<string, string> = {
     "á":"a","à":"a","ã":"a","â":"a","ä":"a",

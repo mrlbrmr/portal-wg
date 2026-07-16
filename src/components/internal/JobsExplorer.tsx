@@ -7,12 +7,16 @@ import {
   JOB_STATUS_LABELS,
   MODALITY_LABELS,
   JOB_PRIORITY_ORDER,
+  STALE_JOB_DAYS,
   formatDate,
+  formatAge,
+  daysSince,
   isPublicJobStatus,
   normalizeText,
 } from "@/lib/utils";
 import { JobActions } from "@/components/internal/JobActions";
 import { DuplicateJobButton } from "@/components/internal/DuplicateJobButton";
+import { PriorityBadge } from "@/components/internal/PriorityBadge";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { FilterBar } from "@/components/internal/FilterBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
@@ -228,6 +232,7 @@ export function JobsExplorer({
             state: j.state,
             modality: j.modality,
             status: j.status,
+            priority: j.priority,
             createdAt: j.createdAt,
             candidateCount: j.candidateCount,
           }))}
@@ -252,6 +257,7 @@ export function JobsExplorer({
                   >
                     {JOB_STATUS_LABELS[job.status]}
                   </span>
+                  <PriorityBadge priority={job.priority} />
                 </div>
                 <div className="flex flex-wrap gap-3 text-sm text-gray-500">
                   <span>
@@ -266,7 +272,15 @@ export function JobsExplorer({
                     </>
                   )}
                   <span>·</span>
-                  <span>Criada em {formatDate(job.createdAt)}</span>
+                  <span title={`Criada em ${formatDate(job.createdAt)}`}>
+                    Criada {formatAge(job.createdAt)}
+                  </span>
+                  {isPublicJobStatus(job.status) &&
+                    daysSince(job.createdAt) >= STALE_JOB_DAYS && (
+                      <span className="font-medium text-amber-700">
+                        · parada há {daysSince(job.createdAt)} dias
+                      </span>
+                    )}
                 </div>
                 {job.responsible && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-3">

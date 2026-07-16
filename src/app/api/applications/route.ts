@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     remoteIp: ip !== "unknown" ? ip : undefined,
   });
   if (!captcha.ok) {
+    console.error("[applications] recaptcha falhou:", captcha.reason, "score:", captcha.score);
     return NextResponse.json(
       { error: "Falha na verificação de segurança. Recarregue a página e tente novamente." },
       { status: 400 }

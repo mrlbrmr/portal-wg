@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Users } from "lucide-react";
 import { KanbanBoard, type KanbanApplication } from "@/components/internal/KanbanBoard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Candidatos — RH" };
@@ -75,8 +76,12 @@ export default async function CandidatosPage({ params }: Props) {
       </div>
 
       {cards.length === 0 ? (
-        <div className="text-center py-16 text-gray-500 border border-dashed border-gray-300 rounded-xl">
-          Nenhuma candidatura recebida ainda.
+        <div className="rounded-xl border border-dashed border-gray-300">
+          <EmptyState
+            icon={Users}
+            title="Nenhuma candidatura recebida ainda"
+            description="Quando alguém se inscrever por esta vaga no portal, a candidatura aparece aqui no Kanban por etapa."
+          />
         </div>
       ) : (
         <KanbanBoard applications={cards} canManage={canManage} />

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Briefcase, PauseCircle, XCircle, Plus, FileText, Clock, Calendar, Users } from "lucide-react";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Metadata } from "next";
 import type { ElementType } from "react";
 
@@ -226,9 +227,12 @@ export default async function DashboardPage() {
         </div>
 
         {recentApplications.length === 0 ? (
-          <div className="px-5 py-10 text-center text-gray-500 text-sm">
-            Nenhuma candidatura recebida ainda.
-          </div>
+          <EmptyState
+            icon={Users}
+            title="Nenhuma candidatura recebida ainda"
+            description="As inscrições feitas pelo portal aparecem aqui."
+            className="py-10"
+          />
         ) : (
           <div className="divide-y divide-gray-100">
             {recentApplications.map((app) => (
@@ -260,9 +264,12 @@ export default async function DashboardPage() {
         </div>
 
         {recentJobs.length === 0 ? (
-          <div className="px-5 py-10 text-center text-gray-500 text-sm">
-            Nenhuma vaga cadastrada ainda.
-          </div>
+          <EmptyState
+            icon={Briefcase}
+            title="Nenhuma vaga cadastrada ainda"
+            description="Crie sua primeira vaga para começar."
+            className="py-10"
+          />
         ) : (
           <div className="divide-y divide-gray-100">
             {recentJobs.map((job) => (

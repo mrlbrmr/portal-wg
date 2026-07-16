@@ -3,7 +3,16 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ExternalLink, Users, List, LayoutGrid, ChevronDown } from "lucide-react";
+import {
+  ExternalLink,
+  Users,
+  List,
+  LayoutGrid,
+  ChevronDown,
+  Briefcase,
+  SearchX,
+  Plus,
+} from "lucide-react";
 import {
   JOB_STATUS_LABELS,
   MODALITY_LABELS,
@@ -18,6 +27,7 @@ import {
 import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
 import { JobDetailsPanel } from "@/components/internal/JobDetailsPanel";
 import { PriorityBadge } from "@/components/internal/PriorityBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { FilterBar } from "@/components/internal/FilterBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
@@ -262,9 +272,42 @@ export function JobsExplorer({
           canManage={canManage}
         />
       ) : filtered.length === 0 ? (
-        <div className="py-16 text-center text-gray-500">
-          Nenhuma vaga encontrada.
-        </div>
+        jobs.length === 0 ? (
+          <EmptyState
+            icon={Briefcase}
+            title="Nenhuma vaga cadastrada"
+            description="Crie a primeira vaga para começar a receber candidaturas."
+            action={
+              canManage ? (
+                <Link
+                  href="/vagas/nova"
+                  className="inline-flex items-center gap-2 rounded-lg bg-wg-green px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-wg-green-bright"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nova vaga
+                </Link>
+              ) : undefined
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={SearchX}
+            title="Nenhuma vaga encontrada"
+            description="Nenhuma vaga corresponde à pesquisa e aos filtros atuais."
+            action={
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setFilters(EMPTY_JOB_FILTERS);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-wg-green hover:text-wg-green-dark"
+              >
+                Limpar pesquisa e filtros
+              </button>
+            }
+          />
+        )
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((job) => (

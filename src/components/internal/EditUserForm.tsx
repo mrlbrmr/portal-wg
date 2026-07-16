@@ -17,8 +17,8 @@ interface Props {
 }
 
 const inputClass =
-  "w-full bg-wg-card-2 border border-wg-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-wg-gray focus:outline-none focus:ring-2 focus:ring-wg-green/40 transition-colors";
-const labelClass = "block text-sm font-medium text-wg-gray mb-1";
+  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
+const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
 export function EditUserForm({ user }: Props) {
   const router = useRouter();
@@ -96,7 +96,7 @@ export function EditUserForm({ user }: Props) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Informações básicas */}
         <section>
-          <h2 className="text-xs font-semibold text-wg-gray uppercase tracking-widest mb-3">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
             Informações
           </h2>
           <div className="flex flex-col gap-4">
@@ -125,22 +125,22 @@ export function EditUserForm({ user }: Props) {
 
         {/* Acesso */}
         <section>
-          <h2 className="text-xs font-semibold text-wg-gray uppercase tracking-widest mb-3">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
             Acesso
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Papel</label>
               <select name="role" defaultValue={user.role} className={inputClass}>
-                <option value="VIEWER_RH" className="bg-wg-card">Visualizador — só leitura</option>
-                <option value="ADMIN_RH" className="bg-wg-card">Admin RH — acesso total</option>
+                <option value="VIEWER_RH" className="bg-white">Visualizador — só leitura</option>
+                <option value="ADMIN_RH" className="bg-white">Admin RH — acesso total</option>
               </select>
             </div>
             <div>
               <label className={labelClass}>Status</label>
               <select name="active" defaultValue={String(user.active)} className={inputClass}>
-                <option value="true" className="bg-wg-card">Ativo</option>
-                <option value="false" className="bg-wg-card">Inativo</option>
+                <option value="true" className="bg-white">Ativo</option>
+                <option value="false" className="bg-white">Inativo</option>
               </select>
             </div>
           </div>
@@ -148,10 +148,10 @@ export function EditUserForm({ user }: Props) {
 
         {/* Redefinir senha */}
         <section>
-          <h2 className="text-xs font-semibold text-wg-gray uppercase tracking-widest mb-1">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">
             Redefinir senha
           </h2>
-          <p className="text-xs text-wg-gray mb-3">
+          <p className="text-xs text-gray-500 mb-3">
             Deixe em branco para manter a senha atual.
           </p>
           <input
@@ -164,7 +164,7 @@ export function EditUserForm({ user }: Props) {
         </section>
 
         {error && (
-          <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5">
+          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
             {error}
           </p>
         )}
@@ -173,7 +173,7 @@ export function EditUserForm({ user }: Props) {
           <button
             type="button"
             onClick={() => router.back()}
-            className="border border-wg-border text-wg-gray hover:text-white hover:border-white/30 rounded-lg py-2.5 px-4 text-sm font-medium transition-colors"
+            className="border border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400 rounded-lg py-2.5 px-4 text-sm font-medium transition-colors"
           >
             Cancelar
           </button>
@@ -194,14 +194,14 @@ export function EditUserForm({ user }: Props) {
       </form>
 
       {/* Zona de perigo */}
-      <div className="mt-8 border-t border-red-500/20 pt-6">
-        <p className="text-xs text-wg-gray mb-3">
+      <div className="mt-8 border-t border-red-200 pt-6">
+        <p className="text-xs text-gray-500 mb-3">
           Excluir permanentemente remove o usuário e todo o histórico de acesso.
         </p>
         <button
           onClick={() => setConfirmDelete(true)}
           disabled={deleting}
-          className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-500/60 px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 border border-red-300 hover:border-red-500 px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
         >
           <Trash2 className="w-4 h-4" />
           Excluir usuário

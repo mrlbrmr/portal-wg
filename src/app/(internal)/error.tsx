@@ -34,7 +34,7 @@ export default function InternalError({
         </button>
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           Ir ao dashboard
         </Link>

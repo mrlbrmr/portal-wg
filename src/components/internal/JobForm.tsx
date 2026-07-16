@@ -12,9 +12,9 @@ interface Props {
 }
 
 const inputClass =
-  "w-full bg-wg-card-2 border border-wg-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-wg-gray focus:outline-none focus:ring-2 focus:ring-wg-green/40 transition-colors";
+  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
 
-const labelClass = "block text-sm font-medium text-wg-gray mb-1";
+const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
 const REQUIRED_RICH_FIELDS: { key: "description" | "responsibilities" | "requiredRequirements"; label: string }[] = [
   { key: "description", label: "Descrição da vaga" },
@@ -140,7 +140,7 @@ export default function JobForm({ job }: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
           <label className={labelClass}>
-            Título da vaga <span className="text-red-400">*</span>
+            Título da vaga <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -208,26 +208,26 @@ export default function JobForm({ job }: Props) {
 
         <div>
           <label className={labelClass}>
-            Status <span className="text-red-400">*</span>
+            Status <span className="text-red-500">*</span>
           </label>
           <select
             name="status"
             defaultValue={job?.status || "ACTIVE"}
             className={inputClass}
           >
-            <option value="DRAFT" className="bg-wg-card">Rascunho — só no painel</option>
-            <option value="ACTIVE" className="bg-wg-card">Ativa — publicada no portal</option>
-            <option value="SCREENING" className="bg-wg-card">Triagem — no portal (etapa interna)</option>
-            <option value="INTERVIEW" className="bg-wg-card">Entrevistas — no portal (etapa interna)</option>
-            <option value="ADMISSION" className="bg-wg-card">Admissão — no portal (etapa interna)</option>
-            <option value="PAUSED" className="bg-wg-card">Pausada — fora do portal</option>
-            <option value="CLOSED" className="bg-wg-card">Cancelada — fora do portal</option>
+            <option value="DRAFT" className="bg-white">Rascunho — só no painel</option>
+            <option value="ACTIVE" className="bg-white">Ativa — publicada no portal</option>
+            <option value="SCREENING" className="bg-white">Triagem — no portal (etapa interna)</option>
+            <option value="INTERVIEW" className="bg-white">Entrevistas — no portal (etapa interna)</option>
+            <option value="ADMISSION" className="bg-white">Admissão — no portal (etapa interna)</option>
+            <option value="PAUSED" className="bg-white">Pausada — fora do portal</option>
+            <option value="CLOSED" className="bg-white">Cancelada — fora do portal</option>
           </select>
         </div>
 
         <div>
           <label className={labelClass}>
-            Cidade <span className="text-red-400">*</span>
+            Cidade <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -240,7 +240,7 @@ export default function JobForm({ job }: Props) {
 
         <div>
           <label className={labelClass}>
-            UF <span className="text-red-400">*</span>
+            UF <span className="text-red-500">*</span>
           </label>
           <select
             name="state"
@@ -249,7 +249,7 @@ export default function JobForm({ job }: Props) {
             className={inputClass}
           >
             {BRAZIL_STATES.map((uf) => (
-              <option key={uf} value={uf} className="bg-wg-card">
+              <option key={uf} value={uf} className="bg-white">
                 {uf}
               </option>
             ))}
@@ -258,34 +258,34 @@ export default function JobForm({ job }: Props) {
 
         <div>
           <label className={labelClass}>
-            Modalidade <span className="text-red-400">*</span>
+            Modalidade <span className="text-red-500">*</span>
           </label>
           <select
             name="modality"
             defaultValue={job?.modality || "PRESENTIAL"}
             className={inputClass}
           >
-            <option value="PRESENTIAL" className="bg-wg-card">Presencial</option>
-            <option value="REMOTE" className="bg-wg-card">Remoto</option>
-            <option value="HYBRID" className="bg-wg-card">Híbrido</option>
+            <option value="PRESENTIAL" className="bg-white">Presencial</option>
+            <option value="REMOTE" className="bg-white">Remoto</option>
+            <option value="HYBRID" className="bg-white">Híbrido</option>
           </select>
         </div>
 
         <div>
           <label className={labelClass}>
-            Tipo de contratação <span className="text-red-400">*</span>
+            Tipo de contratação <span className="text-red-500">*</span>
           </label>
           <select
             name="contractType"
             defaultValue={job?.contractType || "CLT"}
             className={inputClass}
           >
-            <option value="CLT" className="bg-wg-card">CLT</option>
-            <option value="PJ" className="bg-wg-card">PJ</option>
-            <option value="INTERNSHIP" className="bg-wg-card">Estágio</option>
-            <option value="APPRENTICE" className="bg-wg-card">Jovem Aprendiz</option>
-            <option value="TEMPORARY" className="bg-wg-card">Temporário</option>
-            <option value="OTHER" className="bg-wg-card">Outro</option>
+            <option value="CLT" className="bg-white">CLT</option>
+            <option value="PJ" className="bg-white">PJ</option>
+            <option value="INTERNSHIP" className="bg-white">Estágio</option>
+            <option value="APPRENTICE" className="bg-white">Jovem Aprendiz</option>
+            <option value="TEMPORARY" className="bg-white">Temporário</option>
+            <option value="OTHER" className="bg-white">Outro</option>
           </select>
         </div>
 
@@ -316,7 +316,7 @@ export default function JobForm({ job }: Props) {
 
         <div className="col-span-2">
           <label className={labelClass}>
-            Modo de inscrição <span className="text-red-400">*</span>
+            Modo de inscrição <span className="text-red-500">*</span>
           </label>
           <select
             name="applyMode"
@@ -324,10 +324,10 @@ export default function JobForm({ job }: Props) {
             onChange={(e) => setApplyMode(e.target.value)}
             className={inputClass}
           >
-            <option value="EXTERNAL" className="bg-wg-card">Externo — link do Tally ou e-mail</option>
-            <option value="NATIVE" className="bg-wg-card">Formulário no portal — inscrição direta (LGPD)</option>
+            <option value="EXTERNAL" className="bg-white">Externo — link do Tally ou e-mail</option>
+            <option value="NATIVE" className="bg-white">Formulário no portal — inscrição direta (LGPD)</option>
           </select>
-          <p className="text-xs text-wg-gray mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             {applyMode === "NATIVE"
               ? "O candidato preenche nome, e-mail, celular e anexa o currículo direto na página da vaga. As candidaturas aparecem no painel (Kanban)."
               : "A vaga usa o link do Tally (abaixo) ou, se vazio, um botão de e-mail."}
@@ -346,15 +346,15 @@ export default function JobForm({ job }: Props) {
             disabled={applyMode === "NATIVE"}
             className={`${inputClass} ${applyMode === "NATIVE" ? "opacity-50" : ""}`}
           />
-          <p className="text-xs text-wg-gray mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             {applyMode === "NATIVE"
               ? "Não usado no modo Formulário no portal."
               : "Cole aqui o link do formulário Tally desta vaga. Aparecerá como botão “Candidatar-se” no portal."}
           </p>
         </div>
 
-        <div className="col-span-2 border-t border-wg-border pt-4">
-          <p className="text-xs font-medium text-wg-gray uppercase tracking-wider mb-3">Informações internas (não aparecem no portal)</p>
+        <div className="col-span-2 border-t border-gray-200 pt-4">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Informações internas (não aparecem no portal)</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Responsável pelo processo</label>
@@ -378,7 +378,7 @@ export default function JobForm({ job }: Props) {
                 }
                 className={inputClass}
               />
-              <p className="text-xs text-wg-gray mt-1">Data-alvo para fechar a seleção.</p>
+              <p className="text-xs text-gray-500 mt-1">Data-alvo para fechar a seleção.</p>
             </div>
           </div>
         </div>
@@ -394,11 +394,11 @@ export default function JobForm({ job }: Props) {
         <div key={f.key}>
           <label className={labelClass}>
             {f.label}{" "}
-            {f.required && <span className="text-red-400">*</span>}
+            {f.required && <span className="text-red-500">*</span>}
           </label>
           <RichTextEditor content={richFields[f.key]} onChange={setRich(f.key)} />
           {f.required && (
-            <p className="text-xs text-wg-gray mt-1">Campo obrigatório — preencha com pelo menos uma frase.</p>
+            <p className="text-xs text-gray-500 mt-1">Campo obrigatório — preencha com pelo menos uma frase.</p>
           )}
         </div>
       ))}
@@ -411,13 +411,13 @@ export default function JobForm({ job }: Props) {
         const total = REQUIRED_RICH_FIELDS.length;
         return (
           <div className="flex items-center gap-3 py-1">
-            <div className="flex-1 h-1.5 bg-wg-border rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-wg-green transition-all duration-300 rounded-full"
                 style={{ width: `${(filled / total) * 100}%` }}
               />
             </div>
-            <span className="text-xs text-wg-gray shrink-0">
+            <span className="text-xs text-gray-500 shrink-0">
               {filled}/{total} seções preenchidas
             </span>
           </div>
@@ -425,7 +425,7 @@ export default function JobForm({ job }: Props) {
       })()}
 
       {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}
         </div>
       )}
@@ -436,7 +436,7 @@ export default function JobForm({ job }: Props) {
             href={`/vagas/${job.slug ?? job.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 border border-wg-border hover:border-wg-green/50 text-wg-gray hover:text-wg-green px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
           >
             <ExternalLink className="w-4 h-4" />
             Ver prévia

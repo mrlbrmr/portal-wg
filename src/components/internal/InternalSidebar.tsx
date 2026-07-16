@@ -27,7 +27,7 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
   ];
 
   return (
-    <aside className="w-52 border-r border-wg-border bg-black min-h-[calc(100vh-56px)] p-3 flex-shrink-0">
+    <aside className="w-52 border-r border-gray-200 bg-white min-h-[calc(100vh-56px)] p-3 flex-shrink-0">
       <nav className="flex flex-col gap-1">
         {links.map((link) => {
           const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
@@ -39,8 +39,8 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-wg-green/10 text-wg-green"
-                  : "text-wg-gray hover:bg-wg-card hover:text-white"
+                  ? "bg-wg-green/15 text-wg-green-dark"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               )}
             >
               <link.icon className="w-4 h-4" />

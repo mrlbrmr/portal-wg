@@ -65,7 +65,7 @@ export function JobActions({ jobId, jobTitle, status }: Props) {
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
 
       <ConfirmModal

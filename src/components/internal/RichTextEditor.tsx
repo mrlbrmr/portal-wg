@@ -21,7 +21,7 @@ export function RichTextEditor({ content, onChange }: Props) {
     editorProps: {
       attributes: {
         class:
-          "rich-editor min-h-[120px] px-3 py-2.5 text-sm text-white focus:outline-none leading-relaxed",
+          "rich-editor min-h-[120px] px-3 py-2.5 text-sm text-gray-900 focus:outline-none leading-relaxed",
       },
     },
   });
@@ -38,13 +38,13 @@ export function RichTextEditor({ content, onChange }: Props) {
 
   if (!editor) {
     return (
-      <div className="border border-wg-border rounded-lg bg-wg-card-2 min-h-[164px]" />
+      <div className="border border-gray-300 rounded-lg bg-white min-h-[164px]" />
     );
   }
 
   return (
-    <div className="border border-wg-border rounded-lg bg-wg-card-2 focus-within:ring-2 focus-within:ring-wg-green/40">
-      <div className="flex items-center gap-0.5 border-b border-wg-border px-2 py-1.5 bg-wg-card rounded-t-lg">
+    <div className="border border-gray-300 rounded-lg bg-white focus-within:ring-2 focus-within:ring-wg-green/40 focus-within:border-wg-green">
+      <div className="flex items-center gap-0.5 border-b border-gray-200 px-2 py-1.5 bg-gray-50 rounded-t-lg">
         <ToolbarButton
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}
           active={state?.isBold ?? false}
@@ -59,7 +59,7 @@ export function RichTextEditor({ content, onChange }: Props) {
         >
           <Italic className="w-3.5 h-3.5" />
         </ToolbarButton>
-        <div className="w-px h-4 bg-wg-border mx-1" />
+        <div className="w-px h-4 bg-gray-300 mx-1" />
         <ToolbarButton
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); }}
           active={state?.isBulletList ?? false}
@@ -98,8 +98,8 @@ function ToolbarButton({
       title={title}
       className={`p-1.5 rounded transition-colors ${
         active
-          ? "bg-wg-green/20 text-wg-green"
-          : "text-wg-gray hover:bg-wg-border hover:text-white"
+          ? "bg-wg-green/20 text-wg-green-dark"
+          : "text-gray-500 hover:bg-gray-200 hover:text-gray-900"
       }`}
     >
       {children}

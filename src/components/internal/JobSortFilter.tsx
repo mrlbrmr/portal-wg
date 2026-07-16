@@ -42,11 +42,11 @@ function JobSortFilterInner() {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-wg-gray whitespace-nowrap">Ordenar por:</span>
+        <span className="text-xs text-gray-500 whitespace-nowrap">Ordenar por:</span>
         <select
           value={currentSort}
           onChange={(e) => updateParam("sort", e.target.value)}
-          className="bg-wg-card border border-wg-border text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-wg-green/50 cursor-pointer"
+          className="bg-white border border-gray-300 text-sm text-gray-900 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green cursor-pointer"
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -57,11 +57,11 @@ function JobSortFilterInner() {
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="text-xs text-wg-gray whitespace-nowrap">Status:</span>
+        <span className="text-xs text-gray-500 whitespace-nowrap">Status:</span>
         <select
           value={currentStatus}
           onChange={(e) => updateParam("status", e.target.value)}
-          className="bg-wg-card border border-wg-border text-sm text-white rounded-lg px-3 py-1.5 focus:outline-none focus:border-wg-green/50 cursor-pointer"
+          className="bg-white border border-gray-300 text-sm text-gray-900 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green cursor-pointer"
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -74,7 +74,7 @@ function JobSortFilterInner() {
       {(currentSort !== "date_desc" || currentStatus !== "") && (
         <button
           onClick={() => router.push("?")}
-          className="text-xs text-wg-gray hover:text-white transition-colors underline underline-offset-2"
+          className="text-xs text-gray-500 hover:text-gray-900 transition-colors underline underline-offset-2"
         >
           Limpar filtros
         </button>

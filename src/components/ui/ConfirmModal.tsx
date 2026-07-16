@@ -32,27 +32,27 @@ export function ConfirmModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-wg-card border border-wg-border rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+      <div className="relative bg-white border border-gray-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <div
           className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${
-            variant === "danger" ? "bg-red-500/15" : "bg-amber-500/15"
+            variant === "danger" ? "bg-red-100" : "bg-amber-100"
           }`}
         >
           {variant === "danger" ? (
-            <Trash2 className="w-5 h-5 text-red-400" />
+            <Trash2 className="w-5 h-5 text-red-600" />
           ) : (
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
           )}
         </div>
 
-        <h3 className="text-white font-semibold text-base mb-2">{title}</h3>
-        <p className="text-wg-gray text-sm mb-6 leading-relaxed">{message}</p>
+        <h3 className="text-gray-900 font-semibold text-base mb-2">{title}</h3>
+        <p className="text-gray-500 text-sm mb-6 leading-relaxed">{message}</p>
 
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-wg-border text-wg-gray
-              hover:border-white/30 hover:text-white text-sm font-medium transition-colors"
+            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 text-gray-600
+              hover:border-gray-400 hover:text-gray-900 text-sm font-medium transition-colors"
           >
             Cancelar
           </button>

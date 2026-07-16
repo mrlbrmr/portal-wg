@@ -66,13 +66,13 @@ export default async function DashboardPage() {
   });
 
   const statusBadge: Record<string, string> = {
-    DRAFT: "bg-blue-500/10 text-blue-400",
-    ACTIVE: "bg-wg-green/10 text-wg-green",
-    SCREENING: "bg-amber-500/10 text-amber-400",
-    INTERVIEW: "bg-purple-500/10 text-purple-400",
-    ADMISSION: "bg-cyan-500/10 text-cyan-400",
-    PAUSED: "bg-orange-500/10 text-orange-400",
-    CLOSED: "bg-wg-border text-wg-gray",
+    DRAFT: "bg-blue-100 text-blue-700",
+    ACTIVE: "bg-wg-green/15 text-wg-green-dark",
+    SCREENING: "bg-amber-100 text-amber-700",
+    INTERVIEW: "bg-purple-100 text-purple-700",
+    ADMISSION: "bg-cyan-100 text-cyan-700",
+    PAUSED: "bg-orange-100 text-orange-700",
+    CLOSED: "bg-gray-200 text-gray-600",
   };
   const statusLabel: Record<string, string> = {
     DRAFT: "Rascunho",
@@ -93,12 +93,12 @@ export default async function DashboardPage() {
     REJECTED: "Reprovado",
   };
   const stageBadge: Record<string, string> = {
-    NEW: "bg-blue-500/10 text-blue-400",
-    SCREENING: "bg-amber-500/10 text-amber-400",
-    INTERVIEW: "bg-purple-500/10 text-purple-400",
-    OFFER: "bg-cyan-500/10 text-cyan-400",
-    HIRED: "bg-wg-green/10 text-wg-green",
-    REJECTED: "bg-red-500/10 text-red-400",
+    NEW: "bg-blue-100 text-blue-700",
+    SCREENING: "bg-amber-100 text-amber-700",
+    INTERVIEW: "bg-purple-100 text-purple-700",
+    OFFER: "bg-cyan-100 text-cyan-700",
+    HIRED: "bg-wg-green/15 text-wg-green-dark",
+    REJECTED: "bg-red-100 text-red-700",
   };
 
   const stats = [
@@ -106,28 +106,28 @@ export default async function DashboardPage() {
       label: "Vagas Ativas",
       value: activeJobs,
       icon: Briefcase as ElementType,
-      iconClass: "bg-wg-green/10 text-wg-green",
+      iconClass: "bg-wg-green/15 text-wg-green-dark",
       href: "/vagas/gerenciar?status=ACTIVE",
     },
     {
       label: "Rascunhos",
       value: draftJobs,
       icon: FileText as ElementType,
-      iconClass: "bg-blue-500/10 text-blue-400",
+      iconClass: "bg-blue-100 text-blue-600",
       href: "/vagas/gerenciar?status=DRAFT",
     },
     {
       label: "Vagas Pausadas",
       value: pausedJobs,
       icon: PauseCircle as ElementType,
-      iconClass: "bg-yellow-500/10 text-yellow-400",
+      iconClass: "bg-yellow-100 text-yellow-600",
       href: "/vagas/gerenciar?status=PAUSED",
     },
     {
       label: "Vagas Canceladas",
       value: closedJobs,
       icon: XCircle as ElementType,
-      iconClass: "bg-wg-border text-wg-gray",
+      iconClass: "bg-gray-200 text-gray-600",
       href: "/vagas/gerenciar?status=CLOSED",
     },
   ];
@@ -142,22 +142,22 @@ export default async function DashboardPage() {
   const alerts: Alert[] = [
     activeWithoutTally > 0 && {
       icon: AlertTriangle as ElementType,
-      color: "text-red-400",
-      bg: "bg-red-500/10 border-red-500/20",
+      color: "text-red-700",
+      bg: "bg-red-50 border-red-200",
       message: `${activeWithoutTally} vaga${activeWithoutTally > 1 ? "s ativas sem" : " ativa sem"} link do Tally — candidatos não conseguem se inscrever`,
       href: "/vagas/gerenciar?status=ACTIVE",
     },
     expiringSoon > 0 && {
       icon: Clock as ElementType,
-      color: "text-yellow-400",
-      bg: "bg-yellow-500/10 border-yellow-500/20",
+      color: "text-yellow-700",
+      bg: "bg-yellow-50 border-yellow-200",
       message: `${expiringSoon} vaga${expiringSoon > 1 ? "s encerram" : " encerra"} nos próximos 7 dias`,
       href: "/vagas/gerenciar?status=ACTIVE",
     },
     openedLong > 0 && {
       icon: Calendar as ElementType,
-      color: "text-orange-400",
-      bg: "bg-orange-500/10 border-orange-500/20",
+      color: "text-orange-700",
+      bg: "bg-orange-50 border-orange-200",
       message: `${openedLong} vaga${openedLong > 1 ? "s abertas" : " aberta"} há mais de 30 dias — verificar andamento`,
       href: "/vagas/gerenciar?status=ACTIVE",
     },
@@ -166,10 +166,10 @@ export default async function DashboardPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">
+        <h1 className="text-2xl font-bold text-gray-900">
           Olá, {session?.user.name?.split(" ")[0]} 👋
         </h1>
-        <p className="text-wg-gray text-sm mt-1">Painel de Gente &amp; Gestão — WG Baterias</p>
+        <p className="text-gray-500 text-sm mt-1">Painel de Gente &amp; Gestão — WG Baterias</p>
       </div>
 
       {/* Alertas proativos */}
@@ -191,13 +191,13 @@ export default async function DashboardPage() {
       {/* Cards de métricas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-wg-card border border-wg-border rounded-xl p-4">
+          <div key={stat.label} className="bg-white border border-gray-200 shadow-sm rounded-xl p-4">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${stat.iconClass}`}>
               <stat.icon className="w-5 h-5" />
             </div>
-            <div className="text-2xl font-bold text-white">{stat.value}</div>
-            <div className="text-sm text-wg-gray mt-0.5">{stat.label}</div>
-            <Link href={stat.href} className="text-xs text-wg-green hover:text-wg-green-bright underline mt-1 block transition-colors">
+            <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+            <div className="text-sm text-gray-500 mt-0.5">{stat.label}</div>
+            <Link href={stat.href} className="text-xs text-wg-green-dark hover:opacity-80 underline mt-1 block transition-opacity">
               Ver detalhes →
             </Link>
           </div>
@@ -205,49 +205,49 @@ export default async function DashboardPage() {
       </div>
 
       {/* Tendência mensal */}
-      <div className="bg-wg-card border border-wg-border rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
+      <div className="bg-white border border-gray-200 shadow-sm rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
         <div>
-          <p className="text-sm text-wg-gray">Vagas publicadas este mês</p>
-          <p className="text-2xl font-bold text-white mt-0.5">{thisMonthCount}</p>
+          <p className="text-sm text-gray-500">Vagas publicadas este mês</p>
+          <p className="text-2xl font-bold text-gray-900 mt-0.5">{thisMonthCount}</p>
         </div>
         <div className="text-right">
-          <p className={`text-sm font-medium ${monthDiff > 0 ? "text-wg-green" : monthDiff < 0 ? "text-red-400" : "text-wg-gray"}`}>
+          <p className={`text-sm font-medium ${monthDiff > 0 ? "text-wg-green-dark" : monthDiff < 0 ? "text-red-600" : "text-gray-500"}`}>
             {monthTrend}
           </p>
-          <p className="text-xs text-wg-gray mt-0.5">{lastMonthCount} no mês anterior</p>
+          <p className="text-xs text-gray-500 mt-0.5">{lastMonthCount} no mês anterior</p>
         </div>
       </div>
 
       {/* Candidaturas */}
-      <div className="bg-wg-card border border-wg-border rounded-xl mb-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-wg-border">
+      <div className="bg-white border border-gray-200 shadow-sm rounded-xl mb-6">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-wg-green" />
-            <h2 className="font-semibold text-white">Candidaturas</h2>
-            <span className="text-xs text-wg-gray">
+            <Users className="w-4 h-4 text-wg-green-dark" />
+            <h2 className="font-semibold text-gray-900">Candidaturas</h2>
+            <span className="text-xs text-gray-500">
               {totalApplications} no total
               {newApplications > 0 && (
-                <span className="ml-2 text-blue-400">· {newApplications} nova{newApplications > 1 ? "s" : ""}</span>
+                <span className="ml-2 text-blue-600">· {newApplications} nova{newApplications > 1 ? "s" : ""}</span>
               )}
             </span>
           </div>
         </div>
 
         {recentApplications.length === 0 ? (
-          <div className="px-5 py-10 text-center text-wg-gray text-sm">
+          <div className="px-5 py-10 text-center text-gray-500 text-sm">
             Nenhuma candidatura recebida ainda.
           </div>
         ) : (
-          <div className="divide-y divide-wg-border">
+          <div className="divide-y divide-gray-100">
             {recentApplications.map((app) => (
               <Link
                 key={app.id}
                 href={`/vagas/${app.jobId}/candidatos`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-wg-card-2 transition-colors gap-3"
+                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors gap-3"
               >
                 <div className="min-w-0">
-                  <span className="text-sm font-medium text-white">{app.fullName}</span>
-                  <span className="text-xs text-wg-gray ml-2">{app.job.title}</span>
+                  <span className="text-sm font-medium text-gray-900">{app.fullName}</span>
+                  <span className="text-xs text-gray-500 ml-2">{app.job.title}</span>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${stageBadge[app.stage]}`}>
                   {stageLabel[app.stage]}
@@ -259,29 +259,29 @@ export default async function DashboardPage() {
       </div>
 
       {/* Vagas recentes */}
-      <div className="bg-wg-card border border-wg-border rounded-xl mb-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-wg-border">
-          <h2 className="font-semibold text-white">Vagas Recentes</h2>
-          <Link href="/vagas/gerenciar" className="text-sm text-wg-green hover:text-wg-green-bright transition-colors">
+      <div className="bg-white border border-gray-200 shadow-sm rounded-xl mb-6">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <h2 className="font-semibold text-gray-900">Vagas Recentes</h2>
+          <Link href="/vagas/gerenciar" className="text-sm text-wg-green-dark hover:opacity-80 transition-opacity">
             Ver todas
           </Link>
         </div>
 
         {recentJobs.length === 0 ? (
-          <div className="px-5 py-10 text-center text-wg-gray text-sm">
+          <div className="px-5 py-10 text-center text-gray-500 text-sm">
             Nenhuma vaga cadastrada ainda.
           </div>
         ) : (
-          <div className="divide-y divide-wg-border">
+          <div className="divide-y divide-gray-100">
             {recentJobs.map((job) => (
               <Link
                 key={job.id}
                 href={`/vagas/${job.id}/editar`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-wg-card-2 transition-colors"
+                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div>
-                  <span className="text-sm font-medium text-white">{job.title}</span>
-                  <span className="text-xs text-wg-gray ml-2">{job.city}/{job.state}</span>
+                  <span className="text-sm font-medium text-gray-900">{job.title}</span>
+                  <span className="text-xs text-gray-500 ml-2">{job.city}/{job.state}</span>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge[job.status]}`}>
                   {statusLabel[job.status]}
@@ -304,10 +304,10 @@ export default async function DashboardPage() {
           </Link>
           <Link
             href="/vagas/gerenciar"
-            className="bg-wg-card hover:bg-wg-card-2 border border-wg-border rounded-xl p-4 flex items-center gap-3 transition-colors"
+            className="bg-white hover:bg-gray-50 border border-gray-200 shadow-sm rounded-xl p-4 flex items-center gap-3 transition-colors"
           >
-            <Briefcase className="w-5 h-5 text-wg-green" />
-            <span className="font-medium text-white">Gerenciar Vagas</span>
+            <Briefcase className="w-5 h-5 text-wg-green-dark" />
+            <span className="font-medium text-gray-900">Gerenciar Vagas</span>
           </Link>
         </div>
       )}

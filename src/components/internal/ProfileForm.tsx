@@ -13,8 +13,8 @@ interface Props {
 }
 
 const inputClass =
-  "w-full bg-wg-card-2 border border-wg-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-wg-gray focus:outline-none focus:ring-2 focus:ring-wg-green/40 transition-colors";
-const labelClass = "block text-sm font-medium text-wg-gray mb-1";
+  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
+const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
 export function ProfileForm({ user }: Props) {
   const { update } = useSession();
@@ -103,8 +103,8 @@ export function ProfileForm({ user }: Props) {
   return (
     <div className="flex flex-col gap-6">
       {/* Dados pessoais */}
-      <div className="bg-wg-card border border-wg-border rounded-xl p-6">
-        <h2 className="text-sm font-semibold text-white mb-4">Dados pessoais</h2>
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-900 mb-4">Dados pessoais</h2>
 
         <div className="mb-4">
           <label className={labelClass}>E-mail</label>
@@ -114,7 +114,7 @@ export function ProfileForm({ user }: Props) {
             disabled
             className={`${inputClass} opacity-50 cursor-not-allowed`}
           />
-          <p className="text-xs text-wg-gray mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             O e-mail só pode ser alterado por um administrador.
           </p>
         </div>
@@ -133,7 +133,7 @@ export function ProfileForm({ user }: Props) {
           </div>
 
           {nameError && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {nameError}
             </p>
           )}
@@ -151,7 +151,7 @@ export function ProfileForm({ user }: Props) {
               )}
             </button>
             {nameSuccess && (
-              <span className="flex items-center gap-1 text-sm text-wg-green">
+              <span className="flex items-center gap-1 text-sm text-wg-green-dark">
                 <Check className="w-4 h-4" />
                 Nome atualizado
               </span>
@@ -161,8 +161,8 @@ export function ProfileForm({ user }: Props) {
       </div>
 
       {/* Alterar senha */}
-      <div className="bg-wg-card border border-wg-border rounded-xl p-6">
-        <h2 className="text-sm font-semibold text-white mb-4">Alterar senha</h2>
+      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-900 mb-4">Alterar senha</h2>
 
         <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
           <div>
@@ -201,7 +201,7 @@ export function ProfileForm({ user }: Props) {
           </div>
 
           {pwError && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {pwError}
             </p>
           )}
@@ -219,7 +219,7 @@ export function ProfileForm({ user }: Props) {
               )}
             </button>
             {pwSuccess && (
-              <span className="flex items-center gap-1 text-sm text-wg-green">
+              <span className="flex items-center gap-1 text-sm text-wg-green-dark">
                 <Check className="w-4 h-4" />
                 Senha alterada com sucesso
               </span>

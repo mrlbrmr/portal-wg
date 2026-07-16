@@ -48,7 +48,7 @@ export function UserToggleActions({ userId, currentRole, isActive }: Props) {
             patch({ role: currentRole === "ADMIN_RH" ? "VIEWER_RH" : "ADMIN_RH" })
           }
           disabled={loading}
-          className="text-xs border border-wg-border hover:border-wg-green/50 text-wg-gray hover:text-wg-green px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+          className="text-xs border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
         >
           {currentRole === "ADMIN_RH" ? "→ Visualizador" : "→ Admin RH"}
         </button>
@@ -58,7 +58,7 @@ export function UserToggleActions({ userId, currentRole, isActive }: Props) {
           <button
             onClick={() => setConfirmDeactivate(true)}
             disabled={loading}
-            className="text-xs border border-wg-border hover:border-red-500/40 text-wg-gray hover:text-red-400 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            className="text-xs border border-gray-300 hover:border-red-400 text-gray-600 hover:text-red-600 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
           >
             Desativar
           </button>
@@ -66,13 +66,13 @@ export function UserToggleActions({ userId, currentRole, isActive }: Props) {
           <button
             onClick={() => patch({ active: true })}
             disabled={loading}
-            className="text-xs border border-wg-border hover:border-wg-green/50 text-wg-gray hover:text-wg-green px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            className="text-xs border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
           >
             Reativar
           </button>
         )}
 
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
 
       <ConfirmModal

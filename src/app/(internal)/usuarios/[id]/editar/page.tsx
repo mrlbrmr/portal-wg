@@ -30,16 +30,16 @@ export default async function EditarUsuarioPage({ params }: Props) {
     <div className="max-w-lg">
       <Link
         href="/usuarios"
-        className="inline-flex items-center gap-1 text-sm text-wg-gray hover:text-wg-green transition-colors mb-5"
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-wg-green-dark transition-colors mb-5"
       >
         <ChevronLeft className="w-4 h-4" />
         Voltar aos usuários
       </Link>
 
-      <h1 className="text-2xl font-bold text-white mb-1">Editar usuário</h1>
-      <p className="text-sm text-wg-gray mb-6">{user.email}</p>
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">Editar usuário</h1>
+      <p className="text-sm text-gray-500 mb-6">{user.email}</p>
 
-      <div className="bg-wg-card border border-wg-border rounded-xl p-6">
+      <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6">
         <EditUserForm user={user} />
       </div>
     </div>

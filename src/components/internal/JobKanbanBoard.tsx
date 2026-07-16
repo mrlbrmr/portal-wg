@@ -67,7 +67,7 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
   return (
     <>
       {error && (
-        <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}
         </div>
       )}
@@ -93,22 +93,22 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
               className={`shrink-0 w-72 rounded-xl border transition-colors ${
                 overStatus === col.key
                   ? "border-wg-green bg-wg-green/5"
-                  : "border-wg-border bg-wg-card"
+                  : "border-gray-200 bg-gray-100"
               }`}
             >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-wg-border">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${col.dot}`} />
-                  <span className="text-sm font-semibold text-white">{col.label}</span>
+                  <span className="text-sm font-semibold text-gray-900">{col.label}</span>
                 </div>
-                <span className="text-xs text-wg-gray bg-wg-card-2 rounded-full px-2 py-0.5">
+                <span className="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">
                   {cards.length}
                 </span>
               </div>
 
               <div className="p-2 flex flex-col gap-2 min-h-[120px]">
                 {cards.length === 0 && (
-                  <p className="text-xs text-wg-gray text-center py-6">Nenhuma vaga</p>
+                  <p className="text-xs text-gray-400 text-center py-6">Nenhuma vaga</p>
                 )}
 
                 {cards.map((j) => (
@@ -117,21 +117,21 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
                     draggable={canManage}
                     onDragStart={() => setDragId(j.id)}
                     onDragEnd={() => setDragId(null)}
-                    className={`bg-wg-card-2 border border-wg-border rounded-lg p-3 ${
+                    className={`bg-white border border-gray-200 shadow-sm rounded-lg p-3 ${
                       canManage ? "cursor-grab active:cursor-grabbing" : ""
                     } ${dragId === j.id ? "opacity-50" : ""}`}
                   >
-                    <p className="text-sm font-medium text-white leading-snug">{j.title}</p>
-                    <p className="text-[11px] text-wg-gray mt-1">
+                    <p className="text-sm font-medium text-gray-900 leading-snug">{j.title}</p>
+                    <p className="text-[11px] text-gray-500 mt-1">
                       {j.city}/{j.state} · {MODALITY_LABELS[j.modality]}
                     </p>
-                    <p className="text-[11px] text-wg-gray mt-0.5">Criada em {formatDate(j.createdAt)}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">Criada em {formatDate(j.createdAt)}</p>
 
                     <div className="mt-2.5 flex items-center gap-3 flex-wrap">
                       {(j.applyMode === "NATIVE" || j.candidateCount > 0) && (
                         <Link
                           href={`/vagas/${j.id}/candidatos`}
-                          className="inline-flex items-center gap-1 text-xs text-wg-gray hover:text-wg-green transition-colors"
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
                           title="Ver candidatos"
                         >
                           <Users className="w-3 h-3" />
@@ -143,7 +143,7 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
                           href={`/vagas/${j.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-wg-gray hover:text-wg-green transition-colors"
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
                           title="Ver vaga pública"
                         >
                           <ExternalLink className="w-3 h-3" />
@@ -153,7 +153,7 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
                       {canManage && (
                         <Link
                           href={`/vagas/${j.id}/editar`}
-                          className="inline-flex items-center gap-1 text-xs text-wg-gray hover:text-wg-green transition-colors"
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
                           title="Editar vaga"
                         >
                           <Pencil className="w-3 h-3" />

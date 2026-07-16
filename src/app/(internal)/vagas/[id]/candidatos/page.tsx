@@ -52,7 +52,7 @@ export default async function CandidatosPage({ params }: Props) {
     <div>
       <Link
         href="/vagas/gerenciar"
-        className="inline-flex items-center gap-1 text-sm text-wg-gray hover:text-wg-green transition-colors mb-4"
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-wg-green-dark transition-colors mb-4"
       >
         <ChevronLeft className="w-4 h-4" />
         Voltar às vagas
@@ -60,29 +60,29 @@ export default async function CandidatosPage({ params }: Props) {
 
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">{job.title}</h1>
-          <p className="text-sm text-wg-gray mt-1">
+          <h1 className="text-2xl font-bold text-gray-900">{job.title}</h1>
+          <p className="text-sm text-gray-500 mt-1">
             {job.city}/{job.state} · Candidatos por etapa
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-wg-card border border-wg-border rounded-xl px-4 py-2.5">
-          <Users className="w-4 h-4 text-wg-green" />
-          <span className="text-sm text-white font-medium">{cards.length}</span>
-          <span className="text-sm text-wg-gray">
+        <div className="flex items-center gap-2 bg-white border border-gray-200 shadow-sm rounded-xl px-4 py-2.5">
+          <Users className="w-4 h-4 text-wg-green-dark" />
+          <span className="text-sm text-gray-900 font-medium">{cards.length}</span>
+          <span className="text-sm text-gray-500">
             {cards.length === 1 ? "candidatura" : "candidaturas"}
           </span>
         </div>
       </div>
 
       {job.applyMode !== "NATIVE" && (
-        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-400">
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
           Esta vaga não usa o formulário de inscrição do portal (modo Externo). Novas
           candidaturas não chegam por aqui — altere o &quot;Modo de inscrição&quot; na edição da vaga.
         </div>
       )}
 
       {cards.length === 0 ? (
-        <div className="text-center py-16 text-wg-gray border border-dashed border-wg-border rounded-xl">
+        <div className="text-center py-16 text-gray-500 border border-dashed border-gray-300 rounded-xl">
           Nenhuma candidatura recebida ainda.
         </div>
       ) : (

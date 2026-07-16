@@ -21,7 +21,7 @@ const CARD_FIELDS: { key: keyof HomepageConfigData; label: string }[] = [
 ];
 
 const inputClass =
-  "w-full bg-wg-card-2 border border-wg-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-wg-gray focus:outline-none focus:ring-2 focus:ring-wg-green/40 transition-colors";
+  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
 
 export default function HomepageConfigForm({ initialConfig }: Props) {
   const [config, setConfig] = useState<HomepageConfigData>(initialConfig);
@@ -63,11 +63,11 @@ export default function HomepageConfigForm({ initialConfig }: Props) {
   return (
     <div className="space-y-5 max-w-2xl">
       {/* Campos dos cards */}
-      <div className="bg-wg-card border border-wg-border rounded-xl p-5">
-        <h2 className="text-white font-semibold mb-1">
+      <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5">
+        <h2 className="text-gray-900 font-semibold mb-1">
           Campos exibidos nos cards de vaga
         </h2>
-        <p className="text-wg-gray text-xs mb-5">
+        <p className="text-gray-500 text-xs mb-5">
           O cargo da vaga é sempre exibido. Campos marcados mas sem informação
           preenchida na vaga não aparecem para o candidato.
         </p>
@@ -84,8 +84,8 @@ export default function HomepageConfigForm({ initialConfig }: Props) {
       </div>
 
       {/* Opções gerais */}
-      <div className="bg-wg-card border border-wg-border rounded-xl p-5">
-        <h2 className="text-white font-semibold mb-4">Opções gerais</h2>
+      <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5">
+        <h2 className="text-gray-900 font-semibold mb-4">Opções gerais</h2>
         <div className="space-y-3 mb-6">
           <CheckRow
             label="Mostrar filtros na homepage"
@@ -101,7 +101,7 @@ export default function HomepageConfigForm({ initialConfig }: Props) {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-wg-gray mb-1.5">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Título da seção de vagas
             </label>
             <input
@@ -112,7 +112,7 @@ export default function HomepageConfigForm({ initialConfig }: Props) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-wg-gray mb-1.5">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Subtítulo da seção de vagas
             </label>
             <input
@@ -126,7 +126,7 @@ export default function HomepageConfigForm({ initialConfig }: Props) {
       </div>
 
       {error && (
-        <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
           {error}
         </p>
       )}
@@ -176,12 +176,12 @@ function CheckRow({
         className={`w-5 h-5 rounded flex items-center justify-center border transition-colors flex-shrink-0 ${
           checked
             ? "bg-wg-green border-wg-green"
-            : "bg-wg-card-2 border-wg-border group-hover:border-wg-green/50"
+            : "bg-white border-gray-300 group-hover:border-wg-green/50"
         }`}
       >
         {checked && <Check className="w-3 h-3 text-black" />}
       </div>
-      <span className="text-sm text-white">{label}</span>
+      <span className="text-sm text-gray-800">{label}</span>
     </label>
   );
 }

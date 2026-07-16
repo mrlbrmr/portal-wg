@@ -11,7 +11,7 @@ export default async function NovoUsuarioPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-bold text-white mb-6">Novo Usuário</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Novo Usuário</h1>
       <NewUserForm />
     </div>
   );

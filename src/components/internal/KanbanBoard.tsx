@@ -87,7 +87,7 @@ export function KanbanBoard({ applications, canManage }: Props) {
   return (
     <>
       {error && (
-        <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}
         </div>
       )}
@@ -113,22 +113,22 @@ export function KanbanBoard({ applications, canManage }: Props) {
               className={`shrink-0 w-72 rounded-xl border transition-colors ${
                 overStage === col.key
                   ? "border-wg-green bg-wg-green/5"
-                  : "border-wg-border bg-wg-card"
+                  : "border-gray-200 bg-gray-100"
               }`}
             >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-wg-border">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${col.dot}`} />
-                  <span className="text-sm font-semibold text-white">{col.label}</span>
+                  <span className="text-sm font-semibold text-gray-900">{col.label}</span>
                 </div>
-                <span className="text-xs text-wg-gray bg-wg-card-2 rounded-full px-2 py-0.5">
+                <span className="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">
                   {cards.length}
                 </span>
               </div>
 
               <div className="p-2 flex flex-col gap-2 min-h-[120px]">
                 {cards.length === 0 && (
-                  <p className="text-xs text-wg-gray text-center py-6">Nenhuma candidatura</p>
+                  <p className="text-xs text-gray-400 text-center py-6">Nenhuma candidatura</p>
                 )}
 
                 {cards.map((a) => (
@@ -137,33 +137,33 @@ export function KanbanBoard({ applications, canManage }: Props) {
                     draggable={canManage}
                     onDragStart={() => setDragId(a.id)}
                     onDragEnd={() => setDragId(null)}
-                    className={`group bg-wg-card-2 border border-wg-border rounded-lg p-3 ${
+                    className={`group bg-white border border-gray-200 shadow-sm rounded-lg p-3 ${
                       canManage ? "cursor-grab active:cursor-grabbing" : ""
                     } ${dragId === a.id ? "opacity-50" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{a.fullName}</p>
-                        <p className="text-[11px] text-wg-gray mt-0.5">
+                        <p className="text-sm font-medium text-gray-900 truncate">{a.fullName}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
                           {formatDate(a.createdAt)}
                         </p>
                       </div>
                       {canManage && (
-                        <GripVertical className="w-4 h-4 text-wg-gray/50 shrink-0 mt-0.5" />
+                        <GripVertical className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
                       )}
                     </div>
 
                     <div className="mt-2 flex flex-col gap-1">
                       <a
                         href={`mailto:${a.email}`}
-                        className="flex items-center gap-1.5 text-xs text-wg-gray hover:text-wg-green transition-colors truncate"
+                        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-wg-green-dark transition-colors truncate"
                       >
                         <Mail className="w-3 h-3 shrink-0" />
                         <span className="truncate">{a.email}</span>
                       </a>
                       <a
                         href={`tel:${a.phone.replace(/\D/g, "")}`}
-                        className="flex items-center gap-1.5 text-xs text-wg-gray hover:text-wg-green transition-colors"
+                        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
                       >
                         <Phone className="w-3 h-3 shrink-0" />
                         {a.phone}
@@ -174,19 +174,19 @@ export function KanbanBoard({ applications, canManage }: Props) {
                       {a.resumeName ? (
                         <a
                           href={`/api/applications/${a.id}/resume`}
-                          className="inline-flex items-center gap-1 text-xs text-wg-green hover:text-wg-green-bright transition-colors"
+                          className="inline-flex items-center gap-1 text-xs text-wg-green-dark hover:opacity-80 font-medium transition-opacity"
                         >
                           <Download className="w-3 h-3" />
                           Currículo
                         </a>
                       ) : (
-                        <span className="text-xs text-wg-gray/60">Sem currículo</span>
+                        <span className="text-xs text-gray-400">Sem currículo</span>
                       )}
                       {canManage && (
                         <button
                           onClick={() => setDeleteId(a.id)}
                           title="Excluir candidatura"
-                          className="p-1 text-wg-gray/60 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

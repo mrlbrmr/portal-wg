@@ -12,18 +12,18 @@ interface Props {
 
 export default function InternalHeader({ user, onMenuClick }: Props) {
   return (
-    <header className="bg-black border-b border-wg-border h-14 flex items-center px-4 md:px-6 sticky top-0 z-40">
+    <header className="bg-white border-b border-gray-200 h-14 flex items-center px-4 md:px-6 sticky top-0 z-40">
       <div className="flex items-center gap-2.5 flex-1">
         {/* Hamburguer — só mobile */}
         <button
           onClick={onMenuClick}
-          className="md:hidden p-1.5 text-wg-gray hover:text-white transition-colors mr-1"
+          className="md:hidden p-1.5 text-gray-500 hover:text-gray-900 transition-colors mr-1"
           aria-label="Abrir menu"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="bg-white rounded-lg overflow-hidden p-1">
+        <div className="overflow-hidden">
           <Image
             src="/logo-wg.png"
             alt="Grupo WG"
@@ -32,8 +32,8 @@ export default function InternalHeader({ user, onMenuClick }: Props) {
             className="h-6 w-auto"
           />
         </div>
-        <span className="text-wg-border text-xs mx-1">|</span>
-        <span className="text-wg-gray text-xs">Painel RH</span>
+        <span className="text-gray-300 text-xs mx-1">|</span>
+        <span className="text-gray-500 text-xs">Painel RH</span>
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
@@ -41,7 +41,7 @@ export default function InternalHeader({ user, onMenuClick }: Props) {
           href="/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-wg-gray hover:text-wg-green flex items-center gap-1 transition-colors"
+          className="text-xs text-gray-500 hover:text-wg-green-dark flex items-center gap-1 transition-colors"
         >
           <span className="hidden sm:block">Portal público</span>
           <ExternalLink className="w-3 h-3" />
@@ -51,15 +51,15 @@ export default function InternalHeader({ user, onMenuClick }: Props) {
           href="/perfil"
           className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity"
         >
-          <span className="text-wg-gray hidden sm:block">{user.name}</span>
-          <span className="text-xs bg-wg-green/10 text-wg-green px-2 py-0.5 rounded-full font-medium">
+          <span className="text-gray-600 hidden sm:block">{user.name}</span>
+          <span className="text-xs bg-wg-green/15 text-wg-green-dark px-2 py-0.5 rounded-full font-medium">
             {user.role === "ADMIN_RH" ? "Admin RH" : "Visualizador"}
           </span>
         </Link>
 
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-1.5 text-sm text-wg-gray hover:text-red-400 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors"
         >
           <LogOut className="w-4 h-4" />
           <span className="hidden sm:block">Sair</span>

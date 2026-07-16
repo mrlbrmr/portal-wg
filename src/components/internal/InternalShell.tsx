@@ -13,7 +13,7 @@ export default function InternalShell({ user, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-wg-dark">
+    <div className="min-h-screen bg-gray-50">
       <InternalHeader
         user={user}
         onMenuClick={() => setSidebarOpen((o) => !o)}

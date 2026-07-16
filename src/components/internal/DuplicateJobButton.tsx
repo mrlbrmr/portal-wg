@@ -42,11 +42,11 @@ export function DuplicateJobButton({ jobId, jobTitle }: Props) {
         onClick={handleDuplicate}
         disabled={loading}
         title={`Duplicar "${jobTitle}"`}
-        className="p-1.5 text-wg-gray hover:text-wg-green hover:bg-wg-green/10 rounded-lg transition-colors disabled:opacity-50"
+        className="p-1.5 text-gray-500 hover:text-wg-green-dark hover:bg-wg-green/10 rounded-lg transition-colors disabled:opacity-50"
       >
         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
       </button>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

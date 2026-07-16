@@ -20,12 +20,12 @@ export default async function PerfilPage() {
   return (
     <div className="max-w-lg">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Meu perfil</h1>
-        <p className="text-sm text-wg-gray mt-1">
+        <h1 className="text-2xl font-bold text-gray-900">Meu perfil</h1>
+        <p className="text-sm text-gray-500 mt-1">
           Conta criada em {formatDate(user.createdAt)} ·{" "}
           <span
             className={`font-medium ${
-              user.role === "ADMIN_RH" ? "text-wg-green" : "text-wg-gray"
+              user.role === "ADMIN_RH" ? "text-wg-green-dark" : "text-gray-500"
             }`}
           >
             {user.role === "ADMIN_RH" ? "Admin RH" : "Visualizador"}

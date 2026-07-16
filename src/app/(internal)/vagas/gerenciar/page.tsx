@@ -77,19 +77,19 @@ export default async function GerenciarVagasPage({
     `/vagas/gerenciar?view=${v}&sort=${sortKey}`;
 
   const statusBadge: Record<string, string> = {
-    DRAFT: "bg-blue-500/10 text-blue-400",
-    ACTIVE: "bg-wg-green/10 text-wg-green",
-    SCREENING: "bg-amber-500/10 text-amber-400",
-    INTERVIEW: "bg-purple-500/10 text-purple-400",
-    ADMISSION: "bg-cyan-500/10 text-cyan-400",
-    PAUSED: "bg-orange-500/10 text-orange-400",
-    CLOSED: "bg-wg-border text-wg-gray",
+    DRAFT: "bg-blue-100 text-blue-700",
+    ACTIVE: "bg-wg-green/15 text-wg-green-dark",
+    SCREENING: "bg-amber-100 text-amber-700",
+    INTERVIEW: "bg-purple-100 text-purple-700",
+    ADMISSION: "bg-cyan-100 text-cyan-700",
+    PAUSED: "bg-orange-100 text-orange-700",
+    CLOSED: "bg-gray-200 text-gray-600",
   };
 
   return (
     <div className={view === "kanban" ? "" : "max-w-4xl"}>
       <div className="flex items-center justify-between mb-5 gap-3">
-        <h1 className="text-2xl font-bold text-white">Vagas</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Vagas</h1>
         <div className="flex items-center gap-2">
           <ExportCsvButton status={params.status} />
           {session?.user.role === "ADMIN_RH" && (
@@ -107,15 +107,15 @@ export default async function GerenciarVagasPage({
       <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
         <JobSortFilter />
         <div className="flex items-center gap-3">
-          <span className="text-xs text-wg-gray">
+          <span className="text-xs text-gray-500">
             {jobs.length} {jobs.length === 1 ? "vaga" : "vagas"}
           </span>
           {/* Alternador Lista / Kanban */}
-          <div className="flex items-center bg-wg-card border border-wg-border rounded-lg p-0.5">
+          <div className="flex items-center bg-white border border-gray-200 rounded-lg p-0.5">
             <Link
               href={toggleQS("list")}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                view === "list" ? "bg-wg-green/15 text-wg-green" : "text-wg-gray hover:text-white"
+                view === "list" ? "bg-wg-green/15 text-wg-green-dark" : "text-gray-500 hover:text-gray-900"
               }`}
               title="Ver em lista"
             >
@@ -125,7 +125,7 @@ export default async function GerenciarVagasPage({
             <Link
               href={toggleQS("kanban")}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                view === "kanban" ? "bg-wg-green/15 text-wg-green" : "text-wg-gray hover:text-white"
+                view === "kanban" ? "bg-wg-green/15 text-wg-green-dark" : "text-gray-500 hover:text-gray-900"
               }`}
               title="Ver em Kanban por status"
             >
@@ -138,14 +138,14 @@ export default async function GerenciarVagasPage({
 
       {view === "kanban" ? (
         jobs.length === 0 ? (
-          <div className="text-center py-16 text-wg-gray">Nenhuma vaga encontrada.</div>
+          <div className="text-center py-16 text-gray-500">Nenhuma vaga encontrada.</div>
         ) : (
           <JobKanbanBoard jobs={kanbanJobs} canManage={canManage} />
         )
       ) : (
       <div className="flex flex-col gap-3">
         {jobs.length === 0 && (
-          <div className="text-center py-16 text-wg-gray">
+          <div className="text-center py-16 text-gray-500">
             Nenhuma vaga encontrada.
           </div>
         )}
@@ -153,18 +153,18 @@ export default async function GerenciarVagasPage({
         {jobs.map((job) => (
           <div
             key={job.id}
-            className="bg-wg-card border border-wg-border rounded-xl p-5 flex items-start justify-between gap-4 hover:border-wg-green/30 transition-colors"
+            className="bg-white border border-gray-200 shadow-sm rounded-xl p-5 flex items-start justify-between gap-4 hover:border-wg-green/50 transition-colors"
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <h2 className="font-semibold text-white">{job.title}</h2>
+                <h2 className="font-semibold text-gray-900">{job.title}</h2>
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge[job.status]}`}
                 >
                   {JOB_STATUS_LABELS[job.status]}
                 </span>
               </div>
-              <div className="text-sm text-wg-gray flex flex-wrap gap-3">
+              <div className="text-sm text-gray-500 flex flex-wrap gap-3">
                 <span>{job.city} / {job.state}</span>
                 <span>·</span>
                 <span>{MODALITY_LABELS[job.modality]}</span>
@@ -179,17 +179,17 @@ export default async function GerenciarVagasPage({
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-3">
                 {job.applyMode === "NATIVE" && (
-                  <span className="text-xs text-wg-green flex items-center gap-1">✓ Inscrição pelo portal</span>
+                  <span className="text-xs text-wg-green-dark flex items-center gap-1">✓ Inscrição pelo portal</span>
                 )}
                 {job.applyMode === "EXTERNAL" && !job.tallyFormUrl && isPublicJobStatus(job.status) && (
-                  <p className="text-xs text-yellow-500">⚠ Link do Tally não configurado</p>
+                  <p className="text-xs text-yellow-600">⚠ Link do Tally não configurado</p>
                 )}
                 {job.tallyFormUrl && (
                   <a
                     href={job.tallyFormUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-wg-gray hover:text-wg-green flex items-center gap-1 transition-colors"
+                    className="text-xs text-gray-500 hover:text-wg-green-dark flex items-center gap-1 transition-colors"
                     title="Abrir formulário Tally"
                   >
                     <Link2 className="w-3 h-3" />
@@ -197,7 +197,7 @@ export default async function GerenciarVagasPage({
                   </a>
                 )}
                 {job.responsible && (
-                  <span className="text-xs text-wg-gray">👤 {job.responsible}</span>
+                  <span className="text-xs text-gray-500">👤 {job.responsible}</span>
                 )}
               </div>
             </div>
@@ -206,7 +206,7 @@ export default async function GerenciarVagasPage({
               {(job.applyMode === "NATIVE" || (countByJob.get(job.id) ?? 0) > 0) && (
                 <Link
                   href={`/vagas/${job.id}/candidatos`}
-                  className="flex items-center gap-1.5 text-sm border border-wg-border hover:border-wg-green/50 text-wg-gray hover:text-wg-green px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 text-sm border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-3 py-1.5 rounded-lg transition-colors"
                   title="Ver candidatos"
                 >
                   <Users className="w-4 h-4" />
@@ -218,7 +218,7 @@ export default async function GerenciarVagasPage({
                   href={`/vagas/${job.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-wg-gray hover:text-wg-green transition-colors"
+                  className="text-gray-500 hover:text-wg-green-dark transition-colors"
                   title="Ver vaga pública"
                 >
                   <ExternalLink className="w-4 h-4" />
@@ -229,7 +229,7 @@ export default async function GerenciarVagasPage({
                 <>
                   <Link
                     href={`/vagas/${job.id}/editar`}
-                    className="text-sm border border-wg-border hover:border-wg-green/50 text-wg-gray hover:text-wg-green px-3 py-1.5 rounded-lg transition-colors"
+                    className="text-sm border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-3 py-1.5 rounded-lg transition-colors"
                   >
                     Editar
                   </Link>

@@ -14,8 +14,7 @@ import {
   isPublicJobStatus,
   normalizeText,
 } from "@/lib/utils";
-import { JobActions } from "@/components/internal/JobActions";
-import { DuplicateJobButton } from "@/components/internal/DuplicateJobButton";
+import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
 import { PriorityBadge } from "@/components/internal/PriorityBadge";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { FilterBar } from "@/components/internal/FilterBar";
@@ -310,20 +309,11 @@ export function JobsExplorer({
                   </Link>
                 )}
                 {canManage && (
-                  <>
-                    <Link
-                      href={`/vagas/${job.id}/editar`}
-                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:border-wg-green hover:text-wg-green-dark"
-                    >
-                      Editar
-                    </Link>
-                    <DuplicateJobButton jobId={job.id} jobTitle={job.title} />
-                    <JobActions
-                      jobId={job.id}
-                      jobTitle={job.title}
-                      status={job.status}
-                    />
-                  </>
+                  <JobActionsMenu
+                    jobId={job.id}
+                    jobTitle={job.title}
+                    status={job.status}
+                  />
                 )}
               </div>
             </div>

@@ -23,6 +23,15 @@ export function formatDateTime(date: Date | string): string {
   }).format(new Date(date));
 }
 
+/** Normaliza texto para busca: minúsculas, sem acentos, sem espaços nas pontas. */
+export function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
 export const JOB_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Rascunho",
   ACTIVE: "Ativa",

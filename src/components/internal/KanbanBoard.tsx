@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { Download, Mail, Phone, Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { useToast } from "@/components/ui/ToastProvider";
 import { formatDate } from "@/lib/utils";
 import {
   KanbanColumn,
@@ -37,7 +38,7 @@ const STAGES: { key: string; label: string; dot: string }[] = [
 
 export function KanbanBoard({ applications, canManage }: Props) {
   const [apps, setApps] = useState(applications);
-  const [error, setError] = useState<string | null>(null);
+  const { notify } = useToast();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const sensors = useKanbanSensors();
 
@@ -52,7 +53,6 @@ export function KanbanBoard({ applications, canManage }: Props) {
 
     const prev = apps;
     setApps((list) => list.map((a) => (a.id === appId ? { ...a, stage } : a)));
-    setError(null);
 
     try {
       const res = await fetch(`/api/applications/${appId}`, {
@@ -64,18 +64,21 @@ export function KanbanBoard({ applications, canManage }: Props) {
       if (!res.ok) {
         setApps(prev); // reverte
         const data = await res.json().catch(() => ({}));
-        setError(typeof data.error === "string" ? data.error : "Erro ao mover candidatura.");
+        notify("error", typeof data.error === "string" ? data.error : "Erro ao mover candidatura.");
+        return;
       }
+      const label = STAGES.find((s) => s.key === stage)?.label ?? stage;
+      notify("success", `${app.fullName} movido para ${label}.`);
     } catch {
       setApps(prev);
-      setError("Erro de conexão. Tente novamente.");
+      notify("error", "Erro de conexão. Tente novamente.");
     }
   }
 
   async function remove(appId: string) {
+    const removed = apps.find((a) => a.id === appId);
     const prev = apps;
     setApps((list) => list.filter((a) => a.id !== appId));
-    setError(null);
     try {
       const res = await fetch(`/api/applications/${appId}`, {
         method: "DELETE",
@@ -84,11 +87,13 @@ export function KanbanBoard({ applications, canManage }: Props) {
       if (!res.ok) {
         setApps(prev);
         const data = await res.json().catch(() => ({}));
-        setError(typeof data.error === "string" ? data.error : "Erro ao excluir candidatura.");
+        notify("error", typeof data.error === "string" ? data.error : "Erro ao excluir candidatura.");
+        return;
       }
+      notify("success", `Candidatura de ${removed?.fullName ?? "candidato"} excluída.`);
     } catch {
       setApps(prev);
-      setError("Erro de conexão. Tente novamente.");
+      notify("error", "Erro de conexão. Tente novamente.");
     }
   }
 
@@ -96,12 +101,6 @@ export function KanbanBoard({ applications, canManage }: Props) {
 
   return (
     <>
-      {error && (
-        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {STAGES.map((col) => {

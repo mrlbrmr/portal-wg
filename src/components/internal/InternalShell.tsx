@@ -3,6 +3,7 @@
 import { useState } from "react";
 import InternalHeader from "./InternalHeader";
 import InternalSidebar from "./InternalSidebar";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 interface Props {
   user: { name?: string | null; email?: string | null; role: string };
@@ -13,6 +14,7 @@ export default function InternalShell({ user, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-gray-50">
       <InternalHeader
         user={user}
@@ -46,5 +48,6 @@ export default function InternalShell({ user, children }: Props) {
         <main className="flex-1 p-6 min-w-0">{children}</main>
       </div>
     </div>
+    </ToastProvider>
   );
 }

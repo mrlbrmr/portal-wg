@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { useToast } from "@/components/ui/ToastProvider";
 
 interface Props {
   jobId: string;
@@ -28,9 +29,9 @@ type ConfirmAction = "cancel" | "delete" | null;
  */
 export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
   const router = useRouter();
+  const { notify } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<"duplicate" | ConfirmAction>(null);
-  const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ConfirmAction>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +56,6 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
 
   async function duplicate() {
     setLoading("duplicate");
-    setError(null);
     try {
       const res = await fetch(`/api/jobs/${jobId}/duplicate`, {
         method: "POST",
@@ -63,13 +63,14 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(typeof data.error === "string" ? data.error : "Erro ao duplicar.");
+        notify("error", typeof data.error === "string" ? data.error : "Erro ao duplicar a vaga.");
         return;
       }
       const newJob = await res.json();
+      notify("success", "Vaga duplicada. Ajuste os dados e publique.");
       router.push(`/vagas/${newJob.id}/editar`);
     } catch {
-      setError("Erro de conexão.");
+      notify("error", "Erro de conexão ao duplicar.");
     } finally {
       setLoading(null);
     }
@@ -77,7 +78,6 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
 
   async function execute(action: "cancel" | "delete") {
     setLoading(action);
-    setError(null);
     try {
       const res = await fetch(`/api/jobs/${jobId}`, {
         method: action === "delete" ? "DELETE" : "PATCH",
@@ -87,12 +87,18 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(typeof data.error === "string" ? data.error : "Erro ao executar ação.");
+        notify("error", typeof data.error === "string" ? data.error : "Erro ao executar a ação.");
         return;
       }
+      notify(
+        "success",
+        action === "cancel"
+          ? `"${jobTitle}" foi cancelada.`
+          : `"${jobTitle}" foi excluída.`
+      );
       router.refresh();
     } catch {
-      setError("Erro de conexão. Tente novamente.");
+      notify("error", "Erro de conexão. Tente novamente.");
     } finally {
       setLoading(null);
     }
@@ -177,12 +183,6 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
               Excluir
             </button>
           </div>
-        )}
-
-        {error && (
-          <p className="absolute right-0 top-full mt-1 whitespace-nowrap text-xs text-red-600">
-            {error}
-          </p>
         )}
       </div>
 

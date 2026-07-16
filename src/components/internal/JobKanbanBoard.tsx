@@ -12,6 +12,7 @@ import {
   isPublicJobStatus,
 } from "@/lib/utils";
 import { PriorityBadge } from "@/components/internal/PriorityBadge";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   KanbanColumn,
   KanbanCard,
@@ -47,7 +48,7 @@ const STATUSES: { key: string; label: string; dot: string }[] = [
 
 export function JobKanbanBoard({ jobs, canManage }: Props) {
   const [items, setItems] = useState(jobs);
-  const [error, setError] = useState<string | null>(null);
+  const { notify } = useToast();
   const sensors = useKanbanSensors();
 
   function handleDragEnd(event: DragEndEvent) {
@@ -61,7 +62,6 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
 
     const prev = items;
     setItems((list) => list.map((j) => (j.id === jobId ? { ...j, status } : j)));
-    setError(null);
 
     try {
       const res = await fetch(`/api/jobs/${jobId}`, {
@@ -73,22 +73,19 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
       if (!res.ok) {
         setItems(prev);
         const data = await res.json().catch(() => ({}));
-        setError(typeof data.error === "string" ? data.error : "Erro ao mudar o status da vaga.");
+        notify("error", typeof data.error === "string" ? data.error : "Erro ao mudar o status da vaga.");
+        return;
       }
+      const label = STATUSES.find((s) => s.key === status)?.label ?? status;
+      notify("success", `"${job.title}" movida para ${label}.`);
     } catch {
       setItems(prev);
-      setError("Erro de conexão. Tente novamente.");
+      notify("error", "Erro de conexão. Tente novamente.");
     }
   }
 
   return (
     <>
-      {error && (
-        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {STATUSES.map((col) => {

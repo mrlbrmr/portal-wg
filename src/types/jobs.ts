@@ -18,6 +18,7 @@ export interface JobRow {
   priority: JobPriority;
   slug: string | null;
   createdAt: string; // ISO
+  updatedAt: string; // ISO
   candidateCount: number;
 }
 

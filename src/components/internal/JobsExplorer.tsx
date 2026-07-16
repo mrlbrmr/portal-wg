@@ -6,6 +6,7 @@ import { ExternalLink, Users, List, LayoutGrid } from "lucide-react";
 import {
   JOB_STATUS_LABELS,
   MODALITY_LABELS,
+  JOB_PRIORITY_ORDER,
   formatDate,
   isPublicJobStatus,
   normalizeText,
@@ -14,6 +15,7 @@ import { JobActions } from "@/components/internal/JobActions";
 import { DuplicateJobButton } from "@/components/internal/DuplicateJobButton";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { FilterBar } from "@/components/internal/FilterBar";
+import { SortDropdown } from "@/components/internal/SortDropdown";
 import { JobKanbanBoard } from "@/components/internal/JobKanbanBoard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { EMPTY_JOB_FILTERS, type JobRow, type JobFilters } from "@/types/jobs";
@@ -31,6 +33,10 @@ interface Props {
 const SORT_OPTIONS = [
   { value: "date_desc", label: "Mais recentes" },
   { value: "date_asc", label: "Mais antigas" },
+  { value: "updated_desc", label: "Última atualização" },
+  { value: "candidates_desc", label: "Mais candidatos" },
+  { value: "candidates_asc", label: "Menos candidatos" },
+  { value: "priority_desc", label: "Maior prioridade" },
   { value: "city_asc", label: "Cidade (A-Z)" },
   { value: "state_asc", label: "Estado (A-Z)" },
   { value: "title_asc", label: "Título (A-Z)" },
@@ -46,14 +52,32 @@ const STATUS_BADGE: Record<string, string> = {
   CLOSED: "bg-gray-200 text-gray-600",
 };
 
-const selectClass =
-  "rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors focus:border-wg-green focus:outline-none focus:ring-2 focus:ring-wg-green/40 cursor-pointer";
+// Desempate estável: dentro do mesmo critério, mais recentes primeiro.
+function byNewest(a: JobRow, b: JobRow): number {
+  return b.createdAt.localeCompare(a.createdAt);
+}
 
 function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
   const copy = [...jobs];
   switch (sort) {
     case "date_asc":
       return copy.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    case "updated_desc":
+      return copy.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    case "candidates_desc":
+      return copy.sort(
+        (a, b) => b.candidateCount - a.candidateCount || byNewest(a, b)
+      );
+    case "candidates_asc":
+      return copy.sort(
+        (a, b) => a.candidateCount - b.candidateCount || byNewest(a, b)
+      );
+    case "priority_desc":
+      return copy.sort(
+        (a, b) =>
+          (JOB_PRIORITY_ORDER[b.priority] ?? 0) -
+            (JOB_PRIORITY_ORDER[a.priority] ?? 0) || byNewest(a, b)
+      );
     case "city_asc":
       return copy.sort((a, b) => a.city.localeCompare(b.city, "pt-BR"));
     case "state_asc":
@@ -62,7 +86,7 @@ function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
       return copy.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
     case "date_desc":
     default:
-      return copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return copy.sort(byNewest);
   }
 }
 
@@ -147,18 +171,7 @@ export function JobsExplorer({
           className="min-w-[240px] flex-1"
         />
 
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className={selectClass}
-          aria-label="Ordenar por"
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <SortDropdown value={sort} onChange={setSort} options={SORT_OPTIONS} />
 
         <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
           <button

@@ -35,6 +35,7 @@ export default async function GerenciarVagasPage({
       priority: true,
       slug: true,
       createdAt: true,
+      updatedAt: true,
     },
   });
 
@@ -59,6 +60,7 @@ export default async function GerenciarVagasPage({
     priority: job.priority,
     slug: job.slug,
     createdAt: job.createdAt.toISOString(),
+    updatedAt: job.updatedAt.toISOString(),
     candidateCount: countByJob.get(job.id) ?? 0,
   }));
 

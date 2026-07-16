@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { ExternalLink, Users, Pencil } from "lucide-react";
 import {
   MODALITY_LABELS,
@@ -11,6 +12,11 @@ import {
   isPublicJobStatus,
 } from "@/lib/utils";
 import { PriorityBadge } from "@/components/internal/PriorityBadge";
+import {
+  KanbanColumn,
+  KanbanCard,
+  useKanbanSensors,
+} from "@/components/internal/kanban-dnd";
 
 export interface KanbanJob {
   id: string;
@@ -41,9 +47,13 @@ const STATUSES: { key: string; label: string; dot: string }[] = [
 
 export function JobKanbanBoard({ jobs, canManage }: Props) {
   const [items, setItems] = useState(jobs);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overStatus, setOverStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sensors = useKanbanSensors();
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over) moveTo(String(active.id), String(over.id));
+  }
 
   async function moveTo(jobId: string, status: string) {
     const job = items.find((j) => j.id === jobId);
@@ -79,111 +89,86 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
         </div>
       )}
 
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {STATUSES.map((col) => {
-          const cards = items.filter((j) => j.status === col.key);
-          return (
-            <div
-              key={col.key}
-              onDragOver={(e) => {
-                if (!canManage || !dragId) return;
-                e.preventDefault();
-                setOverStatus(col.key);
-              }}
-              onDragLeave={() => setOverStatus((s) => (s === col.key ? null : s))}
-              onDrop={(e) => {
-                e.preventDefault();
-                setOverStatus(null);
-                if (canManage && dragId) moveTo(dragId, col.key);
-                setDragId(null);
-              }}
-              className={`shrink-0 w-72 rounded-xl border transition-colors ${
-                overStatus === col.key
-                  ? "border-wg-green bg-wg-green/5"
-                  : "border-gray-200 bg-gray-100"
-              }`}
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${col.dot}`} />
-                  <span className="text-sm font-semibold text-gray-900">{col.label}</span>
-                </div>
-                <span className="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">
-                  {cards.length}
-                </span>
-              </div>
-
-              <div className="p-2 flex flex-col gap-2 min-h-[120px]">
-                {cards.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-6">Nenhuma vaga</p>
-                )}
-
-                {cards.map((j) => (
-                  <div
-                    key={j.id}
-                    draggable={canManage}
-                    onDragStart={() => setDragId(j.id)}
-                    onDragEnd={() => setDragId(null)}
-                    className={`bg-white border border-gray-200 shadow-sm rounded-lg p-3 ${
-                      canManage ? "cursor-grab active:cursor-grabbing" : ""
-                    } ${dragId === j.id ? "opacity-50" : ""}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-gray-900 leading-snug">{j.title}</p>
-                      <PriorityBadge priority={j.priority} className="shrink-0" />
-                    </div>
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      {j.city}/{j.state} · {MODALITY_LABELS[j.modality]}
-                    </p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      Criada {formatAge(j.createdAt)}
-                      {isPublicJobStatus(j.status) &&
-                        daysSince(j.createdAt) >= STALE_JOB_DAYS && (
-                          <span className="ml-1 font-medium text-amber-700">
-                            · parada
-                          </span>
-                        )}
-                    </p>
-
-                    <div className="mt-2.5 flex items-center gap-3 flex-wrap">
-                      <Link
-                        href={`/vagas/${j.id}/candidatos`}
-                        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
-                        title="Ver candidatos"
-                      >
-                        <Users className="w-3 h-3" />
-                        {j.candidateCount}
-                      </Link>
-                      {isPublicJobStatus(j.status) && (
-                        <Link
-                          href={`/vagas/${j.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
-                          title="Ver vaga pública"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          Ver
-                        </Link>
-                      )}
-                      {canManage && (
-                        <Link
-                          href={`/vagas/${j.id}/editar`}
-                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
-                          title="Editar vaga"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          Editar
-                        </Link>
-                      )}
-                    </div>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {STATUSES.map((col) => {
+            const cards = items.filter((j) => j.status === col.key);
+            return (
+              <KanbanColumn key={col.key} id={col.key}>
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+                    <span className="text-sm font-semibold text-gray-900">{col.label}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                  <span className="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">
+                    {cards.length}
+                  </span>
+                </div>
+
+                <div className="p-2 flex flex-col gap-2 min-h-[120px]">
+                  {cards.length === 0 && (
+                    <p className="text-xs text-gray-400 text-center py-6">Nenhuma vaga</p>
+                  )}
+
+                  {cards.map((j) => (
+                    <KanbanCard key={j.id} id={j.id} draggable={canManage}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium text-gray-900 leading-snug">{j.title}</p>
+                        <PriorityBadge priority={j.priority} className="shrink-0" />
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {j.city}/{j.state} · {MODALITY_LABELS[j.modality]}
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        Criada {formatAge(j.createdAt)}
+                        {isPublicJobStatus(j.status) &&
+                          daysSince(j.createdAt) >= STALE_JOB_DAYS && (
+                            <span className="ml-1 font-medium text-amber-700">
+                              · parada
+                            </span>
+                          )}
+                      </p>
+
+                      <div className="mt-2.5 flex items-center gap-3 flex-wrap">
+                        <Link
+                          href={`/vagas/${j.id}/candidatos`}
+                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
+                          title="Ver candidatos"
+                        >
+                          <Users className="w-3 h-3" />
+                          {j.candidateCount}
+                        </Link>
+                        {isPublicJobStatus(j.status) && (
+                          <Link
+                            href={`/vagas/${j.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
+                            title="Ver vaga pública"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Ver
+                          </Link>
+                        )}
+                        {canManage && (
+                          <Link
+                            href={`/vagas/${j.id}/editar`}
+                            className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
+                            title="Editar vaga"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Editar
+                          </Link>
+                        )}
+                      </div>
+                    </KanbanCard>
+                  ))}
+                </div>
+              </KanbanColumn>
+            );
+          })}
+        </div>
+      </DndContext>
     </>
   );
 }

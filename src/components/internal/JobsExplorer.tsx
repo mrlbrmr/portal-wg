@@ -165,6 +165,9 @@ export function JobsExplorer({
 
   return (
     <div className={view === "kanban" ? "" : "max-w-4xl"}>
+      {/* Toolbar fixa: gruda logo abaixo do header (h-14) ao rolar, para não
+          perder pesquisa/ordenação/filtros em listas longas. */}
+      <div className="sticky top-14 z-30 mb-4 border-b border-gray-200 bg-gray-50 pt-1 pb-3">
       {/* Toolbar — linha 1: pesquisa, ordenação, visão */}
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <SearchBar
@@ -211,7 +214,7 @@ export function JobsExplorer({
       </div>
 
       {/* Toolbar — linha 2: filtros combináveis */}
-      <div className="mb-4">
+      <div>
         <FilterBar
           filters={filters}
           onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
@@ -219,6 +222,7 @@ export function JobsExplorer({
           options={options}
           showStatus={view === "list"}
         />
+      </div>
       </div>
 
       {/* Conteúdo */}

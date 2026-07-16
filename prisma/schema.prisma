@@ -69,14 +69,6 @@ enum ContractType {
   OTHER
 }
 
-// Como a vaga recebe candidaturas
-// NATIVE é o padrão desde 2026-07 (Tally aposentado). EXTERNAL permanece no enum
-// apenas por compatibilidade com dados legados — não é mais usado pelo código.
-enum ApplyMode {
-  EXTERNAL   // (legado — não usar) Tally / e-mail
-  NATIVE     // Formulário de inscrição nativo do portal
-}
-
 // Etapas do funil de seleção (colunas do Kanban)
 enum ApplicationStage {
   NEW         // Novo
@@ -109,8 +101,6 @@ model Job {
   slug                 String?      @unique
   closingDate          DateTime?
   hiringDeadline       DateTime?    // Prazo interno alvo de contratação
-  tallyFormUrl         String?      // (legado — não usar) URL do formulário Tally
-  applyMode            ApplyMode    @default(NATIVE)  // Inscrição nativa do portal é o padrão (Tally aposentado)
   status               JobStatus    @default(ACTIVE)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt

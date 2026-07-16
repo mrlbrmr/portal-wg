@@ -131,8 +131,6 @@ export async function POST(req: NextRequest) {
       slug,
       closingDate: typeof closingDate === "string" && closingDate ? new Date(closingDate) : null,
       hiringDeadline: typeof hiringDeadline === "string" && hiringDeadline ? new Date(hiringDeadline) : null,
-      applyMode: "NATIVE",
-      tallyFormUrl: null,
     },
   });
 

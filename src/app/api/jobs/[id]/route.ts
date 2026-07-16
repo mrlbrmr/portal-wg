@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, ApplyMode } from "@prisma/client";
+import { Modality, ContractType, JobStatus } from "@prisma/client";
 import { generateSlug, isPublicJobStatus } from "@/lib/utils";
 
 function richText(minChars: number, message: string) {
@@ -32,8 +32,6 @@ const updateJobSchema = z.object({
   responsible: z.string().optional().nullable(),
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
-  tallyFormUrl: z.string().url("URL inválida").optional().nullable().or(z.literal("")),
-  applyMode: z.nativeEnum(ApplyMode).optional(),
   status: z.nativeEnum(JobStatus).optional(),
 });
 
@@ -77,7 +75,7 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, hiringDeadline, tallyFormUrl, title, city, ...rest } = parsed.data;
+  const { closingDate, hiringDeadline, title, city, ...rest } = parsed.data;
 
   // Buscar estado atual para rastrear mudança de status e regenerar slug
   const current = await prisma.job.findUnique({
@@ -112,9 +110,6 @@ export async function PATCH(
         : {}),
       ...(hiringDeadline !== undefined
         ? { hiringDeadline: typeof hiringDeadline === "string" && hiringDeadline ? new Date(hiringDeadline) : null }
-        : {}),
-      ...(tallyFormUrl !== undefined
-        ? { tallyFormUrl: tallyFormUrl || null }
         : {}),
     },
   });

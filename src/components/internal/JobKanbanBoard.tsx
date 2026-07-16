@@ -12,7 +12,6 @@ export interface KanbanJob {
   state: string;
   modality: string;
   status: string;
-  applyMode: string;
   createdAt: string; // ISO
   candidateCount: number;
 }
@@ -128,16 +127,14 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
                     <p className="text-[11px] text-gray-500 mt-0.5">Criada em {formatDate(j.createdAt)}</p>
 
                     <div className="mt-2.5 flex items-center gap-3 flex-wrap">
-                      {(j.applyMode === "NATIVE" || j.candidateCount > 0) && (
-                        <Link
-                          href={`/vagas/${j.id}/candidatos`}
-                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
-                          title="Ver candidatos"
-                        >
-                          <Users className="w-3 h-3" />
-                          {j.candidateCount}
-                        </Link>
-                      )}
+                      <Link
+                        href={`/vagas/${j.id}/candidatos`}
+                        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
+                        title="Ver candidatos"
+                      >
+                        <Users className="w-3 h-3" />
+                        {j.candidateCount}
+                      </Link>
                       {isPublicJobStatus(j.status) && (
                         <Link
                           href={`/vagas/${j.id}`}

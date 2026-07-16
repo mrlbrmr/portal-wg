@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       title: true, department: true, company: true, city: true, state: true,
       modality: true, contractType: true, status: true, openings: true,
       responsible: true, createdAt: true, closingDate: true, hiringDeadline: true,
-      tallyFormUrl: true, slug: true, id: true,
+      slug: true, id: true,
     },
   });
 

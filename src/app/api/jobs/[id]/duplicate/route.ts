@@ -21,7 +21,7 @@ export async function POST(
       modality: true, contractType: true, description: true, responsibilities: true,
       requiredRequirements: true, desiredRequirements: true, benefits: true,
       workSchedule: true, salaryRange: true, openings: true, highlightBenefit: true,
-      tallyFormUrl: true, responsible: true,
+      responsible: true,
     },
   });
   if (!original) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });

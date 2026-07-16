@@ -58,7 +58,6 @@ async function main() {
       desiredRequirements: "<ul><li>Experiência no setor automotivo ou de baterias</li><li>Conhecimento em CRM</li></ul>",
       benefits: "<ul><li>Salário fixo + comissão</li><li>VT ou ajuda de custo combustível</li><li>VR</li><li>Plano de saúde</li><li>Seguro de vida</li></ul>",
       workSchedule: "Segunda a Sexta, 08h às 17h48",
-      tallyFormUrl: null,
       status: JobStatus.ACTIVE,
     },
   });
@@ -84,7 +83,6 @@ async function main() {
       desiredRequirements: "<ul><li>Experiência com recrutamento e seleção</li><li>Conhecimento em sistemas de RH (TOTVS, SAP)</li></ul>",
       benefits: "<ul><li>VT</li><li>VR</li><li>Plano de saúde</li><li>Seguro de vida</li><li>Gympass</li></ul>",
       workSchedule: "Segunda a Sexta, 08h às 17h",
-      tallyFormUrl: null,
       status: JobStatus.ACTIVE,
     },
   });

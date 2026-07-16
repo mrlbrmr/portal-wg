@@ -23,7 +23,6 @@ export interface JobFormData {
   benefits?: string;
   workSchedule?: string;
   closingDate?: string;
-  tallyFormUrl?: string;
   status: JobStatus;
 }
 

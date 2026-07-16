@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import Link from "next/link";
 import { JOB_STATUS_LABELS, MODALITY_LABELS, formatDate, isPublicJobStatus } from "@/lib/utils";
-import { Plus, ExternalLink, Link2, Users, List, LayoutGrid } from "lucide-react";
+import { Plus, ExternalLink, Users, List, LayoutGrid } from "lucide-react";
 import { JobActions } from "@/components/internal/JobActions";
 import { JobSortFilter } from "@/components/internal/JobSortFilter";
 import { DuplicateJobButton } from "@/components/internal/DuplicateJobButton";
@@ -66,7 +66,6 @@ export default async function GerenciarVagasPage({
     state: job.state,
     modality: job.modality,
     status: job.status,
-    applyMode: job.applyMode,
     createdAt: job.createdAt.toISOString(),
     candidateCount: countByJob.get(job.id) ?? 0,
   }));
@@ -177,42 +176,22 @@ export default async function GerenciarVagasPage({
                 <span>·</span>
                 <span>Criada em {formatDate(job.createdAt)}</span>
               </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                {job.applyMode === "NATIVE" && (
-                  <span className="text-xs text-wg-green-dark flex items-center gap-1">✓ Inscrição pelo portal</span>
-                )}
-                {job.applyMode === "EXTERNAL" && !job.tallyFormUrl && isPublicJobStatus(job.status) && (
-                  <p className="text-xs text-yellow-600">⚠ Link do Tally não configurado</p>
-                )}
-                {job.tallyFormUrl && (
-                  <a
-                    href={job.tallyFormUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-gray-500 hover:text-wg-green-dark flex items-center gap-1 transition-colors"
-                    title="Abrir formulário Tally"
-                  >
-                    <Link2 className="w-3 h-3" />
-                    Formulário Tally
-                  </a>
-                )}
-                {job.responsible && (
+              {job.responsible && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-3">
                   <span className="text-xs text-gray-500">👤 {job.responsible}</span>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 flex-shrink-0">
-              {(job.applyMode === "NATIVE" || (countByJob.get(job.id) ?? 0) > 0) && (
-                <Link
-                  href={`/vagas/${job.id}/candidatos`}
-                  className="flex items-center gap-1.5 text-sm border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-3 py-1.5 rounded-lg transition-colors"
-                  title="Ver candidatos"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>{countByJob.get(job.id) ?? 0}</span>
-                </Link>
-              )}
+              <Link
+                href={`/vagas/${job.id}/candidatos`}
+                className="flex items-center gap-1.5 text-sm border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-3 py-1.5 rounded-lg transition-colors"
+                title="Ver candidatos"
+              >
+                <Users className="w-4 h-4" />
+                <span>{countByJob.get(job.id) ?? 0}</span>
+              </Link>
               {isPublicJobStatus(job.status) && (
                 <Link
                   href={`/vagas/${job.id}`}

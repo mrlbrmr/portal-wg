@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
-import { MapPin, Clock, Briefcase, ChevronLeft, ExternalLink, Mail, ArrowRight } from "lucide-react";
+import { MapPin, Clock, Briefcase, ChevronLeft, ArrowRight } from "lucide-react";
 import { ShareButton } from "@/components/public/ShareButton";
 import { ApplicationForm } from "@/components/public/ApplicationForm";
 import type { Metadata } from "next";
@@ -50,7 +50,6 @@ export default async function JobPage({ params }: Props) {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiraswg.vercel.app";
   const jobUrl = `${baseUrl}/vagas/${job.slug ?? job.id}`;
-  const isNative = job.applyMode === "NATIVE";
 
   // Vagas similares — mesmo departamento OU mesma cidade, excluindo a atual
   const similarWhere = {
@@ -101,7 +100,7 @@ export default async function JobPage({ params }: Props) {
       },
     }),
     url: jobUrl,
-    ...(job.tallyFormUrl && { applicationContact: { "@type": "ContactPoint", url: job.tallyFormUrl } }),
+    directApply: true,
   };
 
   const sections = [
@@ -144,33 +143,13 @@ export default async function JobPage({ params }: Props) {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <ShareButton url={jobUrl} />
-                {isNative ? (
-                  <a
-                    href="#inscrever"
-                    className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-5 py-2.5 rounded-full transition-colors"
-                  >
-                    Candidatar-se
-                    <ArrowRight className="w-4 h-4" />
-                  </a>
-                ) : job.tallyFormUrl ? (
-                  <a
-                    href={job.tallyFormUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-5 py-2.5 rounded-full transition-colors"
-                  >
-                    Candidatar-se
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                ) : (
-                  <a
-                    href="mailto:carreiras@wgbaterias.com.br"
-                    className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-5 py-2.5 rounded-full transition-colors"
-                  >
-                    <Mail className="w-4 h-4" />
-                    Enviar currículo
-                  </a>
-                )}
+                <a
+                  href="#inscrever"
+                  className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-5 py-2.5 rounded-full transition-colors"
+                >
+                  Candidatar-se
+                  <ArrowRight className="w-4 h-4" />
+                </a>
               </div>
             </div>
 
@@ -206,37 +185,10 @@ export default async function JobPage({ params }: Props) {
             </div>
           ))}
 
-          {/* CTA final / Formulário de inscrição */}
-          {isNative ? (
-            <div id="inscrever" className="mt-2 scroll-mt-8">
-              <ApplicationForm jobId={job.id} jobTitle={job.title} />
-            </div>
-          ) : (
-            <div className="bg-wg-green/5 border border-wg-green/25 rounded-2xl p-8 text-center mt-2">
-              <p className="text-gray-600 mb-5">
-                Tem o perfil que buscamos? Envie sua candidatura agora!
-              </p>
-              {job.tallyFormUrl ? (
-                <a
-                  href={job.tallyFormUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-bold px-8 py-3.5 rounded-full transition-colors shadow-lg shadow-wg-green/20"
-                >
-                  Candidatar-se a esta vaga
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              ) : (
-                <a
-                  href="mailto:carreiras@wgbaterias.com.br"
-                  className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-bold px-8 py-3.5 rounded-full transition-colors"
-                >
-                  <Mail className="w-4 h-4" />
-                  Enviar currículo por e-mail
-                </a>
-              )}
-            </div>
-          )}
+          {/* Formulário de inscrição nativo */}
+          <div id="inscrever" className="mt-2 scroll-mt-8">
+            <ApplicationForm jobId={job.id} jobTitle={job.title} />
+          </div>
 
           {/* Vagas similares */}
           {similar.length > 0 && (

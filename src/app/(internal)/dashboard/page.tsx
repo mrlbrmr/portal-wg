@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Briefcase, PauseCircle, XCircle, Plus, FileText, AlertTriangle, Clock, Calendar, Users } from "lucide-react";
+import { Briefcase, PauseCircle, XCircle, Plus, FileText, Clock, Calendar, Users } from "lucide-react";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import type { Metadata } from "next";
 import type { ElementType } from "react";
@@ -23,7 +23,6 @@ export default async function DashboardPage() {
     pausedJobs,
     closedJobs,
     draftJobs,
-    activeWithoutTally,
     expiringSoon,
     openedLong,
     thisMonthCount,
@@ -35,7 +34,6 @@ export default async function DashboardPage() {
     prisma.job.count({ where: { status: "PAUSED" } }),
     prisma.job.count({ where: { status: "CLOSED" } }),
     prisma.job.count({ where: { status: "DRAFT" } }),
-    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST }, applyMode: "EXTERNAL", tallyFormUrl: null } }),
     prisma.job.count({
       where: { status: { in: PUBLIC_JOB_STATUS_LIST }, closingDate: { gte: now, lte: sevenDaysFromNow } },
     }),
@@ -140,13 +138,6 @@ export default async function DashboardPage() {
 
   type Alert = { icon: ElementType; color: string; bg: string; message: string; href: string };
   const alerts: Alert[] = [
-    activeWithoutTally > 0 && {
-      icon: AlertTriangle as ElementType,
-      color: "text-red-700",
-      bg: "bg-red-50 border-red-200",
-      message: `${activeWithoutTally} vaga${activeWithoutTally > 1 ? "s ativas sem" : " ativa sem"} link do Tally — candidatos não conseguem se inscrever`,
-      href: "/vagas/gerenciar?status=ACTIVE",
-    },
     expiringSoon > 0 && {
       icon: Clock as ElementType,
       color: "text-yellow-700",

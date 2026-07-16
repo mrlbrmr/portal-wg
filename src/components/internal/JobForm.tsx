@@ -39,8 +39,6 @@ export default function JobForm({ job }: Props) {
   const [highlightBenefit, setHighlightBenefit] = useState(
     job?.highlightBenefit ?? ""
   );
-  const [applyMode, setApplyMode] = useState<string>(job?.applyMode ?? "EXTERNAL");
-
   function setRich(key: keyof typeof richFields) {
     return (html: string) => setRichFields((prev) => ({ ...prev, [key]: html }));
   }
@@ -91,8 +89,6 @@ export default function JobForm({ job }: Props) {
       highlightBenefit: highlightBenefit || undefined,
       closingDate: formData.get("closingDate") || null,
       hiringDeadline: formData.get("hiringDeadline") || null,
-      tallyFormUrl: formData.get("tallyFormUrl") || undefined,
-      applyMode: formData.get("applyMode") || "EXTERNAL",
       responsible: formData.get("responsible") || undefined,
       status: formData.get("status"),
     };
@@ -314,42 +310,11 @@ export default function JobForm({ job }: Props) {
           />
         </div>
 
-        <div className="col-span-2">
-          <label className={labelClass}>
-            Modo de inscrição <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="applyMode"
-            value={applyMode}
-            onChange={(e) => setApplyMode(e.target.value)}
-            className={inputClass}
-          >
-            <option value="EXTERNAL" className="bg-white">Externo — link do Tally ou e-mail</option>
-            <option value="NATIVE" className="bg-white">Formulário no portal — inscrição direta (LGPD)</option>
-          </select>
-          <p className="text-xs text-gray-500 mt-1">
-            {applyMode === "NATIVE"
-              ? "O candidato preenche nome, e-mail, celular e anexa o currículo direto na página da vaga. As candidaturas aparecem no painel (Kanban)."
-              : "A vaga usa o link do Tally (abaixo) ou, se vazio, um botão de e-mail."}
-          </p>
-        </div>
-
-        <div className="col-span-2">
-          <label className={labelClass}>
-            Link do formulário Tally (candidatura)
-          </label>
-          <input
-            type="url"
-            name="tallyFormUrl"
-            defaultValue={job?.tallyFormUrl ?? ""}
-            placeholder="https://tally.so/r/..."
-            disabled={applyMode === "NATIVE"}
-            className={`${inputClass} ${applyMode === "NATIVE" ? "opacity-50" : ""}`}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            {applyMode === "NATIVE"
-              ? "Não usado no modo Formulário no portal."
-              : "Cole aqui o link do formulário Tally desta vaga. Aparecerá como botão “Candidatar-se” no portal."}
+        <div className="col-span-2 rounded-lg border border-wg-green/30 bg-wg-green/5 px-3 py-2.5">
+          <p className="text-xs text-gray-600">
+            <span className="font-medium text-wg-green-dark">Inscrição pelo portal.</span>{" "}
+            O candidato preenche nome, e-mail, celular e anexa o currículo direto na
+            página da vaga. As candidaturas aparecem no painel, no Kanban de candidatos.
           </p>
         </div>
 

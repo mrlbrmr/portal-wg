@@ -18,7 +18,7 @@ export default async function CandidatosPage({ params }: Props) {
 
   const job = await prisma.job.findUnique({
     where: { id },
-    select: { id: true, title: true, city: true, state: true, applyMode: true },
+    select: { id: true, title: true, city: true, state: true },
   });
   if (!job) notFound();
 
@@ -73,13 +73,6 @@ export default async function CandidatosPage({ params }: Props) {
           </span>
         </div>
       </div>
-
-      {job.applyMode !== "NATIVE" && (
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-          Esta vaga não usa o formulário de inscrição do portal (modo Externo). Novas
-          candidaturas não chegam por aqui — altere o &quot;Modo de inscrição&quot; na edição da vaga.
-        </div>
-      )}
 
       {cards.length === 0 ? (
         <div className="text-center py-16 text-gray-500 border border-dashed border-gray-300 rounded-xl">

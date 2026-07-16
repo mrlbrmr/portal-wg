@@ -85,12 +85,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // A vaga precisa existir, estar em status aberto (visível no portal) e aceitar candidatura nativa.
+  // A vaga precisa existir e estar em status aberto (visível no portal).
+  // A inscrição pelo portal é o único modo desde 2026-07 (Tally aposentado).
   const job = await prisma.job.findUnique({
     where: { id: jobId },
-    select: { id: true, status: true, applyMode: true, slug: true },
+    select: { id: true, status: true, slug: true },
   });
-  if (!job || !isPublicJobStatus(job.status) || job.applyMode !== "NATIVE") {
+  if (!job || !isPublicJobStatus(job.status)) {
     return NextResponse.json(
       { error: "Esta vaga não está aberta para inscrição pelo portal." },
       { status: 404 }

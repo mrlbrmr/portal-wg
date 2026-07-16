@@ -30,7 +30,8 @@ export default async function DashboardPage() {
     totalApplications,
     newApplications,
   ] = await Promise.all([
-    prisma.job.count({ where: { status: "ACTIVE" } }),
+    // "Ativas" = pipeline aberto no portal (Ativa + Triagem + Entrevistas + Admissão)
+    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST } } }),
     prisma.job.count({ where: { status: "PAUSED" } }),
     prisma.job.count({ where: { status: "CLOSED" } }),
     prisma.job.count({ where: { status: "DRAFT" } }),
@@ -105,7 +106,7 @@ export default async function DashboardPage() {
       value: activeJobs,
       icon: Briefcase as ElementType,
       iconClass: "bg-wg-green/15 text-wg-green-dark",
-      href: "/vagas/gerenciar?status=ACTIVE",
+      href: "/vagas/gerenciar?view=kanban",
     },
     {
       label: "Rascunhos",

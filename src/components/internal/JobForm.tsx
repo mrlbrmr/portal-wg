@@ -1,11 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { BRAZIL_STATES, isPublicJobStatus } from "@/lib/utils";
 import { Loader2, Check, ExternalLink } from "lucide-react";
-import { RichTextEditor } from "@/components/internal/RichTextEditor";
 import type { Job } from "@prisma/client";
+
+// O editor rico carrega o Tiptap (pesado); só é baixado quando o formulário
+// é aberto, mantendo o restante dos campos rápido para renderizar.
+const RichTextEditor = dynamic(
+  () =>
+    import("@/components/internal/RichTextEditor").then((m) => m.RichTextEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[120px] animate-pulse rounded-lg border border-gray-300 bg-gray-50" />
+    ),
+  }
+);
 
 interface Props {
   job?: Job;

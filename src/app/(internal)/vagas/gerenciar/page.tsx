@@ -27,58 +27,61 @@ export default async function GerenciarVagasPage({
   const [session, params] = await Promise.all([auth(), searchParams]);
   const canManage = session?.user.role === "ADMIN_RH";
 
-  // Busca a base de vagas; pesquisa/filtro/ordenação acontecem no cliente
-  // (JobsExplorer) para uma experiência instantânea. Ordem inicial: mais recentes.
-  const jobs = await prisma.job.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    select: {
-      id: true,
-      title: true,
-      city: true,
-      state: true,
-      modality: true,
-      contractType: true,
-      department: true,
-      responsible: true,
-      status: true,
-      priority: true,
-      slug: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-
-  // Contagem de candidaturas por vaga
-  const appCounts = await prisma.application.groupBy({
-    by: ["jobId"],
-    _count: { _all: true },
-    where: { jobId: { in: jobs.map((j) => j.id) } },
-  });
-  const countByJob = new Map(appCounts.map((c) => [c.jobId, c._count._all]));
-
   // ── Métricas da faixa superior (dashboard) ──────────────────────────────
   // Contadas direto no banco (não limitadas às 200 linhas carregadas).
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const [openJobs, totalCandidates, newToday, inInterview, hired, closedHistory] =
-    await Promise.all([
-      prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST } } }),
-      prisma.application.count(),
-      prisma.application.count({ where: { createdAt: { gte: startOfToday } } }),
-      prisma.application.count({ where: { stage: "INTERVIEW" } }),
-      prisma.application.count({ where: { stage: "HIRED" } }),
-      prisma.jobStatusHistory.findMany({
-        where: { status: "CLOSED" },
-        orderBy: { changedAt: "asc" },
-        select: {
-          jobId: true,
-          changedAt: true,
-          job: { select: { createdAt: true } },
-        },
-      }),
-    ]);
+  // Uma única ida ao banco: a base de vagas (pesquisa/filtro/ordenação
+  // acontecem no cliente, no JobsExplorer), a contagem de candidaturas por
+  // vaga e as métricas do topo rodam todas em paralelo.
+  const [
+    jobs,
+    appCounts,
+    openJobs,
+    totalCandidates,
+    newToday,
+    inInterview,
+    hired,
+    closedHistory,
+  ] = await Promise.all([
+    prisma.job.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: {
+        id: true,
+        title: true,
+        city: true,
+        state: true,
+        modality: true,
+        contractType: true,
+        department: true,
+        responsible: true,
+        status: true,
+        priority: true,
+        slug: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.application.groupBy({ by: ["jobId"], _count: { _all: true } }),
+    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST } } }),
+    prisma.application.count(),
+    prisma.application.count({ where: { createdAt: { gte: startOfToday } } }),
+    prisma.application.count({ where: { stage: "INTERVIEW" } }),
+    prisma.application.count({ where: { stage: "HIRED" } }),
+    prisma.jobStatusHistory.findMany({
+      where: { status: "CLOSED" },
+      orderBy: { changedAt: "asc" },
+      select: {
+        jobId: true,
+        changedAt: true,
+        job: { select: { createdAt: true } },
+      },
+    }),
+  ]);
+
+  const countByJob = new Map(appCounts.map((c) => [c.jobId, c._count._all]));
 
   // Tempo médio p/ fechamento: dias entre a criação da vaga e o 1º encerramento
   // (CLOSED), média sobre as vagas já encerradas. Deriva de JobStatusHistory.

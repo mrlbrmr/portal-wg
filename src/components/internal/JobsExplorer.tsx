@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ExternalLink, Users, List, LayoutGrid, ChevronDown } from "lucide-react";
 import {
@@ -20,9 +21,26 @@ import { PriorityBadge } from "@/components/internal/PriorityBadge";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { FilterBar } from "@/components/internal/FilterBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
-import { JobKanbanBoard } from "@/components/internal/JobKanbanBoard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { EMPTY_JOB_FILTERS, type JobRow, type JobFilters } from "@/types/jobs";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+// O Kanban carrega o @dnd-kit; só é baixado quando o usuário troca para essa
+// visão (a Lista é a padrão), aliviando o bundle inicial da tela de Vagas.
+const JobKanbanBoard = dynamic(
+  () =>
+    import("@/components/internal/JobKanbanBoard").then((m) => m.JobKanbanBoard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex gap-4 overflow-hidden pb-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-64 w-72 shrink-0 rounded-xl" />
+        ))}
+      </div>
+    ),
+  }
+);
 
 type View = "list" | "kanban";
 

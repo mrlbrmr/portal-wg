@@ -13,9 +13,10 @@ import {
 import { JobActions } from "@/components/internal/JobActions";
 import { DuplicateJobButton } from "@/components/internal/DuplicateJobButton";
 import { SearchBar } from "@/components/internal/SearchBar";
+import { FilterBar } from "@/components/internal/FilterBar";
 import { JobKanbanBoard } from "@/components/internal/JobKanbanBoard";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import type { JobRow } from "@/types/jobs";
+import { EMPTY_JOB_FILTERS, type JobRow, type JobFilters } from "@/types/jobs";
 
 type View = "list" | "kanban";
 
@@ -26,17 +27,6 @@ interface Props {
   initialStatus?: string;
   initialSort?: string;
 }
-
-const STATUS_OPTIONS = [
-  { value: "", label: "Todos os status" },
-  { value: "DRAFT", label: "Rascunho" },
-  { value: "ACTIVE", label: "Ativa" },
-  { value: "SCREENING", label: "Triagem" },
-  { value: "INTERVIEW", label: "Entrevistas" },
-  { value: "ADMISSION", label: "Admissão" },
-  { value: "PAUSED", label: "Pausada" },
-  { value: "CLOSED", label: "Cancelada" },
-];
 
 const SORT_OPTIONS = [
   { value: "date_desc", label: "Mais recentes" },
@@ -76,6 +66,13 @@ function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
   }
 }
 
+/** Valores únicos, não vazios e ordenados de um campo textual das vagas. */
+function uniqueSorted(values: (string | null)[]): string[] {
+  return Array.from(new Set(values.filter((v): v is string => Boolean(v)))).sort(
+    (a, b) => a.localeCompare(b, "pt-BR")
+  );
+}
+
 export function JobsExplorer({
   jobs,
   canManage,
@@ -85,12 +82,25 @@ export function JobsExplorer({
 }: Props) {
   const [view, setView] = useState<View>(initialView);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState(initialStatus);
+  const [filters, setFilters] = useState<JobFilters>({
+    ...EMPTY_JOB_FILTERS,
+    status: initialStatus,
+  });
   const [sort, setSort] = useState(
     SORT_OPTIONS.some((o) => o.value === initialSort) ? initialSort : "date_desc"
   );
 
   const query = useDebouncedValue(search, 300);
+
+  // Opções dos filtros derivadas do conjunto de vagas (fonte única de verdade)
+  const options = useMemo(
+    () => ({
+      cities: uniqueSorted(jobs.map((j) => j.city)),
+      departments: uniqueSorted(jobs.map((j) => j.department)),
+      managers: uniqueSorted(jobs.map((j) => j.responsible)),
+    }),
+    [jobs]
+  );
 
   const filtered = useMemo(() => {
     const q = normalizeText(query);
@@ -107,39 +117,35 @@ export function JobsExplorer({
       });
     }
 
-    // Filtro de status — no Kanban as colunas SÃO os status, então não aplica.
-    if (view === "list" && status) {
-      result = result.filter((job) => job.status === status);
+    // Filtros combináveis (AND). Status só na lista — no Kanban as colunas SÃO os status.
+    if (view === "list" && filters.status) {
+      result = result.filter((j) => j.status === filters.status);
     }
+    if (filters.city) result = result.filter((j) => j.city === filters.city);
+    if (filters.department)
+      result = result.filter((j) => j.department === filters.department);
+    if (filters.modality)
+      result = result.filter((j) => j.modality === filters.modality);
+    if (filters.contractType)
+      result = result.filter((j) => j.contractType === filters.contractType);
+    if (filters.responsible)
+      result = result.filter((j) => j.responsible === filters.responsible);
+    if (filters.priority)
+      result = result.filter((j) => j.priority === filters.priority);
 
     return sortJobs(result, sort);
-  }, [jobs, query, status, sort, view]);
+  }, [jobs, query, filters, sort, view]);
 
   return (
     <div className={view === "kanban" ? "" : "max-w-4xl"}>
-      {/* Toolbar */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      {/* Toolbar — linha 1: pesquisa, ordenação, visão */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
         <SearchBar
           value={search}
           onChange={setSearch}
           placeholder="Pesquisar por vaga, cidade ou departamento..."
           className="min-w-[240px] flex-1"
         />
-
-        {view === "list" && (
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className={selectClass}
-            aria-label="Filtrar por status"
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        )}
 
         <select
           value={sort}
@@ -154,7 +160,6 @@ export function JobsExplorer({
           ))}
         </select>
 
-        {/* Alternador Lista / Kanban */}
         <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
           <button
             type="button"
@@ -187,6 +192,17 @@ export function JobsExplorer({
         <span className="text-xs text-gray-500">
           {filtered.length} {filtered.length === 1 ? "vaga" : "vagas"}
         </span>
+      </div>
+
+      {/* Toolbar — linha 2: filtros combináveis */}
+      <div className="mb-4">
+        <FilterBar
+          filters={filters}
+          onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
+          onClear={() => setFilters(EMPTY_JOB_FILTERS)}
+          options={options}
+          showStatus={view === "list"}
+        />
       </div>
 
       {/* Conteúdo */}

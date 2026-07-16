@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, Prisma } from "@prisma/client";
+import { Modality, ContractType, JobStatus, JobPriority, Prisma } from "@prisma/client";
 import { generateSlug } from "@/lib/utils";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import { rateLimit } from "@/lib/rate-limit";
@@ -34,6 +34,7 @@ const jobSchema = z.object({
   responsible: z.string().optional(),
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
+  priority: z.nativeEnum(JobPriority).default("MEDIUM"),
   status: z.nativeEnum(JobStatus).default("ACTIVE"),
 });
 

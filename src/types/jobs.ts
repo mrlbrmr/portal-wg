@@ -1,4 +1,4 @@
-import type { JobStatus, Modality } from "@prisma/client";
+import type { JobStatus, Modality, ContractType, JobPriority } from "@prisma/client";
 
 /**
  * Forma leve e serializável de uma vaga para as visões do painel
@@ -11,10 +11,33 @@ export interface JobRow {
   city: string;
   state: string;
   modality: Modality;
+  contractType: ContractType;
   department: string | null;
   responsible: string | null;
   status: JobStatus;
+  priority: JobPriority;
   slug: string | null;
   createdAt: string; // ISO
   candidateCount: number;
 }
+
+/** Estado dos filtros combináveis da tela de vagas. "" = sem filtro. */
+export interface JobFilters {
+  status: string;
+  city: string;
+  department: string;
+  modality: string;
+  contractType: string;
+  responsible: string;
+  priority: string;
+}
+
+export const EMPTY_JOB_FILTERS: JobFilters = {
+  status: "",
+  city: "",
+  department: "",
+  modality: "",
+  contractType: "",
+  responsible: "",
+  priority: "",
+};

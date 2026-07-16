@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus } from "@prisma/client";
+import { Modality, ContractType, JobStatus, JobPriority } from "@prisma/client";
 import { generateSlug, isPublicJobStatus } from "@/lib/utils";
 
 function richText(minChars: number, message: string) {
@@ -32,6 +32,7 @@ const updateJobSchema = z.object({
   responsible: z.string().optional().nullable(),
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
+  priority: z.nativeEnum(JobPriority).optional(),
   status: z.nativeEnum(JobStatus).optional(),
 });
 

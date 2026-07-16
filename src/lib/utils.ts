@@ -66,6 +66,21 @@ export const CONTRACT_TYPE_LABELS: Record<string, string> = {
   OTHER: "Outro",
 };
 
+export const JOB_PRIORITY_LABELS: Record<string, string> = {
+  LOW: "Baixa",
+  MEDIUM: "Média",
+  HIGH: "Alta",
+  URGENT: "Urgente",
+};
+
+// Ordem crescente de prioridade (para ordenação "maior prioridade")
+export const JOB_PRIORITY_ORDER: Record<string, number> = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  URGENT: 3,
+};
+
 export function generateSlug(title: string, city: string): string {
   const accentMap: Record<string, string> = {
     "á":"a","à":"a","ã":"a","â":"a","ä":"a",

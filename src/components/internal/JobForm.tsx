@@ -91,6 +91,7 @@ export default function JobForm({ job }: Props) {
       hiringDeadline: formData.get("hiringDeadline") || null,
       responsible: formData.get("responsible") || undefined,
       status: formData.get("status"),
+      priority: formData.get("priority") || "MEDIUM",
     };
 
     const url = job ? `/api/jobs/${job.id}` : "/api/jobs";
@@ -218,6 +219,22 @@ export default function JobForm({ job }: Props) {
             <option value="ADMISSION" className="bg-white">Admissão — no portal (etapa interna)</option>
             <option value="PAUSED" className="bg-white">Pausada — fora do portal</option>
             <option value="CLOSED" className="bg-white">Cancelada — fora do portal</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>
+            Prioridade <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="priority"
+            defaultValue={job?.priority || "MEDIUM"}
+            className={inputClass}
+          >
+            <option value="LOW" className="bg-white">Baixa</option>
+            <option value="MEDIUM" className="bg-white">Média</option>
+            <option value="HIGH" className="bg-white">Alta</option>
+            <option value="URGENT" className="bg-white">Urgente</option>
           </select>
         </div>
 

@@ -69,6 +69,14 @@ enum ContractType {
   OTHER
 }
 
+// Prioridade da vaga no processo de R&S (usada em filtros, ordenação e badges)
+enum JobPriority {
+  LOW       // Baixa
+  MEDIUM    // Média (padrão)
+  HIGH      // Alta
+  URGENT    // Urgente
+}
+
 // Etapas do funil de seleção (colunas do Kanban)
 enum ApplicationStage {
   NEW         // Novo
@@ -101,6 +109,7 @@ model Job {
   slug                 String?      @unique
   closingDate          DateTime?
   hiringDeadline       DateTime?    // Prazo interno alvo de contratação
+  priority             JobPriority  @default(MEDIUM)  // Prioridade no processo de R&S
   status               JobStatus    @default(ACTIVE)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt

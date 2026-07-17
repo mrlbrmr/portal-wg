@@ -22,7 +22,12 @@ export function isLinkedInConfigured(): boolean {
 }
 
 export function linkedinRedirectUri(): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+  // Remove barra(s) final(is) do base para nunca gerar "//api" (mismatch comum
+  // com o valor registrado no app do LinkedIn).
+  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br").replace(
+    /\/+$/,
+    ""
+  );
   return `${base}/api/distribution/linkedin/callback`;
 }
 

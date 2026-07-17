@@ -7,7 +7,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/vagas/", "/privacidade"],
+        // /api/feed/ liberado (feeds de vagas p/ Indeed e agregadores);
+        // regra mais específica que o disallow /api/ genérico.
+        allow: ["/", "/vagas/", "/privacidade", "/api/feed/"],
         disallow: [
           "/dashboard",
           "/vagas/gerenciar",

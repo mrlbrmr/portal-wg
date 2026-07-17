@@ -115,7 +115,9 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
   const [phone, setPhone] = useState(() => maskPhone(admission?.phone ?? ""));
   const [salary, setSalary] = useState(() => {
     if (!admission?.salary) return "";
-    return formatSalary(admission.salary);
+    // admission.salary vem do DB como "1500.00" (ponto decimal US) — parseFloat direto
+    const num = parseFloat(admission.salary);
+    return isNaN(num) ? "" : num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

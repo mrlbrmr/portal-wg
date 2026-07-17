@@ -116,9 +116,9 @@ export default async function AdmissaoDetalhePage({
         {canManage && (
           <Link
             href={`/admissoes/${id}/editar`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-full"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold bg-gray-900 text-white hover:bg-gray-700 px-4 py-2 rounded-full transition-colors"
           >
-            <Pencil className="w-3.5 h-3.5" /> Editar
+            <Pencil className="w-3.5 h-3.5" /> Editar admissão
           </Link>
         )}
       </div>

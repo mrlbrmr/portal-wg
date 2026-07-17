@@ -30,6 +30,8 @@ export default async function AdmissoesPage() {
           fullName: true,
           cpf: true,
           startDate: true,
+          createdAt: true,
+          companyId: true,
           responsibleId: true,
           position: { select: { name: true } },
           company: { select: { name: true } },
@@ -60,6 +62,7 @@ export default async function AdmissoesPage() {
     fullName: a.fullName,
     cpf: a.cpf,
     positionName: a.position?.name ?? null,
+    companyId: a.companyId ?? null,
     companyName: a.company?.name ?? null,
     branchName: a.branch?.name ?? null,
     stageId: a.stage?.id ?? null,
@@ -69,6 +72,8 @@ export default async function AdmissoesPage() {
     startDate: a.startDate
       ? a.startDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })
       : null,
+    startDateISO: a.startDate ? a.startDate.toISOString().slice(0, 10) : null,
+    createdAt: a.createdAt.toISOString(),
   }));
 
   return (

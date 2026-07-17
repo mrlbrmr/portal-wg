@@ -13,7 +13,10 @@ import {
 export interface KanbanColumnDef {
   key: string;
   label: string;
-  dot: string;
+  /** Classe Tailwind da bolinha (ex.: "bg-blue-400"). Opcional se usar dotColor. */
+  dot?: string;
+  /** Cor hex da bolinha (ex.: "#22c55e"), para etapas com cor configurável. */
+  dotColor?: string;
 }
 
 /** API entregue a cada card renderizado (ex.: pedir exclusão do item). */
@@ -147,7 +150,10 @@ export function KanbanBoardShell<T>({
               <KanbanColumn key={col.key} id={col.key}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+                    <span
+                      className={`w-2 h-2 rounded-full ${col.dotColor ? "" : col.dot ?? ""}`}
+                      style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
+                    />
                     <span className="text-sm font-semibold text-gray-900">{col.label}</span>
                   </div>
                   <span className="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">

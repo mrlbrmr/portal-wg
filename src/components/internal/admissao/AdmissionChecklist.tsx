@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Trash2, Wand2, ListChecks } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Wand2,
+  ListChecks,
+  ChevronDown,
+  ChevronRight,
+  CheckSquare2,
+  X,
+} from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ActionResult } from "@/lib/admissao/actions";
 import {
@@ -57,6 +66,13 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
   const [tplId, setTplId] = useState("");
   const [newGroup, setNewGroup] = useState("");
 
+  // B1: colapsar grupos
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  // B3: seleção múltipla
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
   function run(fn: () => Promise<ActionResult>) {
     startTransition(async () => {
       const res = await fn();
@@ -64,6 +80,43 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     });
   }
 
+  function toggleGroup(id: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelect(id: string, checked: boolean) {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    setSelectedItems(new Set());
+  }
+
+  function bulkUpdate(status: Status) {
+    const ids = [...selectedItems];
+    startTransition(async () => {
+      const results = await Promise.all(
+        ids.map((id) => updateChecklistItem(admissionId, id, { status }))
+      );
+      const failed = results.filter((r) => !r.ok).length;
+      if (failed > 0) notify("error", `${failed} item(s) não puderam ser atualizados.`);
+      else notify("success", `${ids.length} item(s) marcados como "${STATUS_LABEL[status]}".`);
+      exitSelectionMode();
+    });
+  }
+
+  // B2: totais globais
   const allItems = groups.flatMap((g) => g.items);
   const total = allItems.length;
   const done = allItems.filter((i) => i.status === "DONE").length;
@@ -71,6 +124,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+      {/* Cabeçalho global */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-200">
         <div>
           <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
@@ -80,36 +134,61 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
             {done} de {total} concluídos · {pct}%
           </p>
         </div>
-        {canManage && (
-          <div className="flex flex-wrap items-center gap-2">
-            <select value={tplId} onChange={(e) => setTplId(e.target.value)} className={smallInput}>
-              <option value="">Aplicar modelo…</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={!tplId || isPending}
-              onClick={() => run(async () => {
-                const r = await applyChecklistTemplate(admissionId, tplId);
-                if (r.ok) {
-                  notify("success", "Modelo aplicado.");
-                  setTplId("");
+        <div className="flex flex-wrap items-center gap-2">
+          {canManage && (
+            <>
+              {/* B3: botão de modo seleção */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectionMode(!selectionMode);
+                  setSelectedItems(new Set());
+                }}
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ${
+                  selectionMode
+                    ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                }`}
+              >
+                <CheckSquare2 className="w-3.5 h-3.5" />
+                {selectionMode ? "Cancelar seleção" : "Selecionar"}
+              </button>
+              <select
+                value={tplId}
+                onChange={(e) => setTplId(e.target.value)}
+                className={smallInput}
+              >
+                <option value="">Aplicar modelo…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!tplId || isPending}
+                onClick={() =>
+                  run(async () => {
+                    const r = await applyChecklistTemplate(admissionId, tplId);
+                    if (r.ok) {
+                      notify("success", "Modelo aplicado.");
+                      setTplId("");
+                    }
+                    return r;
+                  })
                 }
-                return r;
-              })}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-wg-green-dark hover:opacity-80 disabled:opacity-40"
-            >
-              <Wand2 className="w-3.5 h-3.5" /> Aplicar
-            </button>
-          </div>
-        )}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-wg-green-dark hover:opacity-80 disabled:opacity-40"
+              >
+                <Wand2 className="w-3.5 h-3.5" /> Aplicar
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="p-5 space-y-4">
+        {/* B2: barra de progresso global */}
         {total > 0 && (
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div className="h-full bg-wg-green transition-all" style={{ width: `${pct}%` }} />
@@ -118,107 +197,167 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
 
         {groups.length === 0 && (
           <p className="text-sm text-gray-500 text-center py-6">
-            Nenhum grupo ainda. {canManage ? "Aplique um modelo ou crie um grupo abaixo." : ""}
+            Nenhum grupo ainda.{" "}
+            {canManage ? "Aplique um modelo ou crie um grupo abaixo." : ""}
           </p>
         )}
 
-        {groups.map((g) => (
-          <div key={g.id} className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
-              <span className="font-medium text-sm text-gray-800">{g.name}</span>
-              <span className="text-[11px] text-gray-500 bg-gray-200 rounded-full px-1.5">{g.items.length}</span>
-              {canManage && (
-                <div className="ml-auto flex items-center gap-1">
-                  <AddItemInline
-                    onAdd={(name) => run(() => addChecklistItem(admissionId, g.id, name))}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm(`Excluir grupo "${g.name}" e seus itens?`))
-                        run(() => deleteChecklistGroup(admissionId, g.id));
-                    }}
-                    className="p-1 text-gray-400 hover:text-red-600 rounded"
-                    title="Excluir grupo"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="divide-y divide-gray-100">
-              {g.items.length === 0 && (
-                <p className="text-xs text-gray-400 px-3 py-3">Sem itens.</p>
-              )}
-              {g.items.map((it) => (
-                <div key={it.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60">
-                  <input
-                    type="checkbox"
-                    checked={it.status === "DONE"}
-                    disabled={!canManage || isPending}
-                    onChange={(e) =>
-                      run(() =>
-                        updateChecklistItem(admissionId, it.id, {
-                          status: e.target.checked ? "DONE" : "PENDING",
-                        })
-                      )
-                    }
-                    className="accent-wg-green"
-                  />
-                  <span
-                    className={`flex-1 min-w-0 truncate text-sm ${
-                      it.status === "DONE" ? "line-through text-gray-400" : "text-gray-800"
-                    }`}
-                  >
-                    {it.name}
-                  </span>
-                  <input
-                    type="date"
-                    defaultValue={it.dueDate ?? ""}
-                    disabled={!canManage || isPending}
-                    onBlur={(e) =>
-                      run(() =>
-                        updateChecklistItem(admissionId, it.id, {
-                          dueDate: e.target.value || null,
-                        })
-                      )
-                    }
-                    className={`${smallInput} w-[130px]`}
-                  />
-                  <select
-                    value={it.status}
-                    disabled={!canManage || isPending}
-                    onChange={(e) =>
-                      run(() =>
-                        updateChecklistItem(admissionId, it.id, { status: e.target.value as Status })
-                      )
-                    }
-                    className={`${smallInput} w-[130px]`}
-                    style={{ color: STATUS_COLOR[it.status] }}
-                  >
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s} style={{ color: "#111827" }}>
-                        {STATUS_LABEL[s]}
-                      </option>
-                    ))}
-                  </select>
-                  {canManage && (
+        {groups.map((g) => {
+          // B2: totais por seção
+          const gDone = g.items.filter((i) => i.status === "DONE").length;
+          const gTotal = g.items.length;
+          const gPct = gTotal > 0 ? Math.round((gDone / gTotal) * 100) : 0;
+          const isCollapsed = collapsedGroups.has(g.id);
+
+          return (
+            <div key={g.id} className="border border-gray-200 rounded-lg overflow-hidden">
+              {/* Cabeçalho do grupo (B1 + B2) */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.id)}
+                  className="p-0.5 text-gray-400 hover:text-gray-700 rounded transition-colors shrink-0"
+                  title={isCollapsed ? "Expandir" : "Recolher"}
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
+                <span className="font-medium text-sm text-gray-800 truncate">{g.name}</span>
+                <span className="shrink-0 text-[11px] text-gray-500 bg-gray-200 rounded-full px-1.5">
+                  {gDone}/{gTotal}
+                </span>
+                {gTotal > 0 && (
+                  <span className="shrink-0 text-[11px] text-gray-400">{gPct}%</span>
+                )}
+                {canManage && (
+                  <div className="ml-auto flex items-center gap-1">
+                    <AddItemInline
+                      onAdd={(name) => run(() => addChecklistItem(admissionId, g.id, name))}
+                    />
                     <button
                       type="button"
-                      onClick={() => run(() => deleteChecklistItem(admissionId, it.id))}
+                      onClick={() => {
+                        if (confirm(`Excluir grupo "${g.name}" e seus itens?`))
+                          run(() => deleteChecklistGroup(admissionId, g.id));
+                      }}
                       className="p-1 text-gray-400 hover:text-red-600 rounded"
-                      title="Excluir item"
+                      title="Excluir grupo"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+                  </div>
+                )}
+              </div>
 
-        {canManage && (
+              {/* B2: barra de progresso por seção */}
+              {gTotal > 0 && (
+                <div className="h-0.5 bg-gray-100">
+                  <div
+                    className="h-full bg-wg-green transition-all"
+                    style={{ width: `${gPct}%` }}
+                  />
+                </div>
+              )}
+
+              {/* B1: itens ocultos quando recolhido */}
+              {!isCollapsed && (
+                <div className="divide-y divide-gray-100">
+                  {g.items.length === 0 && (
+                    <p className="text-xs text-gray-400 px-3 py-3">Sem itens.</p>
+                  )}
+                  {g.items.map((it) => (
+                    <div
+                      key={it.id}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60"
+                    >
+                      {/* B3: alterna entre checkbox de seleção e de status */}
+                      {canManage && selectionMode ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(it.id)}
+                          onChange={(e) => toggleSelect(it.id, e.target.checked)}
+                          className="accent-blue-500 w-4 h-4 shrink-0"
+                          title="Selecionar"
+                        />
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={it.status === "DONE"}
+                          disabled={!canManage || isPending}
+                          onChange={(e) =>
+                            run(() =>
+                              updateChecklistItem(admissionId, it.id, {
+                                status: e.target.checked ? "DONE" : "PENDING",
+                              })
+                            )
+                          }
+                          className="accent-wg-green shrink-0"
+                        />
+                      )}
+                      <span
+                        className={`flex-1 min-w-0 truncate text-sm ${
+                          it.status === "DONE"
+                            ? "line-through text-gray-400"
+                            : "text-gray-800"
+                        }`}
+                      >
+                        {it.name}
+                      </span>
+                      <input
+                        type="date"
+                        defaultValue={it.dueDate ?? ""}
+                        disabled={!canManage || isPending || selectionMode}
+                        onBlur={(e) =>
+                          run(() =>
+                            updateChecklistItem(admissionId, it.id, {
+                              dueDate: e.target.value || null,
+                            })
+                          )
+                        }
+                        className={`${smallInput} w-[130px]`}
+                      />
+                      <select
+                        value={it.status}
+                        disabled={!canManage || isPending || selectionMode}
+                        onChange={(e) =>
+                          run(() =>
+                            updateChecklistItem(admissionId, it.id, {
+                              status: e.target.value as Status,
+                            })
+                          )
+                        }
+                        className={`${smallInput} w-[130px]`}
+                        style={{ color: STATUS_COLOR[it.status] }}
+                      >
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s} style={{ color: "#111827" }}>
+                            {STATUS_LABEL[s]}
+                          </option>
+                        ))}
+                      </select>
+                      {canManage && !selectionMode && (
+                        <button
+                          type="button"
+                          onClick={() => run(() => deleteChecklistItem(admissionId, it.id))}
+                          className="p-1 text-gray-400 hover:text-red-600 rounded"
+                          title="Excluir item"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Adicionar grupo (oculto no modo seleção) */}
+        {canManage && !selectionMode && (
           <div className="flex items-center gap-2 pt-1">
             <input
               value={newGroup}
@@ -246,6 +385,39 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
           </div>
         )}
       </div>
+
+      {/* B3: toolbar de ações em lote */}
+      {selectionMode && (
+        <div className="border-t border-gray-800 px-5 py-3 bg-gray-900 rounded-b-2xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-white shrink-0">
+              {selectedItems.size > 0
+                ? `${selectedItems.size} selecionado(s) · Marcar como:`
+                : "Selecione itens acima"}
+            </span>
+            {selectedItems.size > 0 &&
+              STATUSES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => bulkUpdate(s)}
+                  className="text-xs px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors disabled:opacity-50"
+                >
+                  {STATUS_LABEL[s]}
+                </button>
+              ))}
+            <button
+              type="button"
+              onClick={exitSelectionMode}
+              className="ml-auto text-gray-400 hover:text-white transition-colors"
+              title="Cancelar seleção"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,11 +3,13 @@ import type { DistributionChannel, PublicationStatus, Prisma } from "@prisma/cli
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import type { ChannelAdapter, JobForDistribution, PublishResult } from "./types";
 import { manualAdapter } from "./adapters/manual";
+import { linkedinAdapter } from "./adapters/linkedin";
 
 // Registro de adapters. Canais ainda não implementados simplesmente não estão
 // aqui — o dispatch trata a ausência como "canal indisponível".
 const ADAPTERS: Partial<Record<DistributionChannel, ChannelAdapter>> = {
   MANUAL: manualAdapter,
+  LINKEDIN_PAGE: linkedinAdapter,
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";

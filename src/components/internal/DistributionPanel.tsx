@@ -219,13 +219,17 @@ export function DistributionPanel({
                       runChannel(
                         c.channel,
                         () => publishChannelAction(jobId, c.channel),
-                        "Divulgado."
+                        isPublished ? "Republicado." : "Divulgado."
                       )
                     }
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-black bg-wg-green hover:bg-wg-green-bright disabled:opacity-40 px-2.5 py-1.5 rounded-lg transition-colors"
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40 ${
+                      isPublished
+                        ? "text-gray-700 bg-gray-100 hover:bg-gray-200"
+                        : "text-black bg-wg-green hover:bg-wg-green-bright"
+                    }`}
                   >
                     {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                    Divulgar
+                    {isPublished ? "Republicar" : "Divulgar"}
                   </button>
                 )}
 

@@ -47,9 +47,9 @@ export const CHANNELS: ChannelMeta[] = [
   {
     channel: "LINKEDIN_PAGE",
     label: "LinkedIn — página",
-    description: "Post automático na página da empresa com o link da vaga.",
+    description: "Post na página da empresa com o link da vaga. Requer conexão em Configurações → Divulgação.",
     kind: "api",
-    implemented: false,
+    implemented: true,
   },
   {
     channel: "LINKEDIN_NATIVE",

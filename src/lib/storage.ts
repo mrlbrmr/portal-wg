@@ -49,7 +49,7 @@ export function validateResumeFile(file: File): ResumeValidationResult {
 }
 
 /** Remove caracteres perigosos do nome do arquivo para compor o pathname. */
-function sanitizeFileName(name: string): string {
+export function sanitizeFileName(name: string): string {
   return name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "") // remove acentos
@@ -63,7 +63,7 @@ function sanitizeFileName(name: string): string {
 //  2. OIDC: VERCEL_OIDC_TOKEN + BLOB_STORE_ID — usado pelo fluxo gerenciado da
 //     Vercel (injetado automaticamente em runtime na Vercel; localmente vem do
 //     `vercel env pull`). Só lançamos erro quando NENHUMA credencial existe.
-function assertToken() {
+export function assertBlobConfigured() {
   const configured =
     !!process.env.BLOB_READ_WRITE_TOKEN ||
     !!process.env.BLOB_STORE_ID || // fluxo OIDC (token resolvido pelo SDK/runtime)
@@ -85,7 +85,7 @@ export interface UploadedResume {
  * original do arquivo. Valide o arquivo com validateResumeFile() antes de chamar.
  */
 export async function uploadResume(file: File, jobId: string): Promise<UploadedResume> {
-  assertToken();
+  assertBlobConfigured();
 
   const safeName = sanitizeFileName(file.name) || "curriculo";
   const pathname = `resumes/${jobId}/${safeName}`;
@@ -104,12 +104,12 @@ export async function uploadResume(file: File, jobId: string): Promise<UploadedR
  * Retorna o stream e os headers do blob. NUNCA exponha a URL bruta ao cliente.
  */
 export async function getResumeStream(url: string) {
-  assertToken();
+  assertBlobConfigured();
   return get(url, { access: "private" });
 }
 
 /** Exclui um currículo do storage (ex.: ao remover a candidatura — retenção LGPD). */
 export async function deleteResume(url: string): Promise<void> {
-  assertToken();
+  assertBlobConfigured();
   await del(url);
 }

@@ -18,6 +18,8 @@ export default auth((req: NextRequest & { auth: unknown }) => {
     pathname.startsWith("/configuracoes") ||
     pathname.startsWith("/perfil") ||
     pathname.startsWith("/usuarios") ||
+    pathname.startsWith("/admissoes") ||
+    pathname.startsWith("/api/admissoes") ||
     pathname.startsWith("/api/jobs") ||
     pathname.startsWith("/api/homepage-config") ||
     pathname.startsWith("/api/users") ||

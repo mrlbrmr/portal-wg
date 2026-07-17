@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BarChart3, Users, TrendingUp, Building2 } from "lucide-react";
+import { BarChart3, Users, TrendingUp, Building2, FileSpreadsheet } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { DashboardCard } from "@/components/internal/DashboardCard";
 
@@ -102,11 +102,20 @@ export default async function RelatoriosPage() {
 
   return (
     <div className="max-w-6xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5" /> Relatórios
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">Visão geral dos processos de admissão.</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" /> Relatórios
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Visão geral dos processos de admissão.</p>
+        </div>
+        <a
+          href="/api/admissoes/export"
+          className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-4 py-2.5 rounded-full text-sm transition-colors shrink-0"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          Exportar Excel
+        </a>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">

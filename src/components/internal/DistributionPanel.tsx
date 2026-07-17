@@ -17,6 +17,7 @@ export interface PublicationView {
 
 interface Props {
   jobId: string;
+  jobUrl: string;
   isPublic: boolean;
   publications: PublicationView[];
   announcementText: string;
@@ -38,7 +39,13 @@ const STATUS_CLASS: Record<PublicationStatus, string> = {
   REMOVED: "bg-gray-200 text-gray-600",
 };
 
-export function DistributionPanel({ jobId, isPublic, publications, announcementText }: Props) {
+export function DistributionPanel({
+  jobId,
+  jobUrl,
+  isPublic,
+  publications,
+  announcementText,
+}: Props) {
   const { notify } = useToast();
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
@@ -93,6 +100,10 @@ export function DistributionPanel({ jobId, isPublic, publications, announcementT
           const status: PublicationStatus = pub?.status ?? "NOT_PUBLISHED";
           const isBusy = busyChannel === c.channel && isPending;
           const isPublished = status === "PUBLISHED";
+          // Canais de feed (Google/Indeed) são passivos: entram automaticamente
+          // quando a vaga está pública, sem ação manual.
+          const isFeed = c.kind === "feed" && c.implemented;
+          const feedActive = isFeed && isPublic;
 
           return (
             <div
@@ -113,9 +124,19 @@ export function DistributionPanel({ jobId, isPublic, publications, announcementT
               </div>
 
               <span
-                className={`shrink-0 text-[11px] font-medium rounded-full px-2 py-0.5 ${STATUS_CLASS[status]}`}
+                className={`shrink-0 text-[11px] font-medium rounded-full px-2 py-0.5 ${
+                  isFeed
+                    ? feedActive
+                      ? STATUS_CLASS.PUBLISHED
+                      : STATUS_CLASS.NOT_PUBLISHED
+                    : STATUS_CLASS[status]
+                }`}
               >
-                {STATUS_LABEL[status]}
+                {isFeed
+                  ? feedActive
+                    ? "Ativo (automático)"
+                    : "Aguardando publicação"
+                  : STATUS_LABEL[status]}
               </span>
 
               <div className="flex items-center gap-1.5 shrink-0">
@@ -123,6 +144,16 @@ export function DistributionPanel({ jobId, isPublic, publications, announcementT
                   <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2.5 py-1">
                     Em breve
                   </span>
+                ) : isFeed ? (
+                  <a
+                    href={`https://search.google.com/test/rich-results?url=${encodeURIComponent(jobUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                    title="Validar os dados estruturados no Google"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Testar
+                  </a>
                 ) : c.channel === "MANUAL" ? (
                   <>
                     <button

@@ -73,6 +73,7 @@ export default async function EditarVagaPage({ params }: Props) {
       <div className="mb-6">
         <DistributionPanel
           jobId={job.id}
+          jobUrl={jobPublicUrl(job.slug ?? job.id)}
           isPublic={isPublic}
           publications={publications}
           announcementText={announcementText}

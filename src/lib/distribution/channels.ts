@@ -33,9 +33,9 @@ export const CHANNELS: ChannelMeta[] = [
   {
     channel: "GOOGLE_JOBS",
     label: "Google for Jobs",
-    description: "Aparece na busca do Google via dados estruturados. Gratuito.",
+    description: "Aparece na busca do Google via dados estruturados. Automático quando a vaga está pública.",
     kind: "feed",
-    implemented: false,
+    implemented: true,
   },
   {
     channel: "INDEED",

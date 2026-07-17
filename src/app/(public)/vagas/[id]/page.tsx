@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { buildJobPostingJsonLd } from "@/lib/job-schema";
 import { MapPin, Clock, Briefcase, ChevronLeft, ArrowRight } from "lucide-react";
 import { ShareButton } from "@/components/public/ShareButton";
 import { ApplicationForm } from "@/components/public/ApplicationForm";
@@ -69,39 +70,8 @@ export default async function JobPage({ params }: Props) {
     select: { id: true, slug: true, title: true, city: true, state: true, modality: true, department: true },
   });
 
-  // JSON-LD JobPosting — melhora visibilidade no Google
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "JobPosting",
-    title: job.title,
-    description: job.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(),
-    hiringOrganization: {
-      "@type": "Organization",
-      name: job.company ?? "Grupo WG Baterias",
-      sameAs: "https://www.wgbaterias.com.br",
-    },
-    jobLocation: {
-      "@type": "Place",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: job.city,
-        addressRegion: job.state,
-        addressCountry: "BR",
-      },
-    },
-    employmentType: job.contractType === "CLT" ? "FULL_TIME" : "CONTRACTOR",
-    datePosted: job.createdAt.toISOString().split("T")[0],
-    ...(job.closingDate && { validThrough: job.closingDate.toISOString().split("T")[0] }),
-    ...(job.salaryRange && {
-      baseSalary: {
-        "@type": "MonetaryAmount",
-        currency: "BRL",
-        value: { "@type": "QuantitativeValue", description: job.salaryRange },
-      },
-    }),
-    url: jobUrl,
-    directApply: true,
-  };
+  // JSON-LD JobPosting — Google for Jobs (markup completo em @/lib/job-schema)
+  const jsonLd = buildJobPostingJsonLd(job, baseUrl);
 
   const sections = [
     { title: "Sobre a Vaga", content: job.description },

@@ -1,0 +1,322 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, Check, Trash2 } from "lucide-react";
+
+export interface AdmissionFormValues {
+  fullName: string;
+  cpf: string;
+  email: string;
+  phone: string;
+  birthDate: string;
+  positionId: string;
+  companyId: string;
+  branchId: string;
+  stageId: string;
+  templateId: string;
+  responsibleId: string;
+  managerName: string;
+  startDate: string;
+  medicalExamDate: string;
+  salary: string;
+  shift: string;
+  uniformSize: string;
+  notes: string;
+}
+
+interface Option {
+  id: string;
+  name: string;
+}
+
+interface Props {
+  options: {
+    stages: Option[];
+    companies: Option[];
+    branches: Option[];
+    positions: Option[];
+    templates: Option[];
+    users: Option[];
+  };
+  admission?: AdmissionFormValues & { id: string };
+  canDelete?: boolean;
+}
+
+const inputClass =
+  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
+const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+
+function SelectField({
+  name,
+  label,
+  options,
+  defaultValue,
+  placeholder = "— selecione —",
+}: {
+  name: string;
+  label: string;
+  options: Option[];
+  defaultValue?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={name} className={labelClass}>
+        {label}
+      </label>
+      <select id={name} name={name} defaultValue={defaultValue ?? ""} className={inputClass}>
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+export default function AdmissionForm({ options, admission, canDelete }: Props) {
+  const router = useRouter();
+  const isEdit = !!admission;
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSaved(false);
+
+    const fd = new FormData(e.currentTarget);
+    const payload = Object.fromEntries(fd.entries());
+
+    setIsLoading(true);
+    try {
+      const res = await fetch(
+        isEdit ? `/api/admissoes/${admission!.id}` : "/api/admissoes",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!res.ok) {
+        let message = "Não foi possível salvar a admissão.";
+        try {
+          const j = await res.json();
+          if (typeof j.error === "string") message = j.error;
+        } catch {
+          /* mantém a mensagem padrão */
+        }
+        setError(message);
+        return;
+      }
+
+      setSaved(true);
+      router.push("/admissoes");
+      router.refresh();
+    } catch {
+      setError("Erro de conexão. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!admission) return;
+    if (!confirm("Excluir esta admissão? Esta ação pode ser desfeita apenas pelo suporte.")) return;
+    setError(null);
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admissoes/${admission.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        let message = "Não foi possível excluir.";
+        try {
+          const j = await res.json();
+          if (typeof j.error === "string") message = j.error;
+        } catch {
+          /* padrão */
+        }
+        setError(message);
+        return;
+      }
+      router.push("/admissoes");
+      router.refresh();
+    } catch {
+      setError("Erro de conexão. Tente novamente.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  const v = admission;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+      {/* Dados pessoais */}
+      <fieldset className="space-y-4">
+        <legend className="text-sm font-semibold text-gray-900 mb-1">Dados pessoais</legend>
+        <div>
+          <label htmlFor="fullName" className={labelClass}>
+            Nome completo <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="fullName"
+            name="fullName"
+            type="text"
+            required
+            defaultValue={v?.fullName ?? ""}
+            placeholder="Nome do colaborador"
+            className={inputClass}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="cpf" className={labelClass}>
+              CPF
+            </label>
+            <input id="cpf" name="cpf" type="text" defaultValue={v?.cpf ?? ""} placeholder="000.000.000-00" className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="birthDate" className={labelClass}>
+              Data de nascimento
+            </label>
+            <input id="birthDate" name="birthDate" type="date" defaultValue={v?.birthDate ?? ""} className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="email" className={labelClass}>
+              E-mail
+            </label>
+            <input id="email" name="email" type="email" defaultValue={v?.email ?? ""} placeholder="email@exemplo.com" className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="phone" className={labelClass}>
+              Telefone
+            </label>
+            <input id="phone" name="phone" type="tel" defaultValue={v?.phone ?? ""} placeholder="(00) 0 0000-0000" className={inputClass} />
+          </div>
+        </div>
+      </fieldset>
+
+      {/* Cargo e lotação */}
+      <fieldset className="space-y-4">
+        <legend className="text-sm font-semibold text-gray-900 mb-1">Cargo e lotação</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <SelectField name="positionId" label="Cargo" options={options.positions} defaultValue={v?.positionId} />
+          <SelectField name="companyId" label="Empresa" options={options.companies} defaultValue={v?.companyId} />
+          <SelectField name="branchId" label="Filial" options={options.branches} defaultValue={v?.branchId} />
+        </div>
+      </fieldset>
+
+      {/* Processo */}
+      <fieldset className="space-y-4">
+        <legend className="text-sm font-semibold text-gray-900 mb-1">Processo de admissão</legend>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <SelectField name="stageId" label="Etapa" options={options.stages} defaultValue={v?.stageId} />
+          <SelectField name="responsibleId" label="Responsável" options={options.users} defaultValue={v?.responsibleId} />
+          <SelectField name="templateId" label="Modelo de checklist" options={options.templates} defaultValue={v?.templateId} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="startDate" className={labelClass}>
+              Data de início
+            </label>
+            <input id="startDate" name="startDate" type="date" defaultValue={v?.startDate ?? ""} className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="medicalExamDate" className={labelClass}>
+              Exame médico (ASO)
+            </label>
+            <input id="medicalExamDate" name="medicalExamDate" type="date" defaultValue={v?.medicalExamDate ?? ""} className={inputClass} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div>
+            <label htmlFor="salary" className={labelClass}>
+              Salário (R$)
+            </label>
+            <input id="salary" name="salary" type="number" step="0.01" min="0" defaultValue={v?.salary ?? ""} placeholder="0,00" className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="shift" className={labelClass}>
+              Turno
+            </label>
+            <input id="shift" name="shift" type="text" defaultValue={v?.shift ?? ""} placeholder="Ex.: Comercial" className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="uniformSize" className={labelClass}>
+              Uniforme
+            </label>
+            <input id="uniformSize" name="uniformSize" type="text" defaultValue={v?.uniformSize ?? ""} placeholder="Ex.: M" className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="managerName" className={labelClass}>
+              Gestor
+            </label>
+            <input id="managerName" name="managerName" type="text" defaultValue={v?.managerName ?? ""} placeholder="Nome do gestor" className={inputClass} />
+          </div>
+        </div>
+      </fieldset>
+
+      {/* Observações */}
+      <fieldset>
+        <label htmlFor="notes" className={labelClass}>
+          Observações
+        </label>
+        <textarea id="notes" name="notes" rows={4} defaultValue={v?.notes ?? ""} placeholder="Anotações internas sobre a admissão…" className={inputClass} />
+      </fieldset>
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{error}</div>
+      )}
+
+      <div className="flex items-center justify-between gap-3 pt-2">
+        <div>
+          {isEdit && canDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isDeleting || isLoading}
+              className="inline-flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-60"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Excluir
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/admissoes")}
+            className="px-4 py-2.5 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading || isDeleting}
+            className="inline-flex items-center justify-center gap-2 bg-wg-green hover:bg-wg-green-bright disabled:opacity-60 text-black font-semibold px-6 py-2.5 rounded-full transition-colors"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Salvando…
+              </>
+            ) : saved ? (
+              <>
+                <Check className="w-4 h-4" /> Salvo
+              </>
+            ) : isEdit ? (
+              "Salvar alterações"
+            ) : (
+              "Criar admissão"
+            )}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}

@@ -2,7 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Briefcase, Plus, Settings, Users, UserCircle, ClipboardCheck } from "lucide-react";
+import {
+  LayoutDashboard,
+  Briefcase,
+  Plus,
+  Settings,
+  Users,
+  UserCircle,
+  ClipboardCheck,
+  List,
+  Kanban,
+  Calendar,
+  BarChart3,
+  History,
+} from "lucide-react";
+import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -10,45 +24,90 @@ interface Props {
   onNavClick?: () => void;
 }
 
+interface NavLink {
+  href: string;
+  label: string;
+  icon: ElementType;
+}
+
 export default function InternalSidebar({ role, onNavClick }: Props) {
   const pathname = usePathname();
+  const isAdmin = role === "ADMIN_RH";
 
-  const links = [
+  const topLinks: NavLink[] = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/vagas/gerenciar", label: "Vagas", icon: Briefcase },
-    { href: "/admissoes", label: "Admissões", icon: ClipboardCheck },
-    ...(role === "ADMIN_RH"
-      ? [
-          { href: "/vagas/nova", label: "Nova Vaga", icon: Plus },
-          { href: "/usuarios", label: "Usuários", icon: Users },
-          { href: "/configuracoes", label: "Configurações", icon: Settings },
-        ]
-      : []),
-    { href: "/perfil", label: "Meu Perfil", icon: UserCircle },
   ];
+
+  // Submenus de Admissões — espelham o app original (Admissões, Kanban,
+  // Calendário, Relatórios, Histórico, Configurações), adaptados ao portal.
+  const admissaoSub: NavLink[] = [
+    { href: "/admissoes", label: "Lista", icon: List },
+    { href: "/admissoes/kanban", label: "Kanban", icon: Kanban },
+    { href: "/admissoes/calendario", label: "Calendário", icon: Calendar },
+    { href: "/admissoes/relatorios", label: "Relatórios", icon: BarChart3 },
+    { href: "/admissoes/historico", label: "Histórico", icon: History },
+    ...(isAdmin
+      ? [{ href: "/admissoes/configuracoes", label: "Configurações", icon: Settings }]
+      : []),
+  ];
+
+  const adminLinks: NavLink[] = isAdmin
+    ? [
+        { href: "/vagas/nova", label: "Nova Vaga", icon: Plus },
+        { href: "/usuarios", label: "Usuários", icon: Users },
+        { href: "/configuracoes", label: "Configurações", icon: Settings },
+      ]
+    : [];
+
+  const perfilLink: NavLink = { href: "/perfil", label: "Meu Perfil", icon: UserCircle };
+
+  const admissaoActive = pathname === "/admissoes" || pathname.startsWith("/admissoes/");
+
+  function itemClass(active: boolean) {
+    return cn(
+      "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+      active
+        ? "bg-wg-green/15 text-wg-green-dark"
+        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+    );
+  }
+
+  function renderLink(link: NavLink, exact = false) {
+    const active = exact
+      ? pathname === link.href
+      : pathname === link.href || pathname.startsWith(link.href + "/");
+    return (
+      <Link key={link.href} href={link.href} onClick={onNavClick} className={itemClass(active)}>
+        <link.icon className="w-4 h-4" />
+        {link.label}
+      </Link>
+    );
+  }
 
   return (
     <aside className="w-52 border-r border-gray-200 bg-white min-h-[calc(100vh-56px)] p-3 flex-shrink-0">
       <nav className="flex flex-col gap-1">
-        {links.map((link) => {
-          const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={onNavClick}
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-wg-green/15 text-wg-green-dark"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              )}
-            >
-              <link.icon className="w-4 h-4" />
-              {link.label}
-            </Link>
-          );
-        })}
+        {topLinks.map((l) => renderLink(l))}
+
+        {/* Admissões: item-pai + submenus (visíveis quando a seção está ativa) */}
+        <Link
+          href="/admissoes"
+          onClick={onNavClick}
+          className={itemClass(admissaoActive)}
+          aria-expanded={admissaoActive}
+        >
+          <ClipboardCheck className="w-4 h-4" />
+          Admissões
+        </Link>
+        {admissaoActive && (
+          <div className="ml-3 flex flex-col gap-1 border-l border-gray-200 pl-2">
+            {admissaoSub.map((l) => renderLink(l, l.href === "/admissoes"))}
+          </div>
+        )}
+
+        {adminLinks.map((l) => renderLink(l))}
+        {renderLink(perfilLink)}
       </nav>
     </aside>
   );

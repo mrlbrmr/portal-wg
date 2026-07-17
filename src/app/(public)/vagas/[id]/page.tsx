@@ -49,7 +49,7 @@ export default async function JobPage({ params }: Props) {
 
   const now = new Date();
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiraswg.vercel.app";
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
   const jobUrl = `${baseUrl}/vagas/${job.slug ?? job.id}`;
 
   // Vagas similares — mesmo departamento OU mesma cidade, excluindo a atual

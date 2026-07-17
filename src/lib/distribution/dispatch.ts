@@ -10,7 +10,7 @@ const ADAPTERS: Partial<Record<DistributionChannel, ChannelAdapter>> = {
   MANUAL: manualAdapter,
 };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiraswg.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
 
 export function jobPublicUrl(slugOrId: string): string {
   return `${APP_URL}/vagas/${slugOrId}`;

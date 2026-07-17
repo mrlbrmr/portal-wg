@@ -10,7 +10,7 @@ import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 export const revalidate = 300;
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiraswg.vercel.app";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
   const now = new Date();
 
   const jobs = await prisma.job.findMany({

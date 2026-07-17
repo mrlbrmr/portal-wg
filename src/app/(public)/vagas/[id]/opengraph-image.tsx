@@ -33,7 +33,7 @@ export default async function OgImage({
   const department = job?.department ?? "";
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiraswg.vercel.app";
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
 
   let logoSrc: string | undefined;
   try {
@@ -168,7 +168,7 @@ export default async function OgImage({
 
         {/* URL */}
         <span style={{ color: "#4b5563", fontSize: 17 }}>
-          carreiraswg.vercel.app
+          carreiras.wgbaterias.com.br
         </span>
       </div>
     ),

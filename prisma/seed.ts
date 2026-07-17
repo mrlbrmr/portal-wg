@@ -89,6 +89,71 @@ async function main() {
 
   console.log("✅ Vagas de exemplo criadas:", job1.title, "|", job2.title);
 
+  // ─── Admissões: config inicial (idempotente por `name` único) ───────────────
+  await prisma.admissionStage.createMany({
+    skipDuplicates: true,
+    data: [
+      { name: "Nova admissão", color: "#94a3b8", icon: "sparkles", sortOrder: 1, isFinal: false },
+      { name: "Preparação", color: "#38bdf8", icon: "clipboard-list", sortOrder: 2, isFinal: false },
+      { name: "Cadastros", color: "#818cf8", icon: "user-plus", sortOrder: 3, isFinal: false },
+      { name: "Tecnologia", color: "#a78bfa", icon: "laptop", sortOrder: 4, isFinal: false },
+      { name: "Documentação", color: "#f59e0b", icon: "file-text", sortOrder: 5, isFinal: false },
+      { name: "Integração", color: "#10b981", icon: "users", sortOrder: 6, isFinal: false },
+      { name: "Pós integração", color: "#14b8a6", icon: "check-circle", sortOrder: 7, isFinal: false },
+      { name: "Concluído", color: "#22c55e", icon: "check-check", sortOrder: 8, isFinal: true },
+    ],
+  });
+
+  await prisma.company.createMany({
+    skipDuplicates: true,
+    data: [
+      { name: "AT ASTORI", sortOrder: 1 },
+      { name: "EXPRESS SJP", sortOrder: 2 },
+      { name: "EXPRESS RJ BATERIAS LTDA", sortOrder: 3 },
+      { name: "WG BATERIAS", sortOrder: 4 },
+    ],
+  });
+
+  await prisma.branch.createMany({
+    skipDuplicates: true,
+    data: [
+      { name: "Matriz", sortOrder: 1 },
+      { name: "SP", sortOrder: 2 },
+      { name: "RJ", sortOrder: 3 },
+      { name: "SJP", sortOrder: 4 },
+      { name: "SUM", sortOrder: 5 },
+    ],
+  });
+
+  await prisma.position.createMany({
+    skipDuplicates: true,
+    data: [
+      { name: "Motorista de Caminhão", sortOrder: 1 },
+      { name: "Auxiliar de Logística", sortOrder: 2 },
+      { name: "Assistente de Cobrança", sortOrder: 3 },
+      { name: "Operador Multifuncional", sortOrder: 4 },
+      { name: "Coordenador", sortOrder: 5 },
+      { name: "Supervisor", sortOrder: 6 },
+      { name: "Gerente", sortOrder: 7 },
+    ],
+  });
+
+  await prisma.documentType.createMany({
+    skipDuplicates: true,
+    data: [
+      { name: "RG", required: true, sortOrder: 1 },
+      { name: "CPF", required: true, sortOrder: 2 },
+      { name: "CNH", required: false, sortOrder: 3 },
+      { name: "Comprovante de Residência", required: true, sortOrder: 4 },
+      { name: "Contrato", required: true, sortOrder: 5 },
+      { name: "ASO", required: true, sortOrder: 6 },
+      { name: "Foto 3x4", required: false, sortOrder: 7 },
+      { name: "Outros", required: false, sortOrder: 99 },
+    ],
+  });
+
+  console.log("✅ Admissões: etapas, empresas, filiais, cargos e tipos de documento semeados.");
+
   console.log("\n🎉 Seed concluído!");
   console.log("\n📋 Credenciais de desenvolvimento:");
   console.log("   Admin RH:       admin@wgbaterias.com.br / admin123");

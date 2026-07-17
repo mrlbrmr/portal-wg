@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Briefcase, PauseCircle, XCircle, Plus, FileText, Clock, Calendar, Users } from "lucide-react";
+import { Briefcase, PauseCircle, XCircle, Plus, FileText, Clock, Calendar, Users, UserPlus, CheckCircle2, AlertTriangle, CalendarClock } from "lucide-react";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Metadata } from "next";
@@ -18,6 +18,8 @@ export default async function DashboardPage() {
   const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const in7UTC = new Date(todayUTC.getTime() + 7 * 86400000);
 
   const [
     activeJobs,
@@ -30,6 +32,10 @@ export default async function DashboardPage() {
     lastMonthCount,
     totalApplications,
     newApplications,
+    admissionsTotal,
+    admissionsDone,
+    admissionsLate,
+    admissionsUpcoming,
   ] = await Promise.all([
     // "Ativas" = pipeline aberto no portal (Ativa + Triagem + Entrevistas + Admissão)
     prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST } } }),
@@ -44,7 +50,34 @@ export default async function DashboardPage() {
     prisma.job.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.application.count(),
     prisma.application.count({ where: { stage: "NEW" } }),
+    prisma.admission.count({ where: { deletedAt: null } }),
+    prisma.admission.count({ where: { deletedAt: null, stage: { isFinal: true } } }),
+    prisma.admission.count({
+      where: {
+        deletedAt: null,
+        startDate: { lt: todayUTC },
+        OR: [{ stage: null }, { stage: { isFinal: false } }],
+      },
+    }),
+    prisma.admission.count({
+      where: { deletedAt: null, startDate: { gte: todayUTC, lte: in7UTC } },
+    }),
   ]);
+
+  const admissionsInProgress = admissionsTotal - admissionsDone;
+
+  const recentAdmissions = await prisma.admission.findMany({
+    where: { deletedAt: null },
+    take: 5,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      fullName: true,
+      startDate: true,
+      position: { select: { name: true } },
+      stage: { select: { name: true, color: true } },
+    },
+  });
 
   const recentJobs = await prisma.job.findMany({
     take: 6,
@@ -254,6 +287,68 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Admissões */}
+      <div className="bg-white border border-gray-200 shadow-sm rounded-xl mb-6">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-wg-green-dark" />
+            <h2 className="font-semibold text-gray-900">Admissões</h2>
+            <span className="text-xs text-gray-500">{admissionsTotal} no total</span>
+          </div>
+          <Link href="/admissoes" className="text-sm text-wg-green-dark hover:opacity-80 transition-opacity">
+            Ver todas
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-5 border-b border-gray-100">
+          <MiniStat label="Em andamento" value={admissionsInProgress} icon={Users} iconClass="bg-blue-100 text-blue-600" />
+          <MiniStat label="Concluídas" value={admissionsDone} icon={CheckCircle2} iconClass="bg-wg-green/15 text-wg-green-dark" />
+          <MiniStat label="Atrasadas" value={admissionsLate} icon={AlertTriangle} iconClass="bg-red-100 text-red-600" />
+          <MiniStat label="Próximas 7 dias" value={admissionsUpcoming} icon={CalendarClock} iconClass="bg-amber-100 text-amber-600" />
+        </div>
+
+        {recentAdmissions.length === 0 ? (
+          <EmptyState
+            icon={UserPlus}
+            title="Nenhuma admissão em andamento"
+            description="As admissões cadastradas aparecem aqui."
+            className="py-10"
+          />
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {recentAdmissions.map((adm) => (
+              <Link
+                key={adm.id}
+                href={`/admissoes/${adm.id}`}
+                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors gap-3"
+              >
+                <div className="min-w-0">
+                  <span className="text-sm font-medium text-gray-900">{adm.fullName}</span>
+                  {adm.position?.name && (
+                    <span className="text-xs text-gray-500 ml-2">{adm.position.name}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {adm.startDate && (
+                    <span className="text-xs text-gray-500">
+                      {adm.startDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                    </span>
+                  )}
+                  {adm.stage && (
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{ backgroundColor: `${adm.stage.color}1f`, color: adm.stage.color }}
+                    >
+                      {adm.stage.name}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Vagas recentes */}
       <div className="bg-white border border-gray-200 shadow-sm rounded-xl mb-6">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
@@ -310,6 +405,30 @@ export default async function DashboardPage() {
           </Link>
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  icon: Icon,
+  iconClass,
+}: {
+  label: string;
+  value: number;
+  icon: ElementType;
+  iconClass: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-lg font-bold text-gray-900 leading-tight">{value}</div>
+        <div className="text-xs text-gray-500 truncate">{label}</div>
+      </div>
     </div>
   );
 }

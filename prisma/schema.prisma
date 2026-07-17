@@ -116,6 +116,7 @@ model Job {
 
   statusHistory JobStatusHistory[]
   applications  Application[]
+  publications  JobPublication[]
 
   @@map("jobs")
 }
@@ -167,6 +168,61 @@ model JobStatusHistory {
   changedAt DateTime  @default(now())
 
   @@map("job_status_history")
+}
+
+// ─── Distribuição / divulgação de vagas em canais externos ────────────────────
+// Camada de sindicância: cada vaga tem um registro de publicação por canal
+// (status + id/URL externos). Canais "feed" (Google/Indeed) são passivos; canais
+// "api" (LinkedIn) publicam via chamada. Ver [[distribuicao-vagas]] no plano.
+
+enum DistributionChannel {
+  MANUAL // Divulgação manual (texto pronto + link público)
+  GOOGLE_JOBS // Google for Jobs (via JSON-LD/feed) — passivo
+  INDEED // Indeed (via feed XML) — passivo
+  LINKEDIN_PAGE // Post na página da empresa (Community Management API)
+  LINKEDIN_NATIVE // Vaga nativa no LinkedIn Jobs (parceria) — futuro
+}
+
+enum PublicationStatus {
+  NOT_PUBLISHED // Nunca publicado neste canal
+  PENDING // Enfileirado / em andamento
+  PUBLISHED // Publicado com sucesso
+  FAILED // Última tentativa falhou (ver lastError)
+  REMOVED // Retirado (vaga encerrada)
+}
+
+model JobPublication {
+  id          String              @id @default(cuid())
+  jobId       String
+  job         Job                 @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  channel     DistributionChannel
+  status      PublicationStatus   @default(NOT_PUBLISHED)
+  externalId  String? // id do post/anúncio no canal
+  externalUrl String? // URL pública no canal
+  lastError   String?             @db.Text
+  postedAt    DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([jobId, channel])
+  @@index([jobId])
+  @@map("job_publications")
+}
+
+// Conexão/credenciais por canal (usado a partir da fase 3 — OAuth do LinkedIn).
+// Tokens ficam aqui porque expiram/rotacionam; segredos estáticos ficam em env.
+model ChannelConnection {
+  id           String              @id @default(cuid())
+  channel      DistributionChannel @unique
+  enabled      Boolean             @default(false)
+  config       Json? // parâmetros por canal (ex.: URN da organização)
+  accessToken  String?             @db.Text
+  refreshToken String?             @db.Text
+  expiresAt    DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("channel_connections")
 }
 
 // ─── Configurações da Homepage ────────────────────────────────────────────────

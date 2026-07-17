@@ -2,7 +2,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import JobForm from "@/components/internal/JobForm";
-import { JOB_STATUS_LABELS, formatDateTime } from "@/lib/utils";
+import { JOB_STATUS_LABELS, formatDateTime, isPublicJobStatus } from "@/lib/utils";
+import {
+  DistributionPanel,
+  type PublicationView,
+} from "@/components/internal/DistributionPanel";
+import { buildAnnouncementText, jobPublicUrl } from "@/lib/distribution/dispatch";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Editar Vaga — RH" };
@@ -20,9 +25,33 @@ export default async function EditarVagaPage({ params }: Props) {
     where: { id },
     include: {
       statusHistory: { orderBy: { changedAt: "desc" } },
+      publications: true,
     },
   });
   if (!job) notFound();
+
+  const isPublic = isPublicJobStatus(job.status);
+  const announcementText = buildAnnouncementText({
+    id: job.id,
+    title: job.title,
+    slug: job.slug,
+    city: job.city,
+    state: job.state,
+    department: job.department,
+    company: job.company,
+    modality: job.modality,
+    contractType: job.contractType,
+    salaryRange: job.salaryRange,
+    highlightBenefit: job.highlightBenefit,
+    url: jobPublicUrl(job.slug ?? job.id),
+  });
+  const publications: PublicationView[] = job.publications.map((p) => ({
+    channel: p.channel,
+    status: p.status,
+    externalUrl: p.externalUrl,
+    lastError: p.lastError,
+    postedAt: p.postedAt ? p.postedAt.toISOString() : null,
+  }));
 
   const statusBadge: Record<string, string> = {
     DRAFT: "bg-blue-100 text-blue-700",
@@ -39,6 +68,15 @@ export default async function EditarVagaPage({ params }: Props) {
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Editar Vaga</h1>
       <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 mb-6">
         <JobForm job={job} />
+      </div>
+
+      <div className="mb-6">
+        <DistributionPanel
+          jobId={job.id}
+          isPublic={isPublic}
+          publications={publications}
+          announcementText={announcementText}
+        />
       </div>
 
       {job.statusHistory.length > 0 && (

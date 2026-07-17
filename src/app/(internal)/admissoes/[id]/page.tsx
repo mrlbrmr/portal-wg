@@ -166,7 +166,9 @@ export default async function AdmissaoDetalhePage({
             <Info icon={DollarSign} label="Salário" value={salaryFmt} />
             <Info icon={User} label="Gestor" value={admission.managerName} />
             <Info icon={Clock} label="Turno" value={admission.shift} />
-            <Info icon={Shirt} label="Uniforme" value={admission.uniformSize} />
+            <Info icon={Shirt} label="Uniforme (camiseta)" value={admission.uniformShirt} />
+            <Info icon={Shirt} label="Uniforme (calça)" value={admission.uniformPants} />
+            <Info icon={Shirt} label="Uniforme (sapato)" value={admission.uniformShoe} />
             <Info icon={Stethoscope} label="Exame médico" value={fmtDate(admission.medicalExamDate)} />
             {admission.notes && (
               <div>

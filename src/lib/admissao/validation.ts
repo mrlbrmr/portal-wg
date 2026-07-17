@@ -48,7 +48,9 @@ export const admissionSchema = z.object({
   medicalExamDate: optDate,
   salary: optSalary,
   shift: optStr(60),
-  uniformSize: optStr(20),
+  uniformShirt: optStr(20),
+  uniformPants: optStr(20),
+  uniformShoe: optStr(20),
   notes: optStr(5000),
 });
 

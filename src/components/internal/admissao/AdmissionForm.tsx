@@ -21,7 +21,9 @@ export interface AdmissionFormValues {
   medicalExamDate: string;
   salary: string;
   shift: string;
-  uniformSize: string;
+  uniformShirt: string;
+  uniformPants: string;
+  uniformShoe: string;
   notes: string;
 }
 
@@ -272,7 +274,7 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
             <input id="medicalExamDate" name="medicalExamDate" type="date" defaultValue={v?.medicalExamDate ?? ""} className={inputClass} />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label htmlFor="salary" className={labelClass}>
               Salário (R$)
@@ -286,16 +288,27 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
             <input id="shift" name="shift" type="text" defaultValue={v?.shift ?? ""} placeholder="Ex.: Comercial" className={inputClass} />
           </div>
           <div>
-            <label htmlFor="uniformSize" className={labelClass}>
-              Uniforme
-            </label>
-            <input id="uniformSize" name="uniformSize" type="text" defaultValue={v?.uniformSize ?? ""} placeholder="Ex.: M" className={inputClass} />
-          </div>
-          <div>
             <label htmlFor="managerName" className={labelClass}>
               Gestor
             </label>
             <input id="managerName" name="managerName" type="text" defaultValue={v?.managerName ?? ""} placeholder="Nome do gestor" className={inputClass} />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Uniforme</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="uniformShirt" className={labelClass}>Camiseta</label>
+              <input id="uniformShirt" name="uniformShirt" type="text" defaultValue={v?.uniformShirt ?? ""} placeholder="Ex.: M, G, GG" className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="uniformPants" className={labelClass}>Calça</label>
+              <input id="uniformPants" name="uniformPants" type="text" defaultValue={v?.uniformPants ?? ""} placeholder="Ex.: 40, 42" className={inputClass} />
+            </div>
+            <div>
+              <label htmlFor="uniformShoe" className={labelClass}>Sapato</label>
+              <input id="uniformShoe" name="uniformShoe" type="text" defaultValue={v?.uniformShoe ?? ""} placeholder="Ex.: 40, 42" className={inputClass} />
+            </div>
           </div>
         </div>
       </fieldset>

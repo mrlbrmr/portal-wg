@@ -35,7 +35,9 @@ export function admissionInputToData(
           ? input.salary
           : input.salary.replace(",", "."),
     shift: input.shift ?? null,
-    uniformSize: input.uniformSize ?? null,
+    uniformShirt: input.uniformShirt ?? null,
+    uniformPants: input.uniformPants ?? null,
+    uniformShoe: input.uniformShoe ?? null,
     notes: input.notes ?? null,
   };
 }

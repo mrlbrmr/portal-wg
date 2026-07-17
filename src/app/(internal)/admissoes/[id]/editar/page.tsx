@@ -50,7 +50,9 @@ export default async function EditarAdmissaoPage({
     medicalExamDate: toDateInput(admission.medicalExamDate),
     salary: admission.salary ? admission.salary.toString() : "",
     shift: admission.shift ?? "",
-    uniformSize: admission.uniformSize ?? "",
+    uniformShirt: admission.uniformShirt ?? "",
+    uniformPants: admission.uniformPants ?? "",
+    uniformShoe: admission.uniformShoe ?? "",
     notes: admission.notes ?? "",
   };
 

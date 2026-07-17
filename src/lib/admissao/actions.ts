@@ -155,6 +155,108 @@ export async function deleteChecklistItem(admissionId: string, itemId: string): 
   return done(admissionId);
 }
 
+export async function moveChecklistGroup(
+  admissionId: string,
+  groupId: string,
+  direction: "up" | "down"
+): Promise<ActionResult> {
+  const auth = await requireWrite();
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const groups = await prisma.checklistGroup.findMany({
+    where: { admissionId },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, sortOrder: true },
+  });
+
+  const idx = groups.findIndex((g) => g.id === groupId);
+  if (idx === -1) return { ok: false, error: "Grupo não encontrado." };
+
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= groups.length) return { ok: true };
+
+  await prisma.$transaction([
+    prisma.checklistGroup.update({ where: { id: groups[idx].id }, data: { sortOrder: groups[swapIdx].sortOrder } }),
+    prisma.checklistGroup.update({ where: { id: groups[swapIdx].id }, data: { sortOrder: groups[idx].sortOrder } }),
+  ]);
+
+  return done(admissionId);
+}
+
+export async function moveChecklistItem(
+  admissionId: string,
+  itemId: string,
+  direction: "up" | "down"
+): Promise<ActionResult> {
+  const auth = await requireWrite();
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const item = await prisma.checklistItem.findFirst({
+    where: { id: itemId, admissionId },
+    select: { groupId: true },
+  });
+  if (!item) return { ok: false, error: "Item não encontrado." };
+
+  const siblings = await prisma.checklistItem.findMany({
+    where: { groupId: item.groupId },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, sortOrder: true },
+  });
+
+  const idx = siblings.findIndex((s) => s.id === itemId);
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= siblings.length) return { ok: true };
+
+  await prisma.$transaction([
+    prisma.checklistItem.update({ where: { id: siblings[idx].id }, data: { sortOrder: siblings[swapIdx].sortOrder } }),
+    prisma.checklistItem.update({ where: { id: siblings[swapIdx].id }, data: { sortOrder: siblings[idx].sortOrder } }),
+  ]);
+
+  return done(admissionId);
+}
+
+export async function duplicateChecklistGroup(
+  admissionId: string,
+  groupId: string
+): Promise<ActionResult> {
+  const auth = await requireWrite();
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const group = await prisma.checklistGroup.findFirst({
+    where: { id: groupId, admissionId },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
+  });
+  if (!group) return { ok: false, error: "Grupo não encontrado." };
+
+  const last = await prisma.checklistGroup.findFirst({
+    where: { admissionId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+
+  const newGroup = await prisma.checklistGroup.create({
+    data: {
+      admissionId,
+      name: `${group.name} (cópia)`.slice(0, 120),
+      sortOrder: (last?.sortOrder ?? 0) + 1,
+    },
+  });
+
+  if (group.items.length > 0) {
+    await prisma.checklistItem.createMany({
+      data: group.items.map((it) => ({
+        admissionId,
+        groupId: newGroup.id,
+        name: it.name,
+        sortOrder: it.sortOrder,
+        status: "PENDING" as const,
+      })),
+    });
+  }
+
+  return done(admissionId);
+}
+
 // ─── Anexos ───────────────────────────────────────────────────────────────────
 // O upload em si é uma API route (POST /api/admissoes/[id]/attachments), pois
 // server actions têm limite de ~1 MB de corpo e anexos vão até 10 MB. Aqui

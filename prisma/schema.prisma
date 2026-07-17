@@ -366,6 +366,9 @@ model Admission {
   salary          Decimal?           @db.Decimal(12, 2)
   shift           String?
   uniformSize     String?
+  uniformShirt    String?
+  uniformPants    String?
+  uniformShoe     String?
   notes           String?            @db.Text
 
   // Ganchos de integração vaga→admissão (DESLIGADOS; viram FK quando ativarmos).

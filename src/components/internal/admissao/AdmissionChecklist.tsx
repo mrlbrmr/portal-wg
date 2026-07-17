@@ -8,8 +8,10 @@ import {
   ListChecks,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   CheckSquare2,
   X,
+  Copy,
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ActionResult } from "@/lib/admissao/actions";
@@ -20,6 +22,9 @@ import {
   addChecklistItem,
   updateChecklistItem,
   deleteChecklistItem,
+  moveChecklistGroup,
+  moveChecklistItem,
+  duplicateChecklistGroup,
 } from "@/lib/admissao/actions";
 
 type Status = "PENDING" | "IN_PROGRESS" | "DONE" | "NOT_APPLICABLE";
@@ -202,7 +207,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
           </p>
         )}
 
-        {groups.map((g) => {
+        {groups.map((g, gIdx) => {
           // B2: totais por seção
           const gDone = g.items.filter((i) => i.status === "DONE").length;
           const gTotal = g.items.length;
@@ -234,6 +239,37 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                 )}
                 {canManage && (
                   <div className="ml-auto flex items-center gap-1">
+                    {!selectionMode && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={gIdx === 0 || isPending}
+                          onClick={() => run(() => moveChecklistGroup(admissionId, g.id, "up"))}
+                          className="p-1 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+                          title="Mover grupo para cima"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={gIdx === groups.length - 1 || isPending}
+                          onClick={() => run(() => moveChecklistGroup(admissionId, g.id, "down"))}
+                          className="p-1 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+                          title="Mover grupo para baixo"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => run(() => duplicateChecklistGroup(admissionId, g.id))}
+                          className="p-1 text-gray-400 hover:text-gray-700 rounded disabled:opacity-40"
+                          title="Duplicar grupo"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
                     <AddItemInline
                       onAdd={(name) => run(() => addChecklistItem(admissionId, g.id, name))}
                     />
@@ -268,10 +304,10 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                   {g.items.length === 0 && (
                     <p className="text-xs text-gray-400 px-3 py-3">Sem itens.</p>
                   )}
-                  {g.items.map((it) => (
+                  {g.items.map((it, iIdx) => (
                     <div
                       key={it.id}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60"
+                      className="group flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60"
                     >
                       {/* B3: alterna entre checkbox de seleção e de status */}
                       {canManage && selectionMode ? (
@@ -339,14 +375,36 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                         ))}
                       </select>
                       {canManage && !selectionMode && (
-                        <button
-                          type="button"
-                          onClick={() => run(() => deleteChecklistItem(admissionId, it.id))}
-                          className="p-1 text-gray-400 hover:text-red-600 rounded"
-                          title="Excluir item"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <>
+                          <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <button
+                              type="button"
+                              disabled={iIdx === 0 || isPending}
+                              onClick={() => run(() => moveChecklistItem(admissionId, it.id, "up"))}
+                              className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+                              title="Mover para cima"
+                            >
+                              <ChevronUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={iIdx === g.items.length - 1 || isPending}
+                              onClick={() => run(() => moveChecklistItem(admissionId, it.id, "down"))}
+                              className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+                              title="Mover para baixo"
+                            >
+                              <ChevronDown className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => run(() => deleteChecklistItem(admissionId, it.id))}
+                            className="p-1 text-gray-400 hover:text-red-600 rounded"
+                            title="Excluir item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
                       )}
                     </div>
                   ))}

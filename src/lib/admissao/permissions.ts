@@ -4,24 +4,21 @@
 // app code, a partir da sessão do NextAuth. Fonte única de verdade das regras:
 //
 //   • Ler admissões ............... qualquer usuário interno autenticado
-//   • Operar admissões (criar/editar/checklist/anexos) .. qualquer interno (*)
+//   • Operar admissões (criar/editar/checklist/anexos) .. apenas ADMIN_RH
 //   • Configuração (categorias, modelos de checklist) ... apenas ADMIN_RH
 //   • Excluir admissão (soft-delete/hard-delete) ........ apenas ADMIN_RH
 //
-// (*) DECISÃO A REVISAR: hoje o portal só tem ADMIN_RH e VIEWER_RH, e VIEWER_RH
-// é "somente leitura" para VAGAS. Optamos por deixar a OPERAÇÃO de admissões
-// liberada a qualquer interno (espelha o antigo papel gente_gestao). Se quiser
-// que VIEWER_RH seja read-only também aqui, basta trocar canWriteAdmissions()
-// para `role === ADMIN_ROLE`. Um papel dedicado pode ser introduzido depois.
+// VIEWER_RH é "somente leitura" — coerente com o comportamento nas VAGAS.
+// Só ADMIN_RH escreve. Se no futuro houver um papel operacional dedicado
+// (equivalente ao antigo gente_gestao), ampliar canWriteAdmissions() aqui.
 
 import { auth } from "@/lib/auth";
 import type { Session } from "next-auth";
 
 export const ADMIN_ROLE = "ADMIN_RH";
 
-export function canWriteAdmissions(_role?: string | null): boolean {
-  // Qualquer usuário interno autenticado. Ver nota acima sobre VIEWER_RH.
-  return true;
+export function canWriteAdmissions(role?: string | null): boolean {
+  return role === ADMIN_ROLE;
 }
 
 export function canManageAdmissionConfig(role?: string | null): boolean {

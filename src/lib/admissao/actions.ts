@@ -9,11 +9,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { ChecklistItemStatus } from "@prisma/client";
 import { requireAdmissionWrite } from "./permissions";
-import {
-  uploadAdmissionAttachment,
-  validateAttachmentFile,
-  deleteAdmissionAttachment,
-} from "./storage";
+import { deleteAdmissionAttachment } from "./storage";
+import { instantiateChecklistFromTemplate } from "./checklist";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -49,40 +46,8 @@ export async function applyChecklistTemplate(
   });
   if (!admission) return { ok: false, error: "Admissão não encontrada." };
 
-  const groups = await prisma.templateGroup.findMany({
-    where: { templateId },
-    orderBy: { sortOrder: "asc" },
-    include: { items: { orderBy: { sortOrder: "asc" } } },
-  });
-  if (groups.length === 0) return { ok: false, error: "O modelo não tem itens." };
-
-  const last = await prisma.checklistGroup.findFirst({
-    where: { admissionId },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-  let order = last?.sortOrder ?? 0;
-
-  await prisma.$transaction(async (tx) => {
-    for (const g of groups) {
-      order += 1;
-      const newGroup = await tx.checklistGroup.create({
-        data: { admissionId, name: g.name, sortOrder: order },
-        select: { id: true },
-      });
-      if (g.items.length > 0) {
-        await tx.checklistItem.createMany({
-          data: g.items.map((it, idx) => ({
-            admissionId,
-            groupId: newGroup.id,
-            name: it.name,
-            description: it.description,
-            sortOrder: idx + 1,
-          })),
-        });
-      }
-    }
-  });
+  const created = await instantiateChecklistFromTemplate(admissionId, templateId);
+  if (created === 0) return { ok: false, error: "O modelo não tem itens." };
 
   return done(admissionId);
 }
@@ -191,51 +156,9 @@ export async function deleteChecklistItem(admissionId: string, itemId: string): 
 }
 
 // ─── Anexos ───────────────────────────────────────────────────────────────────
-
-export async function uploadAttachment(
-  admissionId: string,
-  formData: FormData
-): Promise<ActionResult> {
-  const auth = await requireWrite();
-  if ("error" in auth) return { ok: false, error: auth.error };
-
-  const admission = await prisma.admission.findFirst({
-    where: { id: admissionId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!admission) return { ok: false, error: "Admissão não encontrada." };
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) return { ok: false, error: "Selecione um arquivo." };
-
-  const check = validateAttachmentFile(file);
-  if (!check.ok) return { ok: false, error: check.error ?? "Arquivo inválido." };
-
-  const documentTypeIdRaw = formData.get("documentTypeId");
-  const documentTypeId =
-    typeof documentTypeIdRaw === "string" && documentTypeIdRaw ? documentTypeIdRaw : null;
-
-  let uploaded;
-  try {
-    uploaded = await uploadAdmissionAttachment(file, admissionId);
-  } catch {
-    return { ok: false, error: "Falha no upload do arquivo." };
-  }
-
-  await prisma.admissionAttachment.create({
-    data: {
-      admissionId,
-      documentTypeId,
-      fileName: uploaded.name,
-      blobUrl: uploaded.url,
-      mimeType: uploaded.mimeType,
-      sizeBytes: BigInt(uploaded.sizeBytes),
-      uploadedById: auth.userId,
-    },
-  });
-
-  return done(admissionId);
-}
+// O upload em si é uma API route (POST /api/admissoes/[id]/attachments), pois
+// server actions têm limite de ~1 MB de corpo e anexos vão até 10 MB. Aqui
+// ficam só as ações leves (categoria e exclusão).
 
 export async function updateAttachmentCategory(
   admissionId: string,

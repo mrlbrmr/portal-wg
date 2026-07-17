@@ -1,14 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Paperclip, Upload, Download, Trash2, FileText, FolderOpen } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ActionResult } from "@/lib/admissao/actions";
-import {
-  uploadAttachment,
-  updateAttachmentCategory,
-  deleteAttachment,
-} from "@/lib/admissao/actions";
+import { updateAttachmentCategory, deleteAttachment } from "@/lib/admissao/actions";
 
 const UNCATEGORIZED = "__uncategorized__";
 
@@ -38,6 +35,7 @@ function formatSize(n: number | null): string {
 }
 
 export function AdmissionAttachments({ admissionId, canManage, attachments, documentTypes }: Props) {
+  const router = useRouter();
   const { notify } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -57,13 +55,25 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
         const fd = new FormData();
         fd.set("file", file);
         if (categoryId) fd.set("documentTypeId", categoryId);
-        const res = await uploadAttachment(admissionId, fd);
+        const res = await fetch(`/api/admissoes/${admissionId}/attachments`, {
+          method: "POST",
+          credentials: "same-origin",
+          body: fd,
+        });
         if (!res.ok) {
-          notify("error", `${file.name}: ${res.error}`);
+          let msg = "Falha no upload.";
+          try {
+            const j = await res.json();
+            if (typeof j.error === "string") msg = j.error;
+          } catch {
+            /* mantém a mensagem padrão */
+          }
+          notify("error", `${file.name}: ${msg}`);
           return;
         }
       }
       notify("success", "Anexo(s) enviado(s).");
+      router.refresh();
     });
   }
 

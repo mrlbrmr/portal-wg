@@ -12,6 +12,7 @@ import {
   CheckSquare2,
   X,
   Copy,
+  CornerDownRight,
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ActionResult } from "@/lib/admissao/actions";
@@ -20,6 +21,7 @@ import {
   addChecklistGroup,
   deleteChecklistGroup,
   addChecklistItem,
+  addChecklistSubtask,
   updateChecklistItem,
   deleteChecklistItem,
   moveChecklistGroup,
@@ -48,6 +50,7 @@ export interface ChecklistItemView {
   name: string;
   status: Status;
   dueDate: string | null; // "AAAA-MM-DD"
+  subtasks: ChecklistItemView[];
 }
 export interface ChecklistGroupView {
   id: string;
@@ -64,6 +67,23 @@ interface Props {
 
 const smallInput =
   "h-8 rounded-md border border-gray-300 px-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green";
+
+/** Conta apenas as folhas (itens sem subtarefas): pais viram apenas agrupadores. */
+function countLeaves(items: ChecklistItemView[]): { done: number; total: number } {
+  let done = 0;
+  let total = 0;
+  for (const it of items) {
+    if (it.subtasks.length === 0) {
+      total += 1;
+      if (it.status === "DONE") done += 1;
+    } else {
+      const c = countLeaves(it.subtasks);
+      done += c.done;
+      total += c.total;
+    }
+  }
+  return { done, total };
+}
 
 export function AdmissionChecklist({ admissionId, canManage, groups, templates }: Props) {
   const { notify } = useToast();
@@ -121,11 +141,19 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     });
   }
 
-  // B2: totais globais
-  const allItems = groups.flatMap((g) => g.items);
-  const total = allItems.length;
-  const done = allItems.filter((i) => i.status === "DONE").length;
+  // B2: totais globais (por folhas)
+  const { done, total } = countLeaves(groups.flatMap((g) => g.items));
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const rowCtx: RowContext = {
+    admissionId,
+    canManage,
+    isPending,
+    selectionMode,
+    selectedItems,
+    toggleSelect,
+    run,
+  };
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
@@ -208,9 +236,8 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
         )}
 
         {groups.map((g, gIdx) => {
-          // B2: totais por seção
-          const gDone = g.items.filter((i) => i.status === "DONE").length;
-          const gTotal = g.items.length;
+          // B2: totais por seção (por folhas)
+          const { done: gDone, total: gTotal } = countLeaves(g.items);
           const gPct = gTotal > 0 ? Math.round((gDone / gTotal) * 100) : 0;
           const isCollapsed = collapsedGroups.has(g.id);
 
@@ -271,6 +298,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                       </>
                     )}
                     <AddItemInline
+                      label="Item"
                       onAdd={(name) => run(() => addChecklistItem(admissionId, g.id, name))}
                     />
                     <button
@@ -305,108 +333,14 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                     <p className="text-xs text-gray-400 px-3 py-3">Sem itens.</p>
                   )}
                   {g.items.map((it, iIdx) => (
-                    <div
+                    <ItemRow
                       key={it.id}
-                      className="group flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60"
-                    >
-                      {/* B3: alterna entre checkbox de seleção e de status */}
-                      {canManage && selectionMode ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.has(it.id)}
-                          onChange={(e) => toggleSelect(it.id, e.target.checked)}
-                          className="accent-blue-500 w-4 h-4 shrink-0"
-                          title="Selecionar"
-                        />
-                      ) : (
-                        <input
-                          type="checkbox"
-                          checked={it.status === "DONE"}
-                          disabled={!canManage || isPending}
-                          onChange={(e) =>
-                            run(() =>
-                              updateChecklistItem(admissionId, it.id, {
-                                status: e.target.checked ? "DONE" : "PENDING",
-                              })
-                            )
-                          }
-                          className="accent-wg-green shrink-0"
-                        />
-                      )}
-                      <span
-                        className={`flex-1 min-w-0 truncate text-sm ${
-                          it.status === "DONE"
-                            ? "line-through text-gray-400"
-                            : "text-gray-800"
-                        }`}
-                      >
-                        {it.name}
-                      </span>
-                      <input
-                        type="date"
-                        defaultValue={it.dueDate ?? ""}
-                        disabled={!canManage || isPending || selectionMode}
-                        onBlur={(e) =>
-                          run(() =>
-                            updateChecklistItem(admissionId, it.id, {
-                              dueDate: e.target.value || null,
-                            })
-                          )
-                        }
-                        className={`${smallInput} w-[130px]`}
-                      />
-                      <select
-                        value={it.status}
-                        disabled={!canManage || isPending || selectionMode}
-                        onChange={(e) =>
-                          run(() =>
-                            updateChecklistItem(admissionId, it.id, {
-                              status: e.target.value as Status,
-                            })
-                          )
-                        }
-                        className={`${smallInput} w-[130px]`}
-                        style={{ color: STATUS_COLOR[it.status] }}
-                      >
-                        {STATUSES.map((s) => (
-                          <option key={s} value={s} style={{ color: "#111827" }}>
-                            {STATUS_LABEL[s]}
-                          </option>
-                        ))}
-                      </select>
-                      {canManage && !selectionMode && (
-                        <>
-                          <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <button
-                              type="button"
-                              disabled={iIdx === 0 || isPending}
-                              onClick={() => run(() => moveChecklistItem(admissionId, it.id, "up"))}
-                              className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
-                              title="Mover para cima"
-                            >
-                              <ChevronUp className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={iIdx === g.items.length - 1 || isPending}
-                              onClick={() => run(() => moveChecklistItem(admissionId, it.id, "down"))}
-                              className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
-                              title="Mover para baixo"
-                            >
-                              <ChevronDown className="w-3 h-3" />
-                            </button>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => run(() => deleteChecklistItem(admissionId, it.id))}
-                            className="p-1 text-gray-400 hover:text-red-600 rounded"
-                            title="Excluir item"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                    </div>
+                      item={it}
+                      index={iIdx}
+                      siblingCount={g.items.length}
+                      depth={0}
+                      ctx={rowCtx}
+                    />
                   ))}
                 </div>
               )}
@@ -480,7 +414,171 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
   );
 }
 
-function AddItemInline({ onAdd }: { onAdd: (name: string) => void }) {
+interface RowContext {
+  admissionId: string;
+  canManage: boolean;
+  isPending: boolean;
+  selectionMode: boolean;
+  selectedItems: Set<string>;
+  toggleSelect: (id: string, checked: boolean) => void;
+  run: (fn: () => Promise<ActionResult>) => void;
+}
+
+/** Uma linha de item de checklist. Em depth 0, renderiza também suas subtarefas. */
+function ItemRow({
+  item,
+  index,
+  siblingCount,
+  depth,
+  ctx,
+}: {
+  item: ChecklistItemView;
+  index: number;
+  siblingCount: number;
+  depth: 0 | 1;
+  ctx: RowContext;
+}) {
+  const { admissionId, canManage, isPending, selectionMode, selectedItems, toggleSelect, run } = ctx;
+  const isSub = depth === 1;
+
+  return (
+    <>
+      <div
+        className={`group flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60 ${
+          isSub ? "pl-9" : ""
+        }`}
+      >
+        {isSub && <CornerDownRight className="w-3.5 h-3.5 text-gray-300 shrink-0 -ml-4" />}
+        {/* B3: alterna entre checkbox de seleção e de status */}
+        {canManage && selectionMode ? (
+          <input
+            type="checkbox"
+            checked={selectedItems.has(item.id)}
+            onChange={(e) => toggleSelect(item.id, e.target.checked)}
+            className="accent-blue-500 w-4 h-4 shrink-0"
+            title="Selecionar"
+          />
+        ) : (
+          <input
+            type="checkbox"
+            checked={item.status === "DONE"}
+            disabled={!canManage || isPending}
+            onChange={(e) =>
+              run(() =>
+                updateChecklistItem(admissionId, item.id, {
+                  status: e.target.checked ? "DONE" : "PENDING",
+                })
+              )
+            }
+            className="accent-wg-green shrink-0"
+          />
+        )}
+        <span
+          className={`flex-1 min-w-0 truncate ${isSub ? "text-[13px]" : "text-sm"} ${
+            item.status === "DONE" ? "line-through text-gray-400" : "text-gray-800"
+          }`}
+        >
+          {item.name}
+        </span>
+        <input
+          type="date"
+          defaultValue={item.dueDate ?? ""}
+          disabled={!canManage || isPending || selectionMode}
+          onBlur={(e) =>
+            run(() =>
+              updateChecklistItem(admissionId, item.id, {
+                dueDate: e.target.value || null,
+              })
+            )
+          }
+          className={`${smallInput} w-[130px]`}
+        />
+        <select
+          value={item.status}
+          disabled={!canManage || isPending || selectionMode}
+          onChange={(e) =>
+            run(() =>
+              updateChecklistItem(admissionId, item.id, {
+                status: e.target.value as Status,
+              })
+            )
+          }
+          className={`${smallInput} w-[130px]`}
+          style={{ color: STATUS_COLOR[item.status] }}
+        >
+          {STATUSES.map((s) => (
+            <option key={s} value={s} style={{ color: "#111827" }}>
+              {STATUS_LABEL[s]}
+            </option>
+          ))}
+        </select>
+        {canManage && !selectionMode && (
+          <>
+            <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <button
+                type="button"
+                disabled={index === 0 || isPending}
+                onClick={() => run(() => moveChecklistItem(admissionId, item.id, "up"))}
+                className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+                title="Mover para cima"
+              >
+                <ChevronUp className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                disabled={index === siblingCount - 1 || isPending}
+                onClick={() => run(() => moveChecklistItem(admissionId, item.id, "down"))}
+                className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+                title="Mover para baixo"
+              >
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </div>
+            {/* Adicionar subtarefa só em itens de topo */}
+            {!isSub && (
+              <AddItemInline
+                label="Subtarefa"
+                compact
+                onAdd={(name) => run(() => addChecklistSubtask(admissionId, item.id, name))}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => run(() => deleteChecklistItem(admissionId, item.id))}
+              className="p-1 text-gray-400 hover:text-red-600 rounded"
+              title={isSub ? "Excluir subtarefa" : "Excluir item"}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Subtarefas (um nível) */}
+      {!isSub &&
+        item.subtasks.map((sub, sIdx) => (
+          <ItemRow
+            key={sub.id}
+            item={sub}
+            index={sIdx}
+            siblingCount={item.subtasks.length}
+            depth={1}
+            ctx={ctx}
+          />
+        ))}
+    </>
+  );
+}
+
+function AddItemInline({
+  onAdd,
+  label = "Item",
+  compact = false,
+}: {
+  onAdd: (name: string) => void;
+  label?: string;
+  compact?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
 
@@ -489,9 +587,12 @@ function AddItemInline({ onAdd }: { onAdd: (name: string) => void }) {
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded"
+        className={`inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded ${
+          compact ? "opacity-0 group-hover:opacity-100 transition-opacity" : ""
+        }`}
+        title={`Adicionar ${label.toLowerCase()}`}
       >
-        <Plus className="w-3.5 h-3.5" /> Item
+        <Plus className="w-3.5 h-3.5" /> {compact ? "" : label}
       </button>
     );
   }
@@ -500,7 +601,7 @@ function AddItemInline({ onAdd }: { onAdd: (name: string) => void }) {
       autoFocus
       value={name}
       onChange={(e) => setName(e.target.value)}
-      placeholder="Novo item…"
+      placeholder={`Nova ${label.toLowerCase()}…`}
       className="h-7 w-[200px] rounded-md border border-gray-300 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-wg-green/40"
       onKeyDown={(e) => {
         if (e.key === "Enter" && name.trim()) {

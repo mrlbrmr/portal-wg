@@ -76,16 +76,31 @@ export default async function AdmissaoDetalhePage({
   const canManage = session?.user.role === "ADMIN_RH";
   const userMap = new Map(users.map((u) => [u.id, u.name]));
 
-  const groups: ChecklistGroupView[] = admission.checklistGroups.map((g) => ({
-    id: g.id,
-    name: g.name,
-    items: g.items.map((it) => ({
-      id: it.id,
-      name: it.name,
-      status: it.status,
-      dueDate: dateInput(it.dueDate),
-    })),
-  }));
+  const groups: ChecklistGroupView[] = admission.checklistGroups.map((g) => {
+    // Os itens vêm achatados (pais e subtarefas compartilham groupId); aninha as
+    // subtarefas sob seus pais mantendo a ordem por sortOrder.
+    const children = g.items.filter((it) => it.parentId);
+    const topLevel = g.items.filter((it) => !it.parentId);
+    return {
+      id: g.id,
+      name: g.name,
+      items: topLevel.map((it) => ({
+        id: it.id,
+        name: it.name,
+        status: it.status,
+        dueDate: dateInput(it.dueDate),
+        subtasks: children
+          .filter((c) => c.parentId === it.id)
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            dueDate: dateInput(c.dueDate),
+            subtasks: [],
+          })),
+      })),
+    };
+  });
 
   const attachments: AttachmentView[] = admission.attachments.map((a) => ({
     id: a.id,

@@ -423,6 +423,9 @@ model ChecklistItem {
   completedAt   DateTime?
   completedById String? // User.id (sem FK)
   sortOrder     Int                 @default(0)
+  parentId      String?
+  parent        ChecklistItem?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks      ChecklistItem[]     @relation("Subtasks")
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
@@ -430,6 +433,7 @@ model ChecklistItem {
   attachments AdmissionAttachment[]
 
   @@index([admissionId])
+  @@index([parentId])
   @@index([dueDate])
   @@map("admission_checklist_items")
 }

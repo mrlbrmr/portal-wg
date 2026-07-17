@@ -23,7 +23,7 @@ export async function GET() {
         company: { select: { name: true } },
         branch: { select: { name: true } },
         stage: { select: { name: true } },
-        checklistItems: { select: { status: true } },
+        checklistItems: { select: { id: true, parentId: true, status: true } },
         attachments: { select: { documentTypeId: true } },
       },
     }),
@@ -71,9 +71,12 @@ export async function GET() {
     d ? d.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "";
 
   for (const a of admissions) {
+    // Conta só as folhas (itens sem subtarefas), igual à ficha.
     const items = a.checklistItems;
-    const doneItems = items.filter((i) => i.status === "DONE").length;
-    const checklistPct = items.length > 0 ? Math.round((doneItems / items.length) * 100) : null;
+    const parentIds = new Set(items.map((i) => i.parentId).filter((x): x is string => !!x));
+    const leaves = items.filter((i) => !parentIds.has(i.id));
+    const doneItems = leaves.filter((i) => i.status === "DONE").length;
+    const checklistPct = leaves.length > 0 ? Math.round((doneItems / leaves.length) * 100) : null;
 
     const attachedTypeIds = new Set(
       a.attachments.map((x) => x.documentTypeId).filter((x): x is string => !!x)

@@ -93,7 +93,7 @@ export async function addChecklistItem(
   if (!group) return { ok: false, error: "Grupo não encontrado." };
 
   const last = await prisma.checklistItem.findFirst({
-    where: { groupId },
+    where: { groupId, parentId: null },
     orderBy: { sortOrder: "desc" },
     select: { sortOrder: true },
   });
@@ -101,6 +101,41 @@ export async function addChecklistItem(
     data: {
       admissionId,
       groupId,
+      name: clean.slice(0, 200),
+      sortOrder: (last?.sortOrder ?? 0) + 1,
+    },
+  });
+  return done(admissionId);
+}
+
+/** Adiciona uma subtarefa (item filho) sob um item existente. */
+export async function addChecklistSubtask(
+  admissionId: string,
+  parentItemId: string,
+  name: string
+): Promise<ActionResult> {
+  const auth = await requireWrite();
+  if ("error" in auth) return { ok: false, error: auth.error };
+  const clean = name.trim();
+  if (!clean) return { ok: false, error: "Informe o nome da subtarefa." };
+
+  const parent = await prisma.checklistItem.findFirst({
+    where: { id: parentItemId, admissionId },
+    select: { id: true, groupId: true, parentId: true },
+  });
+  if (!parent) return { ok: false, error: "Item não encontrado." };
+  if (parent.parentId) return { ok: false, error: "Subtarefas não podem ter subtarefas." };
+
+  const last = await prisma.checklistItem.findFirst({
+    where: { parentId: parentItemId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  await prisma.checklistItem.create({
+    data: {
+      admissionId,
+      groupId: parent.groupId,
+      parentId: parentItemId,
       name: clean.slice(0, 200),
       sortOrder: (last?.sortOrder ?? 0) + 1,
     },
@@ -193,12 +228,13 @@ export async function moveChecklistItem(
 
   const item = await prisma.checklistItem.findFirst({
     where: { id: itemId, admissionId },
-    select: { groupId: true },
+    select: { groupId: true, parentId: true },
   });
   if (!item) return { ok: false, error: "Item não encontrado." };
 
+  // Reordena apenas entre irmãos do mesmo escopo (mesmo pai, ou raiz do grupo).
   const siblings = await prisma.checklistItem.findMany({
-    where: { groupId: item.groupId },
+    where: { groupId: item.groupId, parentId: item.parentId },
     orderBy: { sortOrder: "asc" },
     select: { id: true, sortOrder: true },
   });
@@ -242,15 +278,37 @@ export async function duplicateChecklistGroup(
     },
   });
 
-  if (group.items.length > 0) {
-    await prisma.checklistItem.createMany({
-      data: group.items.map((it) => ({
+  // Recria itens de topo primeiro (guardando o mapa id antigo→novo), depois as
+  // subtarefas apontando para o novo pai — preservando a hierarquia.
+  const topLevel = group.items.filter((it) => !it.parentId);
+  const children = group.items.filter((it) => it.parentId);
+  const idMap = new Map<string, string>();
+
+  for (const it of topLevel) {
+    const created = await prisma.checklistItem.create({
+      data: {
         admissionId,
         groupId: newGroup.id,
         name: it.name,
         sortOrder: it.sortOrder,
-        status: "PENDING" as const,
-      })),
+        status: "PENDING",
+      },
+    });
+    idMap.set(it.id, created.id);
+  }
+
+  if (children.length > 0) {
+    await prisma.checklistItem.createMany({
+      data: children
+        .filter((it) => it.parentId && idMap.has(it.parentId))
+        .map((it) => ({
+          admissionId,
+          groupId: newGroup.id,
+          parentId: idMap.get(it.parentId!)!,
+          name: it.name,
+          sortOrder: it.sortOrder,
+          status: "PENDING" as const,
+        })),
     });
   }
 

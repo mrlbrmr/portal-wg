@@ -40,9 +40,9 @@ export const CHANNELS: ChannelMeta[] = [
   {
     channel: "INDEED",
     label: "Indeed",
-    description: "Listagem orgânica via feed XML.",
+    description: "Listagem orgânica via feed XML. Automático quando a vaga está pública.",
     kind: "feed",
-    implemented: false,
+    implemented: true,
   },
   {
     channel: "LINKEDIN_PAGE",

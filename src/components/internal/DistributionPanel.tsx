@@ -145,15 +145,27 @@ export function DistributionPanel({
                     Em breve
                   </span>
                 ) : isFeed ? (
-                  <a
-                    href={`https://search.google.com/test/rich-results?url=${encodeURIComponent(jobUrl)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg transition-colors"
-                    title="Validar os dados estruturados no Google"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" /> Testar
-                  </a>
+                  c.channel === "INDEED" ? (
+                    <a
+                      href="/api/feed/indeed.xml"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                      title="Ver o feed XML enviado ao Indeed"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Ver feed
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://search.google.com/test/rich-results?url=${encodeURIComponent(jobUrl)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                      title="Validar os dados estruturados no Google"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Testar
+                    </a>
+                  )
                 ) : c.channel === "MANUAL" ? (
                   <>
                     <button

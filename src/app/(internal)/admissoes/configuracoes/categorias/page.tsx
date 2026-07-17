@@ -16,7 +16,7 @@ export default async function CategoriasPage() {
     prisma.company.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
     prisma.branch.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
     prisma.position.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
-    prisma.documentType.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
+    prisma.documentType.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, required: true } }),
     prisma.admissionTag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
     prisma.admissionStage.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true } }),
   ]);
@@ -68,8 +68,9 @@ export default async function CategoriasPage() {
         <CategoryManager
           entity="documentType"
           title="Tipos de documento"
-          description="Categorias dos anexos das admissões."
+          description="Categorias dos anexos. Marque como obrigatório para entrar no % de documentos da ficha."
           items={documentTypes}
+          hasRequired
           addPlaceholder="Ex.: Comprovante de Residência"
         />
         <CategoryManager

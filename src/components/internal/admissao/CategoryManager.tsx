@@ -8,6 +8,7 @@ import {
   renameCategory,
   recolorCategory,
   deleteCategory,
+  setDocumentTypeRequired,
   type CatEntity,
   type ActionResult,
 } from "@/lib/admissao/config-actions";
@@ -16,6 +17,7 @@ export interface CategoryItem {
   id: string;
   name: string;
   color?: string | null;
+  required?: boolean;
 }
 
 interface Props {
@@ -24,6 +26,7 @@ interface Props {
   description?: string;
   items: CategoryItem[];
   hasColor?: boolean;
+  hasRequired?: boolean;
   addPlaceholder?: string;
 }
 
@@ -36,6 +39,7 @@ export function CategoryManager({
   description,
   items,
   hasColor,
+  hasRequired,
   addPlaceholder,
 }: Props) {
   const { notify } = useToast();
@@ -121,12 +125,28 @@ export function CategoryManager({
                   }}
                   className={`${input} h-8 flex-1 max-w-md`}
                 />
+                {hasRequired && (
+                  <label
+                    className="ml-auto flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0"
+                    title="Documentos obrigatórios entram no cálculo de % da ficha"
+                  >
+                    <input
+                      type="checkbox"
+                      defaultChecked={it.required ?? false}
+                      onChange={(e) =>
+                        run(() => setDocumentTypeRequired(it.id, e.target.checked))
+                      }
+                      className="accent-wg-green w-4 h-4"
+                    />
+                    Obrigatório
+                  </label>
+                )}
                 <button
                   type="button"
                   onClick={() => {
                     if (confirm(`Remover "${it.name}"?`)) run(() => deleteCategory(entity, it.id));
                   }}
-                  className="ml-auto p-1.5 text-gray-400 hover:text-red-600 rounded"
+                  className={`${hasRequired ? "" : "ml-auto"} p-1.5 text-gray-400 hover:text-red-600 rounded`}
                   title="Remover"
                 >
                   <Trash2 className="w-4 h-4" />

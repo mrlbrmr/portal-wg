@@ -100,6 +100,20 @@ export async function renameCategory(
   return { ok: true };
 }
 
+/** Alterna se um tipo de documento é obrigatório (usado no cálculo de % de documentos). */
+export async function setDocumentTypeRequired(
+  id: string,
+  required: boolean
+): Promise<ActionResult> {
+  const err = await ensureConfig();
+  if (err) return { ok: false, error: err };
+
+  await prisma.documentType.update({ where: { id }, data: { required } });
+
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
 export async function recolorCategory(
   entity: "tag" | "stage",
   id: string,

@@ -62,7 +62,7 @@ export default async function AdmissaoDetalhePage({
         attachments: { orderBy: { createdAt: "desc" } },
       },
     }),
-    prisma.documentType.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
+    prisma.documentType.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, required: true } }),
     prisma.checklistTemplate.findMany({
       where: { active: true },
       orderBy: { name: "asc" },

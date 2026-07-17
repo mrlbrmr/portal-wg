@@ -2,7 +2,16 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Paperclip, Upload, Download, Trash2, FileText, FolderOpen } from "lucide-react";
+import {
+  Paperclip,
+  Upload,
+  Download,
+  Trash2,
+  FileText,
+  FolderOpen,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ActionResult } from "@/lib/admissao/actions";
 import { updateAttachmentCategory, deleteAttachment } from "@/lib/admissao/actions";
@@ -17,11 +26,24 @@ export interface AttachmentView {
   documentTypeId: string | null;
 }
 
+interface DocumentType {
+  id: string;
+  name: string;
+  required: boolean;
+}
+
 interface Props {
   admissionId: string;
   canManage: boolean;
   attachments: AttachmentView[];
-  documentTypes: { id: string; name: string }[];
+  documentTypes: DocumentType[];
+}
+
+interface Section {
+  key: string;
+  name: string;
+  required: boolean;
+  files: AttachmentView[];
 }
 
 const smallSelect =
@@ -77,14 +99,29 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
     });
   }
 
-  const grouped = groupByCategory(attachments, documentTypes);
+  const sections = buildSections(attachments, documentTypes);
+
+  // % de documentos obrigatórios com ao menos um anexo.
+  const requiredTypes = documentTypes.filter((d) => d.required);
+  const requiredDone = requiredTypes.filter((d) =>
+    attachments.some((a) => a.documentTypeId === d.id)
+  ).length;
+  const reqTotal = requiredTypes.length;
+  const reqPct = reqTotal > 0 ? Math.round((requiredDone / reqTotal) * 100) : 0;
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-200">
-        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-          <Paperclip className="w-4 h-4" /> Anexos
-        </h2>
+        <div>
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <Paperclip className="w-4 h-4" /> Documentos
+          </h2>
+          {reqTotal > 0 && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              {requiredDone} de {reqTotal} obrigatórios · {reqPct}%
+            </p>
+          )}
+        </div>
         {canManage && (
           <div className="flex items-center gap-2">
             <select
@@ -124,88 +161,151 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
       </div>
 
       <div className="p-5 space-y-4">
-        {attachments.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-6">Nenhum arquivo enviado.</p>
+        {/* Barra de progresso dos obrigatórios */}
+        {reqTotal > 0 && (
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all ${reqPct === 100 ? "bg-wg-green" : "bg-amber-400"}`}
+              style={{ width: `${reqPct}%` }}
+            />
+          </div>
         )}
 
-        {grouped.map((g) => (
-          <div key={g.key} className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
-              <FolderOpen className="w-4 h-4 text-gray-400" />
-              <span className="font-medium text-sm text-gray-800">{g.name}</span>
-              <span className="text-[11px] text-gray-500 bg-gray-200 rounded-full px-1.5">{g.files.length}</span>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {g.files.map((f) => (
-                <div key={f.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60">
-                  <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-gray-800 truncate">{f.fileName}</div>
-                    <div className="text-xs text-gray-400">
-                      {formatSize(f.sizeBytes)} · {new Date(f.createdAt).toLocaleString("pt-BR")}
+        {sections.length === 0 && (
+          <p className="text-sm text-gray-500 text-center py-6">
+            Nenhum tipo de documento configurado.
+          </p>
+        )}
+
+        {sections.map((s) => {
+          const isEmptyRequired = s.required && s.files.length === 0;
+          return (
+            <div
+              key={s.key}
+              className={`border rounded-lg overflow-hidden ${
+                isEmptyRequired ? "border-amber-300" : "border-gray-200"
+              }`}
+            >
+              <div
+                className={`flex items-center gap-2 px-3 py-2 ${
+                  isEmptyRequired ? "bg-amber-50" : "bg-gray-50"
+                }`}
+              >
+                <FolderOpen
+                  className={`w-4 h-4 shrink-0 ${isEmptyRequired ? "text-amber-500" : "text-gray-400"}`}
+                />
+                <span className="font-medium text-sm text-gray-800">{s.name}</span>
+                {s.required && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 rounded px-1.5 py-0.5">
+                    Obrigatório
+                  </span>
+                )}
+                {s.files.length > 0 && (
+                  <span className="text-[11px] text-gray-500 bg-gray-200 rounded-full px-1.5">
+                    {s.files.length}
+                  </span>
+                )}
+                {s.required &&
+                  (s.files.length > 0 ? (
+                    <CheckCircle2 className="w-4 h-4 text-wg-green ml-auto shrink-0" />
+                  ) : (
+                    <span className="ml-auto flex items-center gap-1 text-xs text-amber-600 shrink-0">
+                      <AlertCircle className="w-3.5 h-3.5" /> Pendente
+                    </span>
+                  ))}
+              </div>
+
+              {s.files.length === 0 ? (
+                <p className="text-xs text-gray-400 px-3 py-3">Nenhum arquivo nesta seção.</p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {s.files.map((f) => (
+                    <div key={f.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60">
+                      <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-800 truncate">{f.fileName}</div>
+                        <div className="text-xs text-gray-400">
+                          {formatSize(f.sizeBytes)} · {new Date(f.createdAt).toLocaleString("pt-BR")}
+                        </div>
+                      </div>
+                      {canManage && (
+                        <select
+                          value={f.documentTypeId ?? UNCATEGORIZED}
+                          disabled={isPending}
+                          onChange={(e) =>
+                            run(() =>
+                              updateAttachmentCategory(
+                                admissionId,
+                                f.id,
+                                e.target.value === UNCATEGORIZED ? null : e.target.value
+                              )
+                            )
+                          }
+                          className={`${smallSelect} w-[150px]`}
+                        >
+                          <option value={UNCATEGORIZED}>Sem categoria</option>
+                          {documentTypes.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <a
+                        href={`/api/admissoes/${admissionId}/attachments/${f.id}`}
+                        className="p-1 text-gray-400 hover:text-wg-green-dark rounded"
+                        title="Baixar"
+                      >
+                        <Download className="w-4 h-4" />
+                      </a>
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Remover "${f.fileName}"?`))
+                              run(() => deleteAttachment(admissionId, f.id));
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 rounded"
+                          title="Remover"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  {canManage && (
-                    <select
-                      value={f.documentTypeId ?? UNCATEGORIZED}
-                      disabled={isPending}
-                      onChange={(e) =>
-                        run(() =>
-                          updateAttachmentCategory(
-                            admissionId,
-                            f.id,
-                            e.target.value === UNCATEGORIZED ? null : e.target.value
-                          )
-                        )
-                      }
-                      className={`${smallSelect} w-[150px]`}
-                    >
-                      <option value={UNCATEGORIZED}>Sem categoria</option>
-                      {documentTypes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <a
-                    href={`/api/admissoes/${admissionId}/attachments/${f.id}`}
-                    className="p-1 text-gray-400 hover:text-wg-green-dark rounded"
-                    title="Baixar"
-                  >
-                    <Download className="w-4 h-4" />
-                  </a>
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm(`Remover "${f.fileName}"?`))
-                          run(() => deleteAttachment(admissionId, f.id));
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-600 rounded"
-                      title="Remover"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function groupByCategory(files: AttachmentView[], categories: { id: string; name: string }[]) {
-  const map = new Map<string, { key: string; name: string; files: AttachmentView[] }>();
-  for (const c of categories) map.set(c.id, { key: c.id, name: c.name, files: [] });
-  map.set(UNCATEGORIZED, { key: UNCATEGORIZED, name: "Sem categoria", files: [] });
-  for (const f of files) {
-    const key = f.documentTypeId ?? UNCATEGORIZED;
-    if (!map.has(key)) map.set(key, { key, name: "Sem categoria", files: [] });
-    map.get(key)!.files.push(f);
+/**
+ * Uma seção por tipo de documento (na ordem de sortOrder), mesmo sem arquivos —
+ * assim os obrigatórios pendentes ficam visíveis. "Sem categoria" só aparece se
+ * houver arquivos soltos.
+ */
+function buildSections(files: AttachmentView[], types: DocumentType[]): Section[] {
+  const sections: Section[] = types.map((t) => ({
+    key: t.id,
+    name: t.name,
+    required: t.required,
+    files: files.filter((f) => f.documentTypeId === t.id),
+  }));
+
+  const knownIds = new Set(types.map((t) => t.id));
+  const uncategorized = files.filter((f) => !f.documentTypeId || !knownIds.has(f.documentTypeId));
+  if (uncategorized.length > 0) {
+    sections.push({
+      key: UNCATEGORIZED,
+      name: "Sem categoria",
+      required: false,
+      files: uncategorized,
+    });
   }
-  return Array.from(map.values()).filter((g) => g.files.length > 0);
+
+  return sections;
 }

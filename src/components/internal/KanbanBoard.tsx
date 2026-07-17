@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Download, Mail, Phone, Trash2 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, normalizeText } from "@/lib/utils";
 import {
   KanbanBoardShell,
   type KanbanColumnDef,
@@ -43,6 +43,14 @@ export function KanbanBoard({ applications, canManage }: Props) {
       columns={STAGES}
       canManage={canManage}
       cardClassName="group"
+      filterFn={(a, q) => {
+        const norm = normalizeText(q);
+        return (
+          normalizeText(a.fullName).includes(norm) ||
+          normalizeText(a.email).includes(norm)
+        );
+      }}
+      searchPlaceholder="Pesquisar candidato..."
       getId={(a) => a.id}
       getColumn={(a) => a.stage}
       applyColumn={(a, stage) => ({ ...a, stage })}

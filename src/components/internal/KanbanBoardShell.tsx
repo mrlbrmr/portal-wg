@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { SearchBar } from "@/components/internal/SearchBar";
 import {
   KanbanColumn,
   KanbanCard,
@@ -40,6 +41,9 @@ interface Props<T> {
   renderCard: (item: T, api: KanbanCardApi) => ReactNode;
   /** Classe extra aplicada a cada card (ex.: "group"). */
   cardClassName?: string;
+  /** Quando informado, renderiza uma barra de busca acima das colunas que filtra cards na hora de exibir (sem redefinir o estado de drag-drop). */
+  filterFn?: (item: T, query: string) => boolean;
+  searchPlaceholder?: string;
   // ── Exclusão opcional (usada só onde faz sentido, ex.: candidatos) ──────
   onDelete?: (id: string) => Promise<Response>;
   deleteSuccess?: (item: T) => string;
@@ -68,6 +72,8 @@ export function KanbanBoardShell<T>({
   emptyLabel,
   renderCard,
   cardClassName = "",
+  filterFn,
+  searchPlaceholder = "Pesquisar...",
   onDelete,
   deleteSuccess,
   deleteError = "Erro ao excluir.",
@@ -75,6 +81,7 @@ export function KanbanBoardShell<T>({
 }: Props<T>) {
   const [items, setItems] = useState(initialItems);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const { notify } = useToast();
   const sensors = useKanbanSensors();
 
@@ -140,12 +147,25 @@ export function KanbanBoardShell<T>({
   const deleting = deleteId ? items.find((it) => getId(it) === deleteId) : undefined;
   const confirmContent = deleting && confirmDelete ? confirmDelete(deleting) : null;
 
+  const visibleItems =
+    filterFn && searchQuery.trim()
+      ? items.filter((it) => filterFn(it, searchQuery.trim()))
+      : items;
+
   return (
     <>
+      {filterFn && (
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder={searchPlaceholder}
+          className="mb-4 max-w-xs"
+        />
+      )}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {columns.map((col) => {
-            const cards = items.filter((it) => getColumn(it) === col.key);
+            const cards = visibleItems.filter((it) => getColumn(it) === col.key);
             return (
               <KanbanColumn key={col.key} id={col.key}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">

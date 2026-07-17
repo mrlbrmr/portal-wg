@@ -176,7 +176,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                     type="date"
                     defaultValue={it.dueDate ?? ""}
                     disabled={!canManage || isPending}
-                    onChange={(e) =>
+                    onBlur={(e) =>
                       run(() =>
                         updateChecklistItem(admissionId, it.id, {
                           dueDate: e.target.value || null,

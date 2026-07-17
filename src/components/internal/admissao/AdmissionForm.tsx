@@ -45,6 +45,33 @@ interface Props {
 
 const inputClass =
   "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
+
+function maskCpf(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function maskPhone(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (!d) return "";
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function formatSalary(raw: string): string {
+  const num = parseFloat(raw.replace(/\./g, "").replace(",", "."));
+  if (isNaN(num)) return raw;
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseSalary(formatted: string): string {
+  return formatted.replace(/\./g, "").replace(",", ".");
+}
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
 function SelectField({
@@ -84,6 +111,12 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [cpf, setCpf] = useState(() => maskCpf(admission?.cpf ?? ""));
+  const [phone, setPhone] = useState(() => maskPhone(admission?.phone ?? ""));
+  const [salary, setSalary] = useState(() => {
+    if (!admission?.salary) return "";
+    return formatSalary(admission.salary);
+  });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -92,6 +125,9 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
 
     const fd = new FormData(e.currentTarget);
     const payload = Object.fromEntries(fd.entries());
+    if (typeof payload.salary === "string" && payload.salary) {
+      payload.salary = parseSalary(payload.salary as string);
+    }
 
     setIsLoading(true);
     try {
@@ -179,7 +215,7 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
             <label htmlFor="cpf" className={labelClass}>
               CPF
             </label>
-            <input id="cpf" name="cpf" type="text" defaultValue={v?.cpf ?? ""} placeholder="000.000.000-00" className={inputClass} />
+            <input id="cpf" name="cpf" type="text" inputMode="numeric" value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" className={inputClass} />
           </div>
           <div>
             <label htmlFor="birthDate" className={labelClass}>
@@ -197,7 +233,7 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
             <label htmlFor="phone" className={labelClass}>
               Telefone
             </label>
-            <input id="phone" name="phone" type="tel" defaultValue={v?.phone ?? ""} placeholder="(00) 0 0000-0000" className={inputClass} />
+            <input id="phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} placeholder="(00) 0 0000-0000" className={inputClass} />
           </div>
         </div>
       </fieldset>
@@ -239,7 +275,7 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
             <label htmlFor="salary" className={labelClass}>
               Salário (R$)
             </label>
-            <input id="salary" name="salary" type="number" step="0.01" min="0" defaultValue={v?.salary ?? ""} placeholder="0,00" className={inputClass} />
+            <input id="salary" name="salary" type="text" inputMode="decimal" value={salary} onChange={(e) => setSalary(e.target.value)} onBlur={(e) => { if (e.target.value) setSalary(formatSalary(e.target.value)); }} placeholder="0,00" className={inputClass} />
           </div>
           <div>
             <label htmlFor="shift" className={labelClass}>

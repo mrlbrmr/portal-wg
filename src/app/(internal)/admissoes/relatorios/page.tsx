@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BarChart3, Users, TrendingUp, CheckCircle2, Building2 } from "lucide-react";
+import { BarChart3, Users, TrendingUp, Building2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { DashboardCard } from "@/components/internal/DashboardCard";
 
@@ -50,28 +50,21 @@ function Bars({
 }
 
 export default async function RelatoriosPage() {
-  const [admissions, itemAgg] = await Promise.all([
-    prisma.admission.findMany({
-      where: { deletedAt: null },
-      select: {
-        createdAt: true,
-        stage: { select: { name: true, color: true } },
-        company: { select: { name: true } },
-        branch: { select: { name: true } },
-      },
-    }),
-    prisma.checklistItem.groupBy({ by: ["status"], _count: { _all: true } }),
-  ]);
+  const admissions = await prisma.admission.findMany({
+    where: { deletedAt: null },
+    select: {
+      createdAt: true,
+      stage: { select: { name: true, color: true } },
+      company: { select: { name: true } },
+      branch: { select: { name: true } },
+    },
+  });
 
   const total = admissions.length;
 
   const now = new Date();
   const start30 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
   const last30 = admissions.filter((a) => a.createdAt >= start30).length;
-
-  const totalItems = itemAgg.reduce((s, r) => s + r._count._all, 0);
-  const doneItems = itemAgg.find((r) => r.status === "DONE")?._count._all ?? 0;
-  const pct = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0;
 
   const agg = (pick: (a: (typeof admissions)[number]) => { name: string; color?: string } | null) => {
     const map = new Map<string, { name: string; count: number; color?: string }>();
@@ -116,20 +109,13 @@ export default async function RelatoriosPage() {
         <p className="text-gray-500 text-sm mt-1">Visão geral dos processos de admissão.</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         <DashboardCard label="Admissões ativas" value={total} icon={Users} />
         <DashboardCard
           label="Últimos 30 dias"
           value={last30}
           icon={TrendingUp}
           hint="Novas admissões"
-        />
-        <DashboardCard
-          label="Checklist concluído"
-          value={`${pct}%`}
-          icon={CheckCircle2}
-          iconClass="bg-wg-green/15 text-wg-green-dark"
-          hint={`${doneItems} de ${totalItems} itens`}
         />
         <DashboardCard label="Filiais com admissão" value={byBranch.length} icon={Building2} />
       </div>

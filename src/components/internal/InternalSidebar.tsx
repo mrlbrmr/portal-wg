@@ -15,6 +15,8 @@ import {
   Calendar,
   BarChart3,
   History,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
@@ -97,8 +99,12 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
           className={itemClass(admissaoActive)}
           aria-expanded={admissaoActive}
         >
-          <ClipboardCheck className="w-4 h-4" />
-          Admissões
+          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <span className="flex-1">Admissões</span>
+          {admissaoActive
+            ? <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" />
+            : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+          }
         </Link>
         {admissaoActive && (
           <div className="ml-3 flex flex-col gap-1 border-l border-gray-200 pl-2">

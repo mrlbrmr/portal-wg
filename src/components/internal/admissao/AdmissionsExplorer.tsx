@@ -170,7 +170,7 @@ export function AdmissionsExplorer({ rows, stages, companies, positions }: Props
                 {filtered.map((r) => (
                   <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
-                      <Link href={`/admissoes/${r.id}/editar`} className="font-medium text-gray-900 hover:text-wg-green-dark">
+                      <Link href={`/admissoes/${r.id}`} className="font-medium text-gray-900 hover:text-wg-green-dark">
                         {r.fullName}
                       </Link>
                       {r.cpf && <div className="text-xs text-gray-400">{r.cpf}</div>}

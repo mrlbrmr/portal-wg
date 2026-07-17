@@ -51,7 +51,7 @@ export function AdmissionKanbanBoard({ admissions, columns, canManage }: Props) 
       renderCard={(a) => (
         <div className="min-w-0">
           <Link
-            href={`/admissoes/${a.id}/editar`}
+            href={`/admissoes/${a.id}`}
             className="block max-w-full truncate text-left text-sm font-medium text-gray-900 transition-colors hover:text-wg-green-dark"
             title="Abrir admissão"
           >

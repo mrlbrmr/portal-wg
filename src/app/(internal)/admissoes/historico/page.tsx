@@ -1,16 +1,79 @@
 import type { Metadata } from "next";
-import { History } from "lucide-react";
-import { AdmissaoPlaceholder } from "@/components/internal/admissao/AdmissaoPlaceholder";
+import Link from "next/link";
+import { History, ClipboardCheck } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const metadata: Metadata = { title: "Histórico de Admissões — RH" };
 
-export default function AdmissoesHistoricoPage() {
+// Histórico cronológico das admissões (criação/última atualização). Um log de
+// atividade por item (AdmissionActivity) é uma evolução futura — as tabelas já
+// existem; por ora derivamos o histórico dos próprios registros de admissão.
+export default async function AdmissoesHistoricoPage() {
+  const [admissions, users] = await Promise.all([
+    prisma.admission.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        fullName: true,
+        createdAt: true,
+        updatedAt: true,
+        createdById: true,
+        position: { select: { name: true } },
+        stage: { select: { name: true, color: true } },
+      },
+    }),
+    prisma.user.findMany({ where: { active: true }, select: { id: true, name: true } }),
+  ]);
+
+  const userMap = new Map(users.map((u) => [u.id, u.name]));
+
   return (
-    <AdmissaoPlaceholder
-      title="Histórico"
-      subtitle="Log de atividades das admissões — quem fez o quê e quando."
-      icon={History}
-      phase="Fase F"
-    />
+    <div className="max-w-3xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <History className="w-5 h-5" /> Histórico
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Admissões cadastradas, da mais recente para a mais antiga.
+        </p>
+      </div>
+
+      {admissions.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+          <EmptyState icon={ClipboardCheck} title="Sem histórico" description="Nenhuma admissão cadastrada ainda." />
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+          <ol className="relative border-l border-gray-200 ml-2">
+            {admissions.map((a) => (
+              <li key={a.id} className="mb-6 last:mb-0 ml-5">
+                <span
+                  className="absolute -left-1.5 mt-1 h-3 w-3 rounded-full border-2 border-white"
+                  style={{ backgroundColor: a.stage?.color ?? "#94a3b8" }}
+                />
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Link href={`/admissoes/${a.id}`} className="text-sm font-medium text-gray-900 hover:text-wg-green-dark">
+                    {a.fullName}
+                  </Link>
+                  <time className="text-xs text-gray-400">
+                    {a.createdAt.toLocaleString("pt-BR")}
+                  </time>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {a.position?.name ?? "Cargo não definido"}
+                  {a.stage?.name ? ` · ${a.stage.name}` : ""}
+                  {a.createdById && userMap.get(a.createdById)
+                    ? ` · por ${userMap.get(a.createdById)}`
+                    : ""}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
   );
 }

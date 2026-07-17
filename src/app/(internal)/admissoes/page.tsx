@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Users, CheckCircle2, AlertTriangle, CalendarClock } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAdmissionConfig } from "@/lib/admissao/queries";
+import { DashboardCard } from "@/components/internal/DashboardCard";
 import {
   AdmissionsExplorer,
   type AdmissionRow,
@@ -11,32 +12,48 @@ import {
 
 export const metadata: Metadata = { title: "Admissões — RH" };
 
-// Lista de admissões ativas (soft-delete filtrado). Busca/filtros são
-// client-side no AdmissionsExplorer; aqui carregamos os dados e a config.
 export default async function AdmissoesPage() {
-  const [session, config, admissions] = await Promise.all([
-    auth(),
-    getAdmissionConfig(),
-    prisma.admission.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      take: 300,
-      select: {
-        id: true,
-        fullName: true,
-        cpf: true,
-        startDate: true,
-        responsibleId: true,
-        position: { select: { name: true } },
-        company: { select: { name: true } },
-        branch: { select: { name: true } },
-        stage: { select: { id: true, name: true, color: true } },
-      },
-    }),
-  ]);
+  const now = new Date();
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const in7 = new Date(todayUTC.getTime() + 7 * 86400000);
+
+  const [session, config, admissions, total, doneCount, lateCount, upcomingCount] =
+    await Promise.all([
+      auth(),
+      getAdmissionConfig(),
+      prisma.admission.findMany({
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 300,
+        select: {
+          id: true,
+          fullName: true,
+          cpf: true,
+          startDate: true,
+          responsibleId: true,
+          position: { select: { name: true } },
+          company: { select: { name: true } },
+          branch: { select: { name: true } },
+          stage: { select: { id: true, name: true, color: true } },
+        },
+      }),
+      prisma.admission.count({ where: { deletedAt: null } }),
+      prisma.admission.count({ where: { deletedAt: null, stage: { isFinal: true } } }),
+      prisma.admission.count({
+        where: {
+          deletedAt: null,
+          startDate: { lt: todayUTC },
+          OR: [{ stage: null }, { stage: { isFinal: false } }],
+        },
+      }),
+      prisma.admission.count({
+        where: { deletedAt: null, startDate: { gte: todayUTC, lte: in7 } },
+      }),
+    ]);
 
   const canWrite = session?.user.role === "ADMIN_RH";
   const userMap = new Map(config.users.map((u) => [u.id, u.name]));
+  const inProgress = total - doneCount;
 
   const rows: AdmissionRow[] = admissions.map((a) => ({
     id: a.id,
@@ -72,6 +89,29 @@ export default async function AdmissoesPage() {
             Nova admissão
           </Link>
         )}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <DashboardCard label="Em andamento" value={inProgress} icon={Users} />
+        <DashboardCard
+          label="Concluídas"
+          value={doneCount}
+          icon={CheckCircle2}
+          iconClass="bg-wg-green/15 text-wg-green-dark"
+        />
+        <DashboardCard
+          label="Atrasadas"
+          value={lateCount}
+          icon={AlertTriangle}
+          iconClass="bg-red-100 text-red-600"
+          hint="Início já passou"
+        />
+        <DashboardCard
+          label="Próximas 7 dias"
+          value={upcomingCount}
+          icon={CalendarClock}
+          iconClass="bg-amber-100 text-amber-600"
+        />
       </div>
 
       <AdmissionsExplorer

@@ -16,20 +16,20 @@ interface Props {
 
 export default async function CandidatosPage({ params }: Props) {
   const { id } = await params;
-  const session = await auth();
-
   const supabase = await createClient();
-  const { data: job } = await supabase
-    .from("jobs")
-    .select("id, title, city, state")
-    .eq("id", id)
-    .maybeSingle();
+
+  // auth + job em paralelo (independentes entre si)
+  const [session, { data: job }] = await Promise.all([
+    auth(),
+    supabase.from("jobs").select("id, title, city, state").eq("id", id).maybeSingle(),
+  ]);
   if (!job) notFound();
 
+  // applications (com assessments embutidos) + stages em paralelo
   const [{ data: applications }, { data: stagesData }] = await Promise.all([
     supabase
       .from("applications")
-      .select("id, fullName, email, phone, resumeName, stageId, source, createdAt")
+      .select("id, fullName, email, phone, resumeName, stageId, source, createdAt, assessments:application_assessments(id)")
       .eq("jobId", id)
       .order("createdAt", { ascending: false }),
     supabase
@@ -49,19 +49,8 @@ export default async function CandidatosPage({ params }: Props) {
     stageId: string;
     source: string;
     createdAt: string;
+    assessments: Array<{ id: string }>;
   }>;
-
-  // Contagem de avaliações por candidato (para o resumo no card).
-  const assessmentCount = new Map<string, number>();
-  if (appList.length > 0) {
-    const { data: assessments } = await supabase
-      .from("application_assessments")
-      .select("applicationId")
-      .in("applicationId", appList.map((a) => a.id));
-    for (const r of (assessments ?? []) as Array<{ applicationId: string }>) {
-      assessmentCount.set(r.applicationId, (assessmentCount.get(r.applicationId) ?? 0) + 1);
-    }
-  }
 
   const cards: KanbanApplication[] = appList.map((a) => ({
     id: a.id,
@@ -71,7 +60,7 @@ export default async function CandidatosPage({ params }: Props) {
     resumeName: a.resumeName,
     stageId: a.stageId,
     source: a.source,
-    assessmentCount: assessmentCount.get(a.id) ?? 0,
+    assessmentCount: (a.assessments ?? []).length,
     createdAt: new Date(a.createdAt).toISOString(),
   }));
 

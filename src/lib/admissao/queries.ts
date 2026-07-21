@@ -1,8 +1,11 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 // Opções de configuração usadas pelos formulários e filtros de Admissões.
 // Só itens ativos, na ordem de exibição definida no cadastro.
-export async function getAdmissionConfig() {
+// cache() deduplica chamadas simultâneas dentro da mesma requisição —
+// evita que várias sub-árvores de Server Components disparem as 6 queries.
+export const getAdmissionConfig = cache(async function getAdmissionConfig() {
   const supabase = await createClient();
   const [stages, companies, branches, positions, templates, users] = await Promise.all([
     supabase
@@ -44,4 +47,4 @@ export async function getAdmissionConfig() {
     templates: (templates.data ?? []) as Array<{ id: string; name: string }>,
     users: (users.data ?? []) as Array<{ id: string; name: string }>,
   };
-}
+});

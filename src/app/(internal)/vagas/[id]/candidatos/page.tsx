@@ -92,7 +92,7 @@ export default async function CandidatosPage({ params }: Props) {
           />
         </div>
       ) : (
-        <KanbanBoard applications={cards} canManage={canManage} />
+        <KanbanBoard key={cards.length} applications={cards} canManage={canManage} />
       )}
     </div>
   );

@@ -1,8 +1,13 @@
 import type { InboundMessage, WhatsAppProviderAdapter } from '../types'
 
+// Strip BOM (﻿) and whitespace — PowerShell pipe pode adicionar BOM silenciosamente
+function clean(val: string | undefined): string {
+  return (val ?? '').replace(/^﻿/, '').trim()
+}
+
 function zapiBase() {
-  const instanceId = process.env.ZAPI_INSTANCE_ID!
-  const token = process.env.ZAPI_TOKEN!
+  const instanceId = clean(process.env.ZAPI_INSTANCE_ID)
+  const token = clean(process.env.ZAPI_TOKEN)
   return `https://api.z-api.io/instances/${instanceId}/token/${token}`
 }
 
@@ -60,7 +65,7 @@ export const zapiAdapter: WhatsAppProviderAdapter = {
   async sendText(to: string, text: string): Promise<string | null> {
     const res = await fetch(`${zapiBase()}/send-text`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Client-Token': process.env.ZAPI_SECURITY_TOKEN! },
+      headers: { 'Content-Type': 'application/json', 'Client-Token': clean(process.env.ZAPI_SECURITY_TOKEN) },
       body: JSON.stringify({ phone: to, message: text }),
     })
     if (!res.ok) {
@@ -75,7 +80,7 @@ export const zapiAdapter: WhatsAppProviderAdapter = {
   async sendButtons(to: string, body: string, buttons: Array<{ id: string; title: string }>): Promise<string | null> {
     const res = await fetch(`${zapiBase()}/send-button-list`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Client-Token': process.env.ZAPI_SECURITY_TOKEN! },
+      headers: { 'Content-Type': 'application/json', 'Client-Token': clean(process.env.ZAPI_SECURITY_TOKEN) },
       body: JSON.stringify({
         phone: to,
         message: body,

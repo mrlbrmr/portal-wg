@@ -17,6 +17,7 @@ import {
   History,
   ChevronDown,
   ChevronRight,
+  MessageSquare,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,10 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
     { href: "/admissoes/relatorios", label: "Relatórios", icon: BarChart3 },
     { href: "/admissoes/historico", label: "Histórico", icon: History },
     ...(isAdmin
-      ? [{ href: "/admissoes/configuracoes", label: "Configurações", icon: Settings }]
+      ? [
+          { href: "/admissoes/digitais", label: "Digital (WhatsApp)", icon: MessageSquare },
+          { href: "/admissoes/configuracoes", label: "Configurações", icon: Settings },
+        ]
       : []),
   ];
 

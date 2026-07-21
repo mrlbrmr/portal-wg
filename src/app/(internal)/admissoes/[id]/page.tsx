@@ -29,6 +29,7 @@ import {
   AdmissionAttachments,
   type AttachmentView,
 } from "@/components/internal/admissao/AdmissionAttachments";
+import { DigitalAdmissionCard } from "@/components/internal/admissao/DigitalAdmissionCard";
 
 export const metadata: Metadata = { title: "Ficha da admissão — RH" };
 
@@ -89,7 +90,7 @@ export default async function AdmissaoDetalhePage({
   const { id } = await params;
 
   const supabase = await createClient();
-  const [session, admissionRes, documentTypesRes, templatesRes, usersRes] = await Promise.all([
+  const [session, admissionRes, documentTypesRes, templatesRes, usersRes, whatsappSessionRes] = await Promise.all([
     auth(),
     supabase
       .from("admissions")
@@ -115,6 +116,14 @@ export default async function AdmissaoDetalhePage({
       .eq("active", true)
       .order("name", { ascending: true }),
     supabase.from("users").select("id, name").eq("active", true),
+    supabase
+      .from("whatsapp_admission_sessions")
+      .select("id, state, data, createdAt, updatedAt, expiresAt")
+      .eq("admissionId", id)
+      .gt("expiresAt", new Date().toISOString())
+      .order("createdAt", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const admission = admissionRes.data as unknown as AdmissionDetail | null;
@@ -130,6 +139,9 @@ export default async function AdmissaoDetalhePage({
 
   const canManage = session?.user.role === "ADMIN_RH";
   const userMap = new Map(users.map((u) => [u.id, u.name]));
+  const whatsappSession = whatsappSessionRes.data as {
+    id: string; state: string; data: Record<string, unknown>; createdAt: string; updatedAt: string; expiresAt: string
+  } | null;
 
   // Ordena grupos/itens no JS (o embed do PostgREST não garante ordem).
   const sortedGroups = [...(admission.checklistGroups ?? [])].sort(
@@ -254,6 +266,13 @@ export default async function AdmissaoDetalhePage({
               </div>
             )}
           </div>
+
+          <DigitalAdmissionCard
+            admissionId={id}
+            session={whatsappSession as Parameters<typeof DigitalAdmissionCard>[0]['session']}
+            canManage={canManage}
+            hasPhone={!!admission.phone}
+          />
         </div>
 
         <div className="lg:col-span-2 space-y-4">

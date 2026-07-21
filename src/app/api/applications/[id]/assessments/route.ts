@@ -87,6 +87,12 @@ export async function POST(
   }
 
   const { kind, title, score, outcome, summary, evaluator, occurredAt } = parsed.data;
+  // Data só-dia (yyyy-mm-dd) vira meio-dia UTC para não "voltar um dia" no fuso BRT.
+  const normalizedOccurredAt = occurredAt
+    ? /^\d{4}-\d{2}-\d{2}$/.test(occurredAt)
+      ? `${occurredAt}T12:00:00Z`
+      : occurredAt
+    : null;
   const { error } = await supabase.from("application_assessments").insert({
     applicationId: id,
     kind,
@@ -98,7 +104,7 @@ export async function POST(
     evaluator: evaluator || session.user.name || session.user.email || "RH",
     attachmentUrl: attachment?.url ?? null,
     attachmentName: attachment?.name ?? null,
-    occurredAt: occurredAt || null,
+    occurredAt: normalizedOccurredAt,
     createdBy: session.user.name ?? session.user.email ?? "RH",
   });
   if (error) {

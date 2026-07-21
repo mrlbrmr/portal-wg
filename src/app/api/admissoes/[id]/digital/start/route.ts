@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createSession, getActiveSession } from '@/lib/whatsapp/session'
+import { createSession, getActiveSession, updateSession } from '@/lib/whatsapp/session'
 import { sendText } from '@/lib/whatsapp/sender'
 import { BOT } from '@/lib/whatsapp/messages'
 import type { WhatsAppProviderName } from '@/lib/whatsapp/types'
@@ -62,6 +62,7 @@ export async function POST(
 
   try {
     await sendText(phone, BOT.greeting(admission.fullName), wgSession.id, provider)
+    await updateSession(wgSession.id, { state: 'GREETING' })
   } catch (err) {
     console.error('[digital/start] sendText error:', err)
     return NextResponse.json({ error: `Erro ao enviar WhatsApp: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })

@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
   const provider = (process.env.WHATSAPP_PROVIDER ?? 'zapi') as 'meta' | 'zapi'
 
   if (provider === 'zapi' && process.env.ZAPI_SECURITY_TOKEN) {
-    if (clientToken !== process.env.ZAPI_SECURITY_TOKEN) {
+    const expectedToken = process.env.ZAPI_SECURITY_TOKEN.replace(/^﻿/, '').trim()
+    if (clientToken !== expectedToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
   }

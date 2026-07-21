@@ -111,6 +111,19 @@ export async function recolorCategory(
   return { ok: true };
 }
 
+/** Marca (ou desmarca) uma etapa do Kanban como etapa final (Concluída). */
+export async function setStageIsFinal(id: string, isFinal: boolean): Promise<ActionResult> {
+  const err = await ensureConfig();
+  if (err) return { ok: false, error: err };
+
+  const supabase = await createClient();
+  await supabase.from("admission_stages").update({ isFinal }).eq("id", id);
+
+  revalidatePath(PATH);
+  revalidatePath("/admissoes");
+  return { ok: true };
+}
+
 export async function deleteCategory(entity: CatEntity, id: string): Promise<ActionResult> {
   const err = await ensureConfig();
   if (err) return { ok: false, error: err };

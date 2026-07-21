@@ -23,7 +23,7 @@ export default async function CategoriasPage() {
         .select("id, name, required")
         .order("sortOrder", { ascending: true }),
       supabase.from("admission_tags").select("id, name, color").order("name", { ascending: true }),
-      supabase.from("admission_stages").select("id, name, color").order("sortOrder", { ascending: true }),
+      supabase.from("admission_stages").select("id, name, color, isFinal").order("sortOrder", { ascending: true }),
     ]);
 
   const companies = (companiesRes.data ?? []) as Array<{ id: string; name: string }>;
@@ -35,7 +35,7 @@ export default async function CategoriasPage() {
     required: boolean;
   }>;
   const tags = (tagsRes.data ?? []) as Array<{ id: string; name: string; color: string }>;
-  const stages = (stagesRes.data ?? []) as Array<{ id: string; name: string; color: string }>;
+  const stages = (stagesRes.data ?? []) as Array<{ id: string; name: string; color: string; isFinal: boolean }>;
 
   return (
     <div className="max-w-5xl">
@@ -57,9 +57,10 @@ export default async function CategoriasPage() {
         <CategoryManager
           entity="stage"
           title="Etapas do Kanban"
-          description="Colunas do quadro de admissões, com cor."
+          description="Colunas do quadro de admissões, com cor. Marque a etapa final para calcular admissões concluídas."
           items={stages}
           hasColor
+          hasIsFinal
           addPlaceholder="Ex.: Documentação"
         />
         <CategoryManager

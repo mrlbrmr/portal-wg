@@ -9,6 +9,7 @@ import {
   recolorCategory,
   deleteCategory,
   setDocumentTypeRequired,
+  setStageIsFinal,
   type CatEntity,
   type ActionResult,
 } from "@/lib/admissao/config-actions";
@@ -18,6 +19,7 @@ export interface CategoryItem {
   name: string;
   color?: string | null;
   required?: boolean;
+  isFinal?: boolean;
 }
 
 interface Props {
@@ -27,6 +29,7 @@ interface Props {
   items: CategoryItem[];
   hasColor?: boolean;
   hasRequired?: boolean;
+  hasIsFinal?: boolean;
   addPlaceholder?: string;
 }
 
@@ -40,6 +43,7 @@ export function CategoryManager({
   items,
   hasColor,
   hasRequired,
+  hasIsFinal,
   addPlaceholder,
 }: Props) {
   const { notify } = useToast();
@@ -139,6 +143,22 @@ export function CategoryManager({
                       className="accent-wg-green w-4 h-4"
                     />
                     Obrigatório
+                  </label>
+                )}
+                {hasIsFinal && (
+                  <label
+                    className={`ml-auto flex items-center gap-1.5 text-xs cursor-pointer select-none shrink-0 ${it.isFinal ? "text-emerald-700 font-medium" : "text-gray-600"}`}
+                    title="Admissões nessa etapa são contadas como Concluídas e saem da lista ativa"
+                  >
+                    <input
+                      type="checkbox"
+                      defaultChecked={it.isFinal ?? false}
+                      onChange={(e) =>
+                        run(() => setStageIsFinal(it.id, e.target.checked))
+                      }
+                      className="accent-wg-green w-4 h-4"
+                    />
+                    Etapa final
                   </label>
                 )}
                 <button

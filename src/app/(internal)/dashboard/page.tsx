@@ -78,10 +78,10 @@ export default async function DashboardPage() {
       .is("deletedAt", null),
     supabase
       .from("admissions")
-      .select("id, fullName, startDate, position:admission_positions(name), stage:admission_stages(name, color)")
+      .select("id, fullName, startDate, position:admission_positions(name), stage:admission_stages(name, color, isFinal)")
       .is("deletedAt", null)
       .order("createdAt", { ascending: false })
-      .limit(5),
+      .limit(10),
     supabase
       .from("jobs")
       .select("id, title, status, city, state, createdAt")
@@ -116,18 +116,18 @@ export default async function DashboardPage() {
     (a) => a.startDate && new Date(a.startDate) < todayUTC && !a.stage?.isFinal
   ).length;
   const admissionsUpcoming = admissionRows.filter(
-    (a) => a.startDate && new Date(a.startDate) >= todayUTC && new Date(a.startDate) <= in7UTC
+    (a) => a.startDate && new Date(a.startDate) >= todayUTC && new Date(a.startDate) <= in7UTC && !a.stage?.isFinal
   ).length;
 
   const admissionsInProgress = admissionsTotal - admissionsDone;
 
-  const recentAdmissions = (recentAdmissionsRes.data ?? []) as unknown as Array<{
+  const recentAdmissions = ((recentAdmissionsRes.data ?? []) as unknown as Array<{
     id: string;
     fullName: string;
     startDate: string | null;
     position: { name: string } | null;
-    stage: { name: string; color: string } | null;
-  }>;
+    stage: { name: string; color: string; isFinal: boolean } | null;
+  }>).filter((a) => !a.stage?.isFinal).slice(0, 5);
 
   const recentJobs = (recentJobsRes.data ?? []) as Array<{
     id: string;

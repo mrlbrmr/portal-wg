@@ -28,7 +28,7 @@ export default async function AdmissoesPage() {
          position:admission_positions(name),
          company:admission_companies(name),
          branch:admission_branches(name),
-         stage:admission_stages(id, name, color)`
+         stage:admission_stages(id, name, color, isFinal)`
       )
       .is("deletedAt", null)
       .order("createdAt", { ascending: false })
@@ -48,7 +48,7 @@ export default async function AdmissoesPage() {
     position: { name: string } | null;
     company: { name: string } | null;
     branch: { name: string } | null;
-    stage: { id: string; name: string; color: string } | null;
+    stage: { id: string; name: string; color: string; isFinal: boolean } | null;
   }>;
 
   const metricRows = (metricsRes.data ?? []) as unknown as Array<{
@@ -61,14 +61,18 @@ export default async function AdmissoesPage() {
     (m) => m.startDate && new Date(m.startDate) < todayUTC && !m.stage?.isFinal
   ).length;
   const upcomingCount = metricRows.filter(
-    (m) => m.startDate && new Date(m.startDate) >= todayUTC && new Date(m.startDate) <= in7
+    (m) => m.startDate && new Date(m.startDate) >= todayUTC && new Date(m.startDate) <= in7 && !m.stage?.isFinal
   ).length;
 
   const canWrite = session?.user.role === "ADMIN_RH";
   const userMap = new Map(config.users.map((u) => [u.id, u.name]));
   const inProgress = total - doneCount;
 
-  const rows: AdmissionRow[] = admissions.map((a) => ({
+  // Lista: apenas admissões em aberto (fora de etapas finais).
+  // Admissões concluídas aparecem no Kanban e no Histórico, não aqui.
+  const openAdmissions = admissions.filter((a) => !a.stage?.isFinal);
+
+  const rows: AdmissionRow[] = openAdmissions.map((a) => ({
     id: a.id,
     fullName: a.fullName,
     cpf: a.cpf,

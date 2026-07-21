@@ -40,8 +40,7 @@ export default async function CandidatosPage({ params }: Props) {
   ]);
 
   const stages = (stagesData ?? []) as Array<{ id: string; name: string; color: string }>;
-
-  const cards: KanbanApplication[] = ((applications ?? []) as Array<{
+  const appList = (applications ?? []) as Array<{
     id: string;
     fullName: string;
     email: string;
@@ -50,7 +49,21 @@ export default async function CandidatosPage({ params }: Props) {
     stageId: string;
     source: string;
     createdAt: string;
-  }>).map((a) => ({
+  }>;
+
+  // Contagem de avaliações por candidato (para o resumo no card).
+  const assessmentCount = new Map<string, number>();
+  if (appList.length > 0) {
+    const { data: assessments } = await supabase
+      .from("application_assessments")
+      .select("applicationId")
+      .in("applicationId", appList.map((a) => a.id));
+    for (const r of (assessments ?? []) as Array<{ applicationId: string }>) {
+      assessmentCount.set(r.applicationId, (assessmentCount.get(r.applicationId) ?? 0) + 1);
+    }
+  }
+
+  const cards: KanbanApplication[] = appList.map((a) => ({
     id: a.id,
     fullName: a.fullName,
     email: a.email,
@@ -58,6 +71,7 @@ export default async function CandidatosPage({ params }: Props) {
     resumeName: a.resumeName,
     stageId: a.stageId,
     source: a.source,
+    assessmentCount: assessmentCount.get(a.id) ?? 0,
     createdAt: new Date(a.createdAt).toISOString(),
   }));
 

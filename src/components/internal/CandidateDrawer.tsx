@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
+import { AssessmentsSection } from "@/components/internal/AssessmentsSection";
 
 interface StageRef {
   name: string;
@@ -233,6 +234,9 @@ export function CandidateDrawer({ applicationId, canManage, onClose }: Props) {
                   </div>
                 )}
               </div>
+
+              {/* Avaliações (entrevistas / testes / IA) */}
+              <AssessmentsSection applicationId={data.id} canManage={canManage} />
 
               {/* Timeline de etapas */}
               <div className="mt-6">

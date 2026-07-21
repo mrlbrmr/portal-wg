@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Mail, Phone, Trash2 } from "lucide-react";
+import { ClipboardCheck, Download, Mail, Phone, Trash2 } from "lucide-react";
 import { formatDate, normalizeText } from "@/lib/utils";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import {
@@ -18,6 +18,7 @@ export interface KanbanApplication {
   resumeName: string | null;
   stageId: string;
   source: string;
+  assessmentCount: number;
   createdAt: string; // ISO
 }
 
@@ -100,6 +101,15 @@ export function KanbanBoard({ applications, stages, canManage }: Props) {
               {a.source && a.source !== "PORTAL" && (
                 <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
                   {APPLICATION_SOURCE_LABELS[a.source] ?? a.source}
+                </span>
+              )}
+              {a.assessmentCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-0.5 rounded-full bg-wg-green/15 px-1.5 py-0.5 text-[10px] font-medium text-wg-green-dark"
+                  title={`${a.assessmentCount} avaliação(ões)`}
+                >
+                  <ClipboardCheck className="h-2.5 w-2.5" />
+                  {a.assessmentCount}
                 </span>
               )}
             </div>

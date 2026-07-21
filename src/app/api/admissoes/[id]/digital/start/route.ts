@@ -50,12 +50,22 @@ export async function POST(
   }
 
   const provider = (process.env.WHATSAPP_PROVIDER ?? 'zapi') as WhatsAppProviderName
-  const wgSession = await createSession(phone, admission.id, provider)
 
-  // Envia primeira mensagem
-  await sendText(phone, BOT.greeting(admission.fullName), wgSession.id, provider)
+  let wgSession: Awaited<ReturnType<typeof createSession>>
+  try {
+    wgSession = await createSession(phone, admission.id, provider)
+  } catch (err) {
+    console.error('[digital/start] createSession error:', err)
+    return NextResponse.json({ error: `Erro ao criar sessão: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
+  }
 
-  // Registra no log de atividade
+  try {
+    await sendText(phone, BOT.greeting(admission.fullName), wgSession.id, provider)
+  } catch (err) {
+    console.error('[digital/start] sendText error:', err)
+    return NextResponse.json({ error: `Erro ao enviar WhatsApp: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
+  }
+
   await supabase.from('admission_activity_log').insert({
     userId: session.user.id,
     admissionId: admission.id,

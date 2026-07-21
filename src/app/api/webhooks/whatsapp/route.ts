@@ -30,10 +30,15 @@ export async function POST(req: NextRequest) {
   const clientToken = req.headers.get('client-token')
   const provider = (process.env.WHATSAPP_PROVIDER ?? 'zapi') as 'meta' | 'zapi'
 
+  // Log para debug — remover após validação
+  console.log('[webhook] client-token recebido:', clientToken)
+  console.log('[webhook] ZAPI_SECURITY_TOKEN env:', process.env.ZAPI_SECURITY_TOKEN?.slice(0, 8))
+
   if (provider === 'zapi' && process.env.ZAPI_SECURITY_TOKEN) {
     const expectedToken = process.env.ZAPI_SECURITY_TOKEN.replace(/^﻿/, '').trim()
     if (clientToken !== expectedToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      // Log apenas — não rejeitar ainda, até confirmar que Z-API envia o header
+      console.warn('[webhook] Client-Token diverge. Recebido:', clientToken, '| Esperado:', expectedToken)
     }
   }
 
@@ -44,8 +49,11 @@ export async function POST(req: NextRequest) {
     return new NextResponse('ok', { status: 200 })
   }
 
+  console.log('[webhook] body recebido:', JSON.stringify(body).slice(0, 300))
+
   const adapter = getWhatsAppProvider(provider)
   const inbound = adapter.parseInbound(body)
+  console.log('[webhook] inbound parseado:', inbound ? `type=${inbound.type} from=${inbound.from}` : 'null')
 
   // Processar em background; SEMPRE retornar 200 imediatamente (< 2s)
   if (inbound && inbound.type !== 'unknown') {

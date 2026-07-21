@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 import { getWhatsAppProvider } from '@/lib/whatsapp/providers'
 import { getActiveSession } from '@/lib/whatsapp/session'
 import { processMessage } from '@/lib/whatsapp/state-machine'
-import { sendText } from '@/lib/whatsapp/sender'
 import { BOT } from '@/lib/whatsapp/messages'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -55,15 +54,13 @@ export async function POST(req: NextRequest) {
   const inbound = adapter.parseInbound(body)
   console.log('[webhook] inbound parseado:', inbound ? `type=${inbound.type} from=${inbound.from}` : 'null')
 
-  // Processar em background; SEMPRE retornar 200 imediatamente (< 2s)
+  // after() garante que o Vercel mantém a função viva até o processamento concluir
   if (inbound && inbound.type !== 'unknown') {
-    void (async () => {
+    after(async () => {
       try {
         const session = await getActiveSession(inbound.from)
         if (!session) {
-          // Mensagem inesperada — sem sessão ativa. Verificar se número tem admissão pendente.
           const supabase = createAdminClient()
-          // Normaliza para busca (sem +55 prefix)
           const phoneSuffix = inbound.from.replace(/^\+?55/, '')
           const { data: admission } = await supabase
             .from('admissions')
@@ -74,25 +71,8 @@ export async function POST(req: NextRequest) {
             .limit(1)
             .maybeSingle()
 
-          if (admission) {
-            // Há admissão mas sem sessão — informar que o RH precisa iniciar
-            // Não criar sessão aqui; apenas responder educadamente
-            await supabase.from('whatsapp_admission_sessions').insert({
-              phone: inbound.from,
-              admissionId: admission.id,
-              provider,
-              state: 'WAITING_START',
-            }).select('id').single().then(async ({ data: newSession }) => {
-              if (!newSession) return
-              // processMessage vai responder com greeting
-              const createdSession = await getActiveSession(inbound.from)
-              if (createdSession) await processMessage(createdSession, inbound)
-            })
-          } else {
-            // Número desconhecido
-            const dummySessionId = 'no-session'
+          if (!admission) {
             await getWhatsAppProvider(provider).sendText(inbound.from, BOT.notStarted).catch(() => {})
-            console.log('[webhook] Unknown phone, sent notStarted:', inbound.from, dummySessionId)
           }
           return
         }
@@ -100,7 +80,7 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.error('[webhook:processMessage] Error:', err)
       }
-    })()
+    })
   }
 
   return new NextResponse('ok', { status: 200 })

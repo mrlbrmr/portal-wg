@@ -23,6 +23,18 @@ export function formatDateTime(date: Date | string): string {
   }).format(new Date(date));
 }
 
+/** Máscara progressiva de celular: (xx) x xxxx-xxxx. Usada nos formulários. */
+export function maskPhone(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  if (d.length === 0) return "";
+  let out = "(" + d.slice(0, 2);
+  if (d.length >= 2) out += ") ";
+  if (d.length >= 3) out += d.slice(2, 3);
+  if (d.length >= 4) out += " " + d.slice(3, 7);
+  if (d.length >= 8) out += "-" + d.slice(7, 11);
+  return out;
+}
+
 /** Normaliza texto para busca: minúsculas, sem acentos, sem espaços nas pontas. */
 export function normalizeText(value: string): string {
   return value

@@ -6,32 +6,14 @@ import { rateLimit } from "@/lib/rate-limit";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { uploadResume, validateResumeFile } from "@/lib/storage";
 import { isPublicJobStatus } from "@/lib/utils";
+import { applicantContactSchema } from "@/lib/application-schema";
 
 // Rota PÚBLICA — recebe candidaturas nativas do portal.
 // LGPD: os dados gravados aqui NUNCA são devolvidos por esta rota nem por
-// qualquer rota pública. Currículo vai para storage privado (Vercel Blob).
+// qualquer rota pública. Currículo vai para storage privado (Supabase Storage).
 
-// E-mail no formato xxxx@xxxx.com
-const emailSchema = z
-  .string()
-  .trim()
-  .email("E-mail inválido")
-  .max(150);
-
-// Celular: aceita a máscara (xx) x xxxx-xxxx — validamos pelos dígitos (11).
-const phoneSchema = z
-  .string()
-  .trim()
-  .refine((v) => {
-    const digits = v.replace(/\D/g, "");
-    return digits.length === 11; // DDD (2) + 9 + 8 dígitos
-  }, "Celular inválido. Use o formato (xx) x xxxx-xxxx.");
-
-const fieldsSchema = z.object({
+const fieldsSchema = applicantContactSchema.extend({
   jobId: z.string().min(1, "Vaga inválida"),
-  fullName: z.string().trim().min(3, "Informe seu nome completo").max(120),
-  email: emailSchema,
-  phone: phoneSchema,
   consent: z
     .string()
     .refine((v) => v === "true" || v === "on" || v === "1", "É necessário aceitar o aviso de privacidade."),

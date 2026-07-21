@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Users } from "lucide-react";
 import { KanbanBoard, type KanbanApplication } from "@/components/internal/KanbanBoard";
+import { AddCandidateModal } from "@/components/internal/AddCandidateModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Metadata } from "next";
 
@@ -27,7 +28,7 @@ export default async function CandidatosPage({ params }: Props) {
 
   const { data: applications } = await supabase
     .from("applications")
-    .select("id, fullName, email, phone, resumeName, stage, createdAt")
+    .select("id, fullName, email, phone, resumeName, stage, source, createdAt")
     .eq("jobId", id)
     .order("createdAt", { ascending: false });
 
@@ -38,6 +39,7 @@ export default async function CandidatosPage({ params }: Props) {
     phone: string;
     resumeName: string | null;
     stage: string;
+    source: string;
     createdAt: string;
   }>).map((a) => ({
     id: a.id,
@@ -46,6 +48,7 @@ export default async function CandidatosPage({ params }: Props) {
     phone: a.phone,
     resumeName: a.resumeName,
     stage: a.stage as KanbanApplication["stage"],
+    source: a.source,
     createdAt: new Date(a.createdAt).toISOString(),
   }));
 
@@ -68,12 +71,15 @@ export default async function CandidatosPage({ params }: Props) {
             {job.city}/{job.state} · Candidatos por etapa
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-white border border-gray-200 shadow-sm rounded-xl px-4 py-2.5">
-          <Users className="w-4 h-4 text-wg-green-dark" />
-          <span className="text-sm text-gray-900 font-medium">{cards.length}</span>
-          <span className="text-sm text-gray-500">
-            {cards.length === 1 ? "candidatura" : "candidaturas"}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white border border-gray-200 shadow-sm rounded-xl px-4 py-2.5">
+            <Users className="w-4 h-4 text-wg-green-dark" />
+            <span className="text-sm text-gray-900 font-medium">{cards.length}</span>
+            <span className="text-sm text-gray-500">
+              {cards.length === 1 ? "candidatura" : "candidaturas"}
+            </span>
+          </div>
+          {canManage && <AddCandidateModal jobId={job.id} />}
         </div>
       </div>
 

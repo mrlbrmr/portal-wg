@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download, Mail, Phone, Trash2 } from "lucide-react";
 import { formatDate, normalizeText } from "@/lib/utils";
+import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import {
   KanbanBoardShell,
   type KanbanColumnDef,
@@ -16,6 +17,7 @@ export interface KanbanApplication {
   phone: string;
   resumeName: string | null;
   stage: string;
+  source: string;
   createdAt: string; // ISO
 }
 
@@ -89,7 +91,14 @@ export function KanbanBoard({ applications, canManage }: Props) {
             >
               {a.fullName}
             </button>
-            <p className="text-[11px] text-gray-500 mt-0.5">{formatDate(a.createdAt)}</p>
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <p className="text-[11px] text-gray-500">{formatDate(a.createdAt)}</p>
+              {a.source && a.source !== "PORTAL" && (
+                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                  {APPLICATION_SOURCE_LABELS[a.source] ?? a.source}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="mt-2 flex flex-col gap-1">

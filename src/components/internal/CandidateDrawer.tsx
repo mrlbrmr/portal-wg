@@ -10,6 +10,7 @@ import {
   formatDate,
   formatDateTime,
 } from "@/lib/utils";
+import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 
 interface StageHistoryEntry {
   id: string;
@@ -25,6 +26,8 @@ interface CandidateDetail {
   phone: string;
   resumeName: string | null;
   stage: string;
+  source: string;
+  addedBy: string | null;
   notes: string | null;
   createdAt: string;
   stageHistory: StageHistoryEntry[];
@@ -139,7 +142,17 @@ export function CandidateDrawer({ applicationId, canManage, onClose }: Props) {
                 <div className="min-w-0">
                   <p className="text-lg font-semibold text-gray-900">{data.fullName}</p>
                   <p className="mt-0.5 text-xs text-gray-500">
-                    Inscrito em {formatDate(data.createdAt)}
+                    {data.source && data.source !== "PORTAL" ? "Cadastrado" : "Inscrito"} em{" "}
+                    {formatDate(data.createdAt)}
+                    {data.source && data.source !== "PORTAL" && (
+                      <>
+                        {" · via "}
+                        <span className="font-medium text-gray-600">
+                          {APPLICATION_SOURCE_LABELS[data.source] ?? data.source}
+                        </span>
+                        {data.addedBy ? ` (por ${data.addedBy})` : ""}
+                      </>
+                    )}
                   </p>
                 </div>
                 <span

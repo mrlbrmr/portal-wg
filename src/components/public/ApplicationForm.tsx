@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Loader2, CheckCircle2, Upload, Paperclip } from "lucide-react";
+import { maskPhone } from "@/lib/utils";
 
 interface Props {
   jobId: string;
@@ -11,18 +12,6 @@ interface Props {
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 const MAX_MB = 5;
 const ACCEPT = ".pdf,.doc,.docx";
-
-// Máscara progressiva de celular: (xx) x xxxx-xxxx
-function maskPhone(value: string): string {
-  const d = value.replace(/\D/g, "").slice(0, 11);
-  if (d.length === 0) return "";
-  let out = "(" + d.slice(0, 2);
-  if (d.length >= 2) out += ") ";
-  if (d.length >= 3) out += d.slice(2, 3);
-  if (d.length >= 4) out += " " + d.slice(3, 7);
-  if (d.length >= 8) out += "-" + d.slice(7, 11);
-  return out;
-}
 
 // Carrega o script do reCAPTCHA v3 sob demanda e devolve um token.
 let recaptchaLoading: Promise<void> | null = null;

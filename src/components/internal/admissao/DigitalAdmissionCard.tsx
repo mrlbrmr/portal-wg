@@ -131,6 +131,17 @@ export function DigitalAdmissionCard({ admissionId, session, canManage, hasPhone
           <p className="text-xs text-gray-400">
             Última atividade: {new Date(session.updatedAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
           </p>
+
+          {session.state === 'WAITING_START' && canManage && (
+            <button
+              onClick={handleStart}
+              disabled={loading}
+              className="mt-3 inline-flex items-center gap-2 text-sm font-medium bg-wg-green text-white hover:bg-wg-green-dark disabled:opacity-60 px-4 py-2 rounded-lg transition-colors"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+              {loading ? 'Enviando...' : 'Reenviar mensagem inicial'}
+            </button>
+          )}
         </>
       )}
 

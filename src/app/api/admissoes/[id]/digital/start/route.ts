@@ -45,7 +45,8 @@ export async function POST(
   const phone = normalizePhone(admission.phone)
 
   const existing = await getActiveSession(phone)
-  if (existing) {
+  // Se já existe sessão mas ainda não enviou a saudação, reenvia em vez de bloquear
+  if (existing && existing.state !== 'WAITING_START') {
     return NextResponse.json({ error: 'Já existe uma sessão de admissão digital ativa para este colaborador.' }, { status: 409 })
   }
 
@@ -53,7 +54,7 @@ export async function POST(
 
   let wgSession: Awaited<ReturnType<typeof createSession>>
   try {
-    wgSession = await createSession(phone, admission.id, provider)
+    wgSession = existing ?? await createSession(phone, admission.id, provider)
   } catch (err) {
     console.error('[digital/start] createSession error:', err)
     return NextResponse.json({ error: `Erro ao criar sessão: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })

@@ -1,22 +1,26 @@
 import { ImageResponse } from "next/og";
-import { prisma } from "@/lib/prisma";
-import { MODALITY_LABELS } from "@/lib/utils";
-import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { createAnonClient } from "@/lib/supabase/anon";
+import { MODALITY_LABELS, PUBLIC_JOB_STATUSES } from "@/lib/utils";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 async function findJob(slugOrId: string) {
-  return (
-    (await prisma.job.findFirst({
-      where: { slug: slugOrId, status: { in: PUBLIC_JOB_STATUS_LIST } },
-      select: { title: true, city: true, state: true, department: true, modality: true },
-    })) ??
-    (await prisma.job.findFirst({
-      where: { id: slugOrId, status: { in: PUBLIC_JOB_STATUS_LIST } },
-      select: { title: true, city: true, state: true, department: true, modality: true },
-    }))
-  );
+  const supabase = createAnonClient();
+  const { data } = await supabase
+    .from("jobs")
+    .select("title, city, state, department, modality")
+    .in("status", PUBLIC_JOB_STATUSES as readonly string[])
+    .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
+    .limit(1);
+  return (data?.[0] ?? null) as unknown as {
+    title: string;
+    city: string;
+    state: string;
+    department: string | null;
+    modality: string;
+  } | null;
 }
 
 export default async function OgImage({
@@ -32,8 +36,7 @@ export default async function OgImage({
   const modality = job ? MODALITY_LABELS[job.modality] : "";
   const department = job?.department ?? "";
 
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+  const baseUrl = getAppBaseUrl();
 
   let logoSrc: string | undefined;
   try {

@@ -20,7 +20,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import {
   AdmissionChecklist,
   type ChecklistGroupView,
@@ -32,11 +32,53 @@ import {
 
 export const metadata: Metadata = { title: "Ficha da admissão — RH" };
 
-function fmtDate(d: Date | null): string | null {
-  return d ? d.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : null;
+function fmtDate(d: string | null): string | null {
+  return d ? new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : null;
 }
-function dateInput(d: Date | null): string | null {
-  return d ? d.toISOString().slice(0, 10) : null;
+function dateInput(d: string | null): string | null {
+  return d ? new Date(d).toISOString().slice(0, 10) : null;
+}
+
+interface AdmissionDetail {
+  fullName: string;
+  cpf: string | null;
+  email: string | null;
+  phone: string | null;
+  birthDate: string | null;
+  responsibleId: string | null;
+  managerName: string | null;
+  startDate: string | null;
+  medicalExamDate: string | null;
+  salary: number | string | null;
+  shift: string | null;
+  uniformShirt: string | null;
+  uniformPants: string | null;
+  uniformShoe: string | null;
+  notes: string | null;
+  position: { name: string } | null;
+  company: { name: string } | null;
+  branch: { name: string } | null;
+  stage: { name: string; color: string } | null;
+  checklistGroups: Array<{
+    id: string;
+    name: string;
+    sortOrder: number;
+    items: Array<{
+      id: string;
+      name: string;
+      status: ChecklistGroupView["items"][number]["status"];
+      parentId: string | null;
+      dueDate: string | null;
+      sortOrder: number;
+    }>;
+  }>;
+  attachments: Array<{
+    id: string;
+    fileName: string;
+    sizeBytes: number | string | null;
+    createdAt: string;
+    documentTypeId: string | null;
+  }>;
 }
 
 export default async function AdmissaoDetalhePage({
@@ -46,41 +88,59 @@ export default async function AdmissaoDetalhePage({
 }) {
   const { id } = await params;
 
-  const [session, admission, documentTypes, templates, users] = await Promise.all([
+  const supabase = await createClient();
+  const [session, admissionRes, documentTypesRes, templatesRes, usersRes] = await Promise.all([
     auth(),
-    prisma.admission.findFirst({
-      where: { id, deletedAt: null },
-      include: {
-        position: { select: { name: true } },
-        company: { select: { name: true } },
-        branch: { select: { name: true } },
-        stage: { select: { name: true, color: true } },
-        checklistGroups: {
-          orderBy: { sortOrder: "asc" },
-          include: { items: { orderBy: { sortOrder: "asc" } } },
-        },
-        attachments: { orderBy: { createdAt: "desc" } },
-      },
-    }),
-    prisma.documentType.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, required: true } }),
-    prisma.checklistTemplate.findMany({
-      where: { active: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.user.findMany({ where: { active: true }, select: { id: true, name: true } }),
+    supabase
+      .from("admissions")
+      .select(
+        `*,
+         position:admission_positions(name),
+         company:admission_companies(name),
+         branch:admission_branches(name),
+         stage:admission_stages(name, color),
+         checklistGroups:admission_checklist_groups(id, name, sortOrder, items:admission_checklist_items(id, name, status, parentId, dueDate, sortOrder)),
+         attachments:admission_attachments(id, fileName, sizeBytes, createdAt, documentTypeId)`
+      )
+      .eq("id", id)
+      .is("deletedAt", null)
+      .maybeSingle(),
+    supabase
+      .from("admission_document_types")
+      .select("id, name, required")
+      .order("sortOrder", { ascending: true }),
+    supabase
+      .from("admission_checklist_templates")
+      .select("id, name")
+      .eq("active", true)
+      .order("name", { ascending: true }),
+    supabase.from("users").select("id, name").eq("active", true),
   ]);
 
+  const admission = admissionRes.data as unknown as AdmissionDetail | null;
   if (!admission) notFound();
+
+  const documentTypes = (documentTypesRes.data ?? []) as Array<{
+    id: string;
+    name: string;
+    required: boolean;
+  }>;
+  const templates = (templatesRes.data ?? []) as Array<{ id: string; name: string }>;
+  const users = (usersRes.data ?? []) as Array<{ id: string; name: string }>;
 
   const canManage = session?.user.role === "ADMIN_RH";
   const userMap = new Map(users.map((u) => [u.id, u.name]));
 
-  const groups: ChecklistGroupView[] = admission.checklistGroups.map((g) => {
+  // Ordena grupos/itens no JS (o embed do PostgREST não garante ordem).
+  const sortedGroups = [...(admission.checklistGroups ?? [])].sort(
+    (a, b) => a.sortOrder - b.sortOrder
+  );
+  const groups: ChecklistGroupView[] = sortedGroups.map((g) => {
     // Os itens vêm achatados (pais e subtarefas compartilham groupId); aninha as
     // subtarefas sob seus pais mantendo a ordem por sortOrder.
-    const children = g.items.filter((it) => it.parentId);
-    const topLevel = g.items.filter((it) => !it.parentId);
+    const gItems = [...(g.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+    const children = gItems.filter((it) => it.parentId);
+    const topLevel = gItems.filter((it) => !it.parentId);
     return {
       id: g.id,
       name: g.name,
@@ -102,13 +162,15 @@ export default async function AdmissaoDetalhePage({
     };
   });
 
-  const attachments: AttachmentView[] = admission.attachments.map((a) => ({
-    id: a.id,
-    fileName: a.fileName,
-    sizeBytes: a.sizeBytes != null ? Number(a.sizeBytes) : null,
-    createdAt: a.createdAt.toISOString(),
-    documentTypeId: a.documentTypeId,
-  }));
+  const attachments: AttachmentView[] = [...(admission.attachments ?? [])]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((a) => ({
+      id: a.id,
+      fileName: a.fileName,
+      sizeBytes: a.sizeBytes != null ? Number(a.sizeBytes) : null,
+      createdAt: new Date(a.createdAt).toISOString(),
+      documentTypeId: a.documentTypeId,
+    }));
 
   const salaryFmt =
     admission.salary != null

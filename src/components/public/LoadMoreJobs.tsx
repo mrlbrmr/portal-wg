@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import JobCard from "@/components/public/JobCard";
 import { AnimateIn } from "@/components/ui/AnimateIn";
-import type { Job } from "@prisma/client";
+import type { Job } from "@/types/domain";
 import type { HomepageConfigData } from "@/lib/homepage-config";
 
 interface Props {

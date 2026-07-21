@@ -1,4 +1,4 @@
-import type { DistributionChannel } from "@prisma/client";
+import type { DistributionChannel } from "@/types/domain";
 
 // Resultado de uma tentativa de publicação/divulgação num canal.
 export interface PublishResult {

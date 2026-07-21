@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
-import { buildJobPostingJsonLd } from "@/lib/job-schema";
+import { getAppBaseUrl } from "@/lib/app-url";
+import { buildJobPostingJsonLd, type JobForSchema } from "@/lib/job-schema";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 
 // GET /api/feed/jobs — feed público (JSON) de todas as vagas abertas. Fonte
@@ -9,32 +10,23 @@ import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 // dados de candidato). Revalida a cada 5 min.
 export const revalidate = 300;
 
+type FeedJob = JobForSchema & { contractType: string };
+
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+  const baseUrl = getAppBaseUrl();
   const now = new Date();
 
-  const jobs = await prisma.job.findMany({
-    where: {
-      status: { in: PUBLIC_JOB_STATUS_LIST },
-      OR: [{ closingDate: null }, { closingDate: { gte: now } }],
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      description: true,
-      city: true,
-      state: true,
-      department: true,
-      company: true,
-      modality: true,
-      contractType: true,
-      salaryRange: true,
-      createdAt: true,
-      closingDate: true,
-    },
-  });
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("jobs")
+    .select(
+      "id, title, slug, description, city, state, department, company, modality, contractType, salaryRange, createdAt, closingDate"
+    )
+    .in("status", PUBLIC_JOB_STATUS_LIST as readonly string[])
+    .or(`closingDate.is.null,closingDate.gte.${now.toISOString()}`)
+    .order("createdAt", { ascending: false });
+
+  const jobs = (data ?? []) as FeedJob[];
 
   const items = jobs.map((job) => ({
     id: job.id,
@@ -48,8 +40,8 @@ export async function GET() {
     modality: MODALITY_LABELS[job.modality] ?? job.modality,
     contractType: CONTRACT_TYPE_LABELS[job.contractType] ?? job.contractType,
     salaryRange: job.salaryRange,
-    datePosted: job.createdAt.toISOString(),
-    validThrough: job.closingDate ? job.closingDate.toISOString() : null,
+    datePosted: new Date(job.createdAt).toISOString(),
+    validThrough: job.closingDate ? new Date(job.closingDate).toISOString() : null,
     jsonLd: buildJobPostingJsonLd(job, baseUrl),
   }));
 

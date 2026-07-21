@@ -1,10 +1,11 @@
-import { prisma } from "@/lib/prisma";
+import { createAnonClient } from "@/lib/supabase/anon";
+import type { Job } from "@/types/domain";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { MODALITY_LABELS, CONTRACT_TYPE_LABELS, PUBLIC_JOB_STATUSES } from "@/lib/utils";
 import { sanitizeRichText } from "@/lib/sanitize";
-import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import { buildJobPostingJsonLd } from "@/lib/job-schema";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { MapPin, Clock, Briefcase, ChevronLeft, ArrowRight } from "lucide-react";
 import { ShareButton } from "@/components/public/ShareButton";
 import { ApplicationForm } from "@/components/public/ApplicationForm";
@@ -19,13 +20,15 @@ interface Props {
 }
 
 // cache() deduplica a query dentro do mesmo request (compartilhada entre generateMetadata e JobPage)
-const findJob = cache(async (slugOrId: string) => {
-  return prisma.job.findFirst({
-    where: {
-      status: { in: PUBLIC_JOB_STATUS_LIST },
-      OR: [{ slug: slugOrId }, { id: slugOrId }],
-    },
-  });
+const findJob = cache(async (slugOrId: string): Promise<Job | null> => {
+  const supabase = createAnonClient();
+  const { data } = await supabase
+    .from("jobs")
+    .select("*")
+    .in("status", PUBLIC_JOB_STATUSES as readonly string[])
+    .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
+    .limit(1);
+  return (data?.[0] ?? null) as unknown as Job | null;
 });
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -48,27 +51,24 @@ export default async function JobPage({ params }: Props) {
   if (!job) notFound();
 
   const now = new Date();
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+  const baseUrl = getAppBaseUrl();
   const jobUrl = `${baseUrl}/vagas/${job.slug ?? job.id}`;
 
   // Vagas similares — mesmo departamento OU mesma cidade, excluindo a atual
-  const similarWhere = {
-    id: { not: job.id },
-    status: { in: PUBLIC_JOB_STATUS_LIST },
-    AND: [
-      { OR: [{ closingDate: null }, { closingDate: { gte: now } }] },
-      ...(job.department
-        ? [{ OR: [{ department: job.department }, { city: job.city }] }]
-        : [{ city: job.city }]),
-    ],
-  };
-  const similar = await prisma.job.findMany({
-    where: similarWhere,
-    take: 3,
-    orderBy: { createdAt: "desc" },
-    select: { id: true, slug: true, title: true, city: true, state: true, modality: true, department: true },
-  });
+  const supabase = createAnonClient();
+  let simQuery = supabase
+    .from("jobs")
+    .select("id, slug, title, city, state, modality, department")
+    .neq("id", job.id)
+    .in("status", PUBLIC_JOB_STATUSES as readonly string[])
+    .or(`closingDate.is.null,closingDate.gte.${now.toISOString()}`);
+  simQuery = job.department
+    ? simQuery.or(`department.eq."${job.department}",city.eq."${job.city}"`)
+    : simQuery.eq("city", job.city);
+  const { data: similarData } = await simQuery.order("createdAt", { ascending: false }).limit(3);
+  const similar = (similarData ?? []) as unknown as Array<
+    Pick<Job, "id" | "slug" | "title" | "city" | "state" | "modality" | "department">
+  >;
 
   // JSON-LD JobPosting — Google for Jobs (markup completo em @/lib/job-schema)
   const jsonLd = buildJobPostingJsonLd(job, baseUrl);

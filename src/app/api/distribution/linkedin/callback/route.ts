@@ -6,12 +6,13 @@ import {
   fetchAdministeredOrganization,
   saveLinkedInConnection,
 } from "@/lib/distribution/linkedin";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 // GET /api/distribution/linkedin/callback — retorno do OAuth do LinkedIn.
 // Valida o state, troca o code por token, descobre a página administrada e
 // salva a conexão. Redireciona para Configurações → Divulgação com o resultado.
 export async function GET(req: NextRequest) {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+  const base = getAppBaseUrl();
   const settings = `${base}/configuracoes/divulgacao`;
 
   const session = await auth();

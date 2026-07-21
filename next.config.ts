@@ -19,8 +19,9 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://www.gstatic.com",
-              // reCAPTCHA faz requisições e renderiza o badge/iframe a partir de google.com.
-              "connect-src 'self' https://www.google.com",
+              // reCAPTCHA faz requisições a google.com; Supabase (auth/rest/storage/
+              // realtime) roda em *.supabase.co (https + wss p/ realtime futuro).
+              "connect-src 'self' https://www.google.com https://*.supabase.co wss://*.supabase.co",
               "frame-src 'self' https://www.google.com",
               "frame-ancestors 'none'",
             ].join("; "),

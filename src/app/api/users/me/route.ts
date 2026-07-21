@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthUserByEmail } from "@/lib/users-admin";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
 import { rateLimit } from "@/lib/rate-limit";
 
 const updateMeSchema = z
@@ -20,10 +21,12 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
-  });
+  const supabase = createAdminClient();
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, name, email, role, active, createdAt")
+    .eq("id", session.user.id)
+    .maybeSingle();
 
   return NextResponse.json(user);
 }
@@ -57,32 +60,56 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { name, currentPassword, newPassword } = parsed.data;
-  const updateData: Record<string, unknown> = {};
 
-  if (name) updateData.name = name;
+  const supabase = createAdminClient();
+  const { data: me } = await supabase
+    .from("users")
+    .select("id, email")
+    .eq("id", session.user.id)
+    .maybeSingle();
+  if (!me) return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
 
   if (newPassword && currentPassword) {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { passwordHash: true },
+    // Valida a senha atual tentando autenticar num cliente isolado (sem persistir
+    // sessão p/ não afetar os cookies do usuário logado).
+    const verifier = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    const { error: signInError } = await verifier.auth.signInWithPassword({
+      email: me.email,
+      password: currentPassword,
     });
-    if (!user) return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
-
-    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!valid) return NextResponse.json({ error: "Senha atual incorreta." }, { status: 400 });
-
-    updateData.passwordHash = await bcrypt.hash(newPassword, 12);
+    if (signInError) {
+      return NextResponse.json({ error: "Senha atual incorreta." }, { status: 400 });
+    }
   }
 
-  if (Object.keys(updateData).length === 0) {
+  if (!name && !newPassword) {
     return NextResponse.json({ error: "Nenhum dado para atualizar." }, { status: 400 });
   }
 
-  const updated = await prisma.user.update({
-    where: { id: session.user.id },
-    data: updateData,
-    select: { id: true, name: true, email: true, role: true },
-  });
+  // Nome → tabela de app; nome/senha → Supabase Auth.
+  if (name) {
+    await supabase.from("users").update({ name }).eq("id", me.id);
+  }
+
+  const authUser = await getAuthUserByEmail(supabase, me.email);
+  if (authUser) {
+    const attrs: Record<string, unknown> = {};
+    if (name) attrs.user_metadata = { ...authUser.user_metadata, name };
+    if (newPassword) attrs.password = newPassword;
+    if (Object.keys(attrs).length > 0) {
+      await supabase.auth.admin.updateUserById(authUser.id, attrs);
+    }
+  }
+
+  const { data: updated } = await supabase
+    .from("users")
+    .select("id, name, email, role")
+    .eq("id", me.id)
+    .maybeSingle();
 
   return NextResponse.json(updated);
 }

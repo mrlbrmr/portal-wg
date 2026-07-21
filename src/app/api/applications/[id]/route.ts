@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { ApplicationStage } from "@prisma/client";
+import { ApplicationStage } from "@/types/domain";
 import { deleteResume } from "@/lib/storage";
 
 // Rotas internas — leitura/mutação de candidatura.
@@ -21,28 +21,24 @@ export async function GET(
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
-  const application = await prisma.application.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      fullName: true,
-      email: true,
-      phone: true,
-      resumeName: true,
-      stage: true,
-      notes: true,
-      createdAt: true,
-      stageHistory: {
-        orderBy: { changedAt: "asc" },
-        select: { id: true, stage: true, changedBy: true, changedAt: true },
-      },
-    },
-  });
+  const supabase = await createClient();
+  const { data: application } = await supabase
+    .from("applications")
+    .select(
+      "id, fullName, email, phone, resumeName, stage, notes, createdAt, stageHistory:application_stage_history(id, stage, changedBy, changedAt)"
+    )
+    .eq("id", id)
+    .maybeSingle();
   if (!application) {
     return NextResponse.json({ error: "Candidatura não encontrada" }, { status: 404 });
   }
 
-  return NextResponse.json(application);
+  // Ordena o histórico (o embed do PostgREST não garante ordem).
+  const stageHistory = ((application.stageHistory ?? []) as Array<{ changedAt: string }>).sort(
+    (a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime()
+  );
+
+  return NextResponse.json({ ...application, stageHistory });
 }
 
 const patchSchema = z.object({
@@ -72,10 +68,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
   }
 
-  const current = await prisma.application.findUnique({
-    where: { id },
-    select: { id: true, jobId: true, stage: true },
-  });
+  const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("applications")
+    .select("id, jobId, stage")
+    .eq("id", id)
+    .maybeSingle();
   if (!current) {
     return NextResponse.json({ error: "Candidatura não encontrada" }, { status: 404 });
   }
@@ -84,20 +82,23 @@ export async function PATCH(
   if (parsed.data.stage !== undefined) data.stage = parsed.data.stage;
   if (parsed.data.notes !== undefined) data.notes = parsed.data.notes;
 
-  const application = await prisma.application.update({
-    where: { id },
-    data,
-    select: { id: true, stage: true, jobId: true, notes: true },
-  });
+  const { data: application, error: updateError } = await supabase
+    .from("applications")
+    .update(data)
+    .eq("id", id)
+    .select("id, stage, jobId, notes")
+    .single();
+
+  if (updateError || !application) {
+    return NextResponse.json({ error: "Erro ao atualizar candidatura" }, { status: 500 });
+  }
 
   // Só registra no histórico quando a etapa realmente muda.
   if (parsed.data.stage && parsed.data.stage !== current.stage) {
-    await prisma.applicationStageHistory.create({
-      data: {
-        applicationId: id,
-        stage: parsed.data.stage,
-        changedBy: session.user.name ?? session.user.email ?? "Admin",
-      },
+    await supabase.from("application_stage_history").insert({
+      applicationId: id,
+      stage: parsed.data.stage,
+      changedBy: session.user.name ?? session.user.email ?? "Admin",
     });
   }
 
@@ -117,10 +118,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
-  const application = await prisma.application.findUnique({
-    where: { id },
-    select: { id: true, jobId: true, resumeUrl: true },
-  });
+  const supabase = await createClient();
+  const { data: application } = await supabase
+    .from("applications")
+    .select("id, jobId, resumeUrl")
+    .eq("id", id)
+    .maybeSingle();
   if (!application) {
     return NextResponse.json({ error: "Candidatura não encontrada" }, { status: 404 });
   }
@@ -134,7 +137,7 @@ export async function DELETE(
     }
   }
 
-  await prisma.application.delete({ where: { id } });
+  await supabase.from("applications").delete().eq("id", id);
 
   revalidatePath(`/vagas/${application.jobId}/candidatos`);
   revalidatePath("/dashboard");

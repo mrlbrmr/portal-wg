@@ -16,8 +16,9 @@ export interface JobForSchema {
   modality: string;
   contractType: string;
   salaryRange: string | null;
-  createdAt: Date;
-  closingDate: Date | null;
+  // Aceita Date (Prisma) ou string ISO (supabase-js) — normalizado com new Date().
+  createdAt: Date | string;
+  closingDate: Date | string | null;
 }
 
 // contractType (nosso enum) → employmentType aceito pelo Google.
@@ -82,13 +83,13 @@ export function buildJobPostingJsonLd(
       },
     },
     employmentType: EMPLOYMENT_TYPE[job.contractType] ?? "OTHER",
-    datePosted: job.createdAt.toISOString().split("T")[0],
+    datePosted: new Date(job.createdAt).toISOString().split("T")[0],
     url: jobUrl,
     directApply: true,
   };
 
   if (job.closingDate) {
-    jsonLd.validThrough = job.closingDate.toISOString().split("T")[0];
+    jsonLd.validThrough = new Date(job.closingDate).toISOString().split("T")[0];
   }
 
   // Remoto: Google exige jobLocationType + applicantLocationRequirements.

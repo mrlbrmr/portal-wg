@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import { EditUserForm } from "@/components/internal/EditUserForm";
 import Link from "next/link";
@@ -20,10 +20,12 @@ export default async function EditarUsuarioPage({ params }: Props) {
   // Admin editando a própria conta → redireciona para /perfil
   if (id === session.user.id) redirect("/perfil");
 
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: { id: true, name: true, email: true, role: true, active: true },
-  });
+  const supabase = createAdminClient();
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, name, email, role, active")
+    .eq("id", id)
+    .maybeSingle();
   if (!user) notFound();
 
   return (

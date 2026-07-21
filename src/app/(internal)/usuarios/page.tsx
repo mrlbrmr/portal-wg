@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { UserPlus, Pencil } from "lucide-react";
@@ -13,10 +13,19 @@ export default async function UsuariosPage() {
   const session = await auth();
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
-  const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const supabase = createAdminClient();
+  const { data: usersData } = await supabase
+    .from("users")
+    .select("id, name, email, role, active, createdAt")
+    .order("createdAt", { ascending: false });
+  const users = (usersData ?? []) as Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    active: boolean;
+    createdAt: string;
+  }>;
 
   return (
     <div className="max-w-3xl">

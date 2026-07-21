@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { JobStatus } from "@prisma/client";
+import { createClient } from "@/lib/supabase/server";
+import { JobStatus } from "@/types/domain";
+import type { Job } from "@/types/domain";
 import { isPublicJobStatus } from "@/lib/utils";
 
 const MODALITY_LABELS: Record<string, string> = {
@@ -39,21 +40,20 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const rawStatus = searchParams.get("status");
-  const where: Record<string, unknown> = {};
-  if (rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
-    where.status = rawStatus;
-  }
 
-  const jobs = await prisma.job.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    select: {
-      title: true, department: true, company: true, city: true, state: true,
-      modality: true, contractType: true, status: true, openings: true,
-      responsible: true, createdAt: true, closingDate: true, hiringDeadline: true,
-      slug: true, id: true,
-    },
-  });
+  const supabase = await createClient();
+  let q = supabase
+    .from("jobs")
+    .select(
+      "title, department, company, city, state, modality, contractType, status, " +
+        "openings, responsible, createdAt, closingDate, hiringDeadline, slug, id"
+    )
+    .order("createdAt", { ascending: false });
+  if (rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
+    q = q.eq("status", rawStatus);
+  }
+  const { data } = await q;
+  const jobs = (data ?? []) as unknown as Job[];
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 

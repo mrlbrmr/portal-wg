@@ -65,7 +65,7 @@ export default async function DivulgacaoPage({
         configured={configured}
         connected={!!conn}
         orgName={cfg.orgName ?? null}
-        expiresAt={conn?.expiresAt ? conn.expiresAt.toISOString() : null}
+        expiresAt={conn?.expiresAt ? new Date(conn.expiresAt).toISOString() : null}
       />
     </div>
   );

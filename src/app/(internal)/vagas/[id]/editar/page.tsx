@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
+import type { Job, JobStatusHistory, JobPublication } from "@/types/domain";
 import { redirect, notFound } from "next/navigation";
 import JobForm from "@/components/internal/JobForm";
 import { JOB_STATUS_LABELS, formatDateTime, isPublicJobStatus } from "@/lib/utils";
@@ -21,13 +22,20 @@ export default async function EditarVagaPage({ params }: Props) {
   const session = await auth();
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
-  const job = await prisma.job.findUnique({
-    where: { id },
-    include: {
-      statusHistory: { orderBy: { changedAt: "desc" } },
-      publications: true,
-    },
-  });
+  const supabase = await createClient();
+  const { data: jobRaw } = await supabase
+    .from("jobs")
+    .select("*, statusHistory:job_status_history(*), publications:job_publications(*)")
+    .eq("id", id)
+    .order("changedAt", { referencedTable: "job_status_history", ascending: false })
+    .maybeSingle();
+  const job = jobRaw as unknown as
+    | (Job & {
+        statusHistory: JobStatusHistory[];
+        // supabase-js devolve timestamps como string (não Date do Prisma)
+        publications: (Omit<JobPublication, "postedAt"> & { postedAt: string | null })[];
+      })
+    | null;
   if (!job) notFound();
 
   const isPublic = isPublicJobStatus(job.status);
@@ -50,7 +58,7 @@ export default async function EditarVagaPage({ params }: Props) {
     status: p.status,
     externalUrl: p.externalUrl,
     lastError: p.lastError,
-    postedAt: p.postedAt ? p.postedAt.toISOString() : null,
+    postedAt: p.postedAt ?? null,
   }));
 
   const statusBadge: Record<string, string> = {

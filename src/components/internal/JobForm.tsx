@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { BRAZIL_STATES, isPublicJobStatus } from "@/lib/utils";
 import { Loader2, Check, ExternalLink } from "lucide-react";
-import type { Job } from "@prisma/client";
+import type { Job } from "@/types/domain";
 
 // O editor rico carrega o Tiptap (pesado); só é baixado quando o formulário
 // é aberto, mantendo o restante dos campos rápido para renderizar.

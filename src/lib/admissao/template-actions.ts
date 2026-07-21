@@ -2,7 +2,7 @@
 
 // Server actions dos Modelos de Checklist (templates por cargo). Config = ADMIN_RH.
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { requireAdmissionConfig } from "./permissions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -22,10 +22,14 @@ export async function createTemplate(name: string, positionId: string | null): P
   const clean = name.trim().slice(0, 120);
   if (!clean) return { ok: false, error: "Informe o nome do modelo." };
 
-  const tpl = await prisma.checklistTemplate.create({
-    data: { name: clean, positionId: positionId || null, createdById: auth.userId },
-    select: { id: true },
-  });
+  const supabase = await createClient();
+  const { data: tpl, error } = await supabase
+    .from("admission_checklist_templates")
+    .insert({ name: clean, positionId: positionId || null, createdById: auth.userId })
+    .select("id")
+    .single();
+  if (error || !tpl) return { ok: false, error: "Erro ao criar modelo." };
+
   revalidatePath(PATH);
   return { ok: true, id: tpl.id };
 }
@@ -45,7 +49,8 @@ export async function updateTemplate(
   }
   if (patch.positionId !== undefined) data.positionId = patch.positionId || null;
 
-  await prisma.checklistTemplate.update({ where: { id }, data });
+  const supabase = await createClient();
+  await supabase.from("admission_checklist_templates").update(data).eq("id", id);
   revalidatePath(PATH);
   return { ok: true };
 }
@@ -53,7 +58,8 @@ export async function updateTemplate(
 export async function deleteTemplate(id: string): Promise<ActionResult> {
   const auth = await ensureConfig();
   if ("error" in auth) return { ok: false, error: auth.error };
-  await prisma.checklistTemplate.delete({ where: { id } });
+  const supabase = await createClient();
+  await supabase.from("admission_checklist_templates").delete().eq("id", id);
   revalidatePath(PATH);
   return { ok: true };
 }
@@ -64,13 +70,18 @@ export async function addTemplateGroup(templateId: string, name: string): Promis
   const clean = name.trim().slice(0, 120);
   if (!clean) return { ok: false, error: "Informe o nome do grupo." };
 
-  const last = await prisma.templateGroup.findFirst({
-    where: { templateId },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-  await prisma.templateGroup.create({
-    data: { templateId, name: clean, sortOrder: (last?.sortOrder ?? 0) + 1 },
+  const supabase = await createClient();
+  const { data: last } = await supabase
+    .from("admission_template_groups")
+    .select("sortOrder")
+    .eq("templateId", templateId)
+    .order("sortOrder", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  await supabase.from("admission_template_groups").insert({
+    templateId,
+    name: clean,
+    sortOrder: ((last?.sortOrder as number | undefined) ?? 0) + 1,
   });
   revalidatePath(PATH);
   return { ok: true };
@@ -79,7 +90,8 @@ export async function addTemplateGroup(templateId: string, name: string): Promis
 export async function deleteTemplateGroup(groupId: string): Promise<ActionResult> {
   const auth = await ensureConfig();
   if ("error" in auth) return { ok: false, error: auth.error };
-  await prisma.templateGroup.delete({ where: { id: groupId } });
+  const supabase = await createClient();
+  await supabase.from("admission_template_groups").delete().eq("id", groupId);
   revalidatePath(PATH);
   return { ok: true };
 }
@@ -90,13 +102,18 @@ export async function addTemplateItem(groupId: string, name: string): Promise<Ac
   const clean = name.trim().slice(0, 200);
   if (!clean) return { ok: false, error: "Informe o nome do item." };
 
-  const last = await prisma.templateItem.findFirst({
-    where: { groupId },
-    orderBy: { sortOrder: "desc" },
-    select: { sortOrder: true },
-  });
-  await prisma.templateItem.create({
-    data: { groupId, name: clean, sortOrder: (last?.sortOrder ?? 0) + 1 },
+  const supabase = await createClient();
+  const { data: last } = await supabase
+    .from("admission_template_items")
+    .select("sortOrder")
+    .eq("groupId", groupId)
+    .order("sortOrder", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  await supabase.from("admission_template_items").insert({
+    groupId,
+    name: clean,
+    sortOrder: ((last?.sortOrder as number | undefined) ?? 0) + 1,
   });
   revalidatePath(PATH);
   return { ok: true };
@@ -105,7 +122,8 @@ export async function addTemplateItem(groupId: string, name: string): Promise<Ac
 export async function deleteTemplateItem(itemId: string): Promise<ActionResult> {
   const auth = await ensureConfig();
   if ("error" in auth) return { ok: false, error: auth.error };
-  await prisma.templateItem.delete({ where: { id: itemId } });
+  const supabase = await createClient();
+  await supabase.from("admission_template_items").delete().eq("id", itemId);
   revalidatePath(PATH);
   return { ok: true };
 }

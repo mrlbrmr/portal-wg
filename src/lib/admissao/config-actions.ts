@@ -5,7 +5,7 @@
 // Deletar é seguro: as FKs em admissions/templates/attachments são SET NULL.
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { requireAdmissionConfig } from "./permissions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -14,6 +14,16 @@ export type CatEntity = "company" | "branch" | "position" | "documentType" | "ta
 const PATH = "/admissoes/configuracoes/categorias";
 const DEFAULT_TAG_COLOR = "#64748b";
 const DEFAULT_STAGE_COLOR = "#94a3b8";
+
+// entity → tabela real (schema Supabase).
+const TABLE: Record<CatEntity, string> = {
+  company: "admission_companies",
+  branch: "admission_branches",
+  position: "admission_positions",
+  documentType: "admission_document_types",
+  tag: "admission_tags",
+  stage: "admission_stages",
+};
 
 async function ensureConfig(): Promise<string | null> {
   const a = await requireAdmissionConfig();
@@ -32,42 +42,21 @@ export async function createCategory(
   const clean = name.trim().slice(0, 120);
   if (!clean) return { ok: false, error: "Informe o nome." };
 
-  try {
-    switch (entity) {
-      case "company": {
-        const n = await prisma.company.count();
-        await prisma.company.create({ data: { name: clean, sortOrder: n + 1 } });
-        break;
-      }
-      case "branch": {
-        const n = await prisma.branch.count();
-        await prisma.branch.create({ data: { name: clean, sortOrder: n + 1 } });
-        break;
-      }
-      case "position": {
-        const n = await prisma.position.count();
-        await prisma.position.create({ data: { name: clean, sortOrder: n + 1 } });
-        break;
-      }
-      case "documentType": {
-        const n = await prisma.documentType.count();
-        await prisma.documentType.create({ data: { name: clean, sortOrder: n + 1 } });
-        break;
-      }
-      case "tag":
-        await prisma.admissionTag.create({ data: { name: clean, color: color || DEFAULT_TAG_COLOR } });
-        break;
-      case "stage": {
-        const n = await prisma.admissionStage.count();
-        await prisma.admissionStage.create({
-          data: { name: clean, color: color || DEFAULT_STAGE_COLOR, sortOrder: n + 1 },
-        });
-        break;
-      }
-    }
-  } catch {
-    return { ok: false, error: DUPLICATE };
+  const supabase = await createClient();
+  const table = TABLE[entity];
+  const row: Record<string, unknown> = { name: clean };
+
+  if (entity === "tag") {
+    row.color = color || DEFAULT_TAG_COLOR;
+  } else {
+    // Demais categorias têm sortOrder = (total + 1); stage também guarda cor.
+    const { count } = await supabase.from(table).select("*", { count: "exact", head: true });
+    row.sortOrder = (count ?? 0) + 1;
+    if (entity === "stage") row.color = color || DEFAULT_STAGE_COLOR;
   }
+
+  const { error } = await supabase.from(table).insert(row);
+  if (error) return { ok: false, error: DUPLICATE };
 
   revalidatePath(PATH);
   return { ok: true };
@@ -83,18 +72,9 @@ export async function renameCategory(
   const clean = name.trim().slice(0, 120);
   if (!clean) return { ok: false, error: "Informe o nome." };
 
-  try {
-    switch (entity) {
-      case "company": await prisma.company.update({ where: { id }, data: { name: clean } }); break;
-      case "branch": await prisma.branch.update({ where: { id }, data: { name: clean } }); break;
-      case "position": await prisma.position.update({ where: { id }, data: { name: clean } }); break;
-      case "documentType": await prisma.documentType.update({ where: { id }, data: { name: clean } }); break;
-      case "tag": await prisma.admissionTag.update({ where: { id }, data: { name: clean } }); break;
-      case "stage": await prisma.admissionStage.update({ where: { id }, data: { name: clean } }); break;
-    }
-  } catch {
-    return { ok: false, error: DUPLICATE };
-  }
+  const supabase = await createClient();
+  const { error } = await supabase.from(TABLE[entity]).update({ name: clean }).eq("id", id);
+  if (error) return { ok: false, error: DUPLICATE };
 
   revalidatePath(PATH);
   return { ok: true };
@@ -108,7 +88,8 @@ export async function setDocumentTypeRequired(
   const err = await ensureConfig();
   if (err) return { ok: false, error: err };
 
-  await prisma.documentType.update({ where: { id }, data: { required } });
+  const supabase = await createClient();
+  await supabase.from("admission_document_types").update({ required }).eq("id", id);
 
   revalidatePath(PATH);
   return { ok: true };
@@ -123,8 +104,8 @@ export async function recolorCategory(
   if (err) return { ok: false, error: err };
   const c = /^#[0-9a-fA-F]{6}$/.test(color) ? color : DEFAULT_TAG_COLOR;
 
-  if (entity === "tag") await prisma.admissionTag.update({ where: { id }, data: { color: c } });
-  else await prisma.admissionStage.update({ where: { id }, data: { color: c } });
+  const supabase = await createClient();
+  await supabase.from(TABLE[entity]).update({ color: c }).eq("id", id);
 
   revalidatePath(PATH);
   return { ok: true };
@@ -134,18 +115,9 @@ export async function deleteCategory(entity: CatEntity, id: string): Promise<Act
   const err = await ensureConfig();
   if (err) return { ok: false, error: err };
 
-  try {
-    switch (entity) {
-      case "company": await prisma.company.delete({ where: { id } }); break;
-      case "branch": await prisma.branch.delete({ where: { id } }); break;
-      case "position": await prisma.position.delete({ where: { id } }); break;
-      case "documentType": await prisma.documentType.delete({ where: { id } }); break;
-      case "tag": await prisma.admissionTag.delete({ where: { id } }); break;
-      case "stage": await prisma.admissionStage.delete({ where: { id } }); break;
-    }
-  } catch {
-    return { ok: false, error: "Não foi possível remover." };
-  }
+  const supabase = await createClient();
+  const { error } = await supabase.from(TABLE[entity]).delete().eq("id", id);
+  if (error) return { ok: false, error: "Não foi possível remover." };
 
   revalidatePath(PATH);
   return { ok: true };

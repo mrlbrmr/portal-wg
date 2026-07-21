@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { admissionSchema } from "@/lib/admissao/validation";
 import { admissionInputToData } from "@/lib/admissao/data";
 import {
@@ -21,10 +21,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     );
   }
 
-  const existing = await prisma.admission.findFirst({
-    where: { id, deletedAt: null },
-    select: { id: true },
-  });
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("admissions")
+    .select("id")
+    .eq("id", id)
+    .is("deletedAt", null)
+    .maybeSingle();
   if (!existing) {
     return NextResponse.json({ error: "Admissão não encontrada" }, { status: 404 });
   }
@@ -42,10 +45,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: first ?? "Dados inválidos" }, { status: 400 });
   }
 
-  await prisma.admission.update({
-    where: { id },
-    data: { ...admissionInputToData(parsed.data), updatedById: access.userId },
-  });
+  await supabase
+    .from("admissions")
+    .update({ ...admissionInputToData(parsed.data), updatedById: access.userId })
+    .eq("id", id);
 
   revalidatePath("/admissoes");
   revalidatePath(`/admissoes/${id}/editar`);
@@ -64,18 +67,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
-  const existing = await prisma.admission.findFirst({
-    where: { id, deletedAt: null },
-    select: { id: true },
-  });
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("admissions")
+    .select("id")
+    .eq("id", id)
+    .is("deletedAt", null)
+    .maybeSingle();
   if (!existing) {
     return NextResponse.json({ error: "Admissão não encontrada" }, { status: 404 });
   }
 
-  await prisma.admission.update({
-    where: { id },
-    data: { deletedAt: new Date(), updatedById: access.userId },
-  });
+  await supabase
+    .from("admissions")
+    .update({ deletedAt: new Date().toISOString(), updatedById: access.userId })
+    .eq("id", id);
 
   revalidatePath("/admissoes");
   return NextResponse.json({ ok: true }, { status: 200 });

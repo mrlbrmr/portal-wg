@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, ListChecks } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { NewTemplateForm } from "@/components/internal/admissao/NewTemplateForm";
 import {
   TemplateEditor,
@@ -20,37 +20,64 @@ export default async function ModelosPage({
   const [session, { t }] = await Promise.all([auth(), searchParams]);
   if (session?.user.role !== "ADMIN_RH") redirect("/admissoes");
 
-  const [templates, positions, selected] = await Promise.all([
-    prisma.checklistTemplate.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, position: { select: { name: true } } },
-    }),
-    prisma.position.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true },
-    }),
+  const supabase = await createClient();
+  const [templatesRes, positionsRes, selectedRes] = await Promise.all([
+    supabase
+      .from("admission_checklist_templates")
+      .select("id, name, position:admission_positions(name)")
+      .order("name", { ascending: true }),
+    supabase
+      .from("admission_positions")
+      .select("id, name")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true }),
     t
-      ? prisma.checklistTemplate.findUnique({
-          where: { id: t },
-          select: {
-            id: true,
-            name: true,
-            positionId: true,
-            groups: {
-              orderBy: { sortOrder: "asc" },
-              select: {
-                id: true,
-                name: true,
-                items: { orderBy: { sortOrder: "asc" }, select: { id: true, name: true } },
-              },
-            },
-          },
-        })
-      : null,
+      ? supabase
+          .from("admission_checklist_templates")
+          .select(
+            "id, name, positionId, groups:admission_template_groups(id, name, sortOrder, items:admission_template_items(id, name, sortOrder))"
+          )
+          .eq("id", t)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
-  const detail: TemplateDetail | null = selected;
+  const templates = (templatesRes.data ?? []) as unknown as Array<{
+    id: string;
+    name: string;
+    position: { name: string } | null;
+  }>;
+  const positions = (positionsRes.data ?? []) as Array<{ id: string; name: string }>;
+
+  // Ordena grupos/itens no JS (o embed do PostgREST não garante ordem) e reduz à
+  // forma de TemplateDetail.
+  const raw = selectedRes.data as unknown as {
+    id: string;
+    name: string;
+    positionId: string | null;
+    groups: Array<{
+      id: string;
+      name: string;
+      sortOrder: number;
+      items: Array<{ id: string; name: string; sortOrder: number }>;
+    }>;
+  } | null;
+  const detail: TemplateDetail | null = raw
+    ? {
+        id: raw.id,
+        name: raw.name,
+        positionId: raw.positionId,
+        groups: [...(raw.groups ?? [])]
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((g) => ({
+            id: g.id,
+            name: g.name,
+            items: [...(g.items ?? [])]
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+              .map((it) => ({ id: it.id, name: it.name })),
+          })),
+      }
+    : null;
 
   return (
     <div className="max-w-6xl">

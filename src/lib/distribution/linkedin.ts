@@ -1,7 +1,18 @@
-import { prisma } from "@/lib/prisma";
-import type { ChannelConnection, Prisma } from "@prisma/client";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { getAppBaseUrl } from "@/lib/app-url";
 import type { JobForDistribution, PublishResult } from "./types";
+
+// Formato da conexão como retornada pelo supabase-js (timestamps são strings ISO,
+// diferente do Prisma que retornava Date).
+export interface StoredLinkedInConnection {
+  channel: string;
+  enabled: boolean;
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt: string | null;
+  config: unknown;
+}
 
 // Integração com o LinkedIn (post na página da empresa via Community Management
 // API). Fluxo: OAuth 3-legged → token + URN da organização guardados em
@@ -22,13 +33,9 @@ export function isLinkedInConfigured(): boolean {
 }
 
 export function linkedinRedirectUri(): string {
-  // Remove barra(s) final(is) do base para nunca gerar "//api" (mismatch comum
-  // com o valor registrado no app do LinkedIn).
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br").replace(
-    /\/+$/,
-    ""
-  );
-  return `${base}/api/distribution/linkedin/callback`;
+  // getAppBaseUrl garante https:// e sem barra final — o redirect_uri precisa
+  // bater exatamente com o registrado no app do LinkedIn.
+  return `${getAppBaseUrl()}/api/distribution/linkedin/callback`;
 }
 
 export function buildAuthorizationUrl(state: string): string {
@@ -116,8 +123,14 @@ interface LinkedInConfig {
   orgName?: string;
 }
 
-export async function getLinkedInConnection(): Promise<ChannelConnection | null> {
-  return prisma.channelConnection.findUnique({ where: { channel: "LINKEDIN_PAGE" } });
+export async function getLinkedInConnection(): Promise<StoredLinkedInConnection | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("channel_connections")
+    .select("*")
+    .eq("channel", "LINKEDIN_PAGE")
+    .maybeSingle();
+  return (data as StoredLinkedInConnection | null) ?? null;
 }
 
 export async function saveLinkedInConnection(params: {
@@ -127,14 +140,11 @@ export async function saveLinkedInConnection(params: {
   orgUrn: string;
   orgName: string;
 }): Promise<void> {
-  const expiresAt = new Date(Date.now() + params.expiresInSec * 1000);
-  const config = {
-    orgUrn: params.orgUrn,
-    orgName: params.orgName,
-  } as Prisma.InputJsonObject;
-  await prisma.channelConnection.upsert({
-    where: { channel: "LINKEDIN_PAGE" },
-    create: {
+  const expiresAt = new Date(Date.now() + params.expiresInSec * 1000).toISOString();
+  const config = { orgUrn: params.orgUrn, orgName: params.orgName };
+  const supabase = createAdminClient();
+  await supabase.from("channel_connections").upsert(
+    {
       channel: "LINKEDIN_PAGE",
       enabled: true,
       accessToken: params.accessToken,
@@ -142,27 +152,22 @@ export async function saveLinkedInConnection(params: {
       expiresAt,
       config,
     },
-    update: {
-      enabled: true,
-      accessToken: params.accessToken,
-      refreshToken: params.refreshToken ?? null,
-      expiresAt,
-      config,
-    },
-  });
+    { onConflict: "channel" }
+  );
 }
 
 export async function clearLinkedInConnection(): Promise<void> {
-  await prisma.channelConnection.deleteMany({ where: { channel: "LINKEDIN_PAGE" } });
+  const supabase = createAdminClient();
+  await supabase.from("channel_connections").delete().eq("channel", "LINKEDIN_PAGE");
 }
 
-export function getLinkedInConfig(conn: ChannelConnection): LinkedInConfig {
+export function getLinkedInConfig(conn: StoredLinkedInConnection): LinkedInConfig {
   return (conn.config as LinkedInConfig | null) ?? {};
 }
 
 /** Garante um token válido, renovando se possível. Retorna o token ou null. */
-async function ensureValidToken(conn: ChannelConnection): Promise<string | null> {
-  const stillValid = conn.expiresAt && conn.expiresAt.getTime() > Date.now() + 60_000;
+async function ensureValidToken(conn: StoredLinkedInConnection): Promise<string | null> {
+  const stillValid = conn.expiresAt && new Date(conn.expiresAt).getTime() > Date.now() + 60_000;
   if (stillValid && conn.accessToken) return conn.accessToken;
 
   if (conn.refreshToken) {

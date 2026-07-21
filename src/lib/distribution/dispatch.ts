@@ -1,7 +1,8 @@
-import { prisma } from "@/lib/prisma";
-import type { DistributionChannel, PublicationStatus, Prisma } from "@prisma/client";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { DistributionChannel, PublicationStatus } from "@/types/domain";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import type { ChannelAdapter, JobForDistribution, PublishResult } from "./types";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { manualAdapter } from "./adapters/manual";
 import { linkedinAdapter } from "./adapters/linkedin";
 
@@ -12,31 +13,23 @@ const ADAPTERS: Partial<Record<DistributionChannel, ChannelAdapter>> = {
   LINKEDIN_PAGE: linkedinAdapter,
 };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+const APP_URL = getAppBaseUrl();
 
 export function jobPublicUrl(slugOrId: string): string {
   return `${APP_URL}/vagas/${slugOrId}`;
 }
 
 export async function loadJobForDistribution(jobId: string): Promise<JobForDistribution | null> {
-  const job = await prisma.job.findUnique({
-    where: { id: jobId },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      city: true,
-      state: true,
-      department: true,
-      company: true,
-      modality: true,
-      contractType: true,
-      salaryRange: true,
-      highlightBenefit: true,
-    },
-  });
+  const supabase = createAdminClient();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select(
+      "id, title, slug, city, state, department, company, modality, contractType, salaryRange, highlightBenefit"
+    )
+    .eq("id", jobId)
+    .maybeSingle();
   if (!job) return null;
-  return { ...job, url: jobPublicUrl(job.slug ?? job.id) };
+  return { ...job, url: jobPublicUrl(job.slug ?? job.id) } as JobForDistribution;
 }
 
 async function upsertPublication(
@@ -50,20 +43,34 @@ async function upsertPublication(
     postedAt: Date | null;
   }>
 ) {
-  const update: Prisma.JobPublicationUpdateInput = { ...data };
-  await prisma.jobPublication.upsert({
-    where: { jobId_channel: { jobId, channel } },
-    create: {
+  const supabase = createAdminClient();
+  // Preserva o comportamento do upsert Prisma (create com defaults; update
+  // parcial). Como o PostgREST não faz "update parcial em conflito", buscamos a
+  // linha existente e mesclamos.
+  const { data: existing } = await supabase
+    .from("job_publications")
+    .select("*")
+    .eq("jobId", jobId)
+    .eq("channel", channel)
+    .maybeSingle();
+
+  const postedAt = data.postedAt === undefined ? undefined : data.postedAt?.toISOString() ?? null;
+
+  if (existing) {
+    const patch: Record<string, unknown> = { ...data };
+    if (postedAt !== undefined) patch.postedAt = postedAt;
+    await supabase.from("job_publications").update(patch).eq("id", existing.id);
+  } else {
+    await supabase.from("job_publications").insert({
       jobId,
       channel,
       status: data.status ?? "PENDING",
       externalId: data.externalId ?? null,
       externalUrl: data.externalUrl ?? null,
       lastError: data.lastError ?? null,
-      postedAt: data.postedAt ?? null,
-    },
-    update,
-  });
+      postedAt: postedAt ?? null,
+    });
+  }
 }
 
 /** Publica/divulga a vaga num canal e registra o resultado em JobPublication. */
@@ -109,9 +116,13 @@ export async function removeJobFromChannel(
   channel: DistributionChannel
 ): Promise<PublishResult> {
   const adapter = ADAPTERS[channel];
-  const existing = await prisma.jobPublication.findUnique({
-    where: { jobId_channel: { jobId, channel } },
-  });
+  const supabase = createAdminClient();
+  const { data: existing } = await supabase
+    .from("job_publications")
+    .select("*")
+    .eq("jobId", jobId)
+    .eq("channel", channel)
+    .maybeSingle();
 
   if (adapter?.remove && existing) {
     const job = await loadJobForDistribution(jobId);

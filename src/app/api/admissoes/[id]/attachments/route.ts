@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { requireAdmissionWrite } from "@/lib/admissao/permissions";
 import { uploadAdmissionAttachment, validateAttachmentFile } from "@/lib/admissao/storage";
 
@@ -18,10 +18,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
-  const admission = await prisma.admission.findFirst({
-    where: { id, deletedAt: null },
-    select: { id: true },
-  });
+  const supabase = await createClient();
+  const { data: admission } = await supabase
+    .from("admissions")
+    .select("id")
+    .eq("id", id)
+    .is("deletedAt", null)
+    .maybeSingle();
   if (!admission) {
     return NextResponse.json({ error: "Admissão não encontrada" }, { status: 404 });
   }
@@ -54,16 +57,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Falha no upload do arquivo." }, { status: 502 });
   }
 
-  await prisma.admissionAttachment.create({
-    data: {
-      admissionId: id,
-      documentTypeId,
-      fileName: uploaded.name,
-      blobUrl: uploaded.url,
-      mimeType: uploaded.mimeType,
-      sizeBytes: BigInt(uploaded.sizeBytes),
-      uploadedById: access.userId,
-    },
+  // sizeBytes é int8/BigInt no banco, mas passamos number: supabase-js serializa
+  // o corpo como JSON e JSON.stringify não suporta BigInt.
+  await supabase.from("admission_attachments").insert({
+    admissionId: id,
+    documentTypeId,
+    fileName: uploaded.name,
+    blobUrl: uploaded.url,
+    mimeType: uploaded.mimeType,
+    sizeBytes: uploaded.sizeBytes,
+    uploadedById: access.userId,
   });
 
   revalidatePath(`/admissoes/${id}`);

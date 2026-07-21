@@ -5,7 +5,7 @@ import type {
   Modality,
   ContractType,
   UserRole,
-} from "@prisma/client";
+} from "@/types/domain";
 
 export type { Job, User, JobStatus, Modality, ContractType, UserRole };
 
@@ -24,16 +24,4 @@ export interface JobFormData {
   workSchedule?: string;
   closingDate?: string;
   status: JobStatus;
-}
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-      role: string;
-    };
-  }
 }

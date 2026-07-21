@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { requireAdmissionWrite } from "@/lib/admissao/permissions";
 
 // PATCH /api/admissoes/[id]/stage — move a admissão de etapa (usado no Kanban).
@@ -34,26 +34,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   const { stageId } = parsed.data;
 
-  const admission = await prisma.admission.findFirst({
-    where: { id, deletedAt: null },
-    select: { id: true },
-  });
+  const supabase = await createClient();
+  const { data: admission } = await supabase
+    .from("admissions")
+    .select("id")
+    .eq("id", id)
+    .is("deletedAt", null)
+    .maybeSingle();
   if (!admission) {
     return NextResponse.json({ error: "Admissão não encontrada" }, { status: 404 });
   }
 
   // Valida a etapa alvo (quando não for "sem etapa") para erro limpo em vez de FK.
   if (stageId) {
-    const stage = await prisma.admissionStage.findUnique({ where: { id: stageId }, select: { id: true } });
+    const { data: stage } = await supabase
+      .from("admission_stages")
+      .select("id")
+      .eq("id", stageId)
+      .maybeSingle();
     if (!stage) {
       return NextResponse.json({ error: "Etapa não encontrada" }, { status: 400 });
     }
   }
 
-  await prisma.admission.update({
-    where: { id },
-    data: { stageId, updatedById: access.userId },
-  });
+  await supabase
+    .from("admissions")
+    .update({ stageId, updatedById: access.userId })
+    .eq("id", id);
 
   revalidatePath("/admissoes");
   revalidatePath("/admissoes/kanban");

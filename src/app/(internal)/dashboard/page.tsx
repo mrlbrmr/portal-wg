@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Briefcase, PauseCircle, XCircle, Plus, FileText, Clock, Calendar, Users, UserPlus, CheckCircle2, AlertTriangle, CalendarClock } from "lucide-react";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
@@ -21,82 +21,128 @@ export default async function DashboardPage() {
   const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const in7UTC = new Date(todayUTC.getTime() + 7 * 86400000);
 
+  const supabase = await createClient();
+  const publicStatuses = PUBLIC_JOB_STATUS_LIST as readonly string[];
+
   const [
-    activeJobs,
-    pausedJobs,
-    closedJobs,
-    draftJobs,
-    expiringSoon,
-    openedLong,
-    thisMonthCount,
-    lastMonthCount,
-    totalApplications,
-    newApplications,
-    admissionsTotal,
-    admissionsDone,
-    admissionsLate,
-    admissionsUpcoming,
+    activeJobsRes,
+    pausedJobsRes,
+    closedJobsRes,
+    draftJobsRes,
+    expiringSoonRes,
+    openedLongRes,
+    thisMonthRes,
+    lastMonthRes,
+    totalAppsRes,
+    newAppsRes,
+    admissionsRes,
+    recentAdmissionsRes,
+    recentJobsRes,
+    recentApplicationsRes,
   ] = await Promise.all([
     // "Ativas" = pipeline aberto no portal (Ativa + Triagem + Entrevistas + Admissão)
-    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST } } }),
-    prisma.job.count({ where: { status: "PAUSED" } }),
-    prisma.job.count({ where: { status: "CLOSED" } }),
-    prisma.job.count({ where: { status: "DRAFT" } }),
-    prisma.job.count({
-      where: { status: { in: PUBLIC_JOB_STATUS_LIST }, closingDate: { gte: now, lte: sevenDaysFromNow } },
-    }),
-    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST }, createdAt: { lte: thirtyDaysAgo } } }),
-    prisma.job.count({ where: { createdAt: { gte: startOfThisMonth, lt: startOfNextMonth } } }),
-    prisma.job.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
-    prisma.application.count(),
-    prisma.application.count({ where: { stage: "NEW" } }),
-    prisma.admission.count({ where: { deletedAt: null } }),
-    prisma.admission.count({ where: { deletedAt: null, stage: { isFinal: true } } }),
-    prisma.admission.count({
-      where: {
-        deletedAt: null,
-        startDate: { lt: todayUTC },
-        OR: [{ stage: null }, { stage: { isFinal: false } }],
-      },
-    }),
-    prisma.admission.count({
-      where: { deletedAt: null, startDate: { gte: todayUTC, lte: in7UTC } },
-    }),
+    supabase.from("jobs").select("*", { count: "exact", head: true }).in("status", publicStatuses),
+    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "PAUSED"),
+    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "CLOSED"),
+    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "DRAFT"),
+    supabase
+      .from("jobs")
+      .select("*", { count: "exact", head: true })
+      .in("status", publicStatuses)
+      .gte("closingDate", now.toISOString())
+      .lte("closingDate", sevenDaysFromNow.toISOString()),
+    supabase
+      .from("jobs")
+      .select("*", { count: "exact", head: true })
+      .in("status", publicStatuses)
+      .lte("createdAt", thirtyDaysAgo.toISOString()),
+    supabase
+      .from("jobs")
+      .select("*", { count: "exact", head: true })
+      .gte("createdAt", startOfThisMonth.toISOString())
+      .lt("createdAt", startOfNextMonth.toISOString()),
+    supabase
+      .from("jobs")
+      .select("*", { count: "exact", head: true })
+      .gte("createdAt", startOfLastMonth.toISOString())
+      .lt("createdAt", startOfThisMonth.toISOString()),
+    supabase.from("applications").select("*", { count: "exact", head: true }),
+    supabase.from("applications").select("*", { count: "exact", head: true }).eq("stage", "NEW"),
+    // Admissões: carrega as ativas com o flag isFinal da etapa e computa as
+    // 4 métricas no JS (supabase-js não filtra count por coluna de relação).
+    supabase
+      .from("admissions")
+      .select("startDate, stage:admission_stages(isFinal)")
+      .is("deletedAt", null),
+    supabase
+      .from("admissions")
+      .select("id, fullName, startDate, position:admission_positions(name), stage:admission_stages(name, color)")
+      .is("deletedAt", null)
+      .order("createdAt", { ascending: false })
+      .limit(5),
+    supabase
+      .from("jobs")
+      .select("id, title, status, city, state, createdAt")
+      .order("createdAt", { ascending: false })
+      .limit(6),
+    supabase
+      .from("applications")
+      .select("id, fullName, stage, createdAt, jobId, job:jobs(title)")
+      .order("createdAt", { ascending: false })
+      .limit(5),
   ]);
+
+  const activeJobs = activeJobsRes.count ?? 0;
+  const pausedJobs = pausedJobsRes.count ?? 0;
+  const closedJobs = closedJobsRes.count ?? 0;
+  const draftJobs = draftJobsRes.count ?? 0;
+  const expiringSoon = expiringSoonRes.count ?? 0;
+  const openedLong = openedLongRes.count ?? 0;
+  const thisMonthCount = thisMonthRes.count ?? 0;
+  const lastMonthCount = lastMonthRes.count ?? 0;
+  const totalApplications = totalAppsRes.count ?? 0;
+  const newApplications = newAppsRes.count ?? 0;
+
+  const admissionRows = (admissionsRes.data ?? []) as unknown as Array<{
+    startDate: string | null;
+    stage: { isFinal: boolean } | null;
+  }>;
+  const admissionsTotal = admissionRows.length;
+  const admissionsDone = admissionRows.filter((a) => a.stage?.isFinal).length;
+  const admissionsLate = admissionRows.filter(
+    (a) => a.startDate && new Date(a.startDate) < todayUTC && !a.stage?.isFinal
+  ).length;
+  const admissionsUpcoming = admissionRows.filter(
+    (a) => a.startDate && new Date(a.startDate) >= todayUTC && new Date(a.startDate) <= in7UTC
+  ).length;
 
   const admissionsInProgress = admissionsTotal - admissionsDone;
 
-  const recentAdmissions = await prisma.admission.findMany({
-    where: { deletedAt: null },
-    take: 5,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      fullName: true,
-      startDate: true,
-      position: { select: { name: true } },
-      stage: { select: { name: true, color: true } },
-    },
-  });
+  const recentAdmissions = (recentAdmissionsRes.data ?? []) as unknown as Array<{
+    id: string;
+    fullName: string;
+    startDate: string | null;
+    position: { name: string } | null;
+    stage: { name: string; color: string } | null;
+  }>;
 
-  const recentJobs = await prisma.job.findMany({
-    take: 6,
-    orderBy: { createdAt: "desc" },
-    select: { id: true, title: true, status: true, city: true, state: true, createdAt: true },
-  });
+  const recentJobs = (recentJobsRes.data ?? []) as Array<{
+    id: string;
+    title: string;
+    status: string;
+    city: string;
+    state: string;
+    createdAt: string;
+  }>;
 
-  const recentApplications = await prisma.application.findMany({
-    take: 5,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      fullName: true,
-      stage: true,
-      createdAt: true,
-      jobId: true,
-      job: { select: { title: true } },
-    },
-  });
+  const recentApplications = (recentApplicationsRes.data ?? []) as unknown as Array<{
+    id: string;
+    fullName: string;
+    stage: string;
+    createdAt: string;
+    jobId: string;
+    job: { title: string } | null;
+  }>;
 
   const statusBadge: Record<string, string> = {
     DRAFT: "bg-blue-100 text-blue-700",
@@ -276,7 +322,7 @@ export default async function DashboardPage() {
               >
                 <div className="min-w-0">
                   <span className="text-sm font-medium text-gray-900">{app.fullName}</span>
-                  <span className="text-xs text-gray-500 ml-2">{app.job.title}</span>
+                  <span className="text-xs text-gray-500 ml-2">{app.job?.title}</span>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${stageBadge[app.stage]}`}>
                   {stageLabel[app.stage]}
@@ -331,7 +377,7 @@ export default async function DashboardPage() {
                 <div className="flex items-center gap-3 shrink-0">
                   {adm.startDate && (
                     <span className="text-xs text-gray-500">
-                      {adm.startDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                      {new Date(adm.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                     </span>
                   )}
                   {adm.stage && (

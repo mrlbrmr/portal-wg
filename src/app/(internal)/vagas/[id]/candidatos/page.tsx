@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Users } from "lucide-react";
@@ -17,34 +17,36 @@ export default async function CandidatosPage({ params }: Props) {
   const { id } = await params;
   const session = await auth();
 
-  const job = await prisma.job.findUnique({
-    where: { id },
-    select: { id: true, title: true, city: true, state: true },
-  });
+  const supabase = await createClient();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, title, city, state")
+    .eq("id", id)
+    .maybeSingle();
   if (!job) notFound();
 
-  const applications = await prisma.application.findMany({
-    where: { jobId: id },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      fullName: true,
-      email: true,
-      phone: true,
-      resumeName: true,
-      stage: true,
-      createdAt: true,
-    },
-  });
+  const { data: applications } = await supabase
+    .from("applications")
+    .select("id, fullName, email, phone, resumeName, stage, createdAt")
+    .eq("jobId", id)
+    .order("createdAt", { ascending: false });
 
-  const cards: KanbanApplication[] = applications.map((a) => ({
+  const cards: KanbanApplication[] = ((applications ?? []) as Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    resumeName: string | null;
+    stage: string;
+    createdAt: string;
+  }>).map((a) => ({
     id: a.id,
     fullName: a.fullName,
     email: a.email,
     phone: a.phone,
     resumeName: a.resumeName,
-    stage: a.stage,
-    createdAt: a.createdAt.toISOString(),
+    stage: a.stage as KanbanApplication["stage"],
+    createdAt: new Date(a.createdAt).toISOString(),
   }));
 
   const canManage = session?.user.role === "ADMIN_RH";

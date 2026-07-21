@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { getAdmissionAttachmentStream } from "@/lib/admissao/storage";
+import { createClient } from "@/lib/supabase/server";
+import { getAdmissionAttachmentBlob } from "@/lib/admissao/storage";
 
 // Download de anexo de admissão — SOMENTE para interno autenticado (leitura).
 // O arquivo fica em Blob privado; entregue server-side, sem expor a URL bruta.
@@ -16,29 +16,32 @@ export async function GET(
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
-  const att = await prisma.admissionAttachment.findFirst({
-    where: { id: attachmentId, admissionId: id },
-    select: { blobUrl: true, fileName: true },
-  });
+  const supabase = await createClient();
+  const { data: att } = await supabase
+    .from("admission_attachments")
+    .select("blobUrl, fileName")
+    .eq("id", attachmentId)
+    .eq("admissionId", id)
+    .maybeSingle();
   if (!att) {
     return NextResponse.json({ error: "Anexo não encontrado" }, { status: 404 });
   }
 
-  let result;
+  let blob: Blob | null;
   try {
-    result = await getAdmissionAttachmentStream(att.blobUrl);
+    blob = await getAdmissionAttachmentBlob(att.blobUrl);
   } catch {
     return NextResponse.json({ error: "Falha ao acessar o anexo" }, { status: 502 });
   }
 
-  if (!result || result.statusCode !== 200 || !result.stream) {
+  if (!blob) {
     return NextResponse.json({ error: "Anexo indisponível" }, { status: 404 });
   }
 
   const fileName = (att.fileName ?? "anexo").replace(/["\r\n]/g, "");
-  const contentType = result.blob.contentType || "application/octet-stream";
+  const contentType = blob.type || "application/octet-stream";
 
-  return new NextResponse(result.stream, {
+  return new NextResponse(blob.stream(), {
     status: 200,
     headers: {
       "Content-Type": contentType,

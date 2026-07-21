@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Loader2, Check } from "lucide-react";
 
 interface Props {
@@ -17,7 +18,7 @@ const inputClass =
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
 export function ProfileForm({ user }: Props) {
-  const { update } = useSession();
+  const router = useRouter();
   const [nameLoading, setNameLoading] = useState(false);
   const [nameSuccess, setNameSuccess] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -49,7 +50,11 @@ export function ProfileForm({ user }: Props) {
         return;
       }
 
-      await update({ name });
+      // Atualiza o nome no user_metadata do Supabase (reflete no JWT/sessão) e
+      // recarrega os server components para exibir o novo nome.
+      const supabase = createClient();
+      await supabase.auth.updateUser({ data: { name } });
+      router.refresh();
       setNameSuccess(true);
       setTimeout(() => setNameSuccess(false), 3000);
     } catch {

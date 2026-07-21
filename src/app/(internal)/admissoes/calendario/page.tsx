@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Calendar } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import {
   AdmissionCalendar,
   type CalendarAdmission,
@@ -8,28 +8,24 @@ import {
 
 export const metadata: Metadata = { title: "Calendário de Admissões — RH" };
 
-function iso(d: Date | null): string | null {
-  return d ? d.toISOString().slice(0, 10) : null;
+function iso(d: string | null): string | null {
+  return d ? new Date(d).toISOString().slice(0, 10) : null;
 }
 
 export default async function AdmissoesCalendarioPage() {
-  const admissions = await prisma.admission.findMany({
-    where: {
-      deletedAt: null,
-      OR: [
-        { startDate: { not: null } },
-        { medicalExamDate: { not: null } },
-        { birthDate: { not: null } },
-      ],
-    },
-    select: {
-      id: true,
-      fullName: true,
-      startDate: true,
-      medicalExamDate: true,
-      birthDate: true,
-    },
-  });
+  const supabase = await createClient();
+  const { data: admissionsData } = await supabase
+    .from("admissions")
+    .select("id, fullName, startDate, medicalExamDate, birthDate")
+    .is("deletedAt", null)
+    .or("startDate.not.is.null,medicalExamDate.not.is.null,birthDate.not.is.null");
+  const admissions = (admissionsData ?? []) as Array<{
+    id: string;
+    fullName: string;
+    startDate: string | null;
+    medicalExamDate: string | null;
+    birthDate: string | null;
+  }>;
 
   const data: CalendarAdmission[] = admissions.map((a) => ({
     id: a.id,

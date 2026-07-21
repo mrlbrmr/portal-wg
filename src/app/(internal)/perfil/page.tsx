@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/internal/ProfileForm";
 import { formatDate } from "@/lib/utils";
@@ -11,10 +11,12 @@ export default async function PerfilPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
-  });
+  const supabase = createAdminClient();
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, name, email, role, active, createdAt")
+    .eq("id", session.user.id)
+    .maybeSingle();
   if (!user) redirect("/login");
 
   return (

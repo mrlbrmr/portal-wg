@@ -1,18 +1,14 @@
 import type { MetadataRoute } from "next";
-import { prisma } from "@/lib/prisma";
-import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { createAnonClient } from "@/lib/supabase/anon";
+import { onlyPublicVisible } from "@/lib/jobs-query";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+  const baseUrl = getAppBaseUrl();
 
-  const jobs = await prisma.job.findMany({
-    where: {
-      status: { in: PUBLIC_JOB_STATUS_LIST },
-      OR: [{ closingDate: null }, { closingDate: { gte: new Date() } }],
-    },
-    select: { id: true, slug: true, updatedAt: true },
-  });
+  const supabase = createAnonClient();
+  const { data } = await onlyPublicVisible(supabase.from("jobs").select("id, slug, updatedAt"));
+  const jobs = (data ?? []) as unknown as { id: string; slug: string | null; updatedAt: string }[];
 
   return [
     {

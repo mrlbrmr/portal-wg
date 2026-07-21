@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { getResumeStream } from "@/lib/storage";
+import { createClient } from "@/lib/supabase/server";
+import { getResumeBlob } from "@/lib/storage";
 
 // Download do currículo — SOMENTE para RH autenticado.
 // LGPD: o currículo fica em Blob privado; esta rota o entrega server-side,
@@ -17,29 +17,31 @@ export async function GET(
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
-  const application = await prisma.application.findUnique({
-    where: { id },
-    select: { resumeUrl: true, resumeName: true },
-  });
+  const supabase = await createClient();
+  const { data: application } = await supabase
+    .from("applications")
+    .select("resumeUrl, resumeName")
+    .eq("id", id)
+    .maybeSingle();
   if (!application?.resumeUrl) {
     return NextResponse.json({ error: "Currículo não encontrado" }, { status: 404 });
   }
 
-  let result;
+  let blob: Blob | null;
   try {
-    result = await getResumeStream(application.resumeUrl);
+    blob = await getResumeBlob(application.resumeUrl);
   } catch {
     return NextResponse.json({ error: "Falha ao acessar o currículo" }, { status: 502 });
   }
 
-  if (!result || result.statusCode !== 200 || !result.stream) {
+  if (!blob) {
     return NextResponse.json({ error: "Currículo indisponível" }, { status: 404 });
   }
 
   const fileName = (application.resumeName ?? "curriculo").replace(/["\r\n]/g, "");
-  const contentType = result.blob.contentType || "application/octet-stream";
+  const contentType = blob.type || "application/octet-stream";
 
-  return new NextResponse(result.stream, {
+  return new NextResponse(blob.stream(), {
     status: 200,
     headers: {
       "Content-Type": contentType,

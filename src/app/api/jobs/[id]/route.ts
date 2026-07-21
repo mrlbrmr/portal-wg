@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, JobPriority } from "@prisma/client";
+import { Modality, ContractType, JobStatus, JobPriority } from "@/types/domain";
 import { generateSlug, isPublicJobStatus } from "@/lib/utils";
 
 function richText(minChars: number, message: string) {
@@ -42,8 +42,9 @@ export async function GET(
 ) {
   const { id } = await params;
   const session = await auth();
+  const supabase = await createClient();
 
-  const job = await prisma.job.findUnique({ where: { id } });
+  const { data: job } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
 
   if (!job) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
 
@@ -78,11 +79,14 @@ export async function PATCH(
 
   const { closingDate, hiringDeadline, title, city, ...rest } = parsed.data;
 
+  const supabase = await createClient();
+
   // Buscar estado atual para rastrear mudança de status e regenerar slug
-  const current = await prisma.job.findUnique({
-    where: { id },
-    select: { title: true, city: true, status: true },
-  });
+  const { data: current } = await supabase
+    .from("jobs")
+    .select("title, city, status")
+    .eq("id", id)
+    .maybeSingle();
   if (!current) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
 
   // Regenerar slug se título ou cidade mudaram
@@ -93,36 +97,55 @@ export async function PATCH(
     const baseSlug = generateSlug(newTitle, newCity);
     let slug = baseSlug;
     let counter = 1;
-    while (await prisma.job.findFirst({ where: { slug, NOT: { id } } })) {
+    for (;;) {
+      const { data: dup } = await supabase
+        .from("jobs")
+        .select("id")
+        .eq("slug", slug)
+        .neq("id", id)
+        .maybeSingle();
+      if (!dup) break;
       slug = `${baseSlug}-${++counter}`;
     }
     slugUpdate = { slug };
   }
 
-  const job = await prisma.job.update({
-    where: { id },
-    data: {
-      ...rest,
-      ...(title ? { title } : {}),
-      ...(city ? { city } : {}),
-      ...slugUpdate,
-      ...(closingDate !== undefined
-        ? { closingDate: typeof closingDate === "string" && closingDate ? new Date(closingDate) : null }
-        : {}),
-      ...(hiringDeadline !== undefined
-        ? { hiringDeadline: typeof hiringDeadline === "string" && hiringDeadline ? new Date(hiringDeadline) : null }
-        : {}),
-    },
-  });
+  const updateData: Record<string, unknown> = {
+    ...rest,
+    ...(title ? { title } : {}),
+    ...(city ? { city } : {}),
+    ...slugUpdate,
+    ...(closingDate !== undefined
+      ? { closingDate: closingDate ? new Date(closingDate).toISOString() : null }
+      : {}),
+    ...(hiringDeadline !== undefined
+      ? { hiringDeadline: hiringDeadline ? new Date(hiringDeadline).toISOString() : null }
+      : {}),
+  };
+
+  // Nada a atualizar: devolve o estado atual (evita update vazio no PostgREST).
+  if (Object.keys(updateData).length === 0) {
+    const { data: job } = await supabase.from("jobs").select("*").eq("id", id).single();
+    return NextResponse.json(job);
+  }
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .update(updateData)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error || !job) {
+    return NextResponse.json({ error: "Erro ao atualizar vaga" }, { status: 500 });
+  }
 
   // Registrar mudança de status no histórico
   if (parsed.data.status && parsed.data.status !== current.status) {
-    await prisma.jobStatusHistory.create({
-      data: {
-        jobId: id,
-        status: parsed.data.status,
-        changedBy: session.user.name ?? session.user.email ?? "Admin",
-      },
+    await supabase.from("job_status_history").insert({
+      jobId: id,
+      status: parsed.data.status,
+      changedBy: session.user.name ?? session.user.email ?? "Admin",
     });
   }
 
@@ -145,7 +168,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
-  await prisma.job.delete({ where: { id } });
+  const supabase = await createClient();
+  // job_status_history / applications caem por ON DELETE CASCADE (FK no schema).
+  const { error } = await supabase.from("jobs").delete().eq("id", id);
+  if (error) {
+    return NextResponse.json({ error: "Erro ao excluir vaga" }, { status: 500 });
+  }
 
   revalidatePath("/");
   revalidatePath("/vagas/gerenciar");

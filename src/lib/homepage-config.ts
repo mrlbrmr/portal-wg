@@ -1,4 +1,4 @@
-import type { HomepageConfig } from "@prisma/client";
+import type { HomepageConfig } from "@/types/domain";
 
 export type HomepageConfigData = Omit<HomepageConfig, "id" | "updatedAt">;
 

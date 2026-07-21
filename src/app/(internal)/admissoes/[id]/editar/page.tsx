@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { getAdmissionConfig } from "@/lib/admissao/queries";
 import AdmissionForm, {
   type AdmissionFormValues,
@@ -11,9 +11,9 @@ import AdmissionForm, {
 
 export const metadata: Metadata = { title: "Editar admissão — RH" };
 
-/** Converte Date (armazenado à meia-noite UTC) para "AAAA-MM-DD" do <input>. */
-function toDateInput(d: Date | null): string {
-  return d ? d.toISOString().slice(0, 10) : "";
+/** Converte a data (string ISO do supabase-js) para "AAAA-MM-DD" do <input>. */
+function toDateInput(d: string | null): string {
+  return d ? new Date(d).toISOString().slice(0, 10) : "";
 }
 
 export default async function EditarAdmissaoPage({
@@ -25,11 +25,35 @@ export default async function EditarAdmissaoPage({
   const session = await auth();
   if (session?.user.role !== "ADMIN_RH") redirect("/admissoes");
 
-  const [config, admission] = await Promise.all([
+  const supabase = await createClient();
+  const [config, admissionRes] = await Promise.all([
     getAdmissionConfig(),
-    prisma.admission.findFirst({ where: { id, deletedAt: null } }),
+    supabase.from("admissions").select("*").eq("id", id).is("deletedAt", null).maybeSingle(),
   ]);
 
+  const admission = admissionRes.data as {
+    id: string;
+    fullName: string;
+    cpf: string | null;
+    email: string | null;
+    phone: string | null;
+    birthDate: string | null;
+    positionId: string | null;
+    companyId: string | null;
+    branchId: string | null;
+    stageId: string | null;
+    templateId: string | null;
+    responsibleId: string | null;
+    managerName: string | null;
+    startDate: string | null;
+    medicalExamDate: string | null;
+    salary: number | string | null;
+    shift: string | null;
+    uniformShirt: string | null;
+    uniformPants: string | null;
+    uniformShoe: string | null;
+    notes: string | null;
+  } | null;
   if (!admission) notFound();
 
   const values: AdmissionFormValues & { id: string } = {
@@ -48,7 +72,7 @@ export default async function EditarAdmissaoPage({
     managerName: admission.managerName ?? "",
     startDate: toDateInput(admission.startDate),
     medicalExamDate: toDateInput(admission.medicalExamDate),
-    salary: admission.salary ? admission.salary.toString() : "",
+    salary: admission.salary != null ? String(admission.salary) : "",
     shift: admission.shift ?? "",
     uniformShirt: admission.uniformShirt ?? "",
     uniformPants: admission.uniformPants ?? "",

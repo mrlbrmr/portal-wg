@@ -13,7 +13,7 @@
 // (equivalente ao antigo gente_gestao), ampliar canWriteAdmissions() aqui.
 
 import { auth } from "@/lib/auth";
-import type { Session } from "next-auth";
+import type { Session } from "@/lib/auth";
 
 export const ADMIN_ROLE = "ADMIN_RH";
 

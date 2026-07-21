@@ -1,4 +1,4 @@
-import type { DistributionChannel } from "@prisma/client";
+import type { DistributionChannel } from "@/types/domain";
 
 // Metadados dos canais de divulgação. `implemented` vira true quando a fase do
 // respectivo canal entra no ar (ver plano [[distribuicao-vagas]]):

@@ -1,4 +1,4 @@
-import type { JobStatus, Modality, ContractType, JobPriority } from "@prisma/client";
+import type { JobStatus, Modality, ContractType, JobPriority } from "@/types/domain";
 
 /**
  * Forma leve e serializável de uma vaga para as visões do painel

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { admissionSchema } from "@/lib/admissao/validation";
 import { admissionInputToData } from "@/lib/admissao/data";
@@ -39,14 +39,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: first ?? "Dados inválidos" }, { status: 400 });
   }
 
-  const admission = await prisma.admission.create({
-    data: {
+  const supabase = await createClient();
+  const { data: admission, error } = await supabase
+    .from("admissions")
+    .insert({
       ...admissionInputToData(parsed.data),
       createdById: access.userId,
       updatedById: access.userId,
-    },
-    select: { id: true, templateId: true },
-  });
+    })
+    .select("id, templateId")
+    .single();
+  if (error || !admission) {
+    return NextResponse.json({ error: "Erro ao criar admissão" }, { status: 500 });
+  }
 
   // Se um modelo de checklist foi escolhido, já instancia grupos/itens.
   if (admission.templateId) {

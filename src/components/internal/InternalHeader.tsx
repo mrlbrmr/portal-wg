@@ -1,6 +1,7 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import { LogOut, ExternalLink, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -11,6 +12,15 @@ interface Props {
 }
 
 export default function InternalHeader({ user, onMenuClick }: Props) {
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
     <header className="bg-white border-b border-gray-200 h-14 flex items-center px-4 md:px-6 sticky top-0 z-40">
       <div className="flex items-center gap-2.5 flex-1">
@@ -58,7 +68,7 @@ export default function InternalHeader({ user, onMenuClick }: Props) {
         </Link>
 
         <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={handleSignOut}
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition-colors"
         >
           <LogOut className="w-4 h-4" />

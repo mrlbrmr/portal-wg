@@ -1,39 +1,47 @@
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 
 // Opções de configuração usadas pelos formulários e filtros de Admissões.
 // Só itens ativos, na ordem de exibição definida no cadastro.
 export async function getAdmissionConfig() {
+  const supabase = await createClient();
   const [stages, companies, branches, positions, templates, users] = await Promise.all([
-    prisma.admissionStage.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true, color: true },
-    }),
-    prisma.company.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.branch.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.position.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.checklistTemplate.findMany({
-      where: { active: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.user.findMany({
-      where: { active: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
+    supabase
+      .from("admission_stages")
+      .select("id, name, color")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true }),
+    supabase
+      .from("admission_companies")
+      .select("id, name")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true }),
+    supabase
+      .from("admission_branches")
+      .select("id, name")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true }),
+    supabase
+      .from("admission_positions")
+      .select("id, name")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true }),
+    supabase
+      .from("admission_checklist_templates")
+      .select("id, name")
+      .eq("active", true)
+      .order("name", { ascending: true }),
+    supabase
+      .from("users")
+      .select("id, name")
+      .eq("active", true)
+      .order("name", { ascending: true }),
   ]);
-  return { stages, companies, branches, positions, templates, users };
+  return {
+    stages: (stages.data ?? []) as Array<{ id: string; name: string; color: string }>,
+    companies: (companies.data ?? []) as Array<{ id: string; name: string }>,
+    branches: (branches.data ?? []) as Array<{ id: string; name: string }>,
+    positions: (positions.data ?? []) as Array<{ id: string; name: string }>,
+    templates: (templates.data ?? []) as Array<{ id: string; name: string }>,
+    users: (users.data ?? []) as Array<{ id: string; name: string }>,
+  };
 }

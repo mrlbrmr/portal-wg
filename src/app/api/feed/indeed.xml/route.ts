@@ -1,5 +1,6 @@
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 // GET /api/feed/indeed.xml — feed XML no padrão do Indeed (elemento <source>).
 // O Indeed (e vários agregadores) rastreiam este feed para listar as vagas
@@ -24,33 +25,36 @@ function cdata(value: string | null | undefined): string {
 }
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+  const baseUrl = getAppBaseUrl();
   const now = new Date();
 
-  const jobs = await prisma.job.findMany({
-    where: {
-      status: { in: PUBLIC_JOB_STATUS_LIST },
-      OR: [{ closingDate: null }, { closingDate: { gte: now } }],
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      description: true,
-      responsibilities: true,
-      requiredRequirements: true,
-      desiredRequirements: true,
-      benefits: true,
-      department: true,
-      company: true,
-      city: true,
-      state: true,
-      salaryRange: true,
-      contractType: true,
-      createdAt: true,
-    },
-  });
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("jobs")
+    .select(
+      "id, title, slug, description, responsibilities, requiredRequirements, desiredRequirements, benefits, department, company, city, state, salaryRange, contractType, createdAt"
+    )
+    .in("status", PUBLIC_JOB_STATUS_LIST as readonly string[])
+    .or(`closingDate.is.null,closingDate.gte.${now.toISOString()}`)
+    .order("createdAt", { ascending: false });
+
+  const jobs = (data ?? []) as Array<{
+    id: string;
+    title: string;
+    slug: string | null;
+    description: string;
+    responsibilities: string;
+    requiredRequirements: string;
+    desiredRequirements: string | null;
+    benefits: string | null;
+    department: string | null;
+    company: string | null;
+    city: string;
+    state: string;
+    salaryRange: string | null;
+    contractType: string;
+    createdAt: string;
+  }>;
 
   const jobsXml = jobs
     .map((job) => {
@@ -69,7 +73,7 @@ export async function GET() {
       return [
         "  <job>",
         `    <title>${cdata(job.title)}</title>`,
-        `    <date>${cdata(job.createdAt.toUTCString())}</date>`,
+        `    <date>${cdata(new Date(job.createdAt).toUTCString())}</date>`,
         `    <referencenumber>${cdata(job.id)}</referencenumber>`,
         `    <url>${cdata(url)}</url>`,
         `    <company>${cdata(job.company ?? "Grupo WG Baterias")}</company>`,

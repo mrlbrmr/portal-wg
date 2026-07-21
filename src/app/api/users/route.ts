@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
-import { UserRole } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { UserRole } from "@/types/domain";
 import { rateLimit } from "@/lib/rate-limit";
 
 const createUserSchema = z.object({
@@ -19,19 +18,13 @@ export async function GET() {
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
   }
 
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      active: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const supabase = createAdminClient();
+  const { data: users } = await supabase
+    .from("users")
+    .select("id, name, email, role, active, createdAt")
+    .order("createdAt", { ascending: false });
 
-  return NextResponse.json(users);
+  return NextResponse.json(users ?? []);
 }
 
 export async function POST(req: NextRequest) {
@@ -63,17 +56,41 @@ export async function POST(req: NextRequest) {
 
   const { name, email, password, role } = parsed.data;
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const supabase = createAdminClient();
+
+  const { data: existing } = await supabase
+    .from("users")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
   if (existing) {
     return NextResponse.json({ error: "E-mail já cadastrado." }, { status: 409 });
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  // 1) Registro de identidade de app (id texto referenciado pelas demais tabelas;
+  //    a senha real vive em auth.users, aqui fica um placeholder).
+  const { data: user, error: insertError } = await supabase
+    .from("users")
+    .insert({ name, email, role, passwordHash: "supabase-auth" })
+    .select("id, name, email, role, active, createdAt")
+    .single();
+  if (insertError || !user) {
+    return NextResponse.json({ error: "Erro ao criar usuário." }, { status: 500 });
+  }
 
-  const user = await prisma.user.create({
-    data: { name, email, passwordHash, role },
-    select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
+  // 2) Usuário do Supabase Auth (credenciais + papel/id-de-app no app_metadata p/ RLS).
+  const { error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name },
+    app_metadata: { user_role: role, app_user_id: user.id },
   });
+  if (authError) {
+    // Desfaz o registro de app p/ não deixar usuário sem login.
+    await supabase.from("users").delete().eq("id", user.id);
+    return NextResponse.json({ error: "Erro ao criar credenciais de acesso." }, { status: 500 });
+  }
 
   return NextResponse.json(user, { status: 201 });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Zap, Loader2, AlertCircle } from "lucide-react";
 
@@ -23,19 +23,17 @@ function LoginForm() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (result?.error) {
+    if (error) {
       setError("E-mail ou senha inválidos. Verifique e tente novamente.");
       setIsLoading(false);
       return;
     }
 
     router.push(callbackUrl);
+    router.refresh();
   }
 
   const inputClass =

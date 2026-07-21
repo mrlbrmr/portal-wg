@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 import Image from "next/image";
-import { prisma } from "@/lib/prisma";
-import { DEFAULT_CONFIG } from "@/lib/homepage-config";
-import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { createAnonClient } from "@/lib/supabase/anon";
+import { DEFAULT_CONFIG, type HomepageConfigData } from "@/lib/homepage-config";
+import type { Job } from "@/types/domain";
+import { PUBLIC_JOB_STATUSES } from "@/lib/utils";
+import { applyJobFilters, onlyPublicVisible } from "@/lib/jobs-query";
 import JobFilters from "@/components/public/JobFilters";
 import { LoadMoreJobs } from "@/components/public/LoadMoreJobs";
 import { AnimateIn } from "@/components/ui/AnimateIn";
@@ -54,24 +56,27 @@ export default async function HomePage({
 }) {
   const params = await searchParams;
 
-  const now = new Date();
-  const where: Record<string, unknown> = {
-    status: { in: PUBLIC_JOB_STATUS_LIST },
-    OR: [{ closingDate: null }, { closingDate: { gte: now } }],
-  };
-  if (params.city) where.city = { contains: params.city, mode: "insensitive" };
-  if (params.modality) where.modality = params.modality;
-  if (params.department)
-    where.department = { contains: params.department, mode: "insensitive" };
-  if (params.query) where.title = { contains: params.query, mode: "insensitive" };
+  const supabase = createAnonClient();
 
-  const [jobs, total, totalActive, rawConfig] = await Promise.all([
-    prisma.job.findMany({ where, orderBy: { createdAt: "desc" }, take: PAGE_SIZE }),
-    prisma.job.count({ where }),
-    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST } } }),
-    prisma.homepageConfig.findUnique({ where: { id: "singleton" } }),
+  // Página de vagas visíveis + total (mesma query, count exact) numa só chamada.
+  let listQuery = supabase.from("jobs").select("*", { count: "exact" });
+  listQuery = onlyPublicVisible(listQuery);
+  listQuery = applyJobFilters(listQuery, params);
+
+  const [listRes, activeRes, configRes] = await Promise.all([
+    listQuery.order("createdAt", { ascending: false }).range(0, PAGE_SIZE - 1),
+    // totalActive = todas as vagas em status público (ignora filtros e prazo).
+    supabase
+      .from("jobs")
+      .select("id", { count: "exact", head: true })
+      .in("status", PUBLIC_JOB_STATUSES as readonly string[]),
+    supabase.from("homepage_config").select("*").eq("id", "singleton").maybeSingle(),
   ]);
-  const config = rawConfig ?? DEFAULT_CONFIG;
+
+  const jobs = (listRes.data ?? []) as unknown as Job[];
+  const total = listRes.count ?? 0;
+  const totalActive = activeRes.count ?? 0;
+  const config = (configRes.data as HomepageConfigData | null) ?? DEFAULT_CONFIG;
 
   const hasActiveFilters = Object.keys(params).length > 0;
 

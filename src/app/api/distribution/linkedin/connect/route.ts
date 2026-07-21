@@ -3,12 +3,13 @@ import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
 import { isLinkedInConfigured, buildAuthorizationUrl } from "@/lib/distribution/linkedin";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 // GET /api/distribution/linkedin/connect — inicia o OAuth do LinkedIn.
 // Admin only. Guarda um state anti-CSRF em cookie e redireciona ao LinkedIn.
 export async function GET() {
   const session = await auth();
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://carreiras.wgbaterias.com.br";
+  const base = getAppBaseUrl();
 
   if (!session || session.user.role !== "ADMIN_RH") {
     return NextResponse.redirect(`${base}/dashboard`);

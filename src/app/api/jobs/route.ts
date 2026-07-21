@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, JobPriority, Prisma } from "@prisma/client";
+import { Modality, ContractType, JobStatus, JobPriority } from "@/types/domain";
 import { generateSlug } from "@/lib/utils";
-import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { applyJobFilters, onlyPublicVisible } from "@/lib/jobs-query";
 import { rateLimit } from "@/lib/rate-limit";
 
 function richText(minChars: number, message: string) {
@@ -40,6 +40,7 @@ const jobSchema = z.object({
 
 export async function GET(req: NextRequest) {
   const session = await auth();
+  const supabase = await createClient();
   const { searchParams } = new URL(req.url);
 
   const city = searchParams.get("city");
@@ -48,43 +49,37 @@ export async function GET(req: NextRequest) {
   const query = searchParams.get("query");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
+  const offset = (page - 1) * limit;
 
-  const now = new Date();
-
-  const where: Prisma.JobWhereInput = {};
+  let q = supabase.from("jobs").select("*", { count: "exact" });
 
   if (!session) {
-    // Portal público: vagas com status "aberto" (ACTIVE/Triagem/Entrevistas/Admissão) e dentro do prazo
-    where.status = { in: PUBLIC_JOB_STATUS_LIST };
-    where.OR = [
-      { closingDate: null },
-      { closingDate: { gte: now } },
-    ];
+    // Portal público: status "aberto" (ACTIVE/Triagem/Entrevistas/Admissão) e no prazo.
+    // (RLS também garante isso para a chave anon; filtro explícito preserva o prazo.)
+    q = onlyPublicVisible(q);
   } else {
     const rawStatus = searchParams.get("status");
     if (rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
-      where.status = rawStatus as JobStatus;
+      q = q.eq("status", rawStatus);
     }
   }
 
-  if (city) where.city = { contains: city, mode: "insensitive" };
-  if (modality && Object.values(Modality).includes(modality as Modality)) {
-    where.modality = modality as Modality;
+  q = applyJobFilters(q, {
+    city,
+    modality: modality && Object.values(Modality).includes(modality as Modality) ? modality : null,
+    department,
+    query,
+  });
+
+  const { data, count, error } = await q
+    .order("createdAt", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    return NextResponse.json({ error: "Erro ao listar vagas" }, { status: 500 });
   }
-  if (department) where.department = { contains: department, mode: "insensitive" };
-  if (query) where.title = { contains: query, mode: "insensitive" };
 
-  const [jobs, total] = await Promise.all([
-    prisma.job.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.job.count({ where }),
-  ]);
-
-  return NextResponse.json({ jobs, total, page, limit });
+  return NextResponse.json({ jobs: data ?? [], total: count ?? 0, page, limit });
 }
 
 export async function POST(req: NextRequest) {
@@ -116,27 +111,39 @@ export async function POST(req: NextRequest) {
 
   const { closingDate, hiringDeadline, title, city, ...rest } = parsed.data;
 
-  // Gerar slug único
+  const supabase = await createClient();
+
+  // Gerar slug único (checa colisão no banco)
   const baseSlug = generateSlug(title, city);
   let slug = baseSlug;
   let counter = 1;
-  while (await prisma.job.findUnique({ where: { slug } })) {
+  for (;;) {
+    const { data: existing } = await supabase.from("jobs").select("id").eq("slug", slug).maybeSingle();
+    if (!existing) break;
     slug = `${baseSlug}-${++counter}`;
   }
 
-  const job = await prisma.job.create({
-    data: {
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .insert({
       title,
       city,
       ...rest,
       slug,
-      closingDate: typeof closingDate === "string" && closingDate ? new Date(closingDate) : null,
-      hiringDeadline: typeof hiringDeadline === "string" && hiringDeadline ? new Date(hiringDeadline) : null,
-    },
-  });
+      closingDate: closingDate ? new Date(closingDate).toISOString() : null,
+      hiringDeadline: hiringDeadline ? new Date(hiringDeadline).toISOString() : null,
+    })
+    .select()
+    .single();
 
-  await prisma.jobStatusHistory.create({
-    data: { jobId: job.id, status: job.status, changedBy: session.user.name ?? session.user.email ?? "Sistema" },
+  if (error || !job) {
+    return NextResponse.json({ error: "Erro ao criar vaga" }, { status: 500 });
+  }
+
+  await supabase.from("job_status_history").insert({
+    jobId: job.id,
+    status: job.status,
+    changedBy: session.user.name ?? session.user.email ?? "Sistema",
   });
 
   revalidatePath("/");

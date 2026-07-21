@@ -5,7 +5,7 @@
 // adapters, registrar JobPublication) fica em ./dispatch.
 
 import { revalidatePath } from "next/cache";
-import type { DistributionChannel } from "@prisma/client";
+import type { DistributionChannel } from "@/types/domain";
 import { auth } from "@/lib/auth";
 import { publishJobToChannel, removeJobFromChannel } from "./dispatch";
 

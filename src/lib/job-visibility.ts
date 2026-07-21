@@ -1,4 +1,4 @@
-import type { JobStatus } from "@prisma/client";
+import type { JobStatus } from "@/types/domain";
 import { PUBLIC_JOB_STATUSES } from "@/lib/utils";
 
 // Lista tipada para uso em queries Prisma (where: { status: { in: PUBLIC_JOB_STATUS_LIST } }).

@@ -1,14 +1,14 @@
-// Storage de currículos — Vercel Blob (privado).
+// Storage de currículos — Supabase Storage (bucket privado `resumes`).
 //
-// LGPD: os currículos são gravados com `access: "private"`, ou seja, NÃO são
-// acessíveis por URL pública. O download só acontece server-side, na área
-// autenticada, via getResumeStream() (que usa o BLOB_READ_WRITE_TOKEN).
-//
-// Requer a variável de ambiente BLOB_READ_WRITE_TOKEN (provisionada ao
-// habilitar o Vercel Blob no projeto). Em ambiente sem o token configurado,
-// uploadResume() lança um erro claro em vez de falhar silenciosamente.
+// LGPD: o bucket é privado (public = false). O upload/download/remove acontecem
+// server-side via service_role (admin client). O download só ocorre na área
+// autenticada, transmitido pelo servidor via getResumeBlob() — a URL/objeto bruto
+// NUNCA é exposto ao cliente. No banco guardamos o **caminho do objeto** dentro
+// do bucket (coluna resumeUrl), não uma URL pública.
 
-import { put, get, del } from "@vercel/blob";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export const RESUMES_BUCKET = "resumes";
 
 // Tipos de arquivo aceitos para currículo
 export const ALLOWED_RESUME_MIME = [
@@ -58,58 +58,51 @@ export function sanitizeFileName(name: string): string {
     .slice(0, 120);
 }
 
-// O SDK do Blob aceita duas formas de auth:
-//  1. BLOB_READ_WRITE_TOKEN (token estático), OU
-//  2. OIDC: VERCEL_OIDC_TOKEN + BLOB_STORE_ID — usado pelo fluxo gerenciado da
-//     Vercel (injetado automaticamente em runtime na Vercel; localmente vem do
-//     `vercel env pull`). Só lançamos erro quando NENHUMA credencial existe.
-export function assertBlobConfigured() {
-  const configured =
-    !!process.env.BLOB_READ_WRITE_TOKEN ||
-    !!process.env.BLOB_STORE_ID || // fluxo OIDC (token resolvido pelo SDK/runtime)
-    !!process.env.VERCEL; // em runtime na Vercel o OIDC é injetado automaticamente
-  if (!configured) {
-    throw new Error(
-      "Credenciais do Vercel Blob ausentes. Habilite o Blob no projeto (conexão OIDC define BLOB_STORE_ID) ou configure BLOB_READ_WRITE_TOKEN."
-    );
-  }
+/** Compõe um caminho único dentro do bucket (evita colisão e enumeração). */
+export function buildObjectPath(prefix: string, fileName: string, fallback: string): string {
+  const safeName = sanitizeFileName(fileName) || fallback;
+  const unique = crypto.randomUUID().slice(0, 8);
+  return `${prefix}/${unique}-${safeName}`;
 }
 
 export interface UploadedResume {
+  /** Caminho do objeto dentro do bucket (persistido em resumeUrl). */
   url: string;
   name: string;
 }
 
 /**
- * Faz upload privado do currículo. Retorna a URL (privada) do blob e o nome
- * original do arquivo. Valide o arquivo com validateResumeFile() antes de chamar.
+ * Faz upload privado do currículo. Retorna o caminho do objeto no bucket e o
+ * nome original do arquivo. Valide com validateResumeFile() antes de chamar.
  */
 export async function uploadResume(file: File, jobId: string): Promise<UploadedResume> {
-  assertBlobConfigured();
+  const path = buildObjectPath(jobId, file.name, "curriculo");
 
-  const safeName = sanitizeFileName(file.name) || "curriculo";
-  const pathname = `resumes/${jobId}/${safeName}`;
-
-  const blob = await put(pathname, file, {
-    access: "private",
-    addRandomSuffix: true, // evita colisão e enumeração de URLs
+  const supabase = createAdminClient();
+  const { error } = await supabase.storage.from(RESUMES_BUCKET).upload(path, file, {
     contentType: file.type || "application/octet-stream",
+    upsert: false,
   });
+  if (error) {
+    throw new Error(`Falha ao enviar o currículo: ${error.message}`);
+  }
 
-  return { url: blob.url, name: file.name };
+  return { url: path, name: file.name };
 }
 
 /**
- * Lê um currículo privado server-side (para a rota de download autenticada do RH).
- * Retorna o stream e os headers do blob. NUNCA exponha a URL bruta ao cliente.
+ * Baixa um currículo privado server-side (rota de download autenticada do RH).
+ * Retorna o Blob (com contentType) ou null. NUNCA exponha o objeto ao cliente.
  */
-export async function getResumeStream(url: string) {
-  assertBlobConfigured();
-  return get(url, { access: "private" });
+export async function getResumeBlob(path: string): Promise<Blob | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.storage.from(RESUMES_BUCKET).download(path);
+  if (error || !data) return null;
+  return data;
 }
 
 /** Exclui um currículo do storage (ex.: ao remover a candidatura — retenção LGPD). */
-export async function deleteResume(url: string): Promise<void> {
-  assertBlobConfigured();
-  await del(url);
+export async function deleteResume(path: string): Promise<void> {
+  const supabase = createAdminClient();
+  await supabase.storage.from(RESUMES_BUCKET).remove([path]);
 }

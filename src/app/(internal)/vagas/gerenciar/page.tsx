@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { auth } from "@/lib/auth";
 import Link from "next/link";
 import {
@@ -35,59 +35,88 @@ export default async function GerenciarVagasPage({
   // Uma única ida ao banco: a base de vagas (pesquisa/filtro/ordenação
   // acontecem no cliente, no JobsExplorer), a contagem de candidaturas por
   // vaga e as métricas do topo rodam todas em paralelo.
+  const supabase = await createClient();
+  const startOfTodayIso = startOfToday.toISOString();
+
   const [
-    jobs,
-    appCounts,
-    openJobs,
-    totalCandidates,
-    newToday,
-    inInterview,
-    hired,
-    closedHistory,
+    jobsRes,
+    appRowsRes,
+    openJobsRes,
+    totalRes,
+    newTodayRes,
+    interviewRes,
+    hiredRes,
+    closedRes,
   ] = await Promise.all([
-    prisma.job.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      select: {
-        id: true,
-        title: true,
-        city: true,
-        state: true,
-        modality: true,
-        contractType: true,
-        department: true,
-        responsible: true,
-        status: true,
-        priority: true,
-        slug: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    }),
-    prisma.application.groupBy({ by: ["jobId"], _count: { _all: true } }),
-    prisma.job.count({ where: { status: { in: PUBLIC_JOB_STATUS_LIST } } }),
-    prisma.application.count(),
-    prisma.application.count({ where: { createdAt: { gte: startOfToday } } }),
-    prisma.application.count({ where: { stage: "INTERVIEW" } }),
-    prisma.application.count({ where: { stage: "HIRED" } }),
-    prisma.jobStatusHistory.findMany({
-      where: { status: "CLOSED" },
-      orderBy: { changedAt: "asc" },
-      select: {
-        jobId: true,
-        changedAt: true,
-        job: { select: { createdAt: true } },
-      },
-    }),
+    supabase
+      .from("jobs")
+      .select(
+        "id, title, city, state, modality, contractType, department, responsible, status, priority, slug, createdAt, updatedAt"
+      )
+      .order("createdAt", { ascending: false })
+      .limit(200),
+    supabase.from("applications").select("jobId"),
+    supabase
+      .from("jobs")
+      .select("*", { count: "exact", head: true })
+      .in("status", PUBLIC_JOB_STATUS_LIST as readonly string[]),
+    supabase.from("applications").select("*", { count: "exact", head: true }),
+    supabase
+      .from("applications")
+      .select("*", { count: "exact", head: true })
+      .gte("createdAt", startOfTodayIso),
+    supabase
+      .from("applications")
+      .select("*", { count: "exact", head: true })
+      .eq("stage", "INTERVIEW"),
+    supabase
+      .from("applications")
+      .select("*", { count: "exact", head: true })
+      .eq("stage", "HIRED"),
+    supabase
+      .from("job_status_history")
+      .select("jobId, changedAt, job:jobs(createdAt)")
+      .eq("status", "CLOSED")
+      .order("changedAt", { ascending: true }),
   ]);
 
-  const countByJob = new Map(appCounts.map((c) => [c.jobId, c._count._all]));
+  const jobs = (jobsRes.data ?? []) as Array<{
+    id: string;
+    title: string;
+    city: string;
+    state: string;
+    modality: string;
+    contractType: string;
+    department: string | null;
+    responsible: string | null;
+    status: string;
+    priority: string;
+    slug: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  const openJobs = openJobsRes.count ?? 0;
+  const totalCandidates = totalRes.count ?? 0;
+  const newToday = newTodayRes.count ?? 0;
+  const inInterview = interviewRes.count ?? 0;
+  const hired = hiredRes.count ?? 0;
+
+  // Contagem de candidaturas por vaga (groupBy manual — supabase-js não agrega).
+  const countByJob = new Map<string, number>();
+  for (const a of (appRowsRes.data ?? []) as Array<{ jobId: string }>) {
+    countByJob.set(a.jobId, (countByJob.get(a.jobId) ?? 0) + 1);
+  }
 
   // Tempo médio p/ fechamento: dias entre a criação da vaga e o 1º encerramento
   // (CLOSED), média sobre as vagas já encerradas. Deriva de JobStatusHistory.
-  const firstClosePerJob = new Map<string, { changedAt: Date; createdAt: Date }>();
+  const closedHistory = (closedRes.data ?? []) as unknown as Array<{
+    jobId: string;
+    changedAt: string;
+    job: { createdAt: string } | null;
+  }>;
+  const firstClosePerJob = new Map<string, { changedAt: string; createdAt: string }>();
   for (const h of closedHistory) {
-    if (!firstClosePerJob.has(h.jobId)) {
+    if (!firstClosePerJob.has(h.jobId) && h.job) {
       firstClosePerJob.set(h.jobId, {
         changedAt: h.changedAt,
         createdAt: h.job.createdAt,
@@ -96,7 +125,7 @@ export default async function GerenciarVagasPage({
   }
   const closeDurations = Array.from(firstClosePerJob.values()).map(
     ({ changedAt, createdAt }) =>
-      (changedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
+      (new Date(changedAt).getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
   );
   const avgDaysToClose =
     closeDurations.length > 0
@@ -105,7 +134,7 @@ export default async function GerenciarVagasPage({
         )
       : null;
 
-  const rows: JobRow[] = jobs.map((job) => ({
+  const rows = jobs.map((job) => ({
     id: job.id,
     title: job.title,
     city: job.city,
@@ -117,10 +146,10 @@ export default async function GerenciarVagasPage({
     status: job.status,
     priority: job.priority,
     slug: job.slug,
-    createdAt: job.createdAt.toISOString(),
-    updatedAt: job.updatedAt.toISOString(),
+    createdAt: new Date(job.createdAt).toISOString(),
+    updatedAt: new Date(job.updatedAt).toISOString(),
     candidateCount: countByJob.get(job.id) ?? 0,
-  }));
+  })) as JobRow[];
 
   const initialView = params.view === "kanban" ? "kanban" : "list";
 

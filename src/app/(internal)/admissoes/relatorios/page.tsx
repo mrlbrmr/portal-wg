@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { BarChart3, Users, TrendingUp, Building2, FileSpreadsheet } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { DashboardCard } from "@/components/internal/DashboardCard";
 
 export const metadata: Metadata = { title: "Relatórios de Admissões — RH" };
@@ -50,21 +50,25 @@ function Bars({
 }
 
 export default async function RelatoriosPage() {
-  const admissions = await prisma.admission.findMany({
-    where: { deletedAt: null },
-    select: {
-      createdAt: true,
-      stage: { select: { name: true, color: true } },
-      company: { select: { name: true } },
-      branch: { select: { name: true } },
-    },
-  });
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("admissions")
+    .select(
+      "createdAt, stage:admission_stages(name, color), company:admission_companies(name), branch:admission_branches(name)"
+    )
+    .is("deletedAt", null);
+  const admissions = (data ?? []) as unknown as Array<{
+    createdAt: string;
+    stage: { name: string; color: string } | null;
+    company: { name: string } | null;
+    branch: { name: string } | null;
+  }>;
 
   const total = admissions.length;
 
   const now = new Date();
   const start30 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
-  const last30 = admissions.filter((a) => a.createdAt >= start30).length;
+  const last30 = admissions.filter((a) => new Date(a.createdAt) >= start30).length;
 
   const agg = (pick: (a: (typeof admissions)[number]) => { name: string; color?: string } | null) => {
     const map = new Map<string, { name: string; count: number; color?: string }>();
@@ -93,7 +97,7 @@ export default async function RelatoriosPage() {
     });
   }
   for (const a of admissions) {
-    const d = a.createdAt;
+    const d = new Date(a.createdAt);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const m = months.find((x) => x.key === key);
     if (m) m.count += 1;

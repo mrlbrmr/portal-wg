@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
-import type { UserRole } from "@prisma/client";
+import type { UserRole } from "@/types/domain";
 
 interface Props {
   user: {

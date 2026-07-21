@@ -1,46 +1,45 @@
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { authConfig } from "./auth.config";
+import { createClient } from "@/lib/supabase/server";
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
+// Autenticação via Supabase Auth (substitui o NextAuth).
+//
+// O formato de `Session`/`auth()` é mantido idêntico ao que o app já consumia
+// (`session.user.{id,name,email,role}`) para não tocar nas dezenas de rotas e
+// server components que dependem dele.
+//
+// Papel e id-do-app (cuid da tabela `users`, usado como texto em campos como
+// changedBy/responsibleId/createdById) vêm do `app_metadata` do usuário — que o
+// Supabase inclui no JWT — sem custo de consulta ao banco por chamada.
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  ...authConfig,
-  providers: [
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "E-mail", type: "email" },
-        password: { label: "Senha", type: "password" },
-      },
-      async authorize(credentials) {
-        const parsed = loginSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+export interface SessionUser {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string;
+}
 
-        const { email, password } = parsed.data;
+export interface Session {
+  user: SessionUser;
+}
 
-        const user = await prisma.user.findUnique({
-          where: { email, active: true },
-        });
+export async function auth(): Promise<Session | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+  if (error || !user) return null;
 
-        if (!user) return null;
+  const meta = (user.app_metadata ?? {}) as {
+    user_role?: string;
+    app_user_id?: string;
+  };
 
-        const passwordMatch = await bcrypt.compare(password, user.passwordHash);
-        if (!passwordMatch) return null;
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        };
-      },
-    }),
-  ],
-});
+  return {
+    user: {
+      id: meta.app_user_id ?? user.id,
+      name: (user.user_metadata?.name as string | undefined) ?? null,
+      email: user.email ?? null,
+      role: meta.user_role ?? "VIEWER_RH",
+    },
+  };
+}

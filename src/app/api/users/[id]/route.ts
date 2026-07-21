@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthUserByEmail } from "@/lib/users-admin";
 import { z } from "zod";
-import { UserRole } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { UserRole } from "@/types/domain";
 import { rateLimit } from "@/lib/rate-limit";
 
 const updateUserSchema = z.object({
@@ -53,11 +53,25 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const supabase = createAdminClient();
+
+  const { data: currentUser } = await supabase
+    .from("users")
+    .select("id, email")
+    .eq("id", id)
+    .maybeSingle();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
+  }
+
   // Verifica unicidade do e-mail
   if (parsed.data.email) {
-    const conflict = await prisma.user.findFirst({
-      where: { email: parsed.data.email, id: { not: id } },
-    });
+    const { data: conflict } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", parsed.data.email)
+      .neq("id", id)
+      .maybeSingle();
     if (conflict) {
       return NextResponse.json({ error: "E-mail já cadastrado por outro usuário." }, { status: 409 });
     }
@@ -68,15 +82,33 @@ export async function PATCH(
   if (parsed.data.email !== undefined) updateData.email = parsed.data.email;
   if (parsed.data.role !== undefined) updateData.role = parsed.data.role;
   if (parsed.data.active !== undefined) updateData.active = parsed.data.active;
-  if (parsed.data.password) {
-    updateData.passwordHash = await bcrypt.hash(parsed.data.password, 12);
+
+  const { data: user, error: updateError } = await supabase
+    .from("users")
+    .update(updateData)
+    .eq("id", id)
+    .select("id, name, email, role, active")
+    .single();
+  if (updateError || !user) {
+    return NextResponse.json({ error: "Erro ao atualizar usuário." }, { status: 500 });
   }
 
-  const user = await prisma.user.update({
-    where: { id },
-    data: updateData,
-    select: { id: true, name: true, email: true, role: true, active: true },
-  });
+  // Espelha as mudanças no Supabase Auth (credenciais + claims do JWT).
+  const authUser = await getAuthUserByEmail(supabase, currentUser.email);
+  if (authUser) {
+    const attrs: Record<string, unknown> = {};
+    if (parsed.data.email !== undefined) attrs.email = parsed.data.email;
+    if (parsed.data.password) attrs.password = parsed.data.password;
+    if (parsed.data.name !== undefined) {
+      attrs.user_metadata = { ...authUser.user_metadata, name: parsed.data.name };
+    }
+    if (parsed.data.role !== undefined) {
+      attrs.app_metadata = { ...authUser.app_metadata, user_role: parsed.data.role };
+    }
+    if (Object.keys(attrs).length > 0) {
+      await supabase.auth.admin.updateUserById(authUser.id, attrs);
+    }
+  }
 
   return NextResponse.json(user);
 }
@@ -98,6 +130,22 @@ export async function DELETE(
     );
   }
 
-  await prisma.user.delete({ where: { id } });
+  const supabase = createAdminClient();
+  const { data: target } = await supabase
+    .from("users")
+    .select("id, email")
+    .eq("id", id)
+    .maybeSingle();
+  if (!target) {
+    return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
+  }
+
+  // Remove das credenciais (auth.users) e da identidade de app (users).
+  const authUser = await getAuthUserByEmail(supabase, target.email);
+  if (authUser) {
+    await supabase.auth.admin.deleteUser(authUser.id);
+  }
+  await supabase.from("users").delete().eq("id", id);
+
   return NextResponse.json({ success: true });
 }

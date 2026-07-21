@@ -1,13 +1,16 @@
-// Storage de anexos de admissão — Vercel Blob (privado).
+// Storage de anexos de admissão — Supabase Storage (bucket privado
+// `admission-attachments`).
 //
-// Substitui o bucket `admission-files` do Supabase Storage. Reaproveita os
-// helpers de `@/lib/storage` (sanitização e checagem de credencial do Blob).
-// Diferente dos currículos, aqui aceitamos também imagens (foto 3x4, RG/CNH
-// fotografados) além de PDF/DOC. Acesso sempre privado: download só server-side
-// em rota autenticada. NUNCA exponha a URL bruta ao cliente.
+// Reaproveita os helpers de `@/lib/storage` (sanitização / caminho de objeto /
+// admin client). Diferente dos currículos, aqui aceitamos também imagens (foto
+// 3x4, RG/CNH fotografados) além de PDF/DOC. Acesso sempre privado: download só
+// server-side em rota autenticada. NUNCA exponha o objeto bruto ao cliente. No
+// banco guardamos o **caminho do objeto** no bucket (coluna blobUrl).
 
-import { put, get, del } from "@vercel/blob";
-import { sanitizeFileName, assertBlobConfigured } from "@/lib/storage";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { buildObjectPath } from "@/lib/storage";
+
+export const ATTACHMENTS_BUCKET = "admission-attachments";
 
 export const ALLOWED_ATTACHMENT_MIME = [
   "application/pdf",
@@ -58,6 +61,7 @@ export function validateAttachmentFile(file: File): AttachmentValidationResult {
 }
 
 export interface UploadedAttachment {
+  /** Caminho do objeto dentro do bucket (persistido em blobUrl). */
   url: string;
   name: string;
   mimeType: string;
@@ -66,40 +70,38 @@ export interface UploadedAttachment {
 
 /**
  * Faz upload privado de um anexo de admissão. Valide com
- * validateAttachmentFile() antes de chamar. Retorna a URL (privada) do blob e
+ * validateAttachmentFile() antes de chamar. Retorna o caminho do objeto e
  * metadados para persistir em AdmissionAttachment.
  */
 export async function uploadAdmissionAttachment(
   file: File,
   admissionId: string
 ): Promise<UploadedAttachment> {
-  assertBlobConfigured();
+  const path = buildObjectPath(admissionId, file.name, "documento");
+  const mimeType = file.type || "application/octet-stream";
 
-  const safeName = sanitizeFileName(file.name) || "documento";
-  const pathname = `admissions/${admissionId}/${safeName}`;
-
-  const blob = await put(pathname, file, {
-    access: "private",
-    addRandomSuffix: true, // evita colisão e enumeração de URLs
-    contentType: file.type || "application/octet-stream",
+  const supabase = createAdminClient();
+  const { error } = await supabase.storage.from(ATTACHMENTS_BUCKET).upload(path, file, {
+    contentType: mimeType,
+    upsert: false,
   });
+  if (error) {
+    throw new Error(`Falha ao enviar o anexo: ${error.message}`);
+  }
 
-  return {
-    url: blob.url,
-    name: file.name,
-    mimeType: file.type || "application/octet-stream",
-    sizeBytes: file.size,
-  };
+  return { url: path, name: file.name, mimeType, sizeBytes: file.size };
 }
 
-/** Lê um anexo privado server-side (rota de download autenticada). */
-export async function getAdmissionAttachmentStream(url: string) {
-  assertBlobConfigured();
-  return get(url, { access: "private" });
+/** Baixa um anexo privado server-side (rota de download autenticada). */
+export async function getAdmissionAttachmentBlob(path: string): Promise<Blob | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.storage.from(ATTACHMENTS_BUCKET).download(path);
+  if (error || !data) return null;
+  return data;
 }
 
 /** Exclui um anexo do storage (ex.: ao remover o anexo ou a admissão). */
-export async function deleteAdmissionAttachment(url: string): Promise<void> {
-  assertBlobConfigured();
-  await del(url);
+export async function deleteAdmissionAttachment(path: string): Promise<void> {
+  const supabase = createAdminClient();
+  await supabase.storage.from(ATTACHMENTS_BUCKET).remove([path]);
 }

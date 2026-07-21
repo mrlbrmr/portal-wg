@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Megaphone, ChevronRight } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CONFIG } from "@/lib/homepage-config";
 import HomepageConfigForm from "@/components/internal/HomepageConfigForm";
 import type { Metadata } from "next";
@@ -13,9 +13,12 @@ export default async function ConfiguracoesPage() {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN_RH") redirect("/dashboard");
 
-  const config = await prisma.homepageConfig.findUnique({
-    where: { id: "singleton" },
-  });
+  const supabase = await createClient();
+  const { data: config } = await supabase
+    .from("homepage_config")
+    .select("*")
+    .eq("id", "singleton")
+    .maybeSingle();
 
   return (
     <div>

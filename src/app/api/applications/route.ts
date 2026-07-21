@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyRecaptcha } from "@/lib/recaptcha";
@@ -88,10 +88,13 @@ export async function POST(req: NextRequest) {
 
   // A vaga precisa existir e estar em status aberto (visível no portal).
   // A inscrição pelo portal é o único modo desde 2026-07 (Tally aposentado).
-  const job = await prisma.job.findUnique({
-    where: { id: jobId },
-    select: { id: true, status: true, slug: true },
-  });
+  // Usa service-role (bypassa RLS): rota pública sem sessão, sem policy anon.
+  const supabase = createAdminClient();
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, status, slug")
+    .eq("id", jobId)
+    .maybeSingle();
   if (!job || !isPublicJobStatus(job.status)) {
     return NextResponse.json(
       { error: "Esta vaga não está aberta para inscrição pelo portal." },
@@ -119,20 +122,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const application = await prisma.application.create({
-    data: {
+  const { data: application, error: createError } = await supabase
+    .from("applications")
+    .insert({
       jobId: job.id,
       fullName,
       email,
       phone,
       resumeUrl: resume.url,
       resumeName: resume.name,
-      consentAt: new Date(),
-      stageHistory: {
-        create: { stage: "NEW", changedBy: "Candidato (inscrição)" },
-      },
-    },
-    select: { id: true },
+      consentAt: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (createError || !application) {
+    return NextResponse.json(
+      { error: "Não foi possível registrar sua candidatura. Tente novamente." },
+      { status: 500 }
+    );
+  }
+
+  await supabase.from("application_stage_history").insert({
+    applicationId: application.id,
+    stage: "NEW",
+    changedBy: "Candidato (inscrição)",
   });
 
   // Atualiza contadores no painel interno (não expõe dado nenhum).

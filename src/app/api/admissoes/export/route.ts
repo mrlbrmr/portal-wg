@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { requireAdmissionSession } from "@/lib/admissao/permissions";
 
 // GET /api/admissoes/export — exporta as admissões ativas em .xlsx.
@@ -14,27 +14,51 @@ export async function GET() {
     );
   }
 
-  const [admissions, users] = await Promise.all([
-    prisma.admission.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      include: {
-        position: { select: { name: true } },
-        company: { select: { name: true } },
-        branch: { select: { name: true } },
-        stage: { select: { name: true } },
-        checklistItems: { select: { id: true, parentId: true, status: true } },
-        attachments: { select: { documentTypeId: true } },
-      },
-    }),
-    prisma.user.findMany({ select: { id: true, name: true } }),
+  const supabase = await createClient();
+  const [admissionsRes, usersRes, requiredRes] = await Promise.all([
+    supabase
+      .from("admissions")
+      .select(
+        `fullName, cpf, email, phone, birthDate, responsibleId, managerName, startDate,
+         medicalExamDate, salary, shift, uniformShirt, uniformPants, uniformShoe, createdAt,
+         position:admission_positions(name),
+         company:admission_companies(name),
+         branch:admission_branches(name),
+         stage:admission_stages(name),
+         checklistItems:admission_checklist_items(id, parentId, status),
+         attachments:admission_attachments(documentTypeId)`
+      )
+      .is("deletedAt", null)
+      .order("createdAt", { ascending: false }),
+    supabase.from("users").select("id, name"),
+    supabase.from("admission_document_types").select("id").eq("required", true),
   ]);
 
-  const requiredDocTypes = await prisma.documentType.findMany({
-    where: { required: true },
-    select: { id: true },
-  });
-  const requiredIds = requiredDocTypes.map((d) => d.id);
+  const admissions = (admissionsRes.data ?? []) as unknown as Array<{
+    fullName: string;
+    cpf: string | null;
+    email: string | null;
+    phone: string | null;
+    birthDate: string | null;
+    responsibleId: string | null;
+    managerName: string | null;
+    startDate: string | null;
+    medicalExamDate: string | null;
+    salary: number | string | null;
+    shift: string | null;
+    uniformShirt: string | null;
+    uniformPants: string | null;
+    uniformShoe: string | null;
+    createdAt: string | null;
+    position: { name: string } | null;
+    company: { name: string } | null;
+    branch: { name: string } | null;
+    stage: { name: string } | null;
+    checklistItems: Array<{ id: string; parentId: string | null; status: string }>;
+    attachments: Array<{ documentTypeId: string | null }>;
+  }>;
+  const users = (usersRes.data ?? []) as Array<{ id: string; name: string }>;
+  const requiredIds = ((requiredRes.data ?? []) as Array<{ id: string }>).map((d) => d.id);
 
   const userMap = new Map(users.map((u) => [u.id, u.name]));
 
@@ -67,8 +91,8 @@ export async function GET() {
     { header: "Criado em", key: "createdAt", width: 14 },
   ];
 
-  const fmtDate = (d: Date | null) =>
-    d ? d.toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "";
+  const fmtDate = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "";
 
   for (const a of admissions) {
     // Conta só as folhas (itens sem subtarefas), igual à ficha.

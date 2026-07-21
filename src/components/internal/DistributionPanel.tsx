@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { DistributionChannel, PublicationStatus } from "@prisma/client";
+import type { DistributionChannel, PublicationStatus } from "@/types/domain";
 import { Megaphone, Copy, Check, ExternalLink, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { CHANNELS, CHANNEL_KIND_LABEL } from "@/lib/distribution/channels";

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { CategoryManager } from "@/components/internal/admissao/CategoryManager";
 
 export const metadata: Metadata = { title: "Categorias de Admissões — RH" };
@@ -12,14 +12,30 @@ export default async function CategoriasPage() {
   const session = await auth();
   if (session?.user.role !== "ADMIN_RH") redirect("/admissoes");
 
-  const [companies, branches, positions, documentTypes, tags, stages] = await Promise.all([
-    prisma.company.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
-    prisma.branch.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
-    prisma.position.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
-    prisma.documentType.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, required: true } }),
-    prisma.admissionTag.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
-    prisma.admissionStage.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true } }),
-  ]);
+  const supabase = await createClient();
+  const [companiesRes, branchesRes, positionsRes, documentTypesRes, tagsRes, stagesRes] =
+    await Promise.all([
+      supabase.from("admission_companies").select("id, name").order("sortOrder", { ascending: true }),
+      supabase.from("admission_branches").select("id, name").order("sortOrder", { ascending: true }),
+      supabase.from("admission_positions").select("id, name").order("sortOrder", { ascending: true }),
+      supabase
+        .from("admission_document_types")
+        .select("id, name, required")
+        .order("sortOrder", { ascending: true }),
+      supabase.from("admission_tags").select("id, name, color").order("name", { ascending: true }),
+      supabase.from("admission_stages").select("id, name, color").order("sortOrder", { ascending: true }),
+    ]);
+
+  const companies = (companiesRes.data ?? []) as Array<{ id: string; name: string }>;
+  const branches = (branchesRes.data ?? []) as Array<{ id: string; name: string }>;
+  const positions = (positionsRes.data ?? []) as Array<{ id: string; name: string }>;
+  const documentTypes = (documentTypesRes.data ?? []) as Array<{
+    id: string;
+    name: string;
+    required: boolean;
+  }>;
+  const tags = (tagsRes.data ?? []) as Array<{ id: string; name: string; color: string }>;
+  const stages = (stagesRes.data ?? []) as Array<{ id: string; name: string; color: string }>;
 
   return (
     <div className="max-w-5xl">

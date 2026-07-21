@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CONFIG } from "@/lib/homepage-config";
 import { z } from "zod";
 
@@ -22,9 +22,12 @@ const homepageConfigSchema = z.object({
 });
 
 export async function GET() {
-  const config = await prisma.homepageConfig.findUnique({
-    where: { id: "singleton" },
-  });
+  const supabase = await createClient();
+  const { data: config } = await supabase
+    .from("homepage_config")
+    .select("*")
+    .eq("id", "singleton")
+    .maybeSingle();
   return NextResponse.json(config ?? DEFAULT_CONFIG);
 }
 
@@ -46,11 +49,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const config = await prisma.homepageConfig.upsert({
-    where: { id: "singleton" },
-    create: { id: "singleton", ...parsed.data },
-    update: parsed.data,
-  });
+  const supabase = await createClient();
+  const { data: config, error } = await supabase
+    .from("homepage_config")
+    .upsert({ id: "singleton", ...parsed.data }, { onConflict: "id" })
+    .select()
+    .single();
+
+  if (error || !config) {
+    return NextResponse.json({ error: "Erro ao salvar configuração" }, { status: 500 });
+  }
 
   revalidatePath("/");
 

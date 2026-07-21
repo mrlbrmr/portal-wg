@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Users, CheckCircle2, AlertTriangle, CalendarClock } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { getAdmissionConfig } from "@/lib/admissao/queries";
 import { DashboardCard } from "@/components/internal/DashboardCard";
 import {
@@ -17,41 +17,52 @@ export default async function AdmissoesPage() {
   const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const in7 = new Date(todayUTC.getTime() + 7 * 86400000);
 
-  const [session, config, admissions, total, doneCount, lateCount, upcomingCount] =
-    await Promise.all([
-      auth(),
-      getAdmissionConfig(),
-      prisma.admission.findMany({
-        where: { deletedAt: null },
-        orderBy: { createdAt: "desc" },
-        take: 300,
-        select: {
-          id: true,
-          fullName: true,
-          cpf: true,
-          startDate: true,
-          createdAt: true,
-          companyId: true,
-          responsibleId: true,
-          position: { select: { name: true } },
-          company: { select: { name: true } },
-          branch: { select: { name: true } },
-          stage: { select: { id: true, name: true, color: true } },
-        },
-      }),
-      prisma.admission.count({ where: { deletedAt: null } }),
-      prisma.admission.count({ where: { deletedAt: null, stage: { isFinal: true } } }),
-      prisma.admission.count({
-        where: {
-          deletedAt: null,
-          startDate: { lt: todayUTC },
-          OR: [{ stage: null }, { stage: { isFinal: false } }],
-        },
-      }),
-      prisma.admission.count({
-        where: { deletedAt: null, startDate: { gte: todayUTC, lte: in7 } },
-      }),
-    ]);
+  const supabase = await createClient();
+  const [session, config, admissionsRes, metricsRes] = await Promise.all([
+    auth(),
+    getAdmissionConfig(),
+    supabase
+      .from("admissions")
+      .select(
+        `id, fullName, cpf, startDate, createdAt, companyId, responsibleId,
+         position:admission_positions(name),
+         company:admission_companies(name),
+         branch:admission_branches(name),
+         stage:admission_stages(id, name, color)`
+      )
+      .is("deletedAt", null)
+      .order("createdAt", { ascending: false })
+      .limit(300),
+    // Métricas sobre TODAS as ativas (não só as 300 carregadas): computadas em JS.
+    supabase.from("admissions").select("startDate, stage:admission_stages(isFinal)").is("deletedAt", null),
+  ]);
+
+  const admissions = (admissionsRes.data ?? []) as unknown as Array<{
+    id: string;
+    fullName: string;
+    cpf: string | null;
+    startDate: string | null;
+    createdAt: string;
+    companyId: string | null;
+    responsibleId: string | null;
+    position: { name: string } | null;
+    company: { name: string } | null;
+    branch: { name: string } | null;
+    stage: { id: string; name: string; color: string } | null;
+  }>;
+
+  const metricRows = (metricsRes.data ?? []) as unknown as Array<{
+    startDate: string | null;
+    stage: { isFinal: boolean } | null;
+  }>;
+  const total = metricRows.length;
+  const doneCount = metricRows.filter((m) => m.stage?.isFinal).length;
+  const lateCount = metricRows.filter(
+    (m) => m.startDate && new Date(m.startDate) < todayUTC && !m.stage?.isFinal
+  ).length;
+  const upcomingCount = metricRows.filter(
+    (m) => m.startDate && new Date(m.startDate) >= todayUTC && new Date(m.startDate) <= in7
+  ).length;
 
   const canWrite = session?.user.role === "ADMIN_RH";
   const userMap = new Map(config.users.map((u) => [u.id, u.name]));
@@ -70,10 +81,10 @@ export default async function AdmissoesPage() {
     stageColor: a.stage?.color ?? null,
     responsibleName: a.responsibleId ? userMap.get(a.responsibleId) ?? null : null,
     startDate: a.startDate
-      ? a.startDate.toLocaleDateString("pt-BR", { timeZone: "UTC" })
+      ? new Date(a.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
       : null,
-    startDateISO: a.startDate ? a.startDate.toISOString().slice(0, 10) : null,
-    createdAt: a.createdAt.toISOString(),
+    startDateISO: a.startDate ? new Date(a.startDate).toISOString().slice(0, 10) : null,
+    createdAt: new Date(a.createdAt).toISOString(),
   }));
 
   return (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { MapPin, ArrowRight, Clock, Building2, Wallet, Star, Users, Sparkles } from "lucide-react";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
-import type { Job } from "@prisma/client";
+import type { Job } from "@/types/domain";
 import type { HomepageConfigData } from "@/lib/homepage-config";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;

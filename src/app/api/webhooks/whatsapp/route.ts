@@ -54,6 +54,15 @@ export async function POST(req: NextRequest) {
   const inbound = adapter.parseInbound(body)
   console.log('[webhook] inbound parseado:', inbound ? `type=${inbound.type} from=${inbound.from}` : 'null')
 
+  if (!inbound || inbound.type === 'unknown') {
+    // Loga body não reconhecido para diagnóstico
+    await createAdminClient().from('admission_activity_log').insert({
+      entity: 'WHATSAPP_BOT',
+      action: 'WEBHOOK_UNRECOGNIZED',
+      description: `Body não parseado: ${JSON.stringify(body).slice(0, 300)}`,
+    }).catch(() => {})
+  }
+
   // after() garante que o Vercel mantém a função viva até o processamento concluir
   if (inbound && inbound.type !== 'unknown') {
     after(async () => {

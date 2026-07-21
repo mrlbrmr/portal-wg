@@ -18,7 +18,6 @@ export async function createSession(
 
 export async function getActiveSession(phone: string): Promise<WhatsAppSession | null> {
   const supabase = createAdminClient()
-  // Normaliza para os formatos possíveis que a Z-API pode enviar
   const digits = phone.replace(/\D/g, '')
   const candidates = Array.from(new Set([
     digits,
@@ -26,15 +25,26 @@ export async function getActiveSession(phone: string): Promise<WhatsAppSession |
     digits.startsWith('55') ? digits.slice(2) : digits,
   ]))
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('whatsapp_admission_sessions')
     .select('*')
     .in('phone', candidates)
     .gt('expiresAt', new Date().toISOString())
-    .not('state', 'in', '(DONE,EXCEPTION)')
+    .neq('state', 'DONE')
+    .neq('state', 'EXCEPTION')
     .order('createdAt', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  if (error) {
+    // Loga no admission_activity_log para diagnóstico (visível no Supabase)
+    await supabase.from('admission_activity_log').insert({
+      entity: 'WHATSAPP_BOT',
+      action: 'GET_SESSION_ERROR',
+      description: `getActiveSession falhou para ${phone}: ${error.message}`,
+    }).catch(() => {})
+  }
+
   return data as unknown as WhatsAppSession | null
 }
 

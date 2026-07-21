@@ -18,12 +18,20 @@ export async function createSession(
 
 export async function getActiveSession(phone: string): Promise<WhatsAppSession | null> {
   const supabase = createAdminClient()
+  // Normaliza para os formatos possíveis que a Z-API pode enviar
+  const digits = phone.replace(/\D/g, '')
+  const candidates = Array.from(new Set([
+    digits,
+    digits.startsWith('55') ? digits : `55${digits}`,
+    digits.startsWith('55') ? digits.slice(2) : digits,
+  ]))
+
   const { data } = await supabase
     .from('whatsapp_admission_sessions')
     .select('*')
-    .eq('phone', phone)
+    .in('phone', candidates)
     .gt('expiresAt', new Date().toISOString())
-    .not('state', 'in', '("DONE","EXCEPTION")')
+    .not('state', 'in', '(DONE,EXCEPTION)')
     .order('createdAt', { ascending: false })
     .limit(1)
     .maybeSingle()

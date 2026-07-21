@@ -72,6 +72,12 @@ export async function POST(req: NextRequest) {
             .maybeSingle()
 
           if (!admission) {
+            // Log do número recebido para diagnóstico (ver admission_activity_log no Supabase)
+            await createAdminClient().from('admission_activity_log').insert({
+              entity: 'WHATSAPP_BOT',
+              action: 'UNKNOWN_PHONE',
+              description: `Número não encontrado: "${inbound.from}" (tipo: ${inbound.type})`,
+            }).catch(() => {})
             await getWhatsAppProvider(provider).sendText(inbound.from, BOT.notStarted).catch(() => {})
           }
           return

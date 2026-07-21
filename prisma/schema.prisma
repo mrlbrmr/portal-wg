@@ -93,8 +93,9 @@ model Job {
   title                String
   department           String?
   company              String? // Empresa / unidade (ex: "WG Baterias SP")
-  city                 String
-  state                String // UF (ex: "SP")
+  city                 String? // null = Banco de Talentos (múltiplas filiais)
+  state                String? // UF (ex: "SP"); null quando isTalentPool
+  isTalentPool         Boolean  @default(false)
   modality             Modality
   contractType         ContractType @default(CLT)
   description          String       @db.Text

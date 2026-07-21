@@ -97,8 +97,9 @@ export interface Job {
   title: string;
   department: string | null;
   company: string | null;
-  city: string;
-  state: string;
+  city: string | null;
+  state: string | null;
+  isTalentPool: boolean;
   modality: Modality;
   contractType: ContractType;
   description: string;

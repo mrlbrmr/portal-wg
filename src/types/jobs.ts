@@ -8,8 +8,9 @@ import type { JobStatus, Modality, ContractType, JobPriority } from "@/types/dom
 export interface JobRow {
   id: string;
   title: string;
-  city: string;
-  state: string;
+  city: string | null;
+  state: string | null;
+  isTalentPool: boolean;
   modality: Modality;
   contractType: ContractType;
   department: string | null;

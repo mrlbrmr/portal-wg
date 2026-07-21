@@ -140,7 +140,7 @@ export function formatAge(date: Date | string): string {
 // A partir de quantos dias uma vaga aberta é considerada "parada" (destaque).
 export const STALE_JOB_DAYS = 30;
 
-export function generateSlug(title: string, city: string): string {
+export function generateSlug(title: string, city: string | null): string {
   const accentMap: Record<string, string> = {
     "á":"a","à":"a","ã":"a","â":"a","ä":"a",
     "é":"e","è":"e","ê":"e","ë":"e",
@@ -149,7 +149,7 @@ export function generateSlug(title: string, city: string): string {
     "ú":"u","ù":"u","û":"u","ü":"u",
     "ç":"c","ñ":"n",
   };
-  return `${title} ${city}`
+  return (city ? `${title} ${city}` : title)
     .toLowerCase()
     .replace(/[áàãâäéèêëíìîïóòõôöúùûüçñ]/g, (c) => accentMap[c] ?? c)
     .replace(/[^a-z0-9\s]/g, "")

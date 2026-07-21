@@ -112,9 +112,9 @@ function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
             (JOB_PRIORITY_ORDER[a.priority] ?? 0) || byNewest(a, b)
       );
     case "city_asc":
-      return copy.sort((a, b) => a.city.localeCompare(b.city, "pt-BR"));
+      return copy.sort((a, b) => (a.city ?? "").localeCompare(b.city ?? "", "pt-BR"));
     case "state_asc":
-      return copy.sort((a, b) => a.state.localeCompare(b.state, "pt-BR"));
+      return copy.sort((a, b) => (a.state ?? "").localeCompare(b.state ?? "", "pt-BR"));
     case "title_asc":
       return copy.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
     case "date_desc":
@@ -169,7 +169,7 @@ export function JobsExplorer({
     if (q) {
       result = result.filter((job) => {
         const haystack = normalizeText(
-          `${job.title} ${job.city} ${job.department ?? ""}`
+          `${job.title} ${job.city ?? ""} ${job.department ?? ""}`
         );
         return haystack.includes(q);
       });
@@ -264,6 +264,7 @@ export function JobsExplorer({
             title: j.title,
             city: j.city,
             state: j.state,
+            isTalentPool: j.isTalentPool,
             modality: j.modality,
             status: j.status,
             priority: j.priority,
@@ -329,7 +330,11 @@ export function JobsExplorer({
                 </div>
                 <div className="flex flex-wrap gap-3 text-sm text-gray-500">
                   <span>
-                    {job.city} / {job.state}
+                    {job.isTalentPool
+                      ? "Banco de Talentos"
+                      : job.city
+                      ? `${job.city} / ${job.state}`
+                      : "Múltiplas cidades"}
                   </span>
                   <span>·</span>
                   <span>{MODALITY_LABELS[job.modality]}</span>

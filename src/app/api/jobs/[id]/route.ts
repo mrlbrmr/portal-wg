@@ -16,8 +16,9 @@ const updateJobSchema = z.object({
   title: z.string().min(2).optional(),
   department: z.string().optional().nullable(),
   company: z.string().optional().nullable(),
-  city: z.string().min(2).optional(),
-  state: z.string().length(2).optional(),
+  isTalentPool: z.boolean().optional(),
+  city: z.string().min(2).optional().nullable(),
+  state: z.string().length(2).optional().nullable(),
   modality: z.nativeEnum(Modality).optional(),
   contractType: z.nativeEnum(ContractType).optional(),
   description: richText(10, "Descrição obrigatória").optional(),
@@ -89,11 +90,11 @@ export async function PATCH(
     .maybeSingle();
   if (!current) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
 
-  // Regenerar slug se título ou cidade mudaram
+  // Regenerar slug se título ou cidade mudaram (city pode ser null p/ banco de talentos)
   let slugUpdate: { slug: string } | undefined;
-  if (title || city) {
+  if (title !== undefined || city !== undefined) {
     const newTitle = title ?? current.title;
-    const newCity = city ?? current.city;
+    const newCity = city !== undefined ? city : (current.city as string | null);
     const baseSlug = generateSlug(newTitle, newCity);
     let slug = baseSlug;
     let counter = 1;
@@ -112,8 +113,8 @@ export async function PATCH(
 
   const updateData: Record<string, unknown> = {
     ...rest,
-    ...(title ? { title } : {}),
-    ...(city ? { city } : {}),
+    ...(title !== undefined ? { title } : {}),
+    ...(city !== undefined ? { city } : {}),
     ...slugUpdate,
     ...(closingDate !== undefined
       ? { closingDate: closingDate ? new Date(closingDate).toISOString() : null }

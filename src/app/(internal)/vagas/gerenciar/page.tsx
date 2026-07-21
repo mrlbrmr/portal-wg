@@ -51,7 +51,7 @@ export default async function GerenciarVagasPage({
     supabase
       .from("jobs")
       .select(
-        "id, title, city, state, modality, contractType, department, responsible, status, priority, slug, createdAt, updatedAt"
+        "id, title, city, state, isTalentPool, modality, contractType, department, responsible, status, priority, slug, createdAt, updatedAt"
       )
       .order("createdAt", { ascending: false })
       .limit(200),
@@ -75,7 +75,7 @@ export default async function GerenciarVagasPage({
       .eq("stageId", "HIRED"),
     supabase
       .from("job_status_history")
-      .select("jobId, changedAt, job:jobs(createdAt)")
+      .select("jobId, changedAt, job:jobs(createdAt, isTalentPool)")
       .in("status", ["CLOSED", "FILLED"])
       .order("changedAt", { ascending: true }),
   ]);
@@ -83,8 +83,9 @@ export default async function GerenciarVagasPage({
   const jobs = (jobsRes.data ?? []) as Array<{
     id: string;
     title: string;
-    city: string;
-    state: string;
+    city: string | null;
+    state: string | null;
+    isTalentPool: boolean;
     modality: string;
     contractType: string;
     department: string | null;
@@ -113,11 +114,11 @@ export default async function GerenciarVagasPage({
   const closedHistory = (closedRes.data ?? []) as unknown as Array<{
     jobId: string;
     changedAt: string;
-    job: { createdAt: string } | null;
+    job: { createdAt: string; isTalentPool: boolean } | null;
   }>;
   const firstClosePerJob = new Map<string, { changedAt: string; createdAt: string }>();
   for (const h of closedHistory) {
-    if (!firstClosePerJob.has(h.jobId) && h.job) {
+    if (!firstClosePerJob.has(h.jobId) && h.job && !h.job.isTalentPool) {
       firstClosePerJob.set(h.jobId, {
         changedAt: h.changedAt,
         createdAt: h.job.createdAt,
@@ -140,6 +141,7 @@ export default async function GerenciarVagasPage({
     title: job.title,
     city: job.city,
     state: job.state,
+    isTalentPool: job.isTalentPool,
     modality: job.modality,
     contractType: job.contractType,
     department: job.department,

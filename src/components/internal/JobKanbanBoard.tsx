@@ -18,8 +18,9 @@ import {
 export interface KanbanJob {
   id: string;
   title: string;
-  city: string;
-  state: string;
+  city: string | null;
+  state: string | null;
+  isTalentPool?: boolean;
   modality: string;
   status: string;
   priority: string;
@@ -70,7 +71,12 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
             <PriorityBadge priority={j.priority} className="shrink-0" />
           </div>
           <p className="text-[11px] text-gray-500 mt-1">
-            {j.city}/{j.state} · {MODALITY_LABELS[j.modality]}
+            {j.isTalentPool
+              ? "Banco de Talentos"
+              : j.city
+              ? `${j.city}/${j.state}`
+              : "Múltiplas cidades"}{" "}
+            · {MODALITY_LABELS[j.modality]}
           </p>
           <p className="text-[11px] text-gray-500 mt-0.5">
             Criada {formatAge(j.createdAt)}

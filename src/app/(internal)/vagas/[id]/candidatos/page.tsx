@@ -21,7 +21,7 @@ export default async function CandidatosPage({ params }: Props) {
   // auth + job em paralelo (independentes entre si)
   const [session, { data: job }] = await Promise.all([
     auth(),
-    supabase.from("jobs").select("id, title, city, state").eq("id", id).maybeSingle(),
+    supabase.from("jobs").select("id, title, city, state, isTalentPool").eq("id", id).maybeSingle(),
   ]);
   if (!job) notFound();
 
@@ -80,7 +80,12 @@ export default async function CandidatosPage({ params }: Props) {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{job.title}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {job.city}/{job.state} · Candidatos por etapa
+            {job.isTalentPool
+            ? "Banco de Talentos"
+            : job.city
+            ? `${job.city}/${job.state}`
+            : "Múltiplas cidades"}{" "}
+          · Candidatos por etapa
           </p>
         </div>
         <div className="flex items-center gap-3">

@@ -14,8 +14,8 @@ export interface JobForDistribution {
   id: string;
   title: string;
   slug: string | null;
-  city: string;
-  state: string;
+  city: string | null;
+  state: string | null;
   department: string | null;
   company: string | null;
   modality: string;

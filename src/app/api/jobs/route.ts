@@ -14,12 +14,14 @@ function richText(minChars: number, message: string) {
     .refine((html) => html.replace(/<[^>]*>/g, "").trim().length >= minChars, message);
 }
 
-const jobSchema = z.object({
+const jobSchema = z
+  .object({
   title: z.string().min(2, "Título obrigatório"),
   department: z.string().optional(),
   company: z.string().optional(),
-  city: z.string().min(2, "Cidade obrigatória"),
-  state: z.string().length(2, "UF deve ter 2 caracteres"),
+  isTalentPool: z.boolean().optional().default(false),
+  city: z.string().min(2, "Cidade obrigatória").optional().nullable(),
+  state: z.string().length(2, "UF deve ter 2 caracteres").optional().nullable(),
   modality: z.nativeEnum(Modality),
   contractType: z.nativeEnum(ContractType),
   description: richText(10, "Descrição obrigatória"),
@@ -36,6 +38,16 @@ const jobSchema = z.object({
   hiringDeadline: z.string().optional().nullable(),
   priority: z.nativeEnum(JobPriority).default("MEDIUM"),
   status: z.nativeEnum(JobStatus).default("ACTIVE"),
+})
+.superRefine((data, ctx) => {
+  if (!data.isTalentPool) {
+    if (!data.city || data.city.length < 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["city"], message: "Cidade obrigatória" });
+    }
+    if (!data.state || data.state.length !== 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["state"], message: "UF deve ter 2 caracteres" });
+    }
+  }
 });
 
 export async function GET(req: NextRequest) {
@@ -109,11 +121,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, hiringDeadline, title, city, ...rest } = parsed.data;
+  const { closingDate, hiringDeadline, title, city = null, ...rest } = parsed.data;
 
   const supabase = await createClient();
 
-  // Gerar slug único (checa colisão no banco)
+  // Gerar slug único (checa colisão no banco); city é null p/ banco de talentos
   const baseSlug = generateSlug(title, city);
   let slug = baseSlug;
   let counter = 1;

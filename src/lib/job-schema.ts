@@ -9,8 +9,8 @@ export interface JobForSchema {
   title: string;
   slug: string | null;
   description: string;
-  city: string;
-  state: string;
+  city: string | null;
+  state: string | null;
   department: string | null;
   company: string | null;
   modality: string;
@@ -73,15 +73,19 @@ export function buildJobPostingJsonLd(
       sameAs: "https://www.wgbaterias.com.br",
       logo: `${baseUrl}/icon.png`,
     },
-    jobLocation: {
-      "@type": "Place",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: job.city,
-        addressRegion: job.state,
-        addressCountry: "BR",
-      },
-    },
+    ...(job.city || job.state
+      ? {
+          jobLocation: {
+            "@type": "Place",
+            address: {
+              "@type": "PostalAddress",
+              ...(job.city ? { addressLocality: job.city } : {}),
+              ...(job.state ? { addressRegion: job.state } : {}),
+              addressCountry: "BR",
+            },
+          },
+        }
+      : {}),
     employmentType: EMPLOYMENT_TYPE[job.contractType] ?? "OTHER",
     datePosted: new Date(job.createdAt).toISOString().split("T")[0],
     url: jobUrl,

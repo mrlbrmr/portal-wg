@@ -148,7 +148,7 @@ export async function removeJobFromChannel(
 export function buildAnnouncementText(job: JobForDistribution): string {
   const lines: string[] = [];
   lines.push(`🚀 Vaga: ${job.title}`);
-  const loc = `📍 ${job.city}/${job.state} · ${MODALITY_LABELS[job.modality] ?? job.modality}`;
+  const loc = `📍 ${job.city ? `${job.city}/${job.state}` : "Banco de Talentos"} · ${MODALITY_LABELS[job.modality] ?? job.modality}`;
   lines.push(loc);
   lines.push(`📄 ${CONTRACT_TYPE_LABELS[job.contractType] ?? job.contractType}`);
   if (job.salaryRange) lines.push(`💰 ${job.salaryRange}`);

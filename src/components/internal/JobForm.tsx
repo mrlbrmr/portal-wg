@@ -48,6 +48,7 @@ export default function JobForm({ job }: Props) {
     benefits: job?.benefits ?? "",
   });
 
+  const [isTalentPool, setIsTalentPool] = useState(job?.isTalentPool ?? false);
   const [salaryRange, setSalaryRange] = useState(job?.salaryRange ?? "");
   const [highlightBenefit, setHighlightBenefit] = useState(
     job?.highlightBenefit ?? ""
@@ -85,8 +86,9 @@ export default function JobForm({ job }: Props) {
       title: formData.get("title"),
       department: formData.get("department") || undefined,
       company: formData.get("company") || undefined,
-      city: formData.get("city"),
-      state: formData.get("state"),
+      isTalentPool,
+      city: isTalentPool ? null : formData.get("city"),
+      state: isTalentPool ? null : formData.get("state"),
       modality: formData.get("modality"),
       contractType: formData.get("contractType"),
       description: richFields.description,
@@ -252,36 +254,57 @@ export default function JobForm({ job }: Props) {
           </select>
         </div>
 
-        <div>
-          <label className={labelClass}>
-            Cidade <span className="text-red-500">*</span>
+        <div className="col-span-2">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isTalentPool}
+              onChange={(e) => setIsTalentPool(e.target.checked)}
+              className="w-4 h-4 accent-wg-green"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              Banco de Talentos
+            </span>
+            <span className="text-xs text-gray-500">
+              — coleta de currículos, sem cidade específica (múltiplas filiais)
+            </span>
           </label>
-          <input
-            type="text"
-            name="city"
-            required
-            defaultValue={job?.city}
-            className={inputClass}
-          />
         </div>
 
-        <div>
-          <label className={labelClass}>
-            UF <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="state"
-            required
-            defaultValue={job?.state || "SP"}
-            className={inputClass}
-          >
-            {BRAZIL_STATES.map((uf) => (
-              <option key={uf} value={uf} className="bg-white">
-                {uf}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!isTalentPool && (
+          <>
+            <div>
+              <label className={labelClass}>
+                Cidade <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="city"
+                required
+                defaultValue={job?.city ?? ""}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                UF <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="state"
+                required
+                defaultValue={job?.state ?? "SP"}
+                className={inputClass}
+              >
+                {BRAZIL_STATES.map((uf) => (
+                  <option key={uf} value={uf} className="bg-white">
+                    {uf}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
 
         <div>
           <label className={labelClass}>

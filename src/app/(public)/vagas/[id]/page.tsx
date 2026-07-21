@@ -35,12 +35,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const job = await findJob(id);
   if (!job) return { title: "Vaga não encontrada" };
+  const location = job.city ? `${job.city}/${job.state}` : "Banco de Talentos";
   return {
-    title: `${job.title} — ${job.city}/${job.state}`,
-    description: `Vaga de ${job.title}${job.department ? ` em ${job.department}` : ""} no Grupo WG Baterias em ${job.city}/${job.state}. Candidate-se agora!`,
+    title: `${job.title} — ${location}`,
+    description: `Vaga de ${job.title}${job.department ? ` em ${job.department}` : ""} no Grupo WG Baterias${job.city ? ` em ${location}` : ""}. Candidate-se agora!`,
     openGraph: {
       title: `${job.title} — Carreiras WG`,
-      description: `Oportunidade em ${job.city}/${job.state}. Faça parte do Grupo WG!`,
+      description: `Oportunidade${job.city ? ` em ${location}` : " no Banco de Talentos"}. Faça parte do Grupo WG!`,
     },
   };
 }
@@ -62,9 +63,13 @@ export default async function JobPage({ params }: Props) {
     .neq("id", job.id)
     .in("status", PUBLIC_JOB_STATUSES as readonly string[])
     .or(`closingDate.is.null,closingDate.gte.${now.toISOString()}`);
-  simQuery = job.department
-    ? simQuery.or(`department.eq."${job.department}",city.eq."${job.city}"`)
-    : simQuery.eq("city", job.city);
+  if (job.department && job.city) {
+    simQuery = simQuery.or(`department.eq."${job.department}",city.eq."${job.city}"`);
+  } else if (job.department) {
+    simQuery = simQuery.eq("department", job.department);
+  } else if (job.city) {
+    simQuery = simQuery.eq("city", job.city);
+  }
   const { data: similarData } = await simQuery.order("createdAt", { ascending: false }).limit(3);
   const similar = (similarData ?? []) as unknown as Array<
     Pick<Job, "id" | "slug" | "title" | "city" | "state" | "modality" | "department">
@@ -126,7 +131,7 @@ export default async function JobPage({ params }: Props) {
             <div className="flex flex-wrap gap-4 mt-4 text-sm text-gray-600">
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-4 h-4 text-wg-green" />
-                {job.city} / {job.state}
+                {job.city ? `${job.city} / ${job.state}` : "Banco de Talentos"}
               </span>
               <span className="flex items-center gap-1.5">
                 <Briefcase className="w-4 h-4 text-wg-green" />

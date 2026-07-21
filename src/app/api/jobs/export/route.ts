@@ -19,6 +19,7 @@ const STATUS_LABELS: Record<string, string> = {
   ADMISSION: "Admissão",
   PAUSED: "Pausada",
   CLOSED: "Cancelada",
+  FILLED: "Finalizada",
 };
 
 const CONTRACT_LABELS: Record<string, string> = {

@@ -8,6 +8,7 @@ import {
   Pencil,
   Copy,
   XCircle,
+  CheckCircle2,
   Trash2,
   Loader2,
 } from "lucide-react";
@@ -20,7 +21,7 @@ interface Props {
   status: string;
 }
 
-type ConfirmAction = "cancel" | "delete" | null;
+type ConfirmAction = "cancel" | "finish" | "delete" | null;
 
 /**
  * Menu de ações (kebab "…") por vaga na tela de gerenciamento. Consolida
@@ -76,14 +77,15 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
     }
   }
 
-  async function execute(action: "cancel" | "delete") {
+  async function execute(action: "cancel" | "finish" | "delete") {
     setLoading(action);
+    const newStatus = action === "cancel" ? "CLOSED" : action === "finish" ? "FILLED" : null;
     try {
       const res = await fetch(`/api/jobs/${jobId}`, {
         method: action === "delete" ? "DELETE" : "PATCH",
         credentials: "same-origin",
-        headers: action === "cancel" ? { "Content-Type": "application/json" } : undefined,
-        body: action === "cancel" ? JSON.stringify({ status: "CLOSED" }) : undefined,
+        headers: newStatus ? { "Content-Type": "application/json" } : undefined,
+        body: newStatus ? JSON.stringify({ status: newStatus }) : undefined,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -94,6 +96,8 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
         "success",
         action === "cancel"
           ? `"${jobTitle}" foi cancelada.`
+          : action === "finish"
+          ? `"${jobTitle}" foi finalizada.`
           : `"${jobTitle}" foi excluída.`
       );
       router.refresh();
@@ -156,6 +160,20 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
 
             <div className="my-1 border-t border-gray-100" />
 
+            {status !== "FILLED" && (
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-emerald-700 transition-colors hover:bg-emerald-50"
+                onClick={() => {
+                  setOpen(false);
+                  setPendingAction("finish");
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Finalizar vaga
+              </button>
+            )}
             {status !== "CLOSED" && (
               <button
                 type="button"
@@ -195,6 +213,19 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
         onConfirm={() => {
           setPendingAction(null);
           execute("cancel");
+        }}
+        onCancel={() => setPendingAction(null)}
+      />
+
+      <ConfirmModal
+        isOpen={pendingAction === "finish"}
+        title="Finalizar vaga?"
+        message={`"${jobTitle}" será marcada como Finalizada, sairá do portal público e passará a contar nos indicadores de vagas concluídas.`}
+        confirmLabel="Sim, finalizar"
+        variant="warning"
+        onConfirm={() => {
+          setPendingAction(null);
+          execute("finish");
         }}
         onCancel={() => setPendingAction(null)}
       />

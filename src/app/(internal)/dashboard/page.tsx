@@ -28,6 +28,7 @@ export default async function DashboardPage() {
     activeJobsRes,
     pausedJobsRes,
     closedJobsRes,
+    filledJobsRes,
     draftJobsRes,
     expiringSoonRes,
     openedLongRes,
@@ -44,6 +45,7 @@ export default async function DashboardPage() {
     supabase.from("jobs").select("*", { count: "exact", head: true }).in("status", publicStatuses),
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "PAUSED"),
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "CLOSED"),
+    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "FILLED"),
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "DRAFT"),
     supabase
       .from("jobs")
@@ -95,6 +97,7 @@ export default async function DashboardPage() {
   const activeJobs = activeJobsRes.count ?? 0;
   const pausedJobs = pausedJobsRes.count ?? 0;
   const closedJobs = closedJobsRes.count ?? 0;
+  const filledJobs = filledJobsRes.count ?? 0;
   const draftJobs = draftJobsRes.count ?? 0;
   const expiringSoon = expiringSoonRes.count ?? 0;
   const openedLong = openedLongRes.count ?? 0;
@@ -152,6 +155,7 @@ export default async function DashboardPage() {
     ADMISSION: "bg-cyan-100 text-cyan-700",
     PAUSED: "bg-orange-100 text-orange-700",
     CLOSED: "bg-gray-200 text-gray-600",
+    FILLED: "bg-emerald-100 text-emerald-700",
   };
   const statusLabel: Record<string, string> = {
     DRAFT: "Rascunho",
@@ -161,6 +165,7 @@ export default async function DashboardPage() {
     ADMISSION: "Admissão",
     PAUSED: "Pausada",
     CLOSED: "Cancelada",
+    FILLED: "Finalizada",
   };
 
 
@@ -192,6 +197,13 @@ export default async function DashboardPage() {
       icon: XCircle as ElementType,
       iconClass: "bg-gray-200 text-gray-600",
       href: "/vagas/gerenciar?status=CLOSED",
+    },
+    {
+      label: "Vagas Finalizadas",
+      value: filledJobs,
+      icon: CheckCircle2 as ElementType,
+      iconClass: "bg-emerald-100 text-emerald-600",
+      href: "/vagas/gerenciar?status=FILLED",
     },
   ];
 
@@ -245,7 +257,7 @@ export default async function DashboardPage() {
       )}
 
       {/* Cards de métricas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         {stats.map((stat) => (
           <div key={stat.label} className="bg-white border border-gray-200 shadow-sm rounded-xl p-4">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${stat.iconClass}`}>

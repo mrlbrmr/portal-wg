@@ -25,6 +25,7 @@ export const JobStatus = {
   ADMISSION: "ADMISSION",
   PAUSED: "PAUSED",
   CLOSED: "CLOSED",
+  FILLED: "FILLED",
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
 

@@ -82,6 +82,7 @@ const STATUS_BADGE: Record<string, string> = {
   ADMISSION: "bg-cyan-100 text-cyan-700",
   PAUSED: "bg-orange-100 text-orange-700",
   CLOSED: "bg-gray-200 text-gray-600",
+  FILLED: "bg-emerald-100 text-emerald-700",
 };
 
 // Desempate estável: dentro do mesmo critério, mais recentes primeiro.

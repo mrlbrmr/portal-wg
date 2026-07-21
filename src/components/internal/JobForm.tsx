@@ -232,6 +232,7 @@ export default function JobForm({ job }: Props) {
             <option value="ADMISSION" className="bg-white">Admissão — no portal (etapa interna)</option>
             <option value="PAUSED" className="bg-white">Pausada — fora do portal</option>
             <option value="CLOSED" className="bg-white">Cancelada — fora do portal</option>
+            <option value="FILLED" className="bg-white">Finalizada — fora do portal</option>
           </select>
         </div>
 

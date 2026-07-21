@@ -40,6 +40,7 @@ const STATUSES: KanbanColumnDef[] = [
   { key: "ADMISSION", label: "Admissão", dot: "bg-cyan-400" },
   { key: "PAUSED", label: "Pausada", dot: "bg-orange-400" },
   { key: "CLOSED", label: "Cancelada", dot: "bg-wg-gray" },
+  { key: "FILLED", label: "Finalizada", dot: "bg-emerald-500" },
 ];
 
 export function JobKanbanBoard({ jobs, canManage }: Props) {

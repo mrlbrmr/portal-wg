@@ -76,7 +76,7 @@ export default async function GerenciarVagasPage({
     supabase
       .from("job_status_history")
       .select("jobId, changedAt, job:jobs(createdAt)")
-      .eq("status", "CLOSED")
+      .in("status", ["CLOSED", "FILLED"])
       .order("changedAt", { ascending: true }),
   ]);
 
@@ -108,7 +108,8 @@ export default async function GerenciarVagasPage({
   }
 
   // Tempo médio p/ fechamento: dias entre a criação da vaga e o 1º encerramento
-  // (CLOSED), média sobre as vagas já encerradas. Deriva de JobStatusHistory.
+  // (CLOSED ou FILLED), média sobre as vagas já encerradas/finalizadas. Deriva
+  // de JobStatusHistory.
   const closedHistory = (closedRes.data ?? []) as unknown as Array<{
     jobId: string;
     changedAt: string;

@@ -52,6 +52,7 @@ export const JOB_STATUS_LABELS: Record<string, string> = {
   ADMISSION: "Admissão",
   PAUSED: "Pausada",
   CLOSED: "Cancelada",
+  FILLED: "Finalizada",
 };
 
 // Status em que a vaga fica VISÍVEL no portal público (e aceitando inscrições).

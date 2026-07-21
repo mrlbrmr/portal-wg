@@ -51,7 +51,8 @@ enum JobStatus {
   INTERVIEW // Entrevistas — etapa interna; vaga segue visível no portal
   ADMISSION // Admissão — etapa interna; vaga segue visível no portal
   PAUSED // Pausada temporariamente (não aparece no portal)
-  CLOSED // Cancelada/Encerrada (não aparece no portal)
+  CLOSED // Cancelada/Encerrada sem contratação (não aparece no portal)
+  FILLED // Finalizada — processo concluído/preenchida (não aparece no portal)
 }
 
 enum Modality {

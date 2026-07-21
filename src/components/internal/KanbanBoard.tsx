@@ -16,33 +16,37 @@ export interface KanbanApplication {
   email: string;
   phone: string;
   resumeName: string | null;
-  stage: string;
+  stageId: string;
   source: string;
   createdAt: string; // ISO
 }
 
+export interface KanbanStage {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface Props {
   applications: KanbanApplication[];
+  stages: KanbanStage[];
   canManage: boolean;
 }
 
-const STAGES: KanbanColumnDef[] = [
-  { key: "NEW", label: "Novo", dot: "bg-blue-400" },
-  { key: "SCREENING", label: "Triagem", dot: "bg-amber-400" },
-  { key: "INTERVIEW", label: "Entrevista", dot: "bg-purple-400" },
-  { key: "OFFER", label: "Proposta", dot: "bg-cyan-400" },
-  { key: "HIRED", label: "Contratado", dot: "bg-wg-green" },
-  { key: "REJECTED", label: "Reprovado", dot: "bg-red-400" },
-];
-
-export function KanbanBoard({ applications, canManage }: Props) {
+export function KanbanBoard({ applications, stages, canManage }: Props) {
   const [detailId, setDetailId] = useState<string | null>(null);
+
+  const columns: KanbanColumnDef[] = stages.map((s) => ({
+    key: s.id,
+    label: s.name,
+    dotColor: s.color,
+  }));
 
   return (
     <>
     <KanbanBoardShell<KanbanApplication>
       initialItems={applications}
-      columns={STAGES}
+      columns={columns}
       canManage={canManage}
       cardClassName="group"
       filterFn={(a, q) => {
@@ -54,14 +58,14 @@ export function KanbanBoard({ applications, canManage }: Props) {
       }}
       searchPlaceholder="Pesquisar candidato..."
       getId={(a) => a.id}
-      getColumn={(a) => a.stage}
-      applyColumn={(a, stage) => ({ ...a, stage })}
-      onMove={(id, stage) =>
+      getColumn={(a) => a.stageId}
+      applyColumn={(a, stageId) => ({ ...a, stageId })}
+      onMove={(id, stageId) =>
         fetch(`/api/applications/${id}`, {
           method: "PATCH",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stage }),
+          body: JSON.stringify({ stageId }),
         })
       }
       moveSuccess={(a, label) => `${a.fullName} movido para ${label}.`}

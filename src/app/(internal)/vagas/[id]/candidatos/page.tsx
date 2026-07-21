@@ -26,11 +26,20 @@ export default async function CandidatosPage({ params }: Props) {
     .maybeSingle();
   if (!job) notFound();
 
-  const { data: applications } = await supabase
-    .from("applications")
-    .select("id, fullName, email, phone, resumeName, stage, source, createdAt")
-    .eq("jobId", id)
-    .order("createdAt", { ascending: false });
+  const [{ data: applications }, { data: stagesData }] = await Promise.all([
+    supabase
+      .from("applications")
+      .select("id, fullName, email, phone, resumeName, stageId, source, createdAt")
+      .eq("jobId", id)
+      .order("createdAt", { ascending: false }),
+    supabase
+      .from("application_stages")
+      .select("id, name, color")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true }),
+  ]);
+
+  const stages = (stagesData ?? []) as Array<{ id: string; name: string; color: string }>;
 
   const cards: KanbanApplication[] = ((applications ?? []) as Array<{
     id: string;
@@ -38,7 +47,7 @@ export default async function CandidatosPage({ params }: Props) {
     email: string;
     phone: string;
     resumeName: string | null;
-    stage: string;
+    stageId: string;
     source: string;
     createdAt: string;
   }>).map((a) => ({
@@ -47,7 +56,7 @@ export default async function CandidatosPage({ params }: Props) {
     email: a.email,
     phone: a.phone,
     resumeName: a.resumeName,
-    stage: a.stage as KanbanApplication["stage"],
+    stageId: a.stageId,
     source: a.source,
     createdAt: new Date(a.createdAt).toISOString(),
   }));
@@ -92,7 +101,7 @@ export default async function CandidatosPage({ params }: Props) {
           />
         </div>
       ) : (
-        <KanbanBoard key={cards.length} applications={cards} canManage={canManage} />
+        <KanbanBoard key={cards.length} applications={cards} stages={stages} canManage={canManage} />
       )}
     </div>
   );

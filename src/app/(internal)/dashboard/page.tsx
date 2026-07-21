@@ -67,7 +67,7 @@ export default async function DashboardPage() {
       .gte("createdAt", startOfLastMonth.toISOString())
       .lt("createdAt", startOfThisMonth.toISOString()),
     supabase.from("applications").select("*", { count: "exact", head: true }),
-    supabase.from("applications").select("*", { count: "exact", head: true }).eq("stage", "NEW"),
+    supabase.from("applications").select("*", { count: "exact", head: true }).eq("stageId", "NEW"),
     // Admissões: carrega as ativas com o flag isFinal da etapa e computa as
     // 4 métricas no JS (supabase-js não filtra count por coluna de relação).
     supabase
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
       .limit(6),
     supabase
       .from("applications")
-      .select("id, fullName, stage, createdAt, jobId, job:jobs(title)")
+      .select("id, fullName, createdAt, jobId, job:jobs(title), stage:application_stages(name, color)")
       .order("createdAt", { ascending: false })
       .limit(5),
   ]);
@@ -138,7 +138,7 @@ export default async function DashboardPage() {
   const recentApplications = (recentApplicationsRes.data ?? []) as unknown as Array<{
     id: string;
     fullName: string;
-    stage: string;
+    stage: { name: string; color: string } | null;
     createdAt: string;
     jobId: string;
     job: { title: string } | null;
@@ -163,22 +163,6 @@ export default async function DashboardPage() {
     CLOSED: "Cancelada",
   };
 
-  const stageLabel: Record<string, string> = {
-    NEW: "Novo",
-    SCREENING: "Triagem",
-    INTERVIEW: "Entrevista",
-    OFFER: "Proposta",
-    HIRED: "Contratado",
-    REJECTED: "Reprovado",
-  };
-  const stageBadge: Record<string, string> = {
-    NEW: "bg-blue-100 text-blue-700",
-    SCREENING: "bg-amber-100 text-amber-700",
-    INTERVIEW: "bg-purple-100 text-purple-700",
-    OFFER: "bg-cyan-100 text-cyan-700",
-    HIRED: "bg-wg-green/15 text-wg-green-dark",
-    REJECTED: "bg-red-100 text-red-700",
-  };
 
   const stats = [
     {
@@ -324,9 +308,14 @@ export default async function DashboardPage() {
                   <span className="text-sm font-medium text-gray-900">{app.fullName}</span>
                   <span className="text-xs text-gray-500 ml-2">{app.job?.title}</span>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${stageBadge[app.stage]}`}>
-                  {stageLabel[app.stage]}
-                </span>
+                {app.stage && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+                    style={{ backgroundColor: `${app.stage.color}1f`, color: app.stage.color }}
+                  >
+                    {app.stage.name}
+                  </span>
+                )}
               </Link>
             ))}
           </div>

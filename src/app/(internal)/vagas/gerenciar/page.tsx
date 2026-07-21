@@ -68,11 +68,11 @@ export default async function GerenciarVagasPage({
     supabase
       .from("applications")
       .select("*", { count: "exact", head: true })
-      .eq("stage", "INTERVIEW"),
+      .eq("stageId", "INTERVIEW"),
     supabase
       .from("applications")
       .select("*", { count: "exact", head: true })
-      .eq("stage", "HIRED"),
+      .eq("stageId", "HIRED"),
     supabase
       .from("job_status_history")
       .select("jobId, changedAt, job:jobs(createdAt)")

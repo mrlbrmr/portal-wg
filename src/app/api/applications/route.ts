@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 
   await supabase.from("application_stage_history").insert({
     applicationId: application.id,
-    stage: "NEW",
+    stageId: "NEW",
     changedBy: "Candidato (inscrição)",
   });
 

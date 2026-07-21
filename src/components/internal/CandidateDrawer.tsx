@@ -4,17 +4,17 @@ import { useEffect, useState } from "react";
 import { X, Mail, Phone, Download, Clock, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastProvider";
-import {
-  APPLICATION_STAGE_LABELS,
-  APPLICATION_STAGE_BADGE,
-  formatDate,
-  formatDateTime,
-} from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
+
+interface StageRef {
+  name: string;
+  color: string;
+}
 
 interface StageHistoryEntry {
   id: string;
-  stage: string;
+  stage: StageRef | null;
   changedBy: string;
   changedAt: string;
 }
@@ -25,12 +25,18 @@ interface CandidateDetail {
   email: string;
   phone: string;
   resumeName: string | null;
-  stage: string;
+  stage: StageRef | null;
   source: string;
   addedBy: string | null;
   notes: string | null;
   createdAt: string;
   stageHistory: StageHistoryEntry[];
+}
+
+/** Badge de etapa com a cor configurável do funil (mesmo padrão das admissões). */
+function stageStyle(color: string | undefined) {
+  const c = color ?? "#94a3b8";
+  return { backgroundColor: `${c}1f`, color: c };
 }
 
 interface Props {
@@ -155,11 +161,14 @@ export function CandidateDrawer({ applicationId, canManage, onClose }: Props) {
                     )}
                   </p>
                 </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${APPLICATION_STAGE_BADGE[data.stage] ?? ""}`}
-                >
-                  {APPLICATION_STAGE_LABELS[data.stage] ?? data.stage}
-                </span>
+                {data.stage && (
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={stageStyle(data.stage.color)}
+                  >
+                    {data.stage.name}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -242,9 +251,10 @@ export function CandidateDrawer({ applicationId, canManage, onClose }: Props) {
                         <span className="absolute -left-[5px] mt-1.5 h-2 w-2 rounded-full bg-wg-green" />
                         <div className="flex flex-wrap items-center gap-2">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${APPLICATION_STAGE_BADGE[h.stage] ?? ""}`}
+                            className="rounded-full px-2 py-0.5 text-xs font-medium"
+                            style={stageStyle(h.stage?.color)}
                           >
-                            {APPLICATION_STAGE_LABELS[h.stage] ?? h.stage}
+                            {h.stage?.name ?? "—"}
                           </span>
                           <span className="text-xs text-gray-400">
                             {formatDateTime(h.changedAt)}

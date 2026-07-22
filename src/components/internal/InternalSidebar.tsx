@@ -74,7 +74,6 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
 
   const avaliacoesSub: NavLink[] = [
     { href: "/avaliacoes/banco", label: "Banco de Testes", icon: BookOpen },
-    ...(isAdmin ? [{ href: "/avaliacoes/configuracoes", label: "Configurações", icon: Settings }] : []),
   ];
 
   function itemClass(active: boolean) {

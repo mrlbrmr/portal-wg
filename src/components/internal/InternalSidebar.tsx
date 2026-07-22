@@ -17,7 +17,8 @@ import {
   History,
   ChevronDown,
   ChevronRight,
-  MessageSquare,
+  FlaskConical,
+  BookOpen,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,12 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
   const perfilLink: NavLink = { href: "/perfil", label: "Meu Perfil", icon: UserCircle };
 
   const admissaoActive = pathname === "/admissoes" || pathname.startsWith("/admissoes/");
+  const avaliacoesActive = pathname.startsWith("/avaliacoes");
+
+  const avaliacoesSub: NavLink[] = [
+    { href: "/avaliacoes/banco", label: "Banco de Testes", icon: BookOpen },
+    ...(isAdmin ? [{ href: "/avaliacoes/configuracoes", label: "Configurações", icon: Settings }] : []),
+  ];
 
   function itemClass(active: boolean) {
     return cn(
@@ -95,6 +102,26 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
     <aside className="w-52 border-r border-gray-200 bg-white min-h-[calc(100vh-56px)] p-3 flex-shrink-0">
       <nav className="flex flex-col gap-1">
         {topLinks.map((l) => renderLink(l))}
+
+        {/* Avaliações: item-pai + submenus */}
+        <Link
+          href="/avaliacoes/banco"
+          onClick={onNavClick}
+          className={itemClass(avaliacoesActive)}
+          aria-expanded={avaliacoesActive}
+        >
+          <FlaskConical className="w-4 h-4 shrink-0" />
+          <span className="flex-1">Avaliações</span>
+          {avaliacoesActive
+            ? <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" />
+            : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+          }
+        </Link>
+        {avaliacoesActive && (
+          <div className="ml-3 flex flex-col gap-1 border-l border-gray-200 pl-2">
+            {avaliacoesSub.map((l) => renderLink(l))}
+          </div>
+        )}
 
         {/* Admissões: item-pai + submenus (visíveis quando a seção está ativa) */}
         <Link

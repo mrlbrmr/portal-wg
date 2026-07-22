@@ -227,6 +227,8 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
           </label>
         </div>
 
+        <input type="hidden" name="termsVersion" value="1.0" />
+
         <label className="flex items-start gap-2 text-xs text-gray-600 leading-relaxed">
           <input
             type="checkbox"
@@ -236,11 +238,15 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
             className="mt-0.5 accent-wg-green"
           />
           <span>
-            Li e concordo com o tratamento dos meus dados pessoais conforme o{" "}
+            Li e concordo com os{" "}
+            <a href="/termos" target="_blank" className="text-wg-green underline hover:text-wg-green-dark">
+              Termos de Uso e Política de Cookies
+            </a>{" "}
+            e o{" "}
             <a href="/privacidade" target="_blank" className="text-wg-green underline hover:text-wg-green-dark">
               Aviso de Privacidade
             </a>{" "}
-            (LGPD).
+            da WG Baterias, incluindo o tratamento dos meus dados pessoais para fins de recrutamento.
           </span>
         </label>
 

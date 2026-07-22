@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -13,8 +14,15 @@ export default function PrivacidadePage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-1">
             Aviso de Privacidade
           </h1>
-          <p className="text-xs text-gray-400 mb-10">
+          <p className="text-xs text-gray-400 mb-2">
             Última atualização: Junho de 2026
+          </p>
+          <p className="text-xs text-gray-500 mb-10">
+            Veja também nossos{" "}
+            <Link href="/termos" className="text-wg-green underline hover:text-wg-green-dark">
+              Termos de Uso e Política de Cookies
+            </Link>
+            .
           </p>
 
           <div className="space-y-8 text-gray-700 text-sm leading-relaxed">
@@ -88,7 +96,30 @@ export default function PrivacidadePage() {
               <p>
                 Como titular de dados, você tem direito a confirmar o tratamento,
                 acessar, corrigir, eliminar seus dados ou revogar o consentimento
-                a qualquer momento.
+                a qualquer momento. Para exercer seus direitos, entre em contato pelo e-mail{" "}
+                <a href="mailto:privacidade@wgbaterias.com.br" className="text-wg-green underline hover:text-wg-green-dark">
+                  privacidade@wgbaterias.com.br
+                </a>
+                .
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-base font-semibold text-gray-900 mb-2">
+                7. Cookies e rastreamento
+              </h2>
+              <p>
+                Utilizamos cookies essenciais para autenticação e segurança do portal, além de
+                cookies de analytics (Vercel Speed Insights) apenas com seu consentimento explícito.
+                O reCAPTCHA v3 do Google é usado para prevenir envios automatizados abusivos.
+              </p>
+              <p className="mt-2">
+                Para informações completas sobre cada tipo de cookie utilizado, finalidades e como
+                gerenciá-los, consulte nossa{" "}
+                <Link href="/termos#cookies" className="text-wg-green underline hover:text-wg-green-dark">
+                  Política de Cookies
+                </Link>
+                .
               </p>
             </section>
           </div>

@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const termsVersion = (form.get("termsVersion") as string | null) ?? "1.0";
+
   const { data: application, error: createError } = await supabase
     .from("applications")
     .insert({
@@ -114,6 +116,8 @@ export async function POST(req: NextRequest) {
       resumeUrl: resume.url,
       resumeName: resume.name,
       consentAt: new Date().toISOString(),
+      consentIp: ip !== "unknown" ? ip : null,
+      termsVersion,
     })
     .select("id")
     .single();

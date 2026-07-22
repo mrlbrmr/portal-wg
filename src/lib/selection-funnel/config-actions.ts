@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
-export type StageKind = "OPEN" | "WON" | "LOST";
+export type StageKind = "OPEN" | "WON" | "LOST" | "TEST";
 
 const PATH = "/configuracoes/funil";
 const DEFAULT_COLOR = "#94a3b8";
@@ -76,7 +76,7 @@ export async function recolorStage(id: string, color: string): Promise<ActionRes
 export async function setStageKind(id: string, kind: StageKind): Promise<ActionResult> {
   const err = await ensureAdmin();
   if (err) return { ok: false, error: err };
-  if (!["OPEN", "WON", "LOST"].includes(kind)) return { ok: false, error: "Tipo inválido." };
+  if (!["OPEN", "WON", "LOST", "TEST"].includes(kind)) return { ok: false, error: "Tipo inválido." };
 
   const supabase = await createClient();
   await supabase.from("application_stages").update({ kind }).eq("id", id);
@@ -116,6 +116,17 @@ export async function moveStage(id: string, direction: "up" | "down"): Promise<A
   const b = stages[swapIdx];
   await supabase.from("application_stages").update({ sortOrder: b.sortOrder }).eq("id", a.id);
   await supabase.from("application_stages").update({ sortOrder: a.sortOrder }).eq("id", b.id);
+
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+export async function setStageTemplate(id: string, templateId: string | null): Promise<ActionResult> {
+  const err = await ensureAdmin();
+  if (err) return { ok: false, error: err };
+
+  const supabase = await createClient();
+  await supabase.from("application_stages").update({ templateId: templateId ?? null }).eq("id", id);
 
   revalidatePath(PATH);
   return { ok: true };

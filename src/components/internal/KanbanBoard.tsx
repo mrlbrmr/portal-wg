@@ -26,6 +26,8 @@ export interface KanbanStage {
   id: string;
   name: string;
   color: string;
+  kind?: string;
+  templateName?: string | null;
 }
 
 interface Props {
@@ -41,6 +43,8 @@ export function KanbanBoard({ applications, stages, canManage }: Props) {
     key: s.id,
     label: s.name,
     dotColor: s.color,
+    kind: s.kind,
+    subtitle: s.kind === "TEST" && s.templateName ? s.templateName : undefined,
   }));
 
   return (

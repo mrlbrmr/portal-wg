@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
+import { FlaskConical } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SearchBar } from "@/components/internal/SearchBar";
@@ -18,6 +19,10 @@ export interface KanbanColumnDef {
   dot?: string;
   /** Cor hex da bolinha (ex.: "#22c55e"), para etapas com cor configurável. */
   dotColor?: string;
+  /** Tipo semântico da etapa (ex.: "TEST"). */
+  kind?: string;
+  /** Subtítulo exibido abaixo do nome (ex.: nome do teste vinculado). */
+  subtitle?: string;
 }
 
 /** API entregue a cada card renderizado (ex.: pedir exclusão do item). */
@@ -168,17 +173,25 @@ export function KanbanBoardShell<T>({
             const cards = visibleItems.filter((it) => getColumn(it) === col.key);
             return (
               <KanbanColumn key={col.key} id={col.key}>
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 rounded-full ${col.dotColor ? "" : col.dot ?? ""}`}
-                      style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
-                    />
-                    <span className="text-sm font-semibold text-gray-900">{col.label}</span>
+                <div className={`border-b border-gray-200 ${col.kind === "TEST" ? "bg-purple-50/60" : ""}`}>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${col.dotColor ? "" : col.dot ?? ""}`}
+                        style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
+                      />
+                      <span className="text-sm font-semibold text-gray-900 truncate">{col.label}</span>
+                      {col.kind === "TEST" && (
+                        <FlaskConical className="w-3.5 h-3.5 text-purple-500 shrink-0" aria-label="Etapa de teste" />
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5 shrink-0">
+                      {cards.length}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5">
-                    {cards.length}
-                  </span>
+                  {col.kind === "TEST" && col.subtitle && (
+                    <p className="px-4 pb-2 text-[11px] text-purple-600 truncate">{col.subtitle}</p>
+                  )}
                 </div>
 
                 <div className="p-2 flex flex-col gap-2 min-h-[120px]">

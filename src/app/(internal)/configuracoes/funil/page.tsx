@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   FunnelStagesManager,
   type FunnelStage,
+  type TemplateOption,
 } from "@/components/internal/FunnelStagesManager";
 import type { Metadata } from "next";
 
@@ -16,12 +17,20 @@ export default async function FunilPage() {
   if (!session || session.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("application_stages")
-    .select("id, name, color, sortOrder, kind, active")
-    .order("sortOrder", { ascending: true });
+  const [{ data: stagesData }, { data: templatesData }] = await Promise.all([
+    supabase
+      .from("application_stages")
+      .select("id, name, color, sortOrder, kind, active, templateId")
+      .order("sortOrder", { ascending: true }),
+    supabase
+      .from("assessment_templates")
+      .select("id, name, kind")
+      .eq("isActive", true)
+      .order("name", { ascending: true }),
+  ]);
 
-  const stages = (data ?? []) as FunnelStage[];
+  const stages    = (stagesData   ?? []) as FunnelStage[];
+  const templates = (templatesData ?? []) as TemplateOption[];
 
   return (
     <div>
@@ -42,7 +51,7 @@ export default async function FunilPage() {
         </p>
       </div>
 
-      <FunnelStagesManager stages={stages} />
+      <FunnelStagesManager stages={stages} templates={templates} />
     </div>
   );
 }

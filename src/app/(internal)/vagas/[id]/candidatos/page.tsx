@@ -34,12 +34,32 @@ export default async function CandidatosPage({ params }: Props) {
       .order("createdAt", { ascending: false }),
     supabase
       .from("application_stages")
-      .select("id, name, color")
+      .select("id, name, color, kind, templateId")
       .eq("active", true)
       .order("sortOrder", { ascending: true }),
   ]);
 
-  const stages = (stagesData ?? []) as Array<{ id: string; name: string; color: string }>;
+  // Para colunas TEST, busca o nome do template vinculado
+  const rawStages = (stagesData ?? []) as Array<{
+    id: string; name: string; color: string; kind: string; templateId: string | null;
+  }>;
+  const testTemplateIds = rawStages
+    .filter((s) => s.kind === "TEST" && s.templateId)
+    .map((s) => s.templateId as string);
+
+  const templateNames = new Map<string, string>();
+  if (testTemplateIds.length > 0) {
+    const { data: tmplData } = await supabase
+      .from("assessment_templates")
+      .select("id, name")
+      .in("id", testTemplateIds);
+    (tmplData ?? []).forEach((t: { id: string; name: string }) => templateNames.set(t.id, t.name));
+  }
+
+  const stages = rawStages.map((s) => ({
+    ...s,
+    templateName: s.templateId ? (templateNames.get(s.templateId) ?? null) : null,
+  }));
   const appList = (applications ?? []) as Array<{
     id: string;
     fullName: string;

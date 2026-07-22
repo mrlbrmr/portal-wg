@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createSession, getActiveSession, updateSession } from '@/lib/whatsapp/session'
-import { sendText } from '@/lib/whatsapp/sender'
-import { BOT } from '@/lib/whatsapp/messages'
-import type { WhatsAppProviderName } from '@/lib/whatsapp/types'
-
-function normalizePhone(raw: string): string {
-  let digits = raw.replace(/\D/g, '')
-  // Adiciona +55 se não tem código de país
-  if (!digits.startsWith('55') || digits.length <= 11) {
-    digits = '55' + digits
-  }
-  return digits
-}
+import { randomUUID } from 'crypto'
+import { DIGITAL_FORM_EXPIRY_DAYS } from '@/lib/admissao/digital-form'
 
 export async function POST(
   _req: NextRequest,
@@ -27,55 +16,42 @@ export async function POST(
   const { id } = await params
   const supabase = createAdminClient()
 
-  const { data: admission, error } = await supabase
+  const { data: admission } = await supabase
     .from('admissions')
-    .select('id, fullName, phone, responsibleId')
+    .select('id, fullName, digitalFormToken, digitalFormSubmittedAt')
     .eq('id', id)
     .is('deletedAt', null)
     .maybeSingle()
 
-  if (error || !admission) {
+  if (!admission) {
     return NextResponse.json({ error: 'Admissão não encontrada' }, { status: 404 })
   }
 
-  if (!admission.phone) {
-    return NextResponse.json({ error: 'Esta admissão não tem telefone cadastrado.' }, { status: 422 })
+  if (admission.digitalFormSubmittedAt) {
+    return NextResponse.json({ error: 'Formulário já enviado pelo candidato.' }, { status: 409 })
   }
 
-  const phone = normalizePhone(admission.phone)
+  // Reutiliza token existente ou gera novo
+  const token      = (admission.digitalFormToken as string | null) ?? randomUUID()
+  const expiresAt  = new Date(Date.now() + DIGITAL_FORM_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
 
-  const existing = await getActiveSession(phone)
-  // Se já existe sessão mas ainda não enviou a saudação, reenvia em vez de bloquear
-  if (existing && existing.state !== 'WAITING_START') {
-    return NextResponse.json({ error: 'Já existe uma sessão de admissão digital ativa para este colaborador.' }, { status: 409 })
-  }
+  await supabase.from('admissions').update({
+    digitalFormToken:      token,
+    digitalFormExpiresAt:  expiresAt.toISOString(),
+  }).eq('id', id)
 
-  const provider = (process.env.WHATSAPP_PROVIDER ?? 'zapi') as WhatsAppProviderName
+  const baseUrl  = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const formUrl  = `${baseUrl}/admissao/${token}`
+  const name     = (admission.fullName as string).split(' ')[0]
 
-  let wgSession: Awaited<ReturnType<typeof createSession>>
-  try {
-    wgSession = existing ?? await createSession(phone, admission.id, provider)
-  } catch (err) {
-    console.error('[digital/start] createSession error:', err)
-    return NextResponse.json({ error: `Erro ao criar sessão: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
-  }
+  const whatsappMessage =
+    `Olá, ${name}! 👋\n\n` +
+    `Bem-vindo(a) à WG Baterias! 💚\n\n` +
+    `Para continuar seu processo de admissão, acesse o link abaixo e preencha seus dados e documentos:\n\n` +
+    `👉 ${formUrl}\n\n` +
+    `⚠️ O link é pessoal e válido por ${DIGITAL_FORM_EXPIRY_DAYS} dias.\n` +
+    `Em caso de dúvidas, fale com o time de Gente & Gestão: (41) 99817-0054\n\n` +
+    `Seja bem-vindo(a) à família WG! 🚀`
 
-  try {
-    await sendText(phone, BOT.greeting(admission.fullName), wgSession.id, provider)
-    await updateSession(wgSession.id, { state: 'GREETING' })
-  } catch (err) {
-    console.error('[digital/start] sendText error:', err)
-    return NextResponse.json({ error: `Erro ao enviar WhatsApp: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 })
-  }
-
-  await supabase.from('admission_activity_log').insert({
-    userId: session.user.id,
-    admissionId: admission.id,
-    entity: 'WHATSAPP_BOT',
-    entityId: wgSession.id,
-    action: 'DIGITAL_ADMISSION_STARTED',
-    description: `Admissão digital iniciada pelo RH. Sessão: ${wgSession.id}`,
-  })
-
-  return NextResponse.json({ success: true, sessionId: wgSession.id }, { status: 201 })
+  return NextResponse.json({ token, formUrl, whatsappMessage }, { status: 200 })
 }

@@ -52,7 +52,7 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
     { href: "/admissoes/historico", label: "Histórico", icon: History },
     ...(isAdmin
       ? [
-          { href: "/admissoes/digitais", label: "Digital (WhatsApp)", icon: MessageSquare },
+          // { href: "/admissoes/digitais", label: "Digital (WhatsApp)", icon: MessageSquare }, // módulo desativado
           { href: "/admissoes/configuracoes", label: "Configurações", icon: Settings },
         ]
       : []),

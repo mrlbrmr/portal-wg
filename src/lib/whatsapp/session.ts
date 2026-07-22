@@ -38,11 +38,11 @@ export async function getActiveSession(phone: string): Promise<WhatsAppSession |
 
   if (error) {
     // Loga no admission_activity_log para diagnóstico (visível no Supabase)
-    await supabase.from('admission_activity_log').insert({
+    void supabase.from('admission_activity_log').insert({
       entity: 'WHATSAPP_BOT',
       action: 'GET_SESSION_ERROR',
       description: `getActiveSession falhou para ${phone}: ${error.message}`,
-    }).catch(() => {})
+    })
   }
 
   return data as unknown as WhatsAppSession | null

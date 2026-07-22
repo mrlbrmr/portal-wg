@@ -23,6 +23,7 @@ import {
   addChecklistItem,
   addChecklistSubtask,
   updateChecklistItem,
+  setChecklistItemDone,
   deleteChecklistItem,
   moveChecklistGroup,
   moveChecklistItem,
@@ -94,6 +95,9 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
   // B1: colapsar grupos
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
+  // Colapsar subtarefas de uma tarefa-mãe (seta).
+  const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
+
   // B3: seleção múltipla
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -107,6 +111,15 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
 
   function toggleGroup(id: string) {
     setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleItemCollapse(id: string) {
+    setCollapsedItems((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -152,6 +165,8 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     selectionMode,
     selectedItems,
     toggleSelect,
+    collapsedItems,
+    toggleItemCollapse,
     run,
   };
 
@@ -421,6 +436,8 @@ interface RowContext {
   selectionMode: boolean;
   selectedItems: Set<string>;
   toggleSelect: (id: string, checked: boolean) => void;
+  collapsedItems: Set<string>;
+  toggleItemCollapse: (id: string) => void;
   run: (fn: () => Promise<ActionResult>) => void;
 }
 
@@ -438,8 +455,13 @@ function ItemRow({
   depth: 0 | 1;
   ctx: RowContext;
 }) {
-  const { admissionId, canManage, isPending, selectionMode, selectedItems, toggleSelect, run } = ctx;
+  const { admissionId, canManage, isPending, selectionMode, selectedItems, toggleSelect, collapsedItems, toggleItemCollapse, run } = ctx;
   const isSub = depth === 1;
+  const hasSubtasks = !isSub && item.subtasks.length > 0;
+  const allSubsDone = hasSubtasks && item.subtasks.every((s) => s.status === "DONE");
+  // Numa tarefa-mãe, o "check" reflete todas as subtarefas concluídas.
+  const checked = hasSubtasks ? allSubsDone : item.status === "DONE";
+  const collapsed = collapsedItems.has(item.id);
 
   return (
     <>
@@ -449,6 +471,24 @@ function ItemRow({
         }`}
       >
         {isSub && <CornerDownRight className="w-3.5 h-3.5 text-gray-300 shrink-0 -ml-4" />}
+        {/* Seta para ocultar/mostrar subtarefas (só na tarefa-mãe) */}
+        {!isSub &&
+          (hasSubtasks ? (
+            <button
+              type="button"
+              onClick={() => toggleItemCollapse(item.id)}
+              className="p-0.5 -ml-1 text-gray-400 hover:text-gray-700 rounded shrink-0"
+              title={collapsed ? "Mostrar subtarefas" : "Ocultar subtarefas"}
+            >
+              {collapsed ? (
+                <ChevronRight className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+          ) : (
+            <span className="w-[18px] shrink-0" aria-hidden />
+          ))}
         {/* B3: alterna entre checkbox de seleção e de status */}
         {canManage && selectionMode ? (
           <input
@@ -461,21 +501,17 @@ function ItemRow({
         ) : (
           <input
             type="checkbox"
-            checked={item.status === "DONE"}
+            checked={checked}
             disabled={!canManage || isPending}
             onChange={(e) =>
-              run(() =>
-                updateChecklistItem(admissionId, item.id, {
-                  status: e.target.checked ? "DONE" : "PENDING",
-                })
-              )
+              run(() => setChecklistItemDone(admissionId, item.id, e.target.checked))
             }
             className="accent-wg-green shrink-0"
           />
         )}
         <span
           className={`flex-1 min-w-0 truncate ${isSub ? "text-[13px]" : "text-sm"} ${
-            item.status === "DONE" ? "line-through text-gray-400" : "text-gray-800"
+            checked ? "line-through text-gray-400" : "text-gray-800"
           }`}
         >
           {item.name}
@@ -554,8 +590,9 @@ function ItemRow({
         )}
       </div>
 
-      {/* Subtarefas (um nível) */}
+      {/* Subtarefas (um nível) — ocultas quando a mãe está recolhida */}
       {!isSub &&
+        !collapsed &&
         item.subtasks.map((sub, sIdx) => (
           <ItemRow
             key={sub.id}

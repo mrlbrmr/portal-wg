@@ -5,6 +5,7 @@ import { ArrowLeft, ListChecks } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { NewTemplateForm } from "@/components/internal/admissao/NewTemplateForm";
+import { TemplateList } from "@/components/internal/admissao/TemplateList";
 import {
   TemplateEditor,
   type TemplateDetail,
@@ -24,7 +25,8 @@ export default async function ModelosPage({
   const [templatesRes, positionsRes, selectedRes] = await Promise.all([
     supabase
       .from("admission_checklist_templates")
-      .select("id, name, position:admission_positions(name)")
+      .select("id, name, sortOrder, position:admission_positions(name)")
+      .order("sortOrder", { ascending: true })
       .order("name", { ascending: true }),
     supabase
       .from("admission_positions")
@@ -47,6 +49,11 @@ export default async function ModelosPage({
     name: string;
     position: { name: string } | null;
   }>;
+  const templateItems = templates.map((tpl) => ({
+    id: tpl.id,
+    name: tpl.name,
+    positionName: tpl.position?.name ?? null,
+  }));
   const positions = (positionsRes.data ?? []) as Array<{ id: string; name: string }>;
 
   // Ordena grupos/itens no JS (o embed do PostgREST não garante ordem) e reduz à
@@ -104,26 +111,7 @@ export default async function ModelosPage({
           <div className="px-4 py-3 border-b border-gray-200 text-sm font-semibold text-gray-900">
             Modelos
           </div>
-          {templates.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8 px-4">Nenhum modelo criado.</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {templates.map((tpl) => (
-                <Link
-                  key={tpl.id}
-                  href={`/admissoes/configuracoes/modelos?t=${tpl.id}`}
-                  className={`block px-4 py-2.5 transition-colors ${
-                    t === tpl.id ? "bg-wg-green/10" : "hover:bg-gray-50"
-                  }`}
-                >
-                  <div className="font-medium text-sm text-gray-900">{tpl.name}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {tpl.position?.name ?? "Todos os cargos"}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
+          <TemplateList templates={templateItems} selectedId={t} />
         </div>
 
         {detail ? (

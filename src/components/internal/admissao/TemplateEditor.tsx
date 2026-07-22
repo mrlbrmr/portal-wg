@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Copy, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
   updateTemplate,
   deleteTemplate,
+  duplicateTemplate,
   addTemplateGroup,
   deleteTemplateGroup,
   addTemplateItem,
@@ -65,6 +66,23 @@ export function TemplateEditor({ template, positions }: Props) {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() =>
+            startTransition(async () => {
+              const res = await duplicateTemplate(template.id);
+              if (!res.ok) notify("error", res.error);
+              else {
+                notify("success", "Modelo duplicado.");
+                router.push(`/admissoes/configuracoes/modelos?t=${res.id}`);
+              }
+            })
+          }
+          className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50"
+        >
+          <Copy className="w-4 h-4" /> Duplicar
+        </button>
         <button
           type="button"
           onClick={() => {

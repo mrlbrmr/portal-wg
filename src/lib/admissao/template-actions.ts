@@ -64,6 +64,99 @@ export async function deleteTemplate(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Duplica um modelo inteiro (cabeçalho + grupos + itens), preservando a ordem. */
+export async function duplicateTemplate(id: string): Promise<CreateResult> {
+  const auth = await ensureConfig();
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const supabase = await createClient();
+  const { data: tpl } = await supabase
+    .from("admission_checklist_templates")
+    .select(
+      "name, description, positionId, groups:admission_template_groups(name, sortOrder, items:admission_template_items(name, description, sortOrder, defaultDaysFromStart))"
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (!tpl) return { ok: false, error: "Modelo não encontrado." };
+
+  const source = tpl as unknown as {
+    name: string;
+    description: string | null;
+    positionId: string | null;
+    groups: Array<{
+      name: string;
+      sortOrder: number;
+      items: Array<{
+        name: string;
+        description: string | null;
+        sortOrder: number;
+        defaultDaysFromStart: number | null;
+      }>;
+    }>;
+  };
+
+  const { data: last } = await supabase
+    .from("admission_checklist_templates")
+    .select("sortOrder")
+    .order("sortOrder", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: newTpl, error } = await supabase
+    .from("admission_checklist_templates")
+    .insert({
+      name: `${source.name} (cópia)`.slice(0, 120),
+      description: source.description ?? null,
+      positionId: source.positionId ?? null,
+      createdById: auth.userId,
+      sortOrder: ((last?.sortOrder as number | undefined) ?? 0) + 1,
+    })
+    .select("id")
+    .single();
+  if (error || !newTpl) return { ok: false, error: "Erro ao duplicar modelo." };
+
+  const groups = [...(source.groups ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  for (const g of groups) {
+    const { data: newGroup } = await supabase
+      .from("admission_template_groups")
+      .insert({ templateId: newTpl.id, name: g.name, sortOrder: g.sortOrder })
+      .select("id")
+      .single();
+    if (!newGroup) continue;
+    const items = [...(g.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+    if (items.length > 0) {
+      await supabase.from("admission_template_items").insert(
+        items.map((it) => ({
+          groupId: newGroup.id,
+          name: it.name,
+          description: it.description ?? null,
+          sortOrder: it.sortOrder,
+          defaultDaysFromStart: it.defaultDaysFromStart ?? null,
+        }))
+      );
+    }
+  }
+
+  revalidatePath(PATH);
+  return { ok: true, id: newTpl.id };
+}
+
+/** Reordena os modelos: grava a posição (1..n) na ordem recebida. */
+export async function reorderTemplates(orderedIds: string[]): Promise<ActionResult> {
+  const auth = await ensureConfig();
+  if ("error" in auth) return { ok: false, error: auth.error };
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) return { ok: true };
+
+  const supabase = await createClient();
+  await Promise.all(
+    orderedIds.map((id, idx) =>
+      supabase.from("admission_checklist_templates").update({ sortOrder: idx + 1 }).eq("id", id)
+    )
+  );
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
 export async function addTemplateGroup(templateId: string, name: string): Promise<ActionResult> {
   const auth = await ensureConfig();
   if ("error" in auth) return { ok: false, error: auth.error };

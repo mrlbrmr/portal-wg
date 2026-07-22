@@ -175,7 +175,7 @@ export async function updateChecklistItem(
   const supabase = await createClient();
   const { data: item } = await supabase
     .from("admission_checklist_items")
-    .select("id")
+    .select("id, parentId")
     .eq("id", itemId)
     .eq("admissionId", admissionId)
     .maybeSingle();
@@ -204,7 +204,77 @@ export async function updateChecklistItem(
   if (patch.dueDate !== undefined) data.dueDate = toDateString(patch.dueDate);
 
   await supabase.from("admission_checklist_items").update(data).eq("id", itemId);
+
+  // Se é uma subtarefa e o status mudou, ressincroniza o status da tarefa-mãe
+  // (todas as subtarefas concluídas → mãe concluída; caso contrário → pendente).
+  const parentId = (item as { parentId: string | null }).parentId;
+  if (patch.status && parentId) await syncParentStatus(supabase, parentId, auth.userId);
+
   return done(admissionId);
+}
+
+/**
+ * Marca um item como concluído/pendente propagando a hierarquia:
+ *  · tarefa-mãe → cascateia o mesmo status a todas as subtarefas;
+ *  · subtarefa → ressincroniza a mãe (concluída só quando todas as filhas o são).
+ */
+export async function setChecklistItemDone(
+  admissionId: string,
+  itemId: string,
+  isDone: boolean
+): Promise<ActionResult> {
+  const auth = await requireWrite();
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const supabase = await createClient();
+  const { data: item } = await supabase
+    .from("admission_checklist_items")
+    .select("id, parentId")
+    .eq("id", itemId)
+    .eq("admissionId", admissionId)
+    .maybeSingle();
+  if (!item) return { ok: false, error: "Item não encontrado." };
+
+  const stamp = isDone
+    ? {
+        status: "DONE" as const,
+        completedAt: new Date().toISOString(),
+        completedById: auth.userId,
+      }
+    : { status: "PENDING" as const, completedAt: null, completedById: null };
+
+  // O próprio item.
+  await supabase.from("admission_checklist_items").update(stamp).eq("id", itemId);
+  // Se for tarefa-mãe, cascateia a todas as subtarefas.
+  await supabase
+    .from("admission_checklist_items")
+    .update(stamp)
+    .eq("parentId", itemId)
+    .eq("admissionId", admissionId);
+  // Se for subtarefa, ressincroniza o status da mãe.
+  const parentId = (item as { parentId: string | null }).parentId;
+  if (parentId) await syncParentStatus(supabase, parentId, auth.userId);
+
+  return done(admissionId);
+}
+
+/** Recalcula o status de uma tarefa-mãe a partir das suas subtarefas. */
+async function syncParentStatus(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  parentId: string,
+  userId: string
+): Promise<void> {
+  const { data: children } = await supabase
+    .from("admission_checklist_items")
+    .select("status")
+    .eq("parentId", parentId);
+  const kids = (children ?? []) as Array<{ status: string }>;
+  if (kids.length === 0) return; // deixou de ser mãe
+  const allDone = kids.every((k) => k.status === "DONE");
+  const patch = allDone
+    ? { status: "DONE", completedAt: new Date().toISOString(), completedById: userId }
+    : { status: "PENDING", completedAt: null, completedById: null };
+  await supabase.from("admission_checklist_items").update(patch).eq("id", parentId);
 }
 
 export async function deleteChecklistItem(admissionId: string, itemId: string): Promise<ActionResult> {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DigitalForm } from './DigitalForm'
+import { loadFormConfig } from '@/lib/admissao/form-config-loader'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Admissão Digital | WG Baterias' }
@@ -57,10 +58,13 @@ export default async function AdmissaoPage({ params }: { params: Promise<{ token
     )
   }
 
+  const config = await loadFormConfig()
+
   return (
     <DigitalForm
       token={token}
       candidateName={admission.fullName as string}
+      config={config}
     />
   )
 }

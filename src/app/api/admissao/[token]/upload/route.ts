@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { uploadAdmissionAttachment, validateAttachmentFile } from '@/lib/admissao/storage'
 import { validateAttachmentWithAI } from '@/lib/admissao/ai-validation'
-import { DOC_LABELS } from '@/lib/admissao/digital-form'
+import { loadFormConfig } from '@/lib/admissao/form-config-loader'
 
 export async function POST(
   req: NextRequest,
@@ -37,7 +37,8 @@ export async function POST(
     return NextResponse.json({ error: check.error }, { status: 400 })
 
   const docKey   = (form.get('docKey') as string | null) ?? ''
-  const docLabel = DOC_LABELS[docKey as keyof typeof DOC_LABELS] ?? null
+  const config   = await loadFormConfig()
+  const docLabel = config.documents.find((d) => d.key === docKey)?.label ?? null
 
   // Buscar ID do tipo de documento pelo nome
   let documentTypeId: string | null = null

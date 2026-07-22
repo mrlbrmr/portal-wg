@@ -3,10 +3,11 @@
 import { useState, useRef } from 'react'
 import { CheckCircle2, Upload, Loader2, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react'
 import {
-  DOC_LABELS, ALWAYS_REQUIRED, getVisibleDocs,
-  GENDER_OPTIONS, MARITAL_OPTIONS, COLOR_OPTIONS,
-  type DocKey,
-} from '@/lib/admissao/digital-form'
+  getVisibleDocuments,
+  type FormConfig,
+  type DocumentConfig,
+  type ExtraFieldConfig,
+} from '@/lib/admissao/form-config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,18 @@ function maskPhone(v: string) {
   return v.replace(/\D/g, '').slice(0, 11)
     .replace(/(\d{2})(\d)/, '($1) $2')
     .replace(/(\d{5})(\d)/, '$1-$2')
+}
+
+function maskPis(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11)
+  if (d.length > 10) return `${d.slice(0, 3)}.${d.slice(3, 8)}.${d.slice(8, 10)}-${d.slice(10)}`
+  if (d.length > 8)  return `${d.slice(0, 3)}.${d.slice(3, 8)}.${d.slice(8)}`
+  if (d.length > 3)  return `${d.slice(0, 3)}.${d.slice(3)}`
+  return d
+}
+
+function applyMask(mask: ExtraFieldConfig['mask'], v: string) {
+  return mask === 'pis' ? maskPis(v) : v
 }
 
 function labelCls(required: boolean) {
@@ -113,15 +126,16 @@ function YesNo({
 }
 
 function FileUpload({
-  docKey, token, state, onUpload,
+  docKey, label, required, token, state, onUpload,
 }: {
-  docKey: DocKey
+  docKey: string
+  label: string
+  required: boolean
   token: string
   state: UploadState
-  onUpload: (key: DocKey, st: UploadState) => void
+  onUpload: (key: string, st: UploadState) => void
 }) {
   const ref = useRef<HTMLInputElement>(null)
-  const isRequired = ALWAYS_REQUIRED.includes(docKey)
 
   async function handleFile(file: File) {
     onUpload(docKey, { status: 'uploading' })
@@ -140,7 +154,7 @@ function FileUpload({
 
   return (
     <div>
-      <label className={labelCls(isRequired)}>{DOC_LABELS[docKey]}</label>
+      <label className={labelCls(required)}>{label}</label>
       <div
         className={`mt-1 border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors ${
           state.status === 'done'
@@ -217,7 +231,9 @@ function StepBar({ current }: { current: number }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function DigitalForm({ token, candidateName }: { token: string; candidateName: string }) {
+export function DigitalForm({
+  token, candidateName, config,
+}: { token: string; candidateName: string; config: FormConfig }) {
   const [step, setStep]           = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted]  = useState(false)
@@ -234,13 +250,14 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
     bankAgency: '', bankAccount: '', colorDeclaration: '', isDriverOperator: null,
   })
 
-  const [uploads, setUploads] = useState<Partial<Record<DocKey, UploadState>>>({})
+  const [uploads, setUploads] = useState<Record<string, UploadState>>({})
+  const [extras, setExtras]   = useState<Record<string, string>>({})
 
-  function setUpload(key: DocKey, st: UploadState) {
+  function setUpload(key: string, st: UploadState) {
     setUploads(prev => ({ ...prev, [key]: st }))
   }
 
-  const visibleDocs = getVisibleDocs({
+  const visibleDocs: DocumentConfig[] = getVisibleDocuments(config, {
     gender:           personal.gender,
     maritalStatus:    additional.maritalStatus,
     hasChildren:      additional.hasChildren ?? false,
@@ -284,11 +301,13 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
 
   function validateStep2(): boolean {
     const e: Record<string, string> = {}
-    for (const key of visibleDocs) {
-      const st = uploads[key]
-      if (!st || st.status !== 'done') {
-        const required = ALWAYS_REQUIRED.includes(key)
-        if (required) e[key] = 'Documento obrigatório não enviado.'
+    for (const doc of visibleDocs) {
+      const st = uploads[doc.key]
+      if (doc.required && (!st || st.status !== 'done'))
+        e[doc.key] = 'Documento obrigatório não enviado.'
+      for (const f of doc.extraFields ?? []) {
+        if (f.required && !(extras[f.key] ?? '').trim())
+          e[`extra:${f.key}`] = 'Campo obrigatório.'
       }
     }
     setErrors(e)
@@ -304,10 +323,22 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
 
   // ── Submit ──────────────────────────────────────────────────────────────────
 
+  function collectVisibleExtras(): Record<string, string> {
+    const out: Record<string, string> = {}
+    for (const doc of visibleDocs) {
+      for (const f of doc.extraFields ?? []) {
+        const val = (extras[f.key] ?? '').trim()
+        if (val) out[f.key] = val
+      }
+    }
+    return out
+  }
+
   async function handleSubmit() {
     setSubmitting(true)
     setSubmitError(null)
     try {
+      const formExtras = collectVisibleExtras()
       const res = await fetch(`/api/admissao/${token}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -327,6 +358,7 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
           bankAccount:            additional.bankAccount || null,
           colorDeclaration:       additional.colorDeclaration,
           isDriverOperator:       additional.isDriverOperator ?? false,
+          formExtras:             Object.keys(formExtras).length ? formExtras : null,
         }),
       })
       const body = await res.json().catch(() => ({})) as { error?: string }
@@ -345,15 +377,15 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Tudo certo! 🎉</h1>
-        <p className="text-gray-600 text-sm leading-relaxed">
-          Seus dados e documentos foram enviados com sucesso.<br />
-          O time de Gente & Gestão irá analisá-los e entrará em contato para os próximos passos.<br /><br />
-          Seja bem-vindo(a) à família WG Baterias! 💚
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">{config.success.title}</h1>
+        <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">
+          {config.success.body}
         </p>
-        <p className="text-xs text-gray-400 mt-4">
-          Dúvidas? WhatsApp: (41) 99817-0054
-        </p>
+        {config.success.contactPhone && (
+          <p className="text-xs text-gray-400 mt-4">
+            Dúvidas? WhatsApp: {config.success.contactPhone}
+          </p>
+        )}
       </div>
     )
   }
@@ -363,8 +395,10 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
       <div className="text-center mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Admissão Digital</h1>
-        <p className="text-sm text-gray-500 mt-1">Bem-vindo(a), {candidateName.split(' ')[0]}! Preencha com atenção.</p>
+        <h1 className="text-xl font-bold text-gray-900">{config.header.title}</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Bem-vindo(a), {candidateName.split(' ')[0]}! {config.header.subtitle}
+        </p>
       </div>
 
       <StepBar current={step} />
@@ -409,7 +443,7 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
           </div>
 
-          <RadioGroup label="Gênero" options={GENDER_OPTIONS} value={personal.gender}
+          <RadioGroup label="Gênero" options={config.genderOptions} value={personal.gender}
             onChange={v => setPersonal(p => ({ ...p, gender: v }))} required />
           {errors.gender && <p className="text-xs text-red-500">{errors.gender}</p>}
         </div>
@@ -420,22 +454,22 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
         <div className="space-y-5 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h2 className="font-semibold text-gray-900">Informações adicionais</h2>
 
-          <RadioGroup label="Estado civil" options={MARITAL_OPTIONS}
+          <RadioGroup label={config.labels.maritalStatus} options={config.maritalOptions}
             value={additional.maritalStatus} required
             onChange={v => setAdditional(a => ({ ...a, maritalStatus: v }))} />
           {errors.maritalStatus && <p className="text-xs text-red-500">{errors.maritalStatus}</p>}
 
-          <YesNo label="Possui filhos de até 21 anos?" value={additional.hasChildren} required
+          <YesNo label={config.labels.hasChildren} value={additional.hasChildren} required
             onChange={v => setAdditional(a => ({ ...a, hasChildren: v }))} />
           {errors.hasChildren && <p className="text-xs text-red-500">{errors.hasChildren}</p>}
 
-          <YesNo label="Precisará de vale-transporte?" value={additional.needsTransportVoucher} required
+          <YesNo label={config.labels.needsTransportVoucher} value={additional.needsTransportVoucher} required
             onChange={v => setAdditional(a => ({ ...a, needsTransportVoucher: v }))} />
           {errors.needsTransportVoucher && <p className="text-xs text-red-500">{errors.needsTransportVoucher}</p>}
 
           {additional.needsTransportVoucher && (
             <div>
-              <label className={labelCls(true)}>Quantas passagens por dia (ida e volta) e valor?</label>
+              <label className={labelCls(true)}>{config.labels.transportVoucherDetails}</label>
               <textarea className={`${inputCls} resize-none h-20`}
                 value={additional.transportVoucherDetails}
                 onChange={e => setAdditional(a => ({ ...a, transportVoucherDetails: e.target.value }))}
@@ -444,7 +478,7 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
             </div>
           )}
 
-          <YesNo label="Possui conta no banco Itaú?" value={additional.hasItauAccount} required
+          <YesNo label={config.labels.hasItauAccount} value={additional.hasItauAccount} required
             onChange={v => setAdditional(a => ({ ...a, hasItauAccount: v }))} />
           {errors.hasItauAccount && <p className="text-xs text-red-500">{errors.hasItauAccount}</p>}
 
@@ -467,23 +501,23 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
 
           {additional.hasItauAccount === false && (
             <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-              Trabalhamos apenas com o banco Itaú. Solicite orientações para abertura de conta salário ao time de Gente & Gestão.
+              {config.messages.itauWarning}
             </p>
           )}
 
-          <RadioGroup label="Autodeclaração de cor" options={COLOR_OPTIONS}
+          <RadioGroup label={config.labels.colorDeclaration} options={config.colorOptions}
             value={additional.colorDeclaration} required
             onChange={v => setAdditional(a => ({ ...a, colorDeclaration: v }))} />
           {errors.colorDeclaration && <p className="text-xs text-red-500">{errors.colorDeclaration}</p>}
 
-          <YesNo label="Seu cargo será de Motorista, Operador ou Encarregado?" required
+          <YesNo label={config.labels.isDriverOperator} required
             value={additional.isDriverOperator}
             onChange={v => setAdditional(a => ({ ...a, isDriverOperator: v }))} />
           {errors.isDriverOperator && <p className="text-xs text-red-500">{errors.isDriverOperator}</p>}
 
           {additional.isDriverOperator && (
             <p className="text-sm text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
-              Para Motoristas, Operadores e Encarregados solicitamos o Certificado MOPP + CNH com observação e/ou Certificado de Operador de Empilhadeira.
+              {config.messages.driverInfo}
             </p>
           )}
         </div>
@@ -497,15 +531,30 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
             <p className="text-xs text-gray-500 mt-0.5">Campos marcados com * são obrigatórios. PDF, JPG, PNG, WEBP ou DOC. Máx. 10 MB por arquivo.</p>
           </div>
 
-          {visibleDocs.map(key => (
-            <div key={key}>
+          {visibleDocs.map(doc => (
+            <div key={doc.key}>
               <FileUpload
-                docKey={key}
+                docKey={doc.key}
+                label={doc.label}
+                required={doc.required}
                 token={token}
-                state={uploads[key] ?? { status: 'idle' }}
+                state={uploads[doc.key] ?? { status: 'idle' }}
                 onUpload={setUpload}
               />
-              {errors[key] && <p className="text-xs text-red-500 mt-1">{errors[key]}</p>}
+              {errors[doc.key] && <p className="text-xs text-red-500 mt-1">{errors[doc.key]}</p>}
+
+              {(doc.extraFields ?? []).map(f => (
+                <div key={f.key} className="mt-3">
+                  <label className={labelCls(f.required)}>{f.label}</label>
+                  <input
+                    className={inputCls}
+                    value={extras[f.key] ?? ''}
+                    placeholder={f.placeholder}
+                    onChange={e => setExtras(prev => ({ ...prev, [f.key]: applyMask(f.mask, e.target.value) }))}
+                  />
+                  {errors[`extra:${f.key}`] && <p className="text-xs text-red-500 mt-1">{errors[`extra:${f.key}`]}</p>}
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -537,19 +586,24 @@ export function DigitalForm({ token, candidateName }: { token: string; candidate
             </>}
             <Row label="Cor"        value={additional.colorDeclaration} />
             <Row label="Motorista/Op." value={additional.isDriverOperator ? 'Sim' : 'Não'} />
+            {visibleDocs.flatMap(doc =>
+              (doc.extraFields ?? [])
+                .filter(f => (extras[f.key] ?? '').trim())
+                .map(f => <Row key={f.key} label={f.label} value={extras[f.key]} />)
+            )}
           </div>
 
           <div className="bg-gray-50 rounded-xl p-4 space-y-1 text-sm">
             <p className="font-medium text-gray-700 mb-2">Documentos enviados</p>
-            {visibleDocs.map(key => {
-              const st = uploads[key]
+            {visibleDocs.map(doc => {
+              const st = uploads[doc.key]
               return (
-                <div key={key} className="flex items-center gap-2">
+                <div key={doc.key} className="flex items-center gap-2">
                   {st?.status === 'done'
                     ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
                     : <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 shrink-0" />}
                   <span className={st?.status === 'done' ? 'text-gray-700' : 'text-gray-400'}>
-                    {DOC_LABELS[key]}
+                    {doc.label}
                   </span>
                 </div>
               )

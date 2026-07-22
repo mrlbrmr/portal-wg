@@ -30,6 +30,7 @@ import {
   type AttachmentView,
 } from "@/components/internal/admissao/AdmissionAttachments";
 import { DigitalAdmissionCard } from "@/components/internal/admissao/DigitalAdmissionCard";
+import { loadFormConfig } from "@/lib/admissao/form-config-loader";
 
 export const metadata: Metadata = { title: "Ficha da admissão — RH" };
 
@@ -90,7 +91,7 @@ export default async function AdmissaoDetalhePage({
   const { id } = await params;
 
   const supabase = await createClient();
-  const [session, admissionRes, documentTypesRes, templatesRes, usersRes] = await Promise.all([
+  const [session, admissionRes, documentTypesRes, templatesRes, usersRes, formConfig] = await Promise.all([
     auth(),
     supabase
       .from("admissions")
@@ -116,6 +117,7 @@ export default async function AdmissaoDetalhePage({
       .eq("active", true)
       .order("name", { ascending: true }),
     supabase.from("users").select("id, name").eq("active", true),
+    loadFormConfig(),
   ]);
 
   const admission = admissionRes.data as unknown as AdmissionDetail | null;
@@ -132,6 +134,15 @@ export default async function AdmissaoDetalhePage({
   const canManage = session?.user.role === "ADMIN_RH";
   const userMap = new Map(users.map((u) => [u.id, u.name]));
   const admissionRaw = admission as unknown as Record<string, unknown>;
+
+  // Campos extras do formulário digital (ex.: número do PIS), com rótulos da config.
+  const formExtras = (admissionRaw.formExtras as Record<string, string> | null) ?? null;
+  const extraFieldDefs = formConfig.documents.flatMap((d) => d.extraFields ?? []);
+  const extraRows = formExtras
+    ? Object.entries(formExtras)
+        .map(([k, v]) => ({ label: extraFieldDefs.find((f) => f.key === k)?.label ?? k, value: v }))
+        .filter((r) => r.value)
+    : [];
 
   // Ordena grupos/itens no JS (o embed do PostgREST não garante ordem).
   const sortedGroups = [...(admission.checklistGroups ?? [])].sort(
@@ -249,6 +260,9 @@ export default async function AdmissaoDetalhePage({
             <Info icon={Shirt} label="Uniforme (calça)" value={admission.uniformPants} />
             <Info icon={Shirt} label="Uniforme (sapato)" value={admission.uniformShoe} />
             <Info icon={Stethoscope} label="Exame médico" value={fmtDate(admission.medicalExamDate)} />
+            {extraRows.map((r) => (
+              <Info key={r.label} icon={FileText} label={r.label} value={r.value} />
+            ))}
             {admission.notes && (
               <div>
                 <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">Observações</div>

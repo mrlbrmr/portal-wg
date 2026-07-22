@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ElementType } from "react";
-import { ListChecks, Tags } from "lucide-react";
+import { ListChecks, Tags, FileText } from "lucide-react";
 import { auth } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Configurações de Admissões — RH" };
@@ -19,6 +19,12 @@ const modules: { href: string; icon: ElementType; title: string; desc: string }[
     icon: ListChecks,
     title: "Modelos de Checklist",
     desc: "Templates de checklist por cargo, com grupos e itens padronizados.",
+  },
+  {
+    href: "/admissoes/configuracoes/formulario",
+    icon: FileText,
+    title: "Formulário de Admissão Digital",
+    desc: "Edite textos, opções, perguntas e documentos do formulário enviado aos candidatos.",
   },
 ];
 

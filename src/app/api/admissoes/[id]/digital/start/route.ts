@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { randomUUID } from 'crypto'
-import { DIGITAL_FORM_EXPIRY_DAYS } from '@/lib/admissao/digital-form'
+import { DIGITAL_FORM_EXPIRY_DAYS } from '@/lib/admissao/form-config'
 
 export async function POST(
   _req: NextRequest,

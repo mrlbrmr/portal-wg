@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
   updateTemplate,
@@ -10,10 +10,12 @@ import {
   duplicateTemplate,
   addTemplateGroup,
   deleteTemplateGroup,
+  duplicateTemplateGroup,
   addTemplateItem,
   deleteTemplateItem,
   type ActionResult,
 } from "@/lib/admissao/template-actions";
+import { TEMPLATE_GROUP_MIME } from "@/lib/admissao/template-dnd";
 
 export interface TemplateDetail {
   id: string;
@@ -109,6 +111,17 @@ export function TemplateEditor({ template, positions }: Props) {
         {template.groups.map((g) => (
           <div key={g.id} className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
+              <span
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(TEMPLATE_GROUP_MIME, g.id);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                className="shrink-0 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing"
+                title="Arraste para mover esta seção para outro modelo"
+              >
+                <GripVertical className="w-4 h-4" />
+              </span>
               <span className="font-medium text-sm text-gray-800">{g.name}</span>
               <span className="text-[11px] text-gray-500 bg-gray-200 rounded-full px-1.5">{g.items.length}</span>
               <div className="ml-auto flex items-center gap-1">
@@ -117,6 +130,15 @@ export function TemplateEditor({ template, positions }: Props) {
                   placeholder="Novo item…"
                   onAdd={(name) => run(() => addTemplateItem(g.id, name))}
                 />
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => run(() => duplicateTemplateGroup(g.id))}
+                  className="p-1 text-gray-400 hover:text-gray-700 rounded disabled:opacity-40"
+                  title="Duplicar seção"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => {

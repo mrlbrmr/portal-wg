@@ -189,6 +189,116 @@ export async function deleteTemplateGroup(groupId: string): Promise<ActionResult
   return { ok: true };
 }
 
+/** Duplica uma seção (grupo + itens) dentro do mesmo modelo, ao final da lista. */
+export async function duplicateTemplateGroup(groupId: string): Promise<ActionResult> {
+  const auth = await ensureConfig();
+  if ("error" in auth) return { ok: false, error: auth.error };
+
+  const supabase = await createClient();
+  const { data: group } = await supabase
+    .from("admission_template_groups")
+    .select(
+      "id, templateId, name, items:admission_template_items(name, description, sortOrder, defaultDaysFromStart)"
+    )
+    .eq("id", groupId)
+    .maybeSingle();
+  if (!group) return { ok: false, error: "Seção não encontrada." };
+
+  const src = group as unknown as {
+    templateId: string;
+    name: string;
+    items: Array<{
+      name: string;
+      description: string | null;
+      sortOrder: number;
+      defaultDaysFromStart: number | null;
+    }>;
+  };
+
+  const { data: last } = await supabase
+    .from("admission_template_groups")
+    .select("sortOrder")
+    .eq("templateId", src.templateId)
+    .order("sortOrder", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: newGroup } = await supabase
+    .from("admission_template_groups")
+    .insert({
+      templateId: src.templateId,
+      name: `${src.name} (cópia)`.slice(0, 120),
+      sortOrder: ((last?.sortOrder as number | undefined) ?? 0) + 1,
+    })
+    .select("id")
+    .single();
+  if (!newGroup) return { ok: false, error: "Erro ao duplicar seção." };
+
+  const items = [...(src.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  if (items.length > 0) {
+    await supabase.from("admission_template_items").insert(
+      items.map((it) => ({
+        groupId: newGroup.id,
+        name: it.name,
+        description: it.description ?? null,
+        sortOrder: it.sortOrder,
+        defaultDaysFromStart: it.defaultDaysFromStart ?? null,
+      }))
+    );
+  }
+
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/**
+ * Move uma seção inteira (grupo + itens) para outro modelo. Como os itens
+ * referenciam o grupo, basta reapontar o templateId do grupo — os itens seguem.
+ */
+export async function moveTemplateGroupToTemplate(
+  groupId: string,
+  targetTemplateId: string
+): Promise<ActionResult> {
+  const auth = await ensureConfig();
+  if ("error" in auth) return { ok: false, error: auth.error };
+  if (!groupId || !targetTemplateId) return { ok: false, error: "Dados inválidos." };
+
+  const supabase = await createClient();
+  const { data: group } = await supabase
+    .from("admission_template_groups")
+    .select("id, templateId")
+    .eq("id", groupId)
+    .maybeSingle();
+  if (!group) return { ok: false, error: "Seção não encontrada." };
+  if (group.templateId === targetTemplateId) return { ok: true }; // já está nesse modelo
+
+  const { data: target } = await supabase
+    .from("admission_checklist_templates")
+    .select("id")
+    .eq("id", targetTemplateId)
+    .maybeSingle();
+  if (!target) return { ok: false, error: "Modelo de destino não encontrado." };
+
+  const { data: last } = await supabase
+    .from("admission_template_groups")
+    .select("sortOrder")
+    .eq("templateId", targetTemplateId)
+    .order("sortOrder", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  await supabase
+    .from("admission_template_groups")
+    .update({
+      templateId: targetTemplateId,
+      sortOrder: ((last?.sortOrder as number | undefined) ?? 0) + 1,
+    })
+    .eq("id", groupId);
+
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
 export async function addTemplateItem(groupId: string, name: string): Promise<ActionResult> {
   const auth = await ensureConfig();
   if ("error" in auth) return { ok: false, error: auth.error };

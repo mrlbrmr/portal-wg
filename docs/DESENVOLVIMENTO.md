@@ -63,6 +63,13 @@ Sem migração (só UI).
 - **Modelos:** nome do item deixou de ser `<input>` de linha única e virou um **textarea que cresce**
   em altura (`ItemNameTextarea` em `TemplateEditor.tsx`); Enter salva, Shift+Enter quebra, Esc cancela.
 
+### 5. Marcador "pizza" de progresso das subtarefas — commit `7035c37`
+Sem migração (só UI). Componente compartilhado `src/components/internal/admissao/SubtaskProgress.tsx`:
+uma fatia de pizza (SVG) que se preenche conforme as subtarefas concluem, ao lado do contador
+`concluídas/total` (ex.: 1/4). Aparece apenas em itens-mãe (que têm subtarefas).
+- **Admissões:** preenche com base nas subtarefas com status `DONE` (progresso real).
+- **Modelos:** templates não têm execução, então mostra `0/N` (indica só quantas subtarefas o item tem).
+
 ---
 
 ## Modelo de dados — checklists (referência rápida)

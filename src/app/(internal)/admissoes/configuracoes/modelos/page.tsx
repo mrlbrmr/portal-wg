@@ -25,7 +25,9 @@ export default async function ModelosPage({
   const [templatesRes, positionsRes, selectedRes] = await Promise.all([
     supabase
       .from("admission_checklist_templates")
-      .select("id, name, sortOrder, position:admission_positions(name)")
+      .select(
+        "id, name, sortOrder, positions:admission_template_positions(position:admission_positions(id, name))"
+      )
       .order("sortOrder", { ascending: true })
       .order("name", { ascending: true }),
     supabase
@@ -37,7 +39,7 @@ export default async function ModelosPage({
       ? supabase
           .from("admission_checklist_templates")
           .select(
-            "id, name, positionId, groups:admission_template_groups(id, name, sortOrder, items:admission_template_items(id, name, sortOrder))"
+            "id, name, positions:admission_template_positions(positionId), groups:admission_template_groups(id, name, sortOrder, items:admission_template_items(id, name, sortOrder, parentId))"
           )
           .eq("id", t)
           .maybeSingle()
@@ -47,13 +49,18 @@ export default async function ModelosPage({
   const templates = (templatesRes.data ?? []) as unknown as Array<{
     id: string;
     name: string;
-    position: { name: string } | null;
+    positions: Array<{ position: { id: string; name: string } | null }>;
   }>;
-  const templateItems = templates.map((tpl) => ({
-    id: tpl.id,
-    name: tpl.name,
-    positionName: tpl.position?.name ?? null,
-  }));
+  const templateItems = templates.map((tpl) => {
+    const names = (tpl.positions ?? [])
+      .map((p) => p.position?.name)
+      .filter((n): n is string => !!n);
+    return {
+      id: tpl.id,
+      name: tpl.name,
+      positionLabel: names.length === 0 ? "Todos os cargos" : names.join(", "),
+    };
+  });
   const positions = (positionsRes.data ?? []) as Array<{ id: string; name: string }>;
 
   // Ordena grupos/itens no JS (o embed do PostgREST não garante ordem) e reduz à
@@ -61,28 +68,38 @@ export default async function ModelosPage({
   const raw = selectedRes.data as unknown as {
     id: string;
     name: string;
-    positionId: string | null;
+    positions: Array<{ positionId: string }>;
     groups: Array<{
       id: string;
       name: string;
       sortOrder: number;
-      items: Array<{ id: string; name: string; sortOrder: number }>;
+      items: Array<{ id: string; name: string; sortOrder: number; parentId: string | null }>;
     }>;
   } | null;
   const detail: TemplateDetail | null = raw
     ? {
         id: raw.id,
         name: raw.name,
-        positionId: raw.positionId,
+        positionIds: (raw.positions ?? []).map((p) => p.positionId),
         groups: [...(raw.groups ?? [])]
           .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((g) => ({
-            id: g.id,
-            name: g.name,
-            items: [...(g.items ?? [])]
-              .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((it) => ({ id: it.id, name: it.name })),
-          })),
+          .map((g) => {
+            // Aninha as subtarefas sob seus itens-mãe (mesma lógica das admissões).
+            const gItems = [...(g.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+            const children = gItems.filter((it) => it.parentId);
+            const topLevel = gItems.filter((it) => !it.parentId);
+            return {
+              id: g.id,
+              name: g.name,
+              items: topLevel.map((it) => ({
+                id: it.id,
+                name: it.name,
+                subtasks: children
+                  .filter((c) => c.parentId === it.id)
+                  .map((c) => ({ id: c.id, name: c.name })),
+              })),
+            };
+          }),
       }
     : null;
 

@@ -167,7 +167,7 @@ export async function addChecklistSubtask(
 export async function updateChecklistItem(
   admissionId: string,
   itemId: string,
-  patch: { status?: ChecklistItemStatus; dueDate?: string | null }
+  patch: { status?: ChecklistItemStatus; dueDate?: string | null; name?: string }
 ): Promise<ActionResult> {
   const auth = await requireWrite();
   if ("error" in auth) return { ok: false, error: auth.error };
@@ -184,9 +184,16 @@ export async function updateChecklistItem(
   const data: {
     status?: ChecklistItemStatus;
     dueDate?: string | null;
+    name?: string;
     completedAt?: string | null;
     completedById?: string | null;
   } = {};
+
+  if (patch.name !== undefined) {
+    const clean = patch.name.trim().slice(0, 200);
+    if (!clean) return { ok: false, error: "Informe o nome do item." };
+    data.name = clean;
+  }
 
   if (patch.status) {
     if (!Object.values(ChecklistItemStatus).includes(patch.status)) {

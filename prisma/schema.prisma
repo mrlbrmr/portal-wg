@@ -307,7 +307,8 @@ model Position {
   updatedAt DateTime @updatedAt
 
   admissions Admission[]
-  templates  ChecklistTemplate[]
+  templates  ChecklistTemplate[] // legado (positionId único; ver TemplatePosition)
+  templatePositions TemplatePosition[]
 
   @@map("admission_positions")
 }
@@ -369,8 +370,20 @@ model ChecklistTemplate {
 
   groups     TemplateGroup[]
   admissions Admission[]
+  positions  TemplatePosition[] // N:N — modelo aplicável a vários cargos
 
   @@map("admission_checklist_templates")
+}
+
+// Junção N:N entre modelos de checklist e cargos (substitui o positionId único).
+model TemplatePosition {
+  templateId String
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  positionId String
+  position   Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, positionId])
+  @@map("admission_template_positions")
 }
 
 model TemplateGroup {
@@ -390,6 +403,9 @@ model TemplateItem {
   id                   String        @id @default(cuid())
   groupId              String
   group                TemplateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  parentId             String? // item-mãe (subtarefas = 1 nível, como nas admissões)
+  parent               TemplateItem?  @relation("TemplateItemSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks             TemplateItem[] @relation("TemplateItemSubtasks")
   name                 String
   description          String?
   sortOrder            Int           @default(0)

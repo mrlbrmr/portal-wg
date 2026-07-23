@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, GripVertical, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, CornerDownRight, Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
   updateTemplate,
@@ -12,16 +12,25 @@ import {
   deleteTemplateGroup,
   duplicateTemplateGroup,
   addTemplateItem,
+  addTemplateSubtask,
   deleteTemplateItem,
+  renameTemplateItem,
+  moveTemplateItem,
   type ActionResult,
 } from "@/lib/admissao/template-actions";
 import { TEMPLATE_GROUP_MIME } from "@/lib/admissao/template-dnd";
+import { PositionMultiSelect } from "./PositionMultiSelect";
 
+export interface TemplateItemView {
+  id: string;
+  name: string;
+  subtasks: { id: string; name: string }[];
+}
 export interface TemplateDetail {
   id: string;
   name: string;
-  positionId: string | null;
-  groups: { id: string; name: string; items: { id: string; name: string }[] }[];
+  positionIds: string[];
+  groups: { id: string; name: string; items: TemplateItemView[] }[];
 }
 
 interface Props {
@@ -37,6 +46,7 @@ export function TemplateEditor({ template, positions }: Props) {
   const { notify } = useToast();
   const [isPending, startTransition] = useTransition();
   const [newGroup, setNewGroup] = useState("");
+  const [positionIds, setPositionIds] = useState<string[]>(template.positionIds);
 
   function run(fn: () => Promise<ActionResult>) {
     startTransition(async () => {
@@ -56,18 +66,15 @@ export function TemplateEditor({ template, positions }: Props) {
           }}
           className={`${input} font-medium flex-1 min-w-[180px]`}
         />
-        <select
-          defaultValue={template.positionId ?? ""}
-          onChange={(e) => run(() => updateTemplate(template.id, { positionId: e.target.value || null }))}
-          className={`${input} w-[200px]`}
-        >
-          <option value="">Todos os cargos</option>
-          {positions.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <PositionMultiSelect
+          positions={positions}
+          value={positionIds}
+          onChange={(ids) => {
+            setPositionIds(ids);
+            run(() => updateTemplate(template.id, { positionIds: ids }));
+          }}
+          className="w-[200px]"
+        />
         <button
           type="button"
           disabled={isPending}
@@ -154,19 +161,16 @@ export function TemplateEditor({ template, positions }: Props) {
             </div>
             <div className="divide-y divide-gray-100">
               {g.items.length === 0 && <p className="text-xs text-gray-400 px-3 py-2.5">Sem itens.</p>}
-              {g.items.map((it) => (
-                <div key={it.id} className="flex items-center gap-2 px-3 py-1.5 text-sm">
-                  <span className="text-gray-300">·</span>
-                  <span className="flex-1 truncate text-gray-800">{it.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => run(() => deleteTemplateItem(it.id))}
-                    className="p-1 text-gray-400 hover:text-red-600 rounded"
-                    title="Excluir item"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
+              {g.items.map((it, itemIdx) => (
+                <TemplateItemRow
+                  key={it.id}
+                  item={it}
+                  index={itemIdx}
+                  siblingCount={g.items.length}
+                  depth={0}
+                  isPending={isPending}
+                  run={run}
+                />
               ))}
             </div>
           </div>
@@ -206,10 +210,12 @@ function AddInline({
   label,
   placeholder,
   onAdd,
+  compact = false,
 }: {
   label: string;
   placeholder: string;
   onAdd: (name: string) => void;
+  compact?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -218,9 +224,12 @@ function AddInline({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded"
+        className={`inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded ${
+          compact ? "opacity-0 group-hover/item:opacity-100 transition-opacity" : ""
+        }`}
+        title={compact ? `Adicionar ${label.toLowerCase()}` : undefined}
       >
-        <Plus className="w-3.5 h-3.5" /> {label}
+        <Plus className="w-3.5 h-3.5" /> {compact ? "" : label}
       </button>
     );
   }
@@ -244,5 +253,109 @@ function AddInline({
       }}
       onBlur={() => setEditing(false)}
     />
+  );
+}
+
+/** Linha de item de modelo. Em depth 0, renderiza também suas subtarefas. */
+function TemplateItemRow({
+  item,
+  index,
+  siblingCount,
+  depth,
+  isPending,
+  run,
+}: {
+  item: TemplateItemView;
+  index: number;
+  siblingCount: number;
+  depth: 0 | 1;
+  isPending: boolean;
+  run: (fn: () => Promise<ActionResult>) => void;
+}) {
+  const isSub = depth === 1;
+  return (
+    <>
+      <div
+        className={`group/item flex items-center gap-2 px-3 py-1.5 text-sm ${isSub ? "pl-9" : ""}`}
+      >
+        {isSub ? (
+          <CornerDownRight className="w-3.5 h-3.5 text-gray-300 shrink-0 -ml-4" />
+        ) : (
+          <span className="text-gray-300 shrink-0">·</span>
+        )}
+        <input
+          defaultValue={item.name}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (!v) {
+              e.target.value = item.name;
+              return;
+            }
+            if (v !== item.name) run(() => renameTemplateItem(item.id, v));
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              e.currentTarget.value = item.name;
+              e.currentTarget.blur();
+            }
+          }}
+          className={`flex-1 min-w-0 rounded border border-transparent px-1.5 py-0.5 hover:border-gray-200 focus:border-wg-green focus:outline-none focus:ring-1 focus:ring-wg-green/30 ${
+            isSub ? "text-[13px] text-gray-700" : "text-gray-800"
+          }`}
+        />
+        <div className="flex flex-col opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0">
+          <button
+            type="button"
+            disabled={index === 0 || isPending}
+            onClick={() => run(() => moveTemplateItem(item.id, "up"))}
+            className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+            title="Mover para cima"
+          >
+            <ChevronUp className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            disabled={index === siblingCount - 1 || isPending}
+            onClick={() => run(() => moveTemplateItem(item.id, "down"))}
+            className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+            title="Mover para baixo"
+          >
+            <ChevronDown className="w-3 h-3" />
+          </button>
+        </div>
+        {/* Adicionar subtarefa só em itens de topo (um nível, como nas admissões) */}
+        {!isSub && (
+          <AddInline
+            label="Subtarefa"
+            placeholder="Nova subtarefa…"
+            compact
+            onAdd={(name) => run(() => addTemplateSubtask(item.id, name))}
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => run(() => deleteTemplateItem(item.id))}
+          className="p-1 text-gray-400 hover:text-red-600 rounded shrink-0"
+          title={isSub ? "Excluir subtarefa" : "Excluir item"}
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
+
+      {/* Subtarefas (um nível) */}
+      {!isSub &&
+        item.subtasks.map((sub, sIdx) => (
+          <TemplateItemRow
+            key={sub.id}
+            item={{ id: sub.id, name: sub.name, subtasks: [] }}
+            index={sIdx}
+            siblingCount={item.subtasks.length}
+            depth={1}
+            isPending={isPending}
+            run={run}
+          />
+        ))}
+    </>
   );
 }

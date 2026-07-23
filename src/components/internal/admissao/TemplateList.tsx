@@ -10,7 +10,7 @@ import { TEMPLATE_GROUP_MIME } from "@/lib/admissao/template-dnd";
 export interface TemplateListItem {
   id: string;
   name: string;
-  positionName: string | null;
+  positionLabel: string;
 }
 
 interface Props {
@@ -142,7 +142,7 @@ export function TemplateList({ templates, selectedId }: Props) {
             <div className="min-w-0">
               <div className="font-medium text-sm text-gray-900 truncate">{tpl.name}</div>
               <div className="text-xs text-gray-500 mt-0.5 truncate">
-                {tpl.positionName ?? "Todos os cargos"}
+                {tpl.positionLabel}
               </div>
             </div>
           </div>

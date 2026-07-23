@@ -13,6 +13,7 @@ import {
   X,
   Copy,
   CornerDownRight,
+  Pencil,
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ActionResult } from "@/lib/admissao/actions";
@@ -456,6 +457,7 @@ function ItemRow({
   ctx: RowContext;
 }) {
   const { admissionId, canManage, isPending, selectionMode, selectedItems, toggleSelect, collapsedItems, toggleItemCollapse, run } = ctx;
+  const [editing, setEditing] = useState(false);
   const isSub = depth === 1;
   const hasSubtasks = !isSub && item.subtasks.length > 0;
   const allSubsDone = hasSubtasks && item.subtasks.every((s) => s.status === "DONE");
@@ -509,13 +511,36 @@ function ItemRow({
             className="accent-wg-green shrink-0"
           />
         )}
-        <span
-          className={`flex-1 min-w-0 truncate ${isSub ? "text-[13px]" : "text-sm"} ${
-            checked ? "line-through text-gray-400" : "text-gray-800"
-          }`}
-        >
-          {item.name}
-        </span>
+        {editing ? (
+          <input
+            autoFocus
+            defaultValue={item.name}
+            onBlur={(e) => {
+              const v = e.target.value.trim();
+              if (v && v !== item.name) run(() => updateChecklistItem(admissionId, item.id, { name: v }));
+              setEditing(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            className={`flex-1 min-w-0 rounded border border-gray-300 px-1.5 py-0.5 ${
+              isSub ? "text-[13px]" : "text-sm"
+            } text-gray-800 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green`}
+          />
+        ) : (
+          <span
+            onDoubleClick={() => {
+              if (canManage && !selectionMode) setEditing(true);
+            }}
+            title={canManage && !selectionMode ? "Duplo clique para editar" : undefined}
+            className={`flex-1 min-w-0 truncate ${isSub ? "text-[13px]" : "text-sm"} ${
+              checked ? "line-through text-gray-400" : "text-gray-800"
+            }`}
+          >
+            {item.name}
+          </span>
+        )}
         <input
           type="date"
           defaultValue={item.dueDate ?? ""}
@@ -570,6 +595,14 @@ function ItemRow({
                 <ChevronDown className="w-3 h-3" />
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="p-1 text-gray-400 hover:text-gray-700 rounded"
+              title={isSub ? "Editar subtarefa" : "Editar item"}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
             {/* Adicionar subtarefa só em itens de topo */}
             {!isSub && (
               <AddItemInline

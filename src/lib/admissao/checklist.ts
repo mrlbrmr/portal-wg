@@ -18,7 +18,7 @@ export async function instantiateChecklistFromTemplate(
 
   const { data: groupsData } = await supabase
     .from("admission_template_groups")
-    .select("id, name, sortOrder, items:admission_template_items(id, name, description, sortOrder)")
+    .select("id, name, sortOrder, items:admission_template_items(id, name, description, sortOrder, parentId)")
     .eq("templateId", templateId)
     .order("sortOrder", { ascending: true });
 
@@ -26,7 +26,13 @@ export async function instantiateChecklistFromTemplate(
     id: string;
     name: string;
     sortOrder: number;
-    items: Array<{ id: string; name: string; description: string | null; sortOrder: number }>;
+    items: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      sortOrder: number;
+      parentId: string | null;
+    }>;
   }>;
   if (groups.length === 0) return 0;
 
@@ -48,17 +54,41 @@ export async function instantiateChecklistFromTemplate(
       .single();
     if (!newGroup) continue;
 
+    // Preserva a hierarquia: itens de topo primeiro (guardando o mapa id
+    // antigo→novo), depois as subtarefas apontando para o novo pai.
     const items = [...(g.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
-    if (items.length > 0) {
-      await supabase.from("admission_checklist_items").insert(
-        items.map((it, idx) => ({
+    const topLevel = items.filter((it) => !it.parentId);
+    const children = items.filter((it) => it.parentId);
+    const idMap = new Map<string, string>();
+
+    for (let idx = 0; idx < topLevel.length; idx++) {
+      const it = topLevel[idx];
+      const { data: created } = await supabase
+        .from("admission_checklist_items")
+        .insert({
           admissionId,
           groupId: newGroup.id,
           name: it.name,
           description: it.description,
           sortOrder: idx + 1,
-        }))
-      );
+        })
+        .select("id")
+        .single();
+      if (created) idMap.set(it.id, created.id);
+    }
+
+    const childRows = children
+      .filter((it) => it.parentId && idMap.has(it.parentId))
+      .map((it, idx) => ({
+        admissionId,
+        groupId: newGroup.id,
+        parentId: idMap.get(it.parentId!)!,
+        name: it.name,
+        description: it.description,
+        sortOrder: idx + 1,
+      }));
+    if (childRows.length > 0) {
+      await supabase.from("admission_checklist_items").insert(childRows);
     }
   }
 

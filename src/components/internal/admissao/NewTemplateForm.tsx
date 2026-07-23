@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { createTemplate } from "@/lib/admissao/template-actions";
+import { PositionMultiSelect } from "./PositionMultiSelect";
 
 interface Props {
   positions: { id: string; name: string }[];
@@ -19,7 +20,7 @@ export function NewTemplateForm({ positions }: Props) {
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [positionId, setPositionId] = useState("");
+  const [positionIds, setPositionIds] = useState<string[]>([]);
 
   if (!open) {
     return (
@@ -37,13 +38,13 @@ export function NewTemplateForm({ positions }: Props) {
     const clean = name.trim();
     if (!clean) return;
     startTransition(async () => {
-      const res = await createTemplate(clean, positionId || null);
+      const res = await createTemplate(clean, positionIds);
       if (!res.ok) {
         notify("error", res.error);
         return;
       }
       setName("");
-      setPositionId("");
+      setPositionIds([]);
       setOpen(false);
       router.push(`/admissoes/configuracoes/modelos?t=${res.id}`);
     });
@@ -59,18 +60,12 @@ export function NewTemplateForm({ positions }: Props) {
         placeholder="Nome do modelo (ex.: Admissão CLT padrão)"
         className={`${input} w-[260px]`}
       />
-      <select
-        value={positionId}
-        onChange={(e) => setPositionId(e.target.value)}
-        className={`${input} w-[180px]`}
-      >
-        <option value="">Todos os cargos</option>
-        {positions.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
+      <PositionMultiSelect
+        positions={positions}
+        value={positionIds}
+        onChange={setPositionIds}
+        className="w-[200px]"
+      />
       <button
         type="button"
         disabled={!name.trim() || isPending}

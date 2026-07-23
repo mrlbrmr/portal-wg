@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, CornerDownRight, Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -256,6 +256,62 @@ function AddInline({
   );
 }
 
+/** Campo de nome do item que quebra linha e cresce em altura conforme o texto. */
+function ItemNameTextarea({
+  value,
+  onCommit,
+  className,
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  function resize() {
+    const el = ref.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }
+
+  // Ajusta a altura ao montar e sempre que o texto do servidor muda.
+  useEffect(() => {
+    resize();
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      defaultValue={value}
+      onInput={resize}
+      onBlur={(e) => {
+        const v = e.target.value.trim();
+        if (!v) {
+          e.target.value = value;
+          resize();
+          return;
+        }
+        if (v !== value) onCommit(v);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+        if (e.key === "Escape") {
+          e.currentTarget.value = value;
+          resize();
+          e.currentTarget.blur();
+        }
+      }}
+      className={className}
+    />
+  );
+}
+
 /** Linha de item de modelo. Em depth 0, renderiza também suas subtarefas. */
 function TemplateItemRow({
   item,
@@ -283,25 +339,11 @@ function TemplateItemRow({
         ) : (
           <span className="text-gray-300 shrink-0">·</span>
         )}
-        <input
-          defaultValue={item.name}
-          onBlur={(e) => {
-            const v = e.target.value.trim();
-            if (!v) {
-              e.target.value = item.name;
-              return;
-            }
-            if (v !== item.name) run(() => renameTemplateItem(item.id, v));
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-            if (e.key === "Escape") {
-              e.currentTarget.value = item.name;
-              e.currentTarget.blur();
-            }
-          }}
-          className={`flex-1 min-w-0 rounded border border-transparent px-1.5 py-0.5 hover:border-gray-200 focus:border-wg-green focus:outline-none focus:ring-1 focus:ring-wg-green/30 ${
-            isSub ? "text-[13px] text-gray-700" : "text-gray-800"
+        <ItemNameTextarea
+          value={item.name}
+          onCommit={(v) => run(() => renameTemplateItem(item.id, v))}
+          className={`flex-1 min-w-0 resize-none overflow-hidden rounded border border-transparent px-1.5 py-0.5 leading-snug hover:border-gray-200 focus:border-wg-green focus:outline-none focus:ring-1 focus:ring-wg-green/30 ${
+            isSub ? "text-[13px] text-gray-700" : "text-sm text-gray-800"
           }`}
         />
         <div className="flex flex-col opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0">

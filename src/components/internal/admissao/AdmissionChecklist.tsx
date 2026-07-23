@@ -534,7 +534,7 @@ function ItemRow({
               if (canManage && !selectionMode) setEditing(true);
             }}
             title={canManage && !selectionMode ? "Duplo clique para editar" : undefined}
-            className={`flex-1 min-w-0 truncate ${isSub ? "text-[13px]" : "text-sm"} ${
+            className={`flex-1 min-w-0 break-words ${isSub ? "text-[13px]" : "text-sm"} ${
               checked ? "line-through text-gray-400" : "text-gray-800"
             }`}
           >

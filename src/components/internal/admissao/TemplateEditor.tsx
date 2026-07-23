@@ -20,6 +20,7 @@ import {
 } from "@/lib/admissao/template-actions";
 import { TEMPLATE_GROUP_MIME } from "@/lib/admissao/template-dnd";
 import { PositionMultiSelect } from "./PositionMultiSelect";
+import { SubtaskProgress } from "./SubtaskProgress";
 
 export interface TemplateItemView {
   id: string;
@@ -346,6 +347,9 @@ function TemplateItemRow({
             isSub ? "text-[13px] text-gray-700" : "text-sm text-gray-800"
           }`}
         />
+        {!isSub && item.subtasks.length > 0 && (
+          <SubtaskProgress done={0} total={item.subtasks.length} />
+        )}
         <div className="flex flex-col opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0">
           <button
             type="button"

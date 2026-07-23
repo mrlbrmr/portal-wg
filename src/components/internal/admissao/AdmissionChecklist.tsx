@@ -16,6 +16,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
+import { SubtaskProgress } from "./SubtaskProgress";
 import type { ActionResult } from "@/lib/admissao/actions";
 import {
   applyChecklistTemplate,
@@ -460,7 +461,8 @@ function ItemRow({
   const [editing, setEditing] = useState(false);
   const isSub = depth === 1;
   const hasSubtasks = !isSub && item.subtasks.length > 0;
-  const allSubsDone = hasSubtasks && item.subtasks.every((s) => s.status === "DONE");
+  const subsDone = hasSubtasks ? item.subtasks.filter((s) => s.status === "DONE").length : 0;
+  const allSubsDone = hasSubtasks && subsDone === item.subtasks.length;
   // Numa tarefa-mãe, o "check" reflete todas as subtarefas concluídas.
   const checked = hasSubtasks ? allSubsDone : item.status === "DONE";
   const collapsed = collapsedItems.has(item.id);
@@ -541,6 +543,7 @@ function ItemRow({
             {item.name}
           </span>
         )}
+        {hasSubtasks && <SubtaskProgress done={subsDone} total={item.subtasks.length} />}
         <input
           type="date"
           defaultValue={item.dueDate ?? ""}

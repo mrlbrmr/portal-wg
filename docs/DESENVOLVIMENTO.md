@@ -19,6 +19,51 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-07-25 — Refatoração de UI do painel (4 Épicos)
+
+Refatoração ampla da interface do painel RH focada em **usabilidade, densidade para 1080p**
+(viewport útil ~900px), padronização e acessibilidade. Plano completo em
+`~/.claude/plans/atue-como-um-engenheiro-floofy-whale.md` (4 épicos). **Execução em 2 partes:**
+Épicos 1-2 concluídos e no ar (commit `3b0dddc`); **Épicos 3-4 PENDENTES**.
+
+Decisões alinhadas com o usuário (via AskUserQuestion): (1) criar PageHeader compartilhado;
+(2) densidade incluindo a moldura global; (3) alça de arraste do Kanban sempre visível esmaecida;
+(4) rebalancear **toda** a paleta de tags num padrão único AA.
+
+### Épico 1 — Layout/viewport (FEITO, commit `3b0dddc`)
+- **Novo `PageHeader`** (`src/components/internal/PageHeader.tsx`): título responsivo
+  (`text-xl md:text-2xl`), subtítulo opcional e slot `action` no topo-direito; `mb-4` (era `mb-6`).
+  Adotado em dashboard, `vagas/gerenciar`, `admissoes`, `admissoes/kanban`, `usuarios`,
+  `configuracoes` e `avaliacoes/TemplateBancoList`.
+- **Novo `PrimaryActionLink`** (`.../PrimaryActionLink.tsx`): botão verde de criar padronizado
+  (unifica o `rounded-full py-2.5` de Admissões e o `rounded-lg py-2` de Vagas).
+- **KPIs achatados ~25%**: `DashboardCard` e os cards inline do dashboard — `p-4→p-3`,
+  ícone `36→32px` (`h-9→h-8`, ícone interno `h-5→h-4`), valor `text-2xl→text-xl`, `mt-3→mt-2`;
+  grids de KPI `mb-6→mb-4` e gaps unificados em `gap-3`.
+- **Moldura global**: `InternalShell` `main p-6 → p-4 md:p-5`; barra sticky do `JobsExplorer`
+  mais rasa (`mb-4→mb-3`, `pb-3→pb-2`, `mb-3→mb-2`). Header segue `h-14` (evita cascata no `top-14`).
+
+### Épico 2 — Sidebar (FEITO, commit `3b0dddc`)
+- **Remove "Nova Vaga"** do menu lateral (`InternalSidebar.tsx`): a ação vive só no header de
+  Vagas e no atalho do Dashboard. `adminLinks` virou `systemLinks` (Usuários, Configurações).
+- **Separador + rótulo "Sistema"** isolando a navegação operacional (Dashboard, Vagas, Avaliações,
+  Admissões) do bloco de gestão + conta. Rótulo só aparece p/ ADMIN_RH; divider sempre.
+
+### Épico 3 — Cards do Kanban e listas (PENDENTE)
+Nome da entidade em `font-semibold`; agrupar metadados inline (admissão: cargo+empresa numa linha,
+responsável+data noutra); **alça de arraste sempre visível esmaecida** (`kanban-dnd.tsx`, handle já
+existe — só subir `text-gray-300→400`); fonte secundária maior nas listas (`JobsExplorer`,
+`AdmissionsExplorer`). Interfaces `KanbanJob/Application/Admission` reaproveitam dados existentes
+(sem props novas; **sem `any`**).
+
+### Épico 4 — Acessibilidade e micro-interações (PENDENTE)
+Rebalancear paleta de tags em `src/lib/utils.ts` para padrão `bg-{cor}-100 text-{cor}-800`
+(≥4.5:1); novo `StatusBadge.tsx`; corrigir `StageBadge` dinâmico (texto neutro escuro sobre
+`cor@12%` + bolinha na cor); **empty state educativo** nas colunas do Kanban (`KanbanBoardShell`
+ganha prop `emptyHint`; ex.: "Arraste candidatos para esta etapa").
+
+---
+
 ## Sessão de 2026-07-24
 
 Foco: **estabilidade do formulário de admissão digital no celular**, **ajuste do filtro de Vagas** e

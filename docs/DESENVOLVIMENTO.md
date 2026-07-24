@@ -21,8 +21,9 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ## Sessão de 2026-07-24
 
-Foco: **estabilidade do formulário de admissão digital no celular** e **ajuste do filtro de Vagas**.
-Ambos commitados em `master` e em produção. Sem migrações.
+Foco: **estabilidade do formulário de admissão digital no celular**, **ajuste do filtro de Vagas** e
+**correções de UX do Kanban/checklist** (ordenação, drag-and-drop de tarefas, contraste).
+Tudo commitado em `master` e em produção. Sem migrações.
 
 ### 1. Estabilidade do formulário de admissão no mobile — commit `e1cb9f0`
 Candidato relatou instabilidade ao abrir/enviar documentos pelo celular. **Causa raiz:** o upload vai
@@ -55,6 +56,26 @@ Rascunhos **seguem visíveis** (decisão do usuário: ocultar só concluídas/ca
 - Lógica em `JobsExplorer.tsx`: status vazio → oculta terminais; `ATIVAS` → só as ativas; status específico → exato.
 - **Decisão registrada:** o Dashboard **não** foi alterado — o card "Vagas Ativas" de lá conta `PUBLIC_JOB_STATUSES`
   (sem Rascunho, que tem card próprio); manter a semântica existente.
+
+### 3. Ordenação do Kanban, DnD de tarefas no checklist e contraste — commit `576533c`
+Três ajustes de UX, sem migração. Todos em `master`/produção.
+- **"Ordenar" não funcionava na visão Kanban de Vagas.** Causa raiz: `KanbanBoardShell` fazia
+  `useState(initialItems)` — snapshot na 1ª renderização que **nunca ressincronizava**. Ao trocar a ordenação
+  (que reordena o array do pai), o quadro seguia com a ordem antiga. Agora o quadro **deriva** os cards de
+  `initialItems` (já ordenado/filtrado pelo pai) e aplica **por cima** os movimentos/exclusões otimistas via
+  `overrides`/`deletedIds` (`useMemo`). Efeito: ordenar atualiza na hora **e** um card recém-arrastado não volta ao
+  reordenar. Beneficia os 3 quadros (vagas, candidatos, admissões).
+- **Arrastar tarefas no checklist de admissões** (`AdmissionChecklist.tsx`), no lugar das setas ↑↓ de 1 em 1.
+  Drag-and-drop **nativo HTML5** (mesma convenção do `TemplateEditor`): alça (grip) que aparece no hover, só quando
+  há mais de 1 irmão; alvo do drop realça em verde. Vale para itens de topo (dentro do grupo) e subtarefas (dentro
+  da mãe) — o reordenamento é **restrito a irmãos do mesmo escopo**. Grupos continuam com setas (fora do pedido).
+  Nova server action `reorderChecklistItems(admissionId, orderedIds)` em `src/lib/admissao/actions.ts`: grava
+  `sortOrder = posição` e valida que todos os ids são irmãos (mesmo `groupId` e `parentId`). A antiga
+  `moveChecklistItem` (up/down) permanece exportada, mas não é mais usada pela UI de admissões.
+- **Contraste do Kanban muito claro/"quase ilegível".** No casco compartilhado (`KanbanBoardShell` + `kanban-dnd`):
+  colunas `bg-gray-100 → bg-gray-200`, bordas `gray-200 → gray-300`, badge de contagem e texto de estado-vazio mais
+  escuros, e os **dots de etapa** um pouco maiores com `ring-1 ring-black/10` (para cores pálidas ficarem visíveis).
+  Dot de "Sem etapa" `#cbd5e1 → #94a3b8`. Como o casco é compartilhado, o ajuste vale para os 3 quadros.
 
 ---
 

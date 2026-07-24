@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { deleteAdmissionAttachment } from '@/lib/admissao/storage'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -19,6 +20,7 @@ const schema = z.object({
   colorDeclaration:       z.string().min(1),
   isDriverOperator:       z.boolean(),
   formExtras:             z.record(z.string(), z.string().max(200)).nullable().optional(),
+  abandonedAttachmentIds: z.array(z.string().uuid()).max(50).nullable().optional(),
 })
 
 export async function POST(
@@ -74,6 +76,31 @@ export async function POST(
   if (error) {
     console.error('[admissao-submit]', error)
     return NextResponse.json({ error: 'Erro ao salvar dados.' }, { status: 500 })
+  }
+
+  // Remove anexos abandonados (docs que deixaram de ser exigidos após mudança de
+  // resposta). Restrito à própria admissão. Falha aqui não invalida o envio.
+  if (d.abandonedAttachmentIds?.length) {
+    try {
+      const { data: rows } = await supabase
+        .from('admission_attachments')
+        .select('id, blobUrl')
+        .eq('admissionId', admission.id)
+        .in('id', d.abandonedAttachmentIds)
+
+      for (const r of rows ?? []) {
+        if (r.blobUrl) await deleteAdmissionAttachment(r.blobUrl as string)
+      }
+      if (rows?.length) {
+        await supabase
+          .from('admission_attachments')
+          .delete()
+          .eq('admissionId', admission.id)
+          .in('id', rows.map((r) => r.id as string))
+      }
+    } catch (cleanupErr) {
+      console.error('[admissao-submit] limpeza de anexos órfãos', cleanupErr)
+    }
   }
 
   return NextResponse.json({ ok: true })

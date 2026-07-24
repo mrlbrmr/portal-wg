@@ -8,6 +8,7 @@ import {
   type DocumentConfig,
   type ExtraFieldConfig,
 } from '@/lib/admissao/form-config'
+import { compressImage, MAX_UPLOAD_BYTES } from '@/lib/admissao/image-compress'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ interface AdditionalData {
 interface UploadState {
   status: 'idle' | 'uploading' | 'done' | 'error'
   fileName?: string
+  attachmentId?: string
   error?: string
 }
 
@@ -65,11 +67,43 @@ function applyMask(mask: ExtraFieldConfig['mask'], v: string) {
   return mask === 'pis' ? maskPis(v) : v
 }
 
+/** Valida CPF (11 dígitos) incluindo os dígitos verificadores. */
+function isValidCpf(raw: string): boolean {
+  const d = raw.replace(/\D/g, '')
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false
+  const digit = (len: number) => {
+    let sum = 0
+    for (let i = 0; i < len; i++) sum += parseInt(d[i], 10) * (len + 1 - i)
+    const r = (sum * 10) % 11
+    return r === 10 ? 0 : r
+  }
+  return digit(9) === parseInt(d[9], 10) && digit(10) === parseInt(d[10], 10)
+}
+
+/** Converte uma data ISO (yyyy-mm-dd) para o formato brasileiro dd/mm/aaaa. */
+function formatDateBR(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
+}
+
+/** fetch com tempo limite — evita spinner infinito em redes móveis instáveis. */
+async function fetchWithTimeout(input: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await fetch(input, { ...init, signal: ctrl.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 function labelCls(required: boolean) {
   return `block text-sm font-medium text-gray-700 mb-1 ${required ? "after:content-['*'] after:text-red-500 after:ml-0.5" : ''}`
 }
 
-const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wg-green focus:border-transparent'
+// text-base (16px): abaixo de 16px o Safari no iOS dá zoom automático ao focar o
+// campo, o que deixa a tela "pulando" no celular. 16px evita esse comportamento.
+const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-wg-green focus:border-transparent'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -139,16 +173,30 @@ function FileUpload({
 
   async function handleFile(file: File) {
     onUpload(docKey, { status: 'uploading' })
+
+    // Fotos do celular são grandes demais para a função serverless (~4,5 MB).
+    // Comprimimos imagens antes de enviar; PDFs/DOC seguem sem alteração.
+    let toSend = file
+    try { toSend = await compressImage(file) } catch { /* mantém o original */ }
+
+    if (toSend.size > MAX_UPLOAD_BYTES) {
+      onUpload(docKey, {
+        status: 'error',
+        error: 'Arquivo muito grande. Se for um PDF, envie um menor; se for foto, tente novamente.',
+      })
+      return
+    }
+
     const fd = new FormData()
-    fd.append('file', file)
+    fd.append('file', toSend)
     fd.append('docKey', docKey)
     try {
-      const res = await fetch(`/api/admissao/${token}/upload`, { method: 'POST', body: fd })
-      const body = await res.json().catch(() => ({})) as { error?: string; fileName?: string }
+      const res = await fetchWithTimeout(`/api/admissao/${token}/upload`, { method: 'POST', body: fd }, 60_000)
+      const body = await res.json().catch(() => ({})) as { error?: string; fileName?: string; attachmentId?: string }
       if (!res.ok) { onUpload(docKey, { status: 'error', error: body.error ?? 'Erro no upload.' }); return }
-      onUpload(docKey, { status: 'done', fileName: body.fileName ?? file.name })
+      onUpload(docKey, { status: 'done', fileName: body.fileName ?? file.name, attachmentId: body.attachmentId })
     } catch {
-      onUpload(docKey, { status: 'error', error: 'Erro de conexão. Tente novamente.' })
+      onUpload(docKey, { status: 'error', error: 'Conexão instável. Toque para tentar novamente.' })
     }
   }
 
@@ -169,7 +217,7 @@ function FileUpload({
           ref={ref}
           type="file"
           className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+          accept="image/*,.pdf,.doc,.docx,.heic,.heif"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
         />
         {state.status === 'uploading' && (
@@ -195,8 +243,8 @@ function FileUpload({
         {state.status === 'idle' && (
           <div className="flex flex-col items-center gap-1 text-gray-500">
             <Upload className="w-5 h-5" />
-            <span className="text-sm">Clique ou arraste o arquivo aqui</span>
-            <span className="text-xs">PDF, JPG, PNG, WEBP, DOC · máx. 10 MB</span>
+            <span className="text-sm">Toque para tirar foto ou escolher o arquivo</span>
+            <span className="text-xs">PDF ou imagem · fotos são otimizadas automaticamente</span>
           </div>
         )}
       </div>
@@ -210,21 +258,26 @@ const STEPS = ['Dados pessoais', 'Informações', 'Documentos', 'Confirmação']
 
 function StepBar({ current }: { current: number }) {
   return (
-    <div className="flex items-center justify-center gap-1 mb-8">
-      {STEPS.map((s, i) => (
-        <div key={s} className="flex items-center gap-1">
-          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold transition-colors ${
-            i < current ? 'bg-wg-green text-white'
-            : i === current ? 'bg-wg-green text-white ring-2 ring-wg-green ring-offset-2'
-            : 'bg-gray-200 text-gray-500'
-          }`}>
-            {i < current ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+    <div className="mb-8">
+      <div className="flex items-center justify-center gap-1">
+        {STEPS.map((s, i) => (
+          <div key={s} className="flex items-center gap-1">
+            <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold transition-colors ${
+              i < current ? 'bg-wg-green text-white'
+              : i === current ? 'bg-wg-green text-white ring-2 ring-wg-green ring-offset-2'
+              : 'bg-gray-200 text-gray-500'
+            }`}>
+              {i < current ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+            </div>
+            {i < STEPS.length - 1 && (
+              <div className={`w-8 h-0.5 ${i < current ? 'bg-wg-green' : 'bg-gray-200'}`} />
+            )}
           </div>
-          {i < STEPS.length - 1 && (
-            <div className={`w-8 h-0.5 ${i < current ? 'bg-wg-green' : 'bg-gray-200'}`} />
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
+      <p className="text-center text-xs font-medium text-gray-500 mt-2">
+        Passo {current + 1} de {STEPS.length} · {STEPS[current]}
+      </p>
     </div>
   )
 }
@@ -273,6 +326,7 @@ export function DigitalForm({
       e.fullName = 'Informe o nome completo (nome e sobrenome).'
     const digits = personal.cpf.replace(/\D/g, '')
     if (digits.length !== 11) e.cpf = 'CPF deve ter 11 dígitos.'
+    else if (!isValidCpf(digits)) e.cpf = 'CPF inválido. Confira os números.'
     if (!personal.birthDate) e.birthDate = 'Informe a data de nascimento.'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email)) e.email = 'E-mail inválido.'
     if (personal.phone.replace(/\D/g, '').length < 10) e.phone = 'Telefone inválido.'
@@ -334,12 +388,23 @@ export function DigitalForm({
     return out
   }
 
+  // Anexos que o candidato subiu e depois deixaram de ser visíveis (ex.: enviou o
+  // documento do cônjuge e depois mudou o estado civil). Enviamos os ids para o
+  // servidor apagá-los, evitando arquivos órfãos no armazenamento.
+  function collectAbandonedAttachmentIds(): string[] {
+    const visibleKeys = new Set(visibleDocs.map(d => d.key))
+    return Object.entries(uploads)
+      .filter(([key, st]) => st.status === 'done' && st.attachmentId && !visibleKeys.has(key))
+      .map(([, st]) => st.attachmentId as string)
+  }
+
   async function handleSubmit() {
     setSubmitting(true)
     setSubmitError(null)
     try {
       const formExtras = collectVisibleExtras()
-      const res = await fetch(`/api/admissao/${token}/submit`, {
+      const abandoned = collectAbandonedAttachmentIds()
+      const res = await fetchWithTimeout(`/api/admissao/${token}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -359,8 +424,9 @@ export function DigitalForm({
           colorDeclaration:       additional.colorDeclaration,
           isDriverOperator:       additional.isDriverOperator ?? false,
           formExtras:             Object.keys(formExtras).length ? formExtras : null,
+          abandonedAttachmentIds: abandoned.length ? abandoned : null,
         }),
-      })
+      }, 30_000)
       const body = await res.json().catch(() => ({})) as { error?: string }
       if (!res.ok) { setSubmitError(body.error ?? 'Erro ao enviar. Tente novamente.'); return }
       setSubmitted(true)
@@ -528,7 +594,7 @@ export function DigitalForm({
         <div className="space-y-5 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div>
             <h2 className="font-semibold text-gray-900">Envio de documentos</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Campos marcados com * são obrigatórios. PDF, JPG, PNG, WEBP ou DOC. Máx. 10 MB por arquivo.</p>
+            <p className="text-xs text-gray-500 mt-0.5">Campos marcados com * são obrigatórios. Pode enviar PDF ou foto — fotos do celular são otimizadas automaticamente.</p>
           </div>
 
           {visibleDocs.map(doc => (
@@ -571,7 +637,7 @@ export function DigitalForm({
           <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
             <Row label="Nome"       value={personal.fullName} />
             <Row label="CPF"        value={personal.cpf} />
-            <Row label="Nascimento" value={personal.birthDate} />
+            <Row label="Nascimento" value={personal.birthDate ? formatDateBR(personal.birthDate) : ''} />
             <Row label="E-mail"     value={personal.email} />
             <Row label="Telefone"   value={personal.phone} />
             <Row label="Gênero"     value={personal.gender} />

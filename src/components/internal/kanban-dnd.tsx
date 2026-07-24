@@ -39,7 +39,7 @@ export function KanbanColumn({ id, children }: ColumnProps) {
     <div
       ref={setNodeRef}
       className={`shrink-0 w-72 rounded-xl border transition-colors ${
-        isOver ? "border-wg-green bg-wg-green/5" : "border-gray-200 bg-gray-100"
+        isOver ? "border-wg-green bg-wg-green/5" : "border-gray-300 bg-gray-200"
       }`}
     >
       {children}

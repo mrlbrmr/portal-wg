@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { FlaskConical } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -84,11 +84,30 @@ export function KanbanBoardShell<T>({
   deleteError = "Erro ao excluir.",
   confirmDelete,
 }: Props<T>) {
-  const [items, setItems] = useState(initialItems);
+  // O quadro reflete `initialItems` (que já vem ordenado/filtrado pelo pai) e
+  // aplica por cima os movimentos/exclusões otimistas feitos por drag-and-drop.
+  // Assim, mudar a ordenação/filtro no pai atualiza o Kanban na hora, sem
+  // perder um card que o usuário acabou de arrastar. (Antes o estado era
+  // inicializado uma vez de `initialItems` e nunca ressincronizava — por isso
+  // o "Ordenar" não surtia efeito na visão Kanban.)
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { notify } = useToast();
   const sensors = useKanbanSensors();
+
+  const items = useMemo(() => {
+    const base =
+      deletedIds.size > 0
+        ? initialItems.filter((it) => !deletedIds.has(getId(it)))
+        : initialItems;
+    if (Object.keys(overrides).length === 0) return base;
+    return base.map((it) => {
+      const col = overrides[getId(it)];
+      return col != null ? applyColumn(it, col) : it;
+    });
+  }, [initialItems, overrides, deletedIds, getId, applyColumn]);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -99,15 +118,20 @@ export function KanbanBoardShell<T>({
     const item = items.find((it) => getId(it) === id);
     if (!item || getColumn(item) === toColumn) return;
 
-    const prev = items;
-    setItems((list) =>
-      list.map((it) => (getId(it) === id ? applyColumn(it, toColumn) : it))
-    );
+    const prevOverride = overrides[id];
+    setOverrides((o) => ({ ...o, [id]: toColumn }));
+    const revert = () =>
+      setOverrides((o) => {
+        const next = { ...o };
+        if (prevOverride === undefined) delete next[id];
+        else next[id] = prevOverride;
+        return next;
+      });
 
     try {
       const res = await onMove(id, toColumn);
       if (!res.ok) {
-        setItems(prev);
+        revert();
         const data = await res.json().catch(() => ({}));
         notify("error", typeof data.error === "string" ? data.error : moveError);
         return;
@@ -115,7 +139,7 @@ export function KanbanBoardShell<T>({
       const label = columns.find((c) => c.key === toColumn)?.label ?? toColumn;
       notify("success", moveSuccess(item, label));
     } catch {
-      setItems(prev);
+      revert();
       notify("error", "Erro de conexão. Tente novamente.");
     }
   }
@@ -124,20 +148,25 @@ export function KanbanBoardShell<T>({
     if (!onDelete) return;
     const item = items.find((it) => getId(it) === id);
 
-    const prev = items;
-    setItems((list) => list.filter((it) => getId(it) !== id));
+    setDeletedIds((s) => new Set(s).add(id));
+    const revert = () =>
+      setDeletedIds((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
 
     try {
       const res = await onDelete(id);
       if (!res.ok) {
-        setItems(prev);
+        revert();
         const data = await res.json().catch(() => ({}));
         notify("error", typeof data.error === "string" ? data.error : deleteError);
         return;
       }
       if (item && deleteSuccess) notify("success", deleteSuccess(item));
     } catch {
-      setItems(prev);
+      revert();
       notify("error", "Erro de conexão. Tente novamente.");
     }
   }
@@ -173,11 +202,11 @@ export function KanbanBoardShell<T>({
             const cards = visibleItems.filter((it) => getColumn(it) === col.key);
             return (
               <KanbanColumn key={col.key} id={col.key}>
-                <div className={`border-b border-gray-200 ${col.kind === "TEST" ? "bg-purple-50/60" : ""}`}>
+                <div className={`border-b border-gray-300 ${col.kind === "TEST" ? "bg-purple-50/60" : ""}`}>
                   <div className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
-                        className={`w-2 h-2 rounded-full shrink-0 ${col.dotColor ? "" : col.dot ?? ""}`}
+                        className={`w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/10 ${col.dotColor ? "" : col.dot ?? ""}`}
                         style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
                       />
                       <span className="text-sm font-semibold text-gray-900 truncate">{col.label}</span>
@@ -185,7 +214,7 @@ export function KanbanBoardShell<T>({
                         <FlaskConical className="w-3.5 h-3.5 text-purple-500 shrink-0" aria-label="Etapa de teste" />
                       )}
                     </div>
-                    <span className="text-xs text-gray-500 bg-gray-200 rounded-full px-2 py-0.5 shrink-0">
+                    <span className="text-xs text-gray-700 bg-gray-300 rounded-full px-2 py-0.5 shrink-0">
                       {cards.length}
                     </span>
                   </div>
@@ -196,7 +225,7 @@ export function KanbanBoardShell<T>({
 
                 <div className="p-2 flex flex-col gap-2 min-h-[120px]">
                   {cards.length === 0 && (
-                    <p className="text-xs text-gray-400 text-center py-6">{emptyLabel}</p>
+                    <p className="text-xs text-gray-500 text-center py-6">{emptyLabel}</p>
                   )}
 
                   {cards.map((it) => (

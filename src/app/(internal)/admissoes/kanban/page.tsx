@@ -66,7 +66,7 @@ export default async function AdmissoesKanbanPage() {
 
   const hasUnstaged = cards.some((c) => c.stageKey === NO_STAGE);
   const columns: KanbanColumnDef[] = [
-    ...(hasUnstaged ? [{ key: NO_STAGE, label: "Sem etapa", dotColor: "#cbd5e1" }] : []),
+    ...(hasUnstaged ? [{ key: NO_STAGE, label: "Sem etapa", dotColor: "#94a3b8" }] : []),
     ...stages.map((s) => ({ key: s.id, label: s.name, dotColor: s.color })),
   ];
 

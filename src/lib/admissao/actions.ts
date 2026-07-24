@@ -372,6 +372,51 @@ export async function moveChecklistItem(
   return done(admissionId);
 }
 
+/**
+ * Reordena itens irmãos do checklist via drag-and-drop: recebe os ids na nova
+ * ordem e grava `sortOrder` = posição. Todos devem pertencer à mesma admissão e
+ * ao mesmo escopo (mesmo grupo e mesmo pai) — o cliente sempre envia um único
+ * conjunto de irmãos. Substitui os saltos de 1 em 1 do `moveChecklistItem`.
+ */
+export async function reorderChecklistItems(
+  admissionId: string,
+  orderedIds: string[]
+): Promise<ActionResult> {
+  const auth = await requireWrite();
+  if ("error" in auth) return { ok: false, error: auth.error };
+  if (!Array.isArray(orderedIds) || orderedIds.length < 2) return { ok: true };
+
+  const supabase = await createClient();
+  const { data: rowsData } = await supabase
+    .from("admission_checklist_items")
+    .select("id, groupId, parentId")
+    .eq("admissionId", admissionId)
+    .in("id", orderedIds);
+  const rows = (rowsData ?? []) as Array<{
+    id: string;
+    groupId: string;
+    parentId: string | null;
+  }>;
+  if (rows.length !== orderedIds.length) return { ok: false, error: "Itens inválidos." };
+
+  // Todos precisam estar no mesmo escopo (mesmo grupo e mesmo pai).
+  const { groupId, parentId } = rows[0];
+  const sameScope = rows.every((r) => r.groupId === groupId && r.parentId === parentId);
+  if (!sameScope) return { ok: false, error: "Itens de escopos diferentes." };
+
+  await Promise.all(
+    orderedIds.map((id, idx) =>
+      supabase
+        .from("admission_checklist_items")
+        .update({ sortOrder: idx + 1 })
+        .eq("id", id)
+        .eq("admissionId", admissionId)
+    )
+  );
+
+  return done(admissionId);
+}
+
 export async function duplicateChecklistGroup(
   admissionId: string,
   groupId: string

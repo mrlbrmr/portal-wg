@@ -14,6 +14,7 @@ import {
   Copy,
   CornerDownRight,
   Pencil,
+  GripVertical,
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SubtaskProgress } from "./SubtaskProgress";
@@ -28,7 +29,7 @@ import {
   setChecklistItemDone,
   deleteChecklistItem,
   moveChecklistGroup,
-  moveChecklistItem,
+  reorderChecklistItems,
   duplicateChecklistGroup,
 } from "@/lib/admissao/actions";
 
@@ -104,6 +105,35 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
+  // Drag-and-drop de itens: `drag` guarda o item arrastado e seu escopo de
+  // irmãos; `dragOverId` é o alvo sob o cursor (para o realce). O reordenamento
+  // só ocorre entre irmãos do mesmo escopo (mesmo grupo / mesma tarefa-mãe).
+  const [drag, setDrag] = useState<{ id: string; scope: string } | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  function onDragStartItem(id: string, scope: string) {
+    setDrag({ id, scope });
+  }
+  function onDragEnterItem(id: string, scope: string) {
+    if (drag && drag.scope === scope && drag.id !== id) setDragOverId(id);
+  }
+  function onDragEndItem() {
+    setDrag(null);
+    setDragOverId(null);
+  }
+  function onDropItem(scope: string, siblingIds: string[], targetId: string) {
+    const d = drag;
+    onDragEndItem();
+    if (!d || d.scope !== scope || d.id === targetId) return;
+    const from = siblingIds.indexOf(d.id);
+    const to = siblingIds.indexOf(targetId);
+    if (from === -1 || to === -1) return;
+    const next = [...siblingIds];
+    next.splice(from, 1);
+    next.splice(to, 0, d.id);
+    run(() => reorderChecklistItems(admissionId, next));
+  }
+
   function run(fn: () => Promise<ActionResult>) {
     startTransition(async () => {
       const res = await fn();
@@ -170,6 +200,13 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     collapsedItems,
     toggleItemCollapse,
     run,
+    dragId: drag?.id ?? null,
+    dragScope: drag?.scope ?? null,
+    dragOverId,
+    onDragStartItem,
+    onDragEnterItem,
+    onDragEndItem,
+    onDropItem,
   };
 
   return (
@@ -356,6 +393,8 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                       index={iIdx}
                       siblingCount={g.items.length}
                       depth={0}
+                      scope={`grp:${g.id}`}
+                      siblingIds={g.items.map((i) => i.id)}
                       ctx={rowCtx}
                     />
                   ))}
@@ -441,6 +480,14 @@ interface RowContext {
   collapsedItems: Set<string>;
   toggleItemCollapse: (id: string) => void;
   run: (fn: () => Promise<ActionResult>) => void;
+  // Drag-and-drop de reordenação
+  dragId: string | null;
+  dragScope: string | null;
+  dragOverId: string | null;
+  onDragStartItem: (id: string, scope: string) => void;
+  onDragEnterItem: (id: string, scope: string) => void;
+  onDragEndItem: () => void;
+  onDropItem: (scope: string, siblingIds: string[], targetId: string) => void;
 }
 
 /** Uma linha de item de checklist. Em depth 0, renderiza também suas subtarefas. */
@@ -449,17 +496,23 @@ function ItemRow({
   index,
   siblingCount,
   depth,
+  scope,
+  siblingIds,
   ctx,
 }: {
   item: ChecklistItemView;
   index: number;
   siblingCount: number;
   depth: 0 | 1;
+  scope: string;
+  siblingIds: string[];
   ctx: RowContext;
 }) {
   const { admissionId, canManage, isPending, selectionMode, selectedItems, toggleSelect, collapsedItems, toggleItemCollapse, run } = ctx;
   const [editing, setEditing] = useState(false);
   const isSub = depth === 1;
+  // Só é alvo de drop quando há um arraste ativo no mesmo escopo de irmãos.
+  const canDrop = ctx.dragScope === scope;
   const hasSubtasks = !isSub && item.subtasks.length > 0;
   const subsDone = hasSubtasks ? item.subtasks.filter((s) => s.status === "DONE").length : 0;
   const allSubsDone = hasSubtasks && subsDone === item.subtasks.length;
@@ -472,7 +525,12 @@ function ItemRow({
       <div
         className={`group flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60 ${
           isSub ? "pl-9" : ""
+        } ${ctx.dragOverId === item.id ? "bg-wg-green/10" : ""} ${
+          ctx.dragId === item.id ? "opacity-50" : ""
         }`}
+        onDragOver={canDrop ? (e) => e.preventDefault() : undefined}
+        onDragEnter={canDrop ? () => ctx.onDragEnterItem(item.id, scope) : undefined}
+        onDrop={canDrop ? () => ctx.onDropItem(scope, siblingIds, item.id) : undefined}
       >
         {isSub && <CornerDownRight className="w-3.5 h-3.5 text-gray-300 shrink-0 -ml-4" />}
         {/* Seta para ocultar/mostrar subtarefas (só na tarefa-mãe) */}
@@ -578,26 +636,23 @@ function ItemRow({
         </select>
         {canManage && !selectionMode && (
           <>
-            <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            {siblingCount > 1 && (
               <button
                 type="button"
-                disabled={index === 0 || isPending}
-                onClick={() => run(() => moveChecklistItem(admissionId, item.id, "up"))}
-                className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
-                title="Mover para cima"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", item.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  ctx.onDragStartItem(item.id, scope);
+                }}
+                onDragEnd={ctx.onDragEndItem}
+                className="cursor-grab active:cursor-grabbing p-0.5 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                title="Arraste para reordenar"
+                aria-label="Arraste para reordenar"
               >
-                <ChevronUp className="w-3 h-3" />
+                <GripVertical className="w-3.5 h-3.5" />
               </button>
-              <button
-                type="button"
-                disabled={index === siblingCount - 1 || isPending}
-                onClick={() => run(() => moveChecklistItem(admissionId, item.id, "down"))}
-                className="p-0.5 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
-                title="Mover para baixo"
-              >
-                <ChevronDown className="w-3 h-3" />
-              </button>
-            </div>
+            )}
             <button
               type="button"
               onClick={() => setEditing(true)}
@@ -636,6 +691,8 @@ function ItemRow({
             index={sIdx}
             siblingCount={item.subtasks.length}
             depth={1}
+            scope={`sub:${item.id}`}
+            siblingIds={item.subtasks.map((s) => s.id)}
             ctx={ctx}
           />
         ))}

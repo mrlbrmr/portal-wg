@@ -19,6 +19,45 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-07-24
+
+Foco: **estabilidade do formulário de admissão digital no celular** e **ajuste do filtro de Vagas**.
+Ambos commitados em `master` e em produção. Sem migrações.
+
+### 1. Estabilidade do formulário de admissão no mobile — commit `e1cb9f0`
+Candidato relatou instabilidade ao abrir/enviar documentos pelo celular. **Causa raiz:** o upload vai
+`navegador → rota serverless /api/admissao/[token]/upload → Supabase Storage`, e a **Vercel rejeita
+corpos de requisição acima de ~4,5 MB** — mas o form anunciava 10 MB. Fotos de documento no celular têm
+3–8 MB → **413 intermitente** (aparecia como "erro de conexão"). Só no mobile, porque no desktop anexam PDFs menores.
+- **Compressão de imagem no cliente** (novo `src/lib/admissao/image-compress.ts`): canvas, máx 1600px, JPEG q80,
+  antes do upload. Resolve o limite de 4,5 MB **e converte HEIC do iPhone para JPEG** de brinde (o iOS decodifica
+  HEIC ao desenhar no canvas). PDFs/DOC passam sem alteração. Guarda de segurança `MAX_UPLOAD_BYTES = 4 MB` no cliente.
+- **Fim do zoom automático do iOS:** inputs do form em `text-base` (16px) — abaixo de 16px o Safari dá zoom ao focar,
+  deixando a tela "pulando". Também adicionado `export const viewport` no root `layout.tsx`.
+- `accept="image/*,.pdf,.doc,.docx,.heic,.heif"` (amigável a câmera/galeria) e textos de tamanho realistas.
+- **Extras (mesmo commit):** validação de **CPF com dígitos verificadores** (`isValidCpf`); data de nascimento
+  formatada `dd/mm/aaaa` na confirmação; **rótulo da etapa no StepBar** ("Passo X de N · Nome"); **timeout de rede**
+  (`fetchWithTimeout`, 60s upload / 30s submit) evitando spinner infinito no 4G; **limpeza de anexos órfãos** no
+  submit — o cliente manda `abandonedAttachmentIds` (docs que deixaram de ser exigidos após mudar uma resposta) e a
+  rota `submit` apaga do Storage + banco, restrito à própria admissão.
+- **Regra geral (importante):** todo upload que passa por rota serverless da Vercel tem teto de ~4,5 MB. Para
+  arquivos maiores, comprimir no cliente **ou** subir direto ao Storage via signed URL.
+
+### 2. Filtro de Vagas: oculta encerradas na Lista + conceito de "vagas ativas" — commit `df6b9ef`
+No **modo Lista**, o filtro padrão passa a **ocultar Finalizadas (FILLED) e Canceladas (CLOSED)**. Pausadas e
+Rascunhos **seguem visíveis** (decisão do usuário: ocultar só concluídas/canceladas). Status específico
+(inclui Finalizada/Cancelada) continua acessível ao escolher no filtro. Kanban, Dashboard e portal público **inalterados**.
+- Novas constantes em `src/lib/utils.ts` (régua única): `ACTIVE_JOB_STATUSES` = `DRAFT, ACTIVE, SCREENING, INTERVIEW,
+  ADMISSION` (**inclui Rascunho** — distinto de `PUBLIC_JOB_STATUSES`, que é visibilidade no portal e exclui Rascunho);
+  `TERMINAL_JOB_STATUSES` = `CLOSED, FILLED`; helpers `isActiveJobStatus` / `isTerminalJobStatus`; sentinela de filtro
+  `ACTIVE_STATUS_FILTER = "ATIVAS"`.
+- **Nova opção no filtro de status:** "Ativas (em andamento)" (`FilterBar.tsx`) = as 5 etapas ativas (sem Pausada).
+- Lógica em `JobsExplorer.tsx`: status vazio → oculta terminais; `ATIVAS` → só as ativas; status específico → exato.
+- **Decisão registrada:** o Dashboard **não** foi alterado — o card "Vagas Ativas" de lá conta `PUBLIC_JOB_STATUSES`
+  (sem Rascunho, que tem card próprio); manter a semântica existente.
+
+---
+
 ## Sessão de 2026-07-22
 
 Foco: melhorias nos **modelos de checklist** e no **checklist das admissões**, mais um ajuste de UI.

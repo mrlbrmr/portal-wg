@@ -29,20 +29,20 @@ export function DashboardCard({
   const inner = (
     <>
       <div
-        className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconClass}`}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconClass}`}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </div>
-      <div className="mt-3 text-2xl font-bold leading-none text-gray-900">
+      <div className="mt-2 text-xl font-bold leading-none text-gray-900">
         {value}
       </div>
-      <div className="mt-1 text-xs font-medium text-gray-500">{label}</div>
+      <div className="mt-0.5 text-xs font-medium text-gray-500">{label}</div>
       {hint && <div className="mt-0.5 text-[11px] text-gray-400">{hint}</div>}
     </>
   );
 
   const base =
-    "block rounded-xl border border-gray-200 bg-white p-4 shadow-sm";
+    "block rounded-xl border border-gray-200 bg-white p-3 shadow-sm";
 
   if (href) {
     return (

@@ -45,7 +45,7 @@ export default function InternalShell({ user, children }: Props) {
           />
         </div>
 
-        <main className="flex-1 p-6 min-w-0">{children}</main>
+        <main className="flex-1 p-4 md:p-5 min-w-0">{children}</main>
       </div>
     </div>
     </ToastProvider>

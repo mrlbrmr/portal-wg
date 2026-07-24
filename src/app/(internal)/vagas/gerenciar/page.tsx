@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { auth } from "@/lib/auth";
-import Link from "next/link";
 import {
   Plus,
   Briefcase,
@@ -13,6 +12,8 @@ import {
 import { ExportCsvButton } from "@/components/internal/ExportCsvButton";
 import { JobsExplorer } from "@/components/internal/JobsExplorer";
 import { DashboardCard } from "@/components/internal/DashboardCard";
+import { PageHeader } from "@/components/internal/PageHeader";
+import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import type { JobRow } from "@/types/jobs";
 import type { Metadata } from "next";
@@ -158,24 +159,22 @@ export default async function GerenciarVagasPage({
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">Vagas</h1>
-        <div className="flex items-center gap-2">
-          <ExportCsvButton status={params.status} />
-          {canManage && (
-            <Link
-              href="/vagas/nova"
-              className="flex items-center gap-2 rounded-lg bg-wg-green px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-wg-green-bright"
-            >
-              <Plus className="h-4 w-4" />
-              Nova vaga
-            </Link>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Vagas"
+        action={
+          <>
+            <ExportCsvButton status={params.status} />
+            {canManage && (
+              <PrimaryActionLink href="/vagas/nova" icon={Plus}>
+                Nova vaga
+              </PrimaryActionLink>
+            )}
+          </>
+        }
+      />
 
       {/* Faixa de indicadores (dashboard superior) */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <DashboardCard
           label="Vagas abertas"
           value={openJobs}

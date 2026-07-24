@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Plus, Users, CheckCircle2, AlertTriangle, CalendarClock } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmissionConfig } from "@/lib/admissao/queries";
 import { DashboardCard } from "@/components/internal/DashboardCard";
+import { PageHeader } from "@/components/internal/PageHeader";
+import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
 import {
   AdmissionsExplorer,
   type AdmissionRow,
@@ -93,25 +94,19 @@ export default async function AdmissoesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admissões</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Controle de admissões ativas — onboarding dos novos colaboradores do Grupo WG.
-          </p>
-        </div>
-        {canWrite && (
-          <Link
-            href="/admissoes/nova"
-            className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-4 py-2.5 rounded-full text-sm transition-colors shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            Nova admissão
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Admissões"
+        subtitle="Controle de admissões ativas — onboarding dos novos colaboradores do Grupo WG."
+        action={
+          canWrite ? (
+            <PrimaryActionLink href="/admissoes/nova" icon={Plus}>
+              Nova admissão
+            </PrimaryActionLink>
+          ) : undefined
+        }
+      />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <DashboardCard label="Em andamento" value={inProgress} icon={Users} />
         <DashboardCard
           label="Concluídas"

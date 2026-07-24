@@ -5,6 +5,7 @@ import { Megaphone, ChevronRight, ListChecks, ClipboardList } from "lucide-react
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CONFIG } from "@/lib/homepage-config";
 import HomepageConfigForm from "@/components/internal/HomepageConfigForm";
+import { PageHeader } from "@/components/internal/PageHeader";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Configurações — RH" };
@@ -22,14 +23,10 @@ export default async function ConfiguracoesPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Configurações da Homepage
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Controle o que aparece nos cards de vagas do portal público.
-        </p>
-      </div>
+      <PageHeader
+        title="Configurações da Homepage"
+        subtitle="Controle o que aparece nos cards de vagas do portal público."
+      />
       <HomepageConfigForm initialConfig={config ?? DEFAULT_CONFIG} />
 
       <div className="mt-6 space-y-3">

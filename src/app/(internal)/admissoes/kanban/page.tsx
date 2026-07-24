@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Plus } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/internal/PageHeader";
+import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
 import type { KanbanColumnDef } from "@/components/internal/KanbanBoardShell";
 import {
   AdmissionKanbanBoard,
@@ -72,23 +73,17 @@ export default async function AdmissoesKanbanPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kanban de Admissões</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Acompanhe as admissões por etapa. {canManage ? "Arraste os cards para mover." : ""}
-          </p>
-        </div>
-        {canManage && (
-          <Link
-            href="/admissoes/nova"
-            className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-4 py-2.5 rounded-full text-sm transition-colors shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            Nova admissão
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Kanban de Admissões"
+        subtitle={`Acompanhe as admissões por etapa.${canManage ? " Arraste os cards para mover." : ""}`}
+        action={
+          canManage ? (
+            <PrimaryActionLink href="/admissoes/nova" icon={Plus}>
+              Nova admissão
+            </PrimaryActionLink>
+          ) : undefined
+        }
+      />
 
       <AdmissionKanbanBoard admissions={cards} columns={columns} canManage={canManage} />
     </div>

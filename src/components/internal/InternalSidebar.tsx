@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Briefcase,
-  Plus,
   Settings,
   Users,
   UserCircle,
@@ -59,9 +58,10 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
       : []),
   ];
 
-  const adminLinks: NavLink[] = isAdmin
+  // Bloco de gestão de sistema (só ADMIN_RH). A ação "Nova Vaga" saiu da sidebar
+  // — vive exclusivamente no cabeçalho da tela de Vagas e no atalho do Dashboard.
+  const systemLinks: NavLink[] = isAdmin
     ? [
-        { href: "/vagas/nova", label: "Nova Vaga", icon: Plus },
         { href: "/usuarios", label: "Usuários", icon: Users },
         { href: "/configuracoes", label: "Configurações", icon: Settings },
       ]
@@ -142,7 +142,14 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
           </div>
         )}
 
-        {adminLinks.map((l) => renderLink(l))}
+        {/* Separador: isola navegação operacional do bloco de sistema/conta */}
+        <div className="my-2 border-t border-gray-200" />
+        {systemLinks.length > 0 && (
+          <p className="px-3 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            Sistema
+          </p>
+        )}
+        {systemLinks.map((l) => renderLink(l))}
         {renderLink(perfilLink)}
       </nav>
     </aside>

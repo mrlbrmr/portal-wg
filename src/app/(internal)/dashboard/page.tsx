@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Briefcase, PauseCircle, XCircle, Plus, FileText, Clock, Calendar, Users, UserPlus, CheckCircle2, AlertTriangle, CalendarClock } from "lucide-react";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/internal/PageHeader";
 import type { Metadata } from "next";
 import type { ElementType } from "react";
 
@@ -233,16 +234,14 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Olá, {session?.user.name?.split(" ")[0]} 👋
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">Painel de Gente &amp; Gestão — WG Baterias</p>
-      </div>
+      <PageHeader
+        title={`Olá, ${session?.user.name?.split(" ")[0] ?? ""} 👋`}
+        subtitle="Painel de Gente & Gestão — WG Baterias"
+      />
 
       {/* Alertas proativos */}
       {alerts.length > 0 && (
-        <div className="flex flex-col gap-2 mb-6">
+        <div className="flex flex-col gap-2 mb-4">
           {alerts.map((alert, i) => (
             <Link
               key={i}
@@ -257,13 +256,13 @@ export default async function DashboardPage() {
       )}
 
       {/* Cards de métricas */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white border border-gray-200 shadow-sm rounded-xl p-4">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${stat.iconClass}`}>
-              <stat.icon className="w-5 h-5" />
+          <div key={stat.label} className="bg-white border border-gray-200 shadow-sm rounded-xl p-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${stat.iconClass}`}>
+              <stat.icon className="w-4 h-4" />
             </div>
-            <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+            <div className="text-xl font-bold text-gray-900">{stat.value}</div>
             <div className="text-sm text-gray-500 mt-0.5">{stat.label}</div>
             <Link href={stat.href} className="text-xs text-wg-green-dark hover:opacity-80 underline mt-1 block transition-opacity">
               Ver detalhes →

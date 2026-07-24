@@ -5,6 +5,8 @@ import Link from "next/link";
 import { UserPlus, Pencil } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { UserToggleActions } from "@/components/internal/UserToggleActions";
+import { PageHeader } from "@/components/internal/PageHeader";
+import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Usuários — RH" };
@@ -29,19 +31,15 @@ export default async function UsuariosPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Usuários</h1>
-          <p className="text-gray-500 text-sm mt-1">Contas de acesso ao painel interno</p>
-        </div>
-        <Link
-          href="/usuarios/novo"
-          className="flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-        >
-          <UserPlus className="w-4 h-4" />
-          Novo usuário
-        </Link>
-      </div>
+      <PageHeader
+        title="Usuários"
+        subtitle="Contas de acesso ao painel interno"
+        action={
+          <PrimaryActionLink href="/usuarios/novo" icon={UserPlus}>
+            Novo usuário
+          </PrimaryActionLink>
+        }
+      />
 
       <div className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden">
         {users.length === 0 ? (

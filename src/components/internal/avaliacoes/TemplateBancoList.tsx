@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Database, Search, FlaskConical, BookOpen, Brain, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { KIND_LABELS, KIND_COLORS, type TemplateKind } from '@/lib/avaliacoes/schema'
 import { RepositoryModal } from './RepositoryModal'
+import { PageHeader } from '@/components/internal/PageHeader'
 import { cn } from '@/lib/utils'
 
 interface TemplateRow {
@@ -72,28 +73,28 @@ export function TemplateBancoList({ templates: initial, canManage }: Props) {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Banco de Testes</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Templates de avaliação reutilizáveis entre vagas</p>
-        </div>
-        {canManage && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowRepo(true)}
-              className="inline-flex items-center gap-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
-            >
-              <Database className="w-4 h-4" /> Importar do repositório
-            </button>
-            <Link
-              href="/avaliacoes/banco/novo"
-              className="inline-flex items-center gap-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Novo teste
-            </Link>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Banco de Testes"
+        subtitle="Templates de avaliação reutilizáveis entre vagas"
+        action={
+          canManage ? (
+            <>
+              <button
+                onClick={() => setShowRepo(true)}
+                className="inline-flex items-center gap-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+              >
+                <Database className="w-4 h-4" /> Importar do repositório
+              </button>
+              <Link
+                href="/avaliacoes/banco/novo"
+                className="inline-flex items-center gap-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Novo teste
+              </Link>
+            </>
+          ) : undefined
+        }
+      />
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3 mb-5">

@@ -18,10 +18,13 @@ import {
   MODALITY_LABELS,
   JOB_PRIORITY_ORDER,
   STALE_JOB_DAYS,
+  ACTIVE_STATUS_FILTER,
   formatDate,
   formatAge,
   daysSince,
   isPublicJobStatus,
+  isActiveJobStatus,
+  isTerminalJobStatus,
   normalizeText,
 } from "@/lib/utils";
 import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
@@ -176,8 +179,17 @@ export function JobsExplorer({
     }
 
     // Filtros combináveis (AND). Status só na lista — no Kanban as colunas SÃO os status.
-    if (view === "list" && filters.status) {
-      result = result.filter((j) => j.status === filters.status);
+    if (view === "list") {
+      if (filters.status === ACTIVE_STATUS_FILTER) {
+        // "Ativas": as 5 etapas em andamento (Rascunho → Admissão).
+        result = result.filter((j) => isActiveJobStatus(j.status));
+      } else if (filters.status) {
+        // Status específico escolhido (inclui Finalizada/Cancelada, se for o caso).
+        result = result.filter((j) => j.status === filters.status);
+      } else {
+        // Padrão: oculta vagas concluídas (Finalizada) e canceladas (Cancelada).
+        result = result.filter((j) => !isTerminalJobStatus(j.status));
+      }
     }
     if (filters.city) result = result.filter((j) => j.city === filters.city);
     if (filters.department)

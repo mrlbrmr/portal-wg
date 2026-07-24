@@ -6,6 +6,7 @@ import {
   MODALITY_LABELS,
   CONTRACT_TYPE_LABELS,
   JOB_PRIORITY_LABELS,
+  ACTIVE_STATUS_FILTER,
 } from "@/lib/utils";
 import type { JobFilters } from "@/types/jobs";
 
@@ -42,7 +43,10 @@ export function FilterBar({
           label="Status"
           value={filters.status}
           onChange={(v) => onChange({ status: v })}
-          options={toPairs(JOB_STATUS_LABELS)}
+          options={[
+            [ACTIVE_STATUS_FILTER, "Ativas (em andamento)"],
+            ...toPairs(JOB_STATUS_LABELS),
+          ]}
         />
       )}
 

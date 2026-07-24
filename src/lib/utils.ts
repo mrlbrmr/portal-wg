@@ -64,6 +64,27 @@ export function isPublicJobStatus(status: string): boolean {
   return (PUBLIC_JOB_STATUSES as readonly string[]).includes(status);
 }
 
+// Vaga "em andamento" no fluxo de recrutamento — usado nos filtros internos.
+// Distinto de PUBLIC_JOB_STATUSES (visibilidade no portal): aqui Rascunho TAMBÉM
+// conta como ativa, pois é uma vaga em preparação, ainda não encerrada.
+export const ACTIVE_JOB_STATUSES = ["DRAFT", "ACTIVE", "SCREENING", "INTERVIEW", "ADMISSION"] as const;
+
+export function isActiveJobStatus(status: string): boolean {
+  return (ACTIVE_JOB_STATUSES as readonly string[]).includes(status);
+}
+
+// Status terminais (vaga encerrada): Cancelada e Finalizada. Ocultadas por
+// padrão na lista interna de vagas.
+export const TERMINAL_JOB_STATUSES = ["CLOSED", "FILLED"] as const;
+
+export function isTerminalJobStatus(status: string): boolean {
+  return (TERMINAL_JOB_STATUSES as readonly string[]).includes(status);
+}
+
+// Valor sentinela do filtro de status que representa "todas as ativas" (as 5
+// etapas de ACTIVE_JOB_STATUSES). Não colide com os valores reais do enum.
+export const ACTIVE_STATUS_FILTER = "ATIVAS";
+
 // Etapas do funil de candidatura (colunas do Kanban de candidatos)
 export const APPLICATION_STAGE_LABELS: Record<string, string> = {
   NEW: "Novo",

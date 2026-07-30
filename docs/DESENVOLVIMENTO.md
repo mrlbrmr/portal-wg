@@ -19,6 +19,31 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-07-30 — reCAPTCHA advisory na candidatura pública
+
+**Bug:** candidato real (iPhone/4G) foi barrado no formulário público de vaga com
+*"Falha na verificação de segurança. Recarregue a página e tente novamente."* — falso-positivo
+clássico do **reCAPTCHA v3** em mobile. A mensagem vem de `POST /api/applications`, único ponto
+que rejeitava a inscrição. O v3 devolve um **score probabilístico** (não pass/fail) e barrava
+humanos de 3 formas: (1) iOS com Prevenção de Rastreamento do Safari / content blocker bloqueia
+o script → token nunca gerado → `missing_token`; (2) score de celular abaixo do limiar de 0,5 →
+`low_score`; (3) em 4G lento o token expira (~2 min) durante o upload do currículo →
+`timeout-or-duplicate`.
+
+**Correção — reCAPTCHA virou ADVISORY (sinal, não portão):**
+- `src/lib/recaptcha.ts`: `verifyRecaptcha` só retorna `ok:false` para **bot evidente** = token
+  válido + score < `RECAPTCHA_BLOCK_SCORE` (0,3). Token ausente/expirado/inválido e falha de rede
+  passam (`ok:true` com `reason`). Removido o antigo `RECAPTCHA_MIN_SCORE=0,5` que bloqueava.
+- `src/app/api/applications/route.ts`: mantém o 400 só para bot evidente; loga `console.info`
+  (`[applications] recaptcha advisory`) nos casos que passaram com sinal fraco, para telemetria.
+- `src/components/public/ApplicationForm.tsx`: em erro de carregamento do script, reseta
+  `recaptchaLoading = null` (não deixa a Promise rejeitada em cache → permite retry sem recarregar).
+
+**Racional:** perder candidato real > barrar spam. Anti-abuso real = rate-limit 5/min por IP +
+revisão manual no Kanban. Para reapertar no futuro: subir `RECAPTCHA_BLOCK_SCORE` e/ou voltar a
+bloquear `missing_token`. Type-check OK. Sem migração de banco (só código) → push em `master`
+dispara deploy de produção.
+
 ## Sessão de 2026-07-25 — Refatoração de UI do painel (4 Épicos)
 
 Refatoração ampla da interface do painel RH focada em **usabilidade, densidade para 1080p**

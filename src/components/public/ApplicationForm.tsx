@@ -26,7 +26,10 @@ function loadRecaptcha(): Promise<void> {
     s.src = `https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`;
     s.async = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error("recaptcha_load_failed"));
+    s.onerror = () => {
+      recaptchaLoading = null; // não deixa a Promise rejeitada em cache: permite retry
+      reject(new Error("recaptcha_load_failed"));
+    };
     document.head.appendChild(s);
   });
   return recaptchaLoading;

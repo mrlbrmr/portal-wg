@@ -1,22 +1,35 @@
-// Verificação server-side do reCAPTCHA v3.
-// O cliente gera um token com grecaptcha.execute(); aqui validamos contra a API
-// do Google usando RECAPTCHA_SECRET_KEY e conferimos o score.
+// Verificação server-side do reCAPTCHA v3 — ADVISORY (sinal, não portão).
+//
+// O reCAPTCHA v3 NÃO devolve um pass/fail: devolve um SCORE probabilístico. Em
+// mobile ele gera falso-positivo com frequência e barra candidatos REAIS:
+//   - iOS (Prevenção de Rastreamento do Safari / content blockers) bloqueia o
+//     script → o token nunca é gerado → chega "missing_token";
+//   - o score de celular costuma vir baixo mesmo sendo humano;
+//   - em 4G lento o token expira (~2 min) enquanto o currículo faz upload →
+//     "timeout-or-duplicate".
+//
+// Por isso tratamos o resultado como SINAL: só bloqueamos quando o Google
+// confirma, com um token válido, um score claramente de bot (< RECAPTCHA_BLOCK_SCORE).
+// Casos ambíguos passam (e são logados). A defesa anti-abuso real é o rate-limit
+// por IP + a revisão manual das candidaturas no Kanban.
 
 const VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
 
-// Score mínimo aceito (0.0 = provável bot, 1.0 = provável humano).
-export const RECAPTCHA_MIN_SCORE = 0.5;
+// Só bloqueia abaixo disto (token válido + score muito baixo = bot evidente).
+// Conservador de propósito: humanos raramente pontuam tão baixo.
+export const RECAPTCHA_BLOCK_SCORE = 0.3;
 
 export interface RecaptchaResult {
-  ok: boolean;
+  ok: boolean; // false só quando é bot evidente (deve bloquear a candidatura)
   score?: number;
-  reason?: string;
+  reason?: string; // motivo do sinal, para telemetria
 }
 
 /**
- * Verifica um token do reCAPTCHA v3.
- * - Se RECAPTCHA_SECRET_KEY não estiver configurada, retorna ok:true (fail-open)
- *   para não travar o ambiente de desenvolvimento — em produção a chave existe.
+ * Verifica um token do reCAPTCHA v3 de forma consultiva.
+ * - Sem RECAPTCHA_SECRET_KEY → ok:true (fail-open, dev).
+ * - Retorna ok:false SOMENTE para bot evidente (token válido + score baixo);
+ *   token ausente/expirado/inválido e falhas de rede NÃO bloqueiam.
  */
 export async function verifyRecaptcha(
   token: string | null | undefined,
@@ -29,8 +42,10 @@ export async function verifyRecaptcha(
     return { ok: true, reason: "recaptcha_disabled" };
   }
 
+  // Token ausente costuma ser mobile com o script bloqueado (ITP/content blocker),
+  // não bot — não bloqueia.
   if (!token) {
-    return { ok: false, reason: "missing_token" };
+    return { ok: true, reason: "missing_token" };
   }
 
   const body = new URLSearchParams({ secret, response: token });
@@ -50,20 +65,25 @@ export async function verifyRecaptcha(
     });
     data = await res.json();
   } catch {
-    return { ok: false, reason: "verify_request_failed" };
+    // Falha ao falar com o Google não pode derrubar a candidatura.
+    return { ok: true, reason: "verify_request_failed" };
   }
 
+  // Token expirado/duplicado ou inválido: em 4G lento é comum (o token do v3
+  // expira antes de o upload do currículo terminar). Não bloqueia.
   if (!data.success) {
-    return { ok: false, reason: (data["error-codes"] ?? ["failed"]).join(",") };
+    return { ok: true, reason: (data["error-codes"] ?? ["failed"]).join(",") };
   }
 
-  // Confere a action, se esperada (defesa extra contra reuso de token).
+  const score = data.score ?? 1;
+
+  // Action divergente pode indicar reuso, mas também cache/pré-render — só bloqueia
+  // se, além disso, o score for de bot.
   if (opts.expectedAction && data.action && data.action !== opts.expectedAction) {
-    return { ok: false, score: data.score, reason: "action_mismatch" };
+    return { ok: score >= RECAPTCHA_BLOCK_SCORE, score, reason: "action_mismatch" };
   }
 
-  const score = data.score ?? 0;
-  if (score < RECAPTCHA_MIN_SCORE) {
+  if (score < RECAPTCHA_BLOCK_SCORE) {
     return { ok: false, score, reason: "low_score" };
   }
 

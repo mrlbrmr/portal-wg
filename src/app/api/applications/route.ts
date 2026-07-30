@@ -55,17 +55,24 @@ export async function POST(req: NextRequest) {
 
   const { jobId, fullName, email, phone, recaptchaToken } = parsed.data;
 
-  // Verifica reCAPTCHA antes de qualquer trabalho pesado.
+  // reCAPTCHA v3 é ADVISORY (ver src/lib/recaptcha.ts): só bloqueia bot evidente
+  // (token válido + score muito baixo). Token ausente/expirado e score moderado —
+  // falso-positivos comuns em mobile/4G — passam. Anti-abuso real = rate-limit acima
+  // + revisão manual no Kanban.
   const captcha = await verifyRecaptcha(recaptchaToken, {
     expectedAction: "submit_application",
     remoteIp: ip !== "unknown" ? ip : undefined,
   });
   if (!captcha.ok) {
-    console.error("[applications] recaptcha falhou:", captcha.reason, "score:", captcha.score);
+    console.warn("[applications] recaptcha bloqueou (bot provável):", captcha.reason, "score:", captcha.score);
     return NextResponse.json(
       { error: "Falha na verificação de segurança. Recarregue a página e tente novamente." },
       { status: 400 }
     );
+  }
+  if (captcha.reason && captcha.reason !== "recaptcha_disabled") {
+    // Passou apesar de um sinal fraco — registra para telemetria/triagem.
+    console.info("[applications] recaptcha advisory:", captcha.reason, "score:", captcha.score);
   }
 
   // A vaga precisa existir e estar em status aberto (visível no portal).

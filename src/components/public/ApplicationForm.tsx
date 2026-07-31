@@ -3,10 +3,12 @@
 import { useState, useRef, useCallback } from "react";
 import { Loader2, CheckCircle2, Upload, Paperclip } from "lucide-react";
 import { maskPhone } from "@/lib/utils";
+import { COUNTRIES } from "@/lib/data/countries";
 
 interface Props {
   jobId: string;
   jobTitle: string;
+  jobCity?: string | null;
 }
 
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
@@ -27,7 +29,7 @@ function loadRecaptcha(): Promise<void> {
     s.async = true;
     s.onload = () => resolve();
     s.onerror = () => {
-      recaptchaLoading = null; // não deixa a Promise rejeitada em cache: permite retry
+      recaptchaLoading = null;
       reject(new Error("recaptcha_load_failed"));
     };
     document.head.appendChild(s);
@@ -53,24 +55,66 @@ async function getRecaptchaToken(): Promise<string | null> {
   }
 }
 
+// Cache das cidades do IBGE para não refazer a requisição a cada foco.
+let cachedCities: string[] | null = null;
+
+async function loadCities(): Promise<string[]> {
+  if (cachedCities) return cachedCities;
+  const res = await fetch(
+    "https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome"
+  );
+  const data = (await res.json()) as Array<{ nome: string }>;
+  cachedCities = data.map((m) => m.nome);
+  return cachedCities;
+}
+
 const inputClass =
   "w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/30 focus:border-wg-green transition-colors";
 
-export function ApplicationForm({ jobId, jobTitle }: Props) {
+const labelClass = "block text-[13.5px] font-semibold text-gray-700 mb-1.5";
+
+export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
   const [phone, setPhone] = useState("");
+  const [cities, setCities] = useState<string[]>([]);
+  const citiesLoadedRef = useRef(false);
+  const [salaryDisplay, setSalaryDisplay] = useState("");
+  const [salaryValue, setSalaryValue] = useState(""); // valor numérico em string ("3500.00")
   const [fileName, setFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Carrega cidades na primeira vez que o campo é focado.
+  const handleCityFocus = useCallback(async () => {
+    if (citiesLoadedRef.current) return;
+    citiesLoadedRef.current = true;
+    try {
+      const list = await loadCities();
+      setCities(list);
+    } catch {
+      /* silencioso: o campo continua funcionando como texto livre */
+    }
+  }, []);
+
+  function handleSalary(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "");
+    if (!digits) {
+      setSalaryDisplay("");
+      setSalaryValue("");
+      return;
+    }
+    const cents = parseInt(digits, 10);
+    setSalaryDisplay(
+      new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100)
+    );
+    setSalaryValue(String(cents / 100));
+  }
+
   const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
     const f = e.target.files?.[0];
-    if (!f) {
-      setFileName(null);
-      return;
-    }
+    if (!f) { setFileName(null); return; }
     if (f.size > MAX_MB * 1024 * 1024) {
       setError(`O currículo excede o limite de ${MAX_MB} MB.`);
       e.target.value = "";
@@ -98,21 +142,17 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
       const data = new FormData(formEl);
       data.set("jobId", jobId);
       data.set("phone", phone);
+      data.set("salaryExpectation", salaryValue);
       if (token) data.set("recaptchaToken", token);
 
-      const res = await fetch("/api/applications", {
-        method: "POST",
-        body: data,
-      });
+      const res = await fetch("/api/applications", { method: "POST", body: data });
 
       if (!res.ok) {
         let message = "Não foi possível enviar sua inscrição. Tente novamente.";
         try {
           const j = await res.json();
           if (typeof j.error === "string") message = j.error;
-        } catch {
-          /* mantém mensagem padrão */
-        }
+        } catch { /* mantém mensagem padrão */ }
         setError(message);
         return;
       }
@@ -151,8 +191,9 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
       </h3>
 
       <div className="space-y-5">
+        {/* Nome */}
         <div>
-          <label htmlFor="fullName" className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
+          <label htmlFor="fullName" className={labelClass}>
             Nome completo <span className="text-red-500">*</span>
           </label>
           <input
@@ -166,8 +207,9 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
           />
         </div>
 
+        {/* E-mail */}
         <div>
-          <label htmlFor="email" className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
+          <label htmlFor="email" className={labelClass}>
             E-mail <span className="text-red-500">*</span>
           </label>
           <input
@@ -183,8 +225,9 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
           />
         </div>
 
+        {/* Celular */}
         <div>
-          <label htmlFor="phone" className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
+          <label htmlFor="phone" className={labelClass}>
             Celular <span className="text-red-500">*</span>
           </label>
           <input
@@ -201,8 +244,98 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
           />
         </div>
 
+        {/* País de origem */}
         <div>
-          <label className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
+          <label htmlFor="country" className={labelClass}>
+            País de origem <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="country"
+            name="country"
+            required
+            defaultValue=""
+            className={`${inputClass} cursor-pointer`}
+          >
+            <option value="" disabled>Selecione seu país</option>
+            {COUNTRIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Cidade (Brasil) */}
+        <div>
+          <label htmlFor="candidateCity" className={labelClass}>
+            Cidade onde reside
+          </label>
+          <input
+            id="candidateCity"
+            name="candidateCity"
+            type="text"
+            list="ibge-cities"
+            autoComplete="off"
+            onFocus={handleCityFocus}
+            placeholder="Digite o nome da sua cidade"
+            className={inputClass}
+          />
+          <datalist id="ibge-cities">
+            {cities.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+        </div>
+
+        {/* Disponibilidade presencial — só exibe quando a vaga tem cidade definida */}
+        {jobCity && (
+          <div>
+            <p className={`${labelClass} mb-2`}>
+              Você tem disponibilidade para trabalhar no modelo presencial em{" "}
+              <span className="text-gray-900">{jobCity}</span>?{" "}
+              <span className="text-red-500">*</span>
+            </p>
+            <div className="flex gap-5">
+              <label className="flex items-center gap-2 cursor-pointer text-[15px] text-gray-800">
+                <input
+                  type="radio"
+                  name="availablePresential"
+                  value="true"
+                  required
+                  className="accent-wg-green w-4 h-4"
+                />
+                Sim
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-[15px] text-gray-800">
+                <input
+                  type="radio"
+                  name="availablePresential"
+                  value="false"
+                  className="accent-wg-green w-4 h-4"
+                />
+                Não
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Pretensão salarial */}
+        <div>
+          <label htmlFor="salaryDisplay" className={labelClass}>
+            Pretensão salarial
+          </label>
+          <input
+            id="salaryDisplay"
+            type="text"
+            inputMode="numeric"
+            value={salaryDisplay}
+            onChange={handleSalary}
+            placeholder="R$ 0,00"
+            className={inputClass}
+          />
+        </div>
+
+        {/* Currículo */}
+        <div>
+          <label className={labelClass}>
             Currículo <span className="text-red-500">*</span>
           </label>
           <input

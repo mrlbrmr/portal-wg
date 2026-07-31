@@ -18,6 +18,10 @@ const fieldsSchema = applicantContactSchema.extend({
     .string()
     .refine((v) => v === "true" || v === "on" || v === "1", "É necessário aceitar o aviso de privacidade."),
   recaptchaToken: z.string().optional().nullable(),
+  country: z.string().max(100).optional().nullable(),
+  candidateCity: z.string().max(150).optional().nullable(),
+  availablePresential: z.enum(["true", "false"]).optional().nullable(),
+  salaryExpectation: z.string().optional().nullable(),
 });
 
 export async function POST(req: NextRequest) {
@@ -47,13 +51,17 @@ export async function POST(req: NextRequest) {
     phone: form.get("phone"),
     consent: form.get("consent"),
     recaptchaToken: form.get("recaptchaToken"),
+    country: form.get("country"),
+    candidateCity: form.get("candidateCity"),
+    availablePresential: form.get("availablePresential"),
+    salaryExpectation: form.get("salaryExpectation"),
   });
   if (!parsed.success) {
     const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
     return NextResponse.json({ error: first ?? "Dados inválidos." }, { status: 400 });
   }
 
-  const { jobId, fullName, email, phone, recaptchaToken } = parsed.data;
+  const { jobId, fullName, email, phone, recaptchaToken, country, candidateCity, availablePresential, salaryExpectation } = parsed.data;
 
   // reCAPTCHA v3 é ADVISORY (ver src/lib/recaptcha.ts): só bloqueia bot evidente
   // (token válido + score muito baixo). Token ausente/expirado e score moderado —
@@ -125,6 +133,12 @@ export async function POST(req: NextRequest) {
       consentAt: new Date().toISOString(),
       consentIp: ip !== "unknown" ? ip : null,
       termsVersion,
+      country: country || null,
+      candidateCity: candidateCity || null,
+      availablePresential:
+        availablePresential === "true" ? true : availablePresential === "false" ? false : null,
+      salaryExpectation:
+        salaryExpectation && salaryExpectation !== "" ? parseFloat(salaryExpectation) : null,
     })
     .select("id")
     .single();

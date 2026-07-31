@@ -197,13 +197,13 @@ export default async function JobPage({ params }: Props) {
 
               {/* Formulário no mobile (abaixo do conteúdo) */}
               <div id="inscrever-mobile" className="mt-10 lg:hidden scroll-mt-6">
-                <ApplicationForm jobId={job.id} jobTitle={job.title} />
+                <ApplicationForm jobId={job.id} jobTitle={job.title} jobCity={job.city} />
               </div>
             </div>
 
             {/* ── COLUNA DIREITA: formulário sticky (desktop) ── */}
             <div className="hidden lg:block sticky top-8 self-start">
-              <ApplicationForm jobId={job.id} jobTitle={job.title} />
+              <ApplicationForm jobId={job.id} jobTitle={job.title} jobCity={job.city} />
             </div>
           </div>
 

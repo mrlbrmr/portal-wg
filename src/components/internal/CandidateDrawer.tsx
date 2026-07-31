@@ -34,6 +34,10 @@ interface CandidateDetail {
   addedBy: string | null;
   notes: string | null;
   createdAt: string;
+  country: string | null;
+  candidateCity: string | null;
+  availablePresential: boolean | null;
+  salaryExpectation: number | null;
   stageHistory: StageHistoryEntry[];
 }
 
@@ -365,6 +369,60 @@ export function CandidateDrawer({
                   </p>
                 )}
               </div>
+
+              {/* Ficha de inscrição */}
+              {(data.country || data.candidateCity || data.availablePresential !== null || data.salaryExpectation !== null) && (
+                <div>
+                  <div className="text-[#1A2213] text-[13px] font-bold mb-2">Ficha de inscrição</div>
+                  <div className="flex flex-col gap-1.5">
+                    {data.country && (
+                      <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                        <span className="text-base leading-none">🌍</span>
+                        <div className="min-w-0">
+                          <span className="text-[11px] text-[#9AA68A] block">País de origem</span>
+                          <span className="text-[#1A2213] text-[13px] font-medium">{data.country}</span>
+                        </div>
+                      </div>
+                    )}
+                    {data.candidateCity && (
+                      <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                        <span className="text-base leading-none">📍</span>
+                        <div className="min-w-0">
+                          <span className="text-[11px] text-[#9AA68A] block">Cidade</span>
+                          <span className="text-[#1A2213] text-[13px] font-medium">{data.candidateCity}</span>
+                        </div>
+                      </div>
+                    )}
+                    {data.availablePresential !== null && (
+                      <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                        <span className="text-base leading-none">🏢</span>
+                        <div className="min-w-0">
+                          <span className="text-[11px] text-[#9AA68A] block">Disponibilidade presencial</span>
+                          <span
+                            className={`text-[13px] font-semibold ${data.availablePresential ? "text-[#2F6A1E]" : "text-[#9B3B2E]"}`}
+                          >
+                            {data.availablePresential ? "Sim" : "Não"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {data.salaryExpectation !== null && (
+                      <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                        <span className="text-base leading-none">💰</span>
+                        <div className="min-w-0">
+                          <span className="text-[11px] text-[#9AA68A] block">Pretensão salarial</span>
+                          <span className="text-[#1A2213] text-[13px] font-medium tabular-nums">
+                            {new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(data.salaryExpectation)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Anotações */}
               <div>

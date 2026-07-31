@@ -458,7 +458,11 @@ export function CandidateDrawer({
               </div>
 
               {/* Avaliações */}
-              <AssessmentsSection applicationId={data.id} canManage={canManage} />
+              <AssessmentsSection
+                applicationId={data.id}
+                canManage={canManage}
+                hasResume={!!data.resumeName}
+              />
 
               {/* Testes Online */}
               <TestSessionsSection

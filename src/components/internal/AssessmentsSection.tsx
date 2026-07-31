@@ -46,6 +46,7 @@ const ACCEPT = ".pdf,.doc,.docx,.png,.jpg,.jpeg";
 interface Props {
   applicationId: string;
   canManage: boolean;
+  hasResume?: boolean;
 }
 
 /**
@@ -53,13 +54,14 @@ interface Props {
  * testes (tipo, nota, parecer, avaliador, data, anexo) + formulário para
  * registrar. Avaliações de IA (source=AI) aparecem com selo próprio.
  */
-export function AssessmentsSection({ applicationId, canManage }: Props) {
+export function AssessmentsSection({ applicationId, canManage, hasResume }: Props) {
   const { notify } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<Assessment[] | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const [kind, setKind] = useState<string>(MANUAL_ASSESSMENT_KINDS[0]);
   const [occurredAt, setOccurredAt] = useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -126,6 +128,27 @@ export function AssessmentsSection({ applicationId, canManage }: Props) {
     }
   }
 
+  async function runAiAnalysis() {
+    setAnalyzing(true);
+    try {
+      const res = await fetch(`/api/applications/${applicationId}/analyze`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        notify("error", typeof json.error === "string" ? json.error : "Erro na análise de IA.");
+        return;
+      }
+      notify("success", "Análise de IA concluída.");
+      load();
+    } catch {
+      notify("error", "Erro de conexão. Tente novamente.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
   async function remove(assessmentId: string) {
     const prev = items;
     setItems((list) => (list ? list.filter((a) => a.id !== assessmentId) : list));
@@ -156,15 +179,35 @@ export function AssessmentsSection({ applicationId, canManage }: Props) {
             <span className="rounded-full bg-gray-100 px-1.5 text-xs text-gray-500">{items.length}</span>
           )}
         </div>
-        {canManage && !open && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-wg-green-dark hover:opacity-80"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Registrar
-          </button>
+        {canManage && (
+          <div className="flex items-center gap-3">
+            {hasResume && (
+              <button
+                type="button"
+                onClick={runAiAnalysis}
+                disabled={analyzing}
+                className="inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:opacity-80 disabled:opacity-50"
+                title="Analisa o currículo e pontua a aderência à vaga com IA"
+              >
+                {analyzing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {analyzing ? "Analisando…" : "Analisar com IA"}
+              </button>
+            )}
+            {!open && (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-wg-green-dark hover:opacity-80"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Registrar
+              </button>
+            )}
+          </div>
         )}
       </div>
 

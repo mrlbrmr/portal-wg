@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // pdf-parse usa require() do Node.js e não pode ser bundlado pelo webpack
+  serverExternalPackages: ["pdf-parse"],
   async headers() {
     return [
       {

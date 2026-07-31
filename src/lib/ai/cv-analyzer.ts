@@ -1,8 +1,6 @@
 // Análise de currículo via Claude Haiku — extração de texto do PDF + score de aderência à vaga.
-// Usa pdf-parse para extrair texto antes de enviar ao Claude (evita document blocks que têm
-// comportamento instável com btoa() no SDK 0.112.x em PDF binários).
-
-import { PDFParse } from 'pdf-parse'
+// Usa pdf-parse@1.x (Node.js puro, sem worker) para extrair texto antes de enviar ao Claude.
+// Import dinâmico evita problemas de inicialização no bundle do Next.js.
 
 export interface CvProfile {
   experienceYears: number | null
@@ -52,23 +50,28 @@ export async function analyzeCv(
     throw new Error('ANTHROPIC_API_KEY não configurado')
   }
 
-  // Extrai texto do PDF — mais robusto que document blocks com btoa no SDK 0.112.x
+  // Import dinâmico para não quebrar o bundle do Next.js durante o build.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfParse = require('pdf-parse') as (
+    buffer: Buffer,
+    options?: object,
+  ) => Promise<{ text: string; numpages: number }>
+
   let pdfText: string
   try {
-    const parser = new PDFParse({ data: pdfBuffer })
-    const result = await parser.getText()
-    pdfText = (result.text ?? '').trim()
+    const data = await pdfParse(pdfBuffer, { max: 0 })
+    pdfText = (data.text ?? '').trim()
   } catch (err) {
     throw new Error(
       `Falha ao ler o PDF: ${err instanceof Error ? err.message : 'arquivo inválido'}. ` +
-      'Verifique se o currículo não está protegido por senha.',
+        'Verifique se o currículo não está protegido por senha.',
     )
   }
 
   if (!pdfText) {
     throw new Error(
       'O PDF não contém texto extraível (pode ser um scan/imagem). ' +
-      'Reenvie o currículo em PDF com texto selecionável.',
+        'Reenvie o currículo em PDF com texto selecionável.',
     )
   }
 

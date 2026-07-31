@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import { AssessmentsSection } from "@/components/internal/AssessmentsSection";
+import { TestSessionsSection } from "@/components/internal/TestSessionsSection";
 import type { KanbanStage } from "@/components/internal/KanbanBoard";
 
 interface StageRef {
@@ -458,6 +459,15 @@ export function CandidateDrawer({
 
               {/* Avaliações */}
               <AssessmentsSection applicationId={data.id} canManage={canManage} />
+
+              {/* Testes Online */}
+              <TestSessionsSection
+                applicationId={data.id}
+                canManage={canManage}
+                defaultTemplateId={
+                  stages.find((s) => s.id === data.stageId && s.kind === "TEST")?.templateId ?? null
+                }
+              />
 
               {/* Histórico de etapas */}
               {data.stageHistory.length > 0 && (

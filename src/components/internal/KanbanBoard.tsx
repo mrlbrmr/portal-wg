@@ -27,6 +27,7 @@ export interface KanbanStage {
   name: string;
   color: string;
   kind?: string;
+  templateId?: string | null;
   templateName?: string | null;
 }
 

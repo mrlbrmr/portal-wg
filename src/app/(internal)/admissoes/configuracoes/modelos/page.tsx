@@ -107,16 +107,16 @@ export default async function ModelosPage({
     <div className="max-w-6xl">
       <Link
         href="/admissoes/configuracoes"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4"
+        className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-[#55614A] hover:text-[#1A2213] transition-colors mb-4"
       >
         <ArrowLeft className="w-4 h-4" /> Configurações
       </Link>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl md:text-2xl font-extrabold text-[#1A2213] font-sora tracking-tight flex items-center gap-2">
             <ListChecks className="w-5 h-5" /> Modelos de Checklist
           </h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-[#55614A] text-sm mt-1">
             Templates aplicáveis por cargo às novas admissões.
           </p>
         </div>
@@ -124,8 +124,8 @@ export default async function ModelosPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden self-start">
-          <div className="px-4 py-3 border-b border-gray-200 text-sm font-semibold text-gray-900">
+        <div className="bg-white border border-[#E7EEDD] rounded-2xl shadow-sm overflow-hidden self-start">
+          <div className="px-4 py-3 border-b border-[#EEF2E9] text-[11px] tracking-[.07em] uppercase font-bold text-[#6B7860]">
             Modelos
           </div>
           <TemplateList templates={templateItems} selectedId={t} />
@@ -134,8 +134,8 @@ export default async function ModelosPage({
         {detail ? (
           <TemplateEditor key={detail.id} template={detail} positions={positions} />
         ) : (
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
-            <p className="text-sm text-gray-400 text-center py-20">
+          <div className="bg-white border border-[#E7EEDD] rounded-2xl shadow-sm">
+            <p className="text-sm text-[#8A9480] text-center py-20">
               Selecione um modelo à esquerda ou crie um novo.
             </p>
           </div>

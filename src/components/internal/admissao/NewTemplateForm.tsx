@@ -12,7 +12,7 @@ interface Props {
 }
 
 const input =
-  "h-9 rounded-lg border border-gray-300 px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green";
+  "h-9 rounded-lg border border-[#DCE8CC] px-3 text-sm text-[#1A2213] focus:outline-none focus:ring-2 focus:ring-[#90CB46]/30 focus:border-[#90CB46]";
 
 export function NewTemplateForm({ positions }: Props) {
   const router = useRouter();
@@ -77,7 +77,7 @@ export function NewTemplateForm({ positions }: Props) {
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="text-sm text-gray-500 hover:text-gray-800 px-2"
+        className="text-sm text-[#55614A] hover:text-[#1A2213] px-2 transition-colors"
       >
         Cancelar
       </button>

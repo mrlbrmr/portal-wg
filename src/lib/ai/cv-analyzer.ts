@@ -40,8 +40,9 @@ Regras:
 - Seja objetivo e específico nos strengths/gaps, referenciando a vaga
 - Responda em português brasileiro`
 
+// Aceita Buffer (bytes puros, sem risco de re-encoding via Blob/arrayBuffer).
 export async function analyzeCv(
-  pdfBlob: Blob,
+  pdfBuffer: Buffer,
   jobTitle: string,
   jobDescription: string,
 ): Promise<CvAnalysisResult> {
@@ -49,8 +50,8 @@ export async function analyzeCv(
     throw new Error('ANTHROPIC_API_KEY não configurado')
   }
 
-  const buffer = await pdfBlob.arrayBuffer()
-  const base64 = Buffer.from(buffer).toString('base64')
+  // Converte o buffer de bytes puros para base64 — sem nenhum intermediário de string
+  const base64 = pdfBuffer.toString('base64')
 
   const userPrompt = `Vaga: ${jobTitle}
 
@@ -89,7 +90,6 @@ Analise o currículo acima e retorne o JSON de análise.`
     throw new Error(`Resposta da IA inválida: ${raw.slice(0, 200)}`)
   }
 
-  // Garante os campos obrigatórios
   return {
     profile: {
       experienceYears: parsed.profile?.experienceYears ?? null,

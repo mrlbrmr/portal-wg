@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getResumeBlob } from "@/lib/storage";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { RESUMES_BUCKET } from "@/lib/storage";
 import { analyzeCv } from "@/lib/ai/cv-analyzer";
 
 // Remove HTML tags, collapse whitespace — para enviar texto limpo ao Claude.
@@ -38,6 +39,18 @@ export async function POST(
     );
   }
 
+  // Valida que o currículo é PDF antes de fazer o download
+  const resumeName = (application.resumeName ?? "").toLowerCase();
+  if (!resumeName.endsWith(".pdf")) {
+    return NextResponse.json(
+      {
+        error:
+          "A análise por IA suporta apenas currículos em PDF. Converta o arquivo e reenvie o currículo antes de analisar.",
+      },
+      { status: 400 }
+    );
+  }
+
   // Descrição da vaga para contextualizar a análise
   const { data: job } = await supabase
     .from("jobs")
@@ -48,28 +61,31 @@ export async function POST(
     return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
   }
 
-  // Download do currículo privado
-  const blob = await getResumeBlob(application.resumeUrl);
-  if (!blob) {
+  // Cria signed URL temporária (120 s) para buscar o PDF via fetch nativo.
+  // fetch().arrayBuffer() é mais confiável que Blob.arrayBuffer() para binários
+  // em algumas versões do Node.js (evita re-encoding via UTF-16 BOM).
+  const supabaseAdmin = createAdminClient();
+  const { data: signedData, error: signedError } = await supabaseAdmin.storage
+    .from(RESUMES_BUCKET)
+    .createSignedUrl(application.resumeUrl, 120);
+
+  if (signedError || !signedData?.signedUrl) {
     return NextResponse.json(
       { error: "Currículo indisponível no storage. Tente novamente." },
       { status: 502 }
     );
   }
 
-  // Claude só suporta document blocks para PDF
-  const resumeName = (application.resumeName ?? "").toLowerCase();
-  const isPdf =
-    blob.type === "application/pdf" ||
-    blob.type === "" ||          // alguns storages omitem o content-type
-    resumeName.endsWith(".pdf");
-  if (!isPdf) {
+  let pdfBuffer: Buffer;
+  try {
+    const fileRes = await fetch(signedData.signedUrl);
+    if (!fileRes.ok) throw new Error(`HTTP ${fileRes.status}`);
+    pdfBuffer = Buffer.from(await fileRes.arrayBuffer());
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      {
-        error:
-          "A análise por IA suporta apenas currículos em PDF. Converta o arquivo e reenvie o currículo antes de analisar.",
-      },
-      { status: 400 }
+      { error: `Falha ao baixar currículo: ${msg}` },
+      { status: 502 }
     );
   }
 
@@ -85,7 +101,7 @@ export async function POST(
   // Executa análise via Claude Haiku
   let result;
   try {
-    result = await analyzeCv(blob, job.title, jobDescription);
+    result = await analyzeCv(pdfBuffer, job.title, jobDescription);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro desconhecido";
     console.error("[analyze] IA error:", msg);

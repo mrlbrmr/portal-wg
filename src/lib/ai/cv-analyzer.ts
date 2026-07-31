@@ -1,5 +1,5 @@
-// Análise de currículo via Claude Haiku — extração de texto do PDF + score de aderência à vaga.
-// Usa pdf-parse@1.x (Node.js puro, sem worker) para extrair texto antes de enviar ao Claude.
+// Análise de currículo via Groq (llama-3.3-70b-versatile) — extração de texto do PDF + score de aderência à vaga.
+// Usa pdf-parse@1.x (Node.js puro, sem worker) para extrair texto antes de enviar ao modelo.
 // Import dinâmico evita problemas de inicialização no bundle do Next.js.
 
 export interface CvProfile {
@@ -47,9 +47,9 @@ export async function analyzeCv(
   jobDescription: string,
 ): Promise<CvAnalysisResult> {
   // Strip BOM (U+FEFF) que editores Windows às vezes gravam no início de variáveis de ambiente
-  const apiKey = (process.env.ANTHROPIC_API_KEY ?? '').replace(/^﻿/, '').trim()
+  const apiKey = (process.env.GROQ_API_KEY ?? '').replace(/^﻿/, '').trim()
   if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY não configurado')
+    throw new Error('GROQ_API_KEY não configurado')
   }
 
   // Import dinâmico para não quebrar o bundle do Next.js durante o build.
@@ -83,17 +83,19 @@ export async function analyzeCv(
     `DESCRIÇÃO DA VAGA:\n${jobDescription.slice(0, 3000)}\n\n` +
     `Analise o currículo acima em relação à vaga e retorne o JSON de análise.`
 
-  const { default: Anthropic } = await import('@anthropic-ai/sdk')
-  const client = new Anthropic({ apiKey })
+  const { default: Groq } = await import('groq-sdk')
+  const client = new Groq({ apiKey })
 
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5',
+  const response = await client.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }],
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ],
   })
 
-  const raw = response.content[0]?.type === 'text' ? response.content[0].text : ''
+  const raw = response.choices[0]?.message?.content ?? ''
   const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
 
   let parsed: CvAnalysisResult

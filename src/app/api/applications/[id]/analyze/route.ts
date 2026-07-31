@@ -154,7 +154,7 @@ export async function POST(
     score: result.fitScore,
     outcome,
     summary,
-    evaluator: "IA · Claude Haiku",
+    evaluator: "IA · Groq LLaMA",
     occurredAt: new Date().toISOString(),
   });
   if (insertError) {

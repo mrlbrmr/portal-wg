@@ -21,7 +21,7 @@ export default function InternalShell({ user, children }: Props) {
         onMenuClick={() => setSidebarOpen((o) => !o)}
       />
 
-      <div className="flex">
+      <div className="flex min-h-[calc(100vh-56px)]">
         {/* Overlay mobile */}
         {sidebarOpen && (
           <div

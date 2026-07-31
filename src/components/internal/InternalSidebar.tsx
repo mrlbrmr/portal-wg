@@ -101,7 +101,7 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
   const roleLabel = role === "ADMIN_RH" ? "Admin RH" : "Visualizador";
 
   return (
-    <aside className="w-[232px] bg-wg-sidebar border-r border-wg-border-light min-h-[calc(100vh-56px)] px-4 py-5 flex-shrink-0 flex flex-col">
+    <aside className="w-[232px] bg-wg-sidebar border-r border-wg-border-light h-full min-h-[calc(100vh-56px)] overflow-y-auto px-4 py-5 flex-shrink-0 flex flex-col">
       <nav className="flex flex-col gap-0.5 flex-1">
         <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-1 pb-2">
           Recrutamento

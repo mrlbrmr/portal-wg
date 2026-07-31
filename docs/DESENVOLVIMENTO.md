@@ -7,6 +7,60 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-07-31 (continuação) — Análise AI-native de Currículos (Groq)
+
+Implementação do botão **"Analisar com IA"** na ficha do candidato: extrai texto do PDF,
+envia ao modelo de linguagem e grava score de aderência em `application_assessments`.
+
+### Arquitetura
+
+- **`src/lib/ai/cv-analyzer.ts`** — função `analyzeCv(pdfBuffer, jobTitle, jobDescription)`:
+  usa `require('pdf-parse')` (dinâmico, Node.js puro, sem worker) para extrair texto do PDF;
+  envia texto + descrição da vaga ao LLM; retorna `CvAnalysisResult`
+  (`profile`, `fitScore 0-100`, `fitReason`, `strengths[]`, `gaps[]`).
+- **`POST /api/applications/[id]/analyze`** (`src/app/api/applications/[id]/analyze/route.ts`):
+  autenticado (staff); busca candidatura+vaga; cria signed URL temporária (120 s) para baixar
+  o PDF do bucket `resumes`; chama `analyzeCv`; determina `outcome` (RECOMMEND ≥70 / PENDING
+  ≥50 / REJECT <50); apaga AI_FIT anterior e insere novo em `application_assessments`
+  (`source='AI'`, `kind='AI_FIT'`).
+- **`src/components/internal/AssessmentsSection.tsx`** — botão roxo (Sparkles) aparece quando
+  `canManage && hasResume` (PDF); dispara fetch + recarrega lista de avaliações.
+- **`next.config.ts`** — `serverExternalPackages: ["pdf-parse"]` evita que o webpack bundle o módulo.
+
+### Histórico de commits e bugs encontrados
+
+| Commit | Descrição |
+|---|---|
+| `77e784e` | Implementação inicial — provider Anthropic (`claude-haiku-4-5`), document blocks PDF |
+| `fda71f9` | Troca Blob por signed URL + `fetch().arrayBuffer()` (ByteString error persistiu) |
+| `c0dfdc5` | Troca para pdf-parse v2 + extração de texto (pdf-parse v2 falhou, worker do pdfjs-dist) |
+| `7af74d1` | pdf-parse@1.1.1 + `require()` dinâmico + `serverExternalPackages` |
+| `e4eed67` | **Fix BOM:** strip `U+FEFF` do `GROQ_API_KEY` antes de criar o cliente |
+| `cf93434` | **Migração para Groq:** troca Anthropic por `groq-sdk` (LLaMA 3.3 70B) |
+
+**Bug raiz (ByteString error):** `"Cannot convert argument to a ByteString because the character
+at index 0 has a value of 65279 which is greater than 255"` — o Node.js rejeita valores de header
+HTTP com caracteres > 255. O `ANTHROPIC_API_KEY` na Vercel tinha BOM (`U+FEFF` = 65279) no byte 0.
+O SDK da Anthropic passa a API key diretamente como `x-api-key` e o `Headers` constructor do Node
+explodia. Fix: `.replace(/^<U+FEFF>/, '').trim()` na variável antes de criar o cliente.
+
+### Migração para Groq (commit `cf93434`)
+
+Provider trocado de Anthropic para **Groq** (gratuito, limite alto de tokens).
+
+- **Pacote:** `groq-sdk@1.5.0` (instalado via `npm install groq-sdk`).
+- **Modelo:** `llama-3.3-70b-versatile` (alta qualidade, mais rápido que o Haiku).
+- **Variável de ambiente:** `GROQ_API_KEY` (adicionar na Vercel: Settings → Environment Variables).
+- **API:** `client.chat.completions.create()` com `messages` system + user (compatível OpenAI).
+- `evaluator` no `application_assessments` atualizado para `"IA · Groq LLaMA"`.
+- `ANTHROPIC_API_KEY` não é mais necessária para o analisador de currículos (ainda pode existir
+  para a geração de questões de avaliação em `avaliacoes/banco`, que usa `@anthropic-ai/sdk`
+  diretamente).
+
+**Ação necessária no Vercel:** adicionar `GROQ_API_KEY` em Production e fazer Redeploy.
+
+---
+
 ## Sessão de 2026-07-31 — Design Sync completo (4 telas do painel RH)
 
 Sincronização visual das 4 telas principais do painel interno com o handoff do **Claude Design

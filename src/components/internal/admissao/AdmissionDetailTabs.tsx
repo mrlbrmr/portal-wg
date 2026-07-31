@@ -18,7 +18,7 @@ export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount }
         <button
           type="button"
           onClick={() => setTab("checklist")}
-          className={`px-4 py-2 rounded-lg text-[13.5px] font-bold transition-colors ${
+          className={`px-4 py-2 rounded-[8px] text-[13.5px] font-bold transition-colors ${
             tab === "checklist"
               ? "bg-[#90CB46] text-[#0C0D0C]"
               : "text-[#3E4A34] hover:text-[#1A2213]"
@@ -29,7 +29,7 @@ export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount }
         <button
           type="button"
           onClick={() => setTab("docs")}
-          className={`px-4 py-2 rounded-lg text-[13.5px] font-bold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-[8px] text-[13.5px] font-bold transition-colors flex items-center gap-1.5 ${
             tab === "docs"
               ? "bg-[#90CB46] text-[#0C0D0C]"
               : "text-[#3E4A34] hover:text-[#1A2213]"

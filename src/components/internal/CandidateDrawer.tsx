@@ -178,7 +178,7 @@ export function CandidateDrawer({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div
-        className="relative flex h-full w-full max-w-[480px] flex-col bg-white shadow-[-10px_0_34px_rgba(0,0,0,.16)] animate-in slide-in-from-right duration-200"
+        className="relative flex h-full w-full max-w-[620px] flex-col bg-white shadow-[-10px_0_34px_rgba(0,0,0,.16)] animate-in slide-in-from-right duration-200"
         style={{ overflowY: "hidden" }}
       >
         {/* ── Sticky header ── */}

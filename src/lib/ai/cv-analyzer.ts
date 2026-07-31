@@ -1,5 +1,8 @@
-// Análise de currículo via Claude Haiku — extração de perfil + score de aderência à vaga.
-// O PDF é enviado como document block (base64); o resultado é JSON estruturado.
+// Análise de currículo via Claude Haiku — extração de texto do PDF + score de aderência à vaga.
+// Usa pdf-parse para extrair texto antes de enviar ao Claude (evita document blocks que têm
+// comportamento instável com btoa() no SDK 0.112.x em PDF binários).
+
+import { PDFParse } from 'pdf-parse'
 
 export interface CvProfile {
   experienceYears: number | null
@@ -40,7 +43,6 @@ Regras:
 - Seja objetivo e específico nos strengths/gaps, referenciando a vaga
 - Responda em português brasileiro`
 
-// Aceita Buffer (bytes puros, sem risco de re-encoding via Blob/arrayBuffer).
 export async function analyzeCv(
   pdfBuffer: Buffer,
   jobTitle: string,
@@ -50,37 +52,43 @@ export async function analyzeCv(
     throw new Error('ANTHROPIC_API_KEY não configurado')
   }
 
-  // Converte o buffer de bytes puros para base64 — sem nenhum intermediário de string
-  const base64 = pdfBuffer.toString('base64')
+  // Extrai texto do PDF — mais robusto que document blocks com btoa no SDK 0.112.x
+  let pdfText: string
+  try {
+    const parser = new PDFParse({ data: pdfBuffer })
+    const result = await parser.getText()
+    pdfText = (result.text ?? '').trim()
+  } catch (err) {
+    throw new Error(
+      `Falha ao ler o PDF: ${err instanceof Error ? err.message : 'arquivo inválido'}. ` +
+      'Verifique se o currículo não está protegido por senha.',
+    )
+  }
 
-  const userPrompt = `Vaga: ${jobTitle}
+  if (!pdfText) {
+    throw new Error(
+      'O PDF não contém texto extraível (pode ser um scan/imagem). ' +
+      'Reenvie o currículo em PDF com texto selecionável.',
+    )
+  }
 
-Descrição da vaga:
-${jobDescription.slice(0, 3000)}
-
-Analise o currículo acima e retorne o JSON de análise.`
+  const userPrompt =
+    `CURRÍCULO:\n${pdfText.slice(0, 8000)}\n\n` +
+    `VAGA: ${jobTitle}\n\n` +
+    `DESCRIÇÃO DA VAGA:\n${jobDescription.slice(0, 3000)}\n\n` +
+    `Analise o currículo acima em relação à vaga e retorne o JSON de análise.`
 
   const { default: Anthropic } = await import('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const content: any[] = [
-    {
-      type: 'document',
-      source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-    },
-    { type: 'text', text: userPrompt },
-  ]
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5',
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content }],
+    messages: [{ role: 'user', content: userPrompt }],
   })
 
   const raw = response.content[0]?.type === 'text' ? response.content[0].text : ''
-  // Remove possível wrapper markdown
   const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
 
   let parsed: CvAnalysisResult

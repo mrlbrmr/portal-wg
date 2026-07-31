@@ -28,7 +28,8 @@ export default async function AdmissoesPage() {
          position:admission_positions(name),
          company:admission_companies(name),
          branch:admission_branches(name),
-         stage:admission_stages(id, name, color, isFinal)`
+         stage:admission_stages(id, name, color, isFinal),
+         checklistGroups:admission_checklist_groups(items:admission_checklist_items(id, status, parentId))`
       )
       .is("deletedAt", null)
       .order("createdAt", { ascending: false })
@@ -48,6 +49,9 @@ export default async function AdmissoesPage() {
     company: { name: string } | null;
     branch: { name: string } | null;
     stage: { id: string; name: string; color: string; isFinal: boolean } | null;
+    checklistGroups: Array<{
+      items: Array<{ id: string; status: string; parentId: string | null }>;
+    }> | null;
   }>;
 
   const metricRows = (metricsRes.data ?? []) as unknown as Array<{
@@ -73,24 +77,34 @@ export default async function AdmissoesPage() {
 
   const openAdmissions = admissions.filter((a) => !a.stage?.isFinal);
 
-  const rows: AdmissionRow[] = openAdmissions.map((a) => ({
-    id: a.id,
-    fullName: a.fullName,
-    cpf: a.cpf,
-    positionName: a.position?.name ?? null,
-    companyId: a.companyId ?? null,
-    companyName: a.company?.name ?? null,
-    branchName: a.branch?.name ?? null,
-    stageId: a.stage?.id ?? null,
-    stageName: a.stage?.name ?? null,
-    stageColor: a.stage?.color ?? null,
-    responsibleName: a.responsibleId ? userMap.get(a.responsibleId) ?? null : null,
-    startDate: a.startDate
-      ? new Date(a.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
-      : null,
-    startDateISO: a.startDate ? new Date(a.startDate).toISOString().slice(0, 10) : null,
-    createdAt: new Date(a.createdAt).toISOString(),
-  }));
+  const rows: AdmissionRow[] = openAdmissions.map((a) => {
+    const allItems = (a.checklistGroups ?? [])
+      .flatMap((g) => g.items ?? [])
+      .filter((i) => !i.parentId);
+    const checklistDone = allItems.filter((i) => i.status === "DONE").length;
+    const checklistTotal = allItems.length;
+
+    return {
+      id: a.id,
+      fullName: a.fullName,
+      cpf: a.cpf,
+      positionName: a.position?.name ?? null,
+      companyId: a.companyId ?? null,
+      companyName: a.company?.name ?? null,
+      branchName: a.branch?.name ?? null,
+      stageId: a.stage?.id ?? null,
+      stageName: a.stage?.name ?? null,
+      stageColor: a.stage?.color ?? null,
+      responsibleName: a.responsibleId ? (userMap.get(a.responsibleId) ?? null) : null,
+      startDate: a.startDate
+        ? new Date(a.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+        : null,
+      startDateISO: a.startDate ? new Date(a.startDate).toISOString().slice(0, 10) : null,
+      createdAt: new Date(a.createdAt).toISOString(),
+      checklistDone,
+      checklistTotal,
+    };
+  });
 
   const kpiCards = [
     { emoji: "👤", iconBg: "#E9EDFA", value: inProgress, label: "Em andamento" },

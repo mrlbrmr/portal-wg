@@ -20,6 +20,8 @@ export interface AdmissionRow {
   startDate: string | null;     // "DD/MM/YYYY" para exibição
   startDateISO: string | null;  // "YYYY-MM-DD" para filtro/ordenação
   createdAt: string;            // ISO para ordenação
+  checklistDone: number;
+  checklistTotal: number;
 }
 
 interface Option {
@@ -409,6 +411,22 @@ export function AdmissionsExplorer({ rows, stages, companies }: Props) {
                     {meta && (
                       <div className="text-[#55614A] text-[12.5px] mt-1 truncate">{meta}</div>
                     )}
+                    {r.checklistTotal > 0 && (
+                      <div className="flex items-center gap-2 mt-2.5 max-w-[360px]">
+                        <div className="flex-1 h-1.5 bg-[#EEF2E9] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.round((r.checklistDone / r.checklistTotal) * 100)}%`,
+                              background: stripeColor,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[#3E4A34] text-xs font-semibold whitespace-nowrap">
+                          {Math.round((r.checklistDone / r.checklistTotal) * 100)}% · {r.checklistDone}/{r.checklistTotal}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Right */}
@@ -425,12 +443,20 @@ export function AdmissionsExplorer({ rows, stages, companies }: Props) {
                         {days !== null && ` · ${countdownLabel(days)}`}
                       </span>
                     )}
-                    <Link
-                      href={`/admissoes/${r.id}`}
-                      className="bg-[#F0F5E8] text-[#3E5A2A] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#E4EED6] transition-colors opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                    >
-                      Ver checklist
-                    </Link>
+                    <div className="flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
+                      <Link
+                        href={`/admissoes/${r.id}`}
+                        className="bg-[#F0F5E8] text-[#3E5A2A] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#E4EED6] transition-colors"
+                      >
+                        Ver checklist
+                      </Link>
+                      <Link
+                        href={`/admissoes/${r.id}/editar`}
+                        className="bg-white text-[#3E4A34] border border-[#E7EEDD] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#EEF2E9] transition-colors"
+                      >
+                        Editar
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -134,7 +134,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+            className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
           >
             <Link
               href={`/vagas/${jobId}/editar`}

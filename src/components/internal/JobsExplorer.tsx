@@ -538,10 +538,10 @@ export function JobsExplorer({
             return (
               <div
                 key={job.id}
-                className="group bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,.05)] flex overflow-hidden hover:shadow-[0_8px_22px_rgba(0,0,0,.08)] transition-shadow"
+                className="group bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,.05)] flex hover:shadow-[0_8px_22px_rgba(0,0,0,.08)] transition-shadow"
               >
-                {/* Priority stripe */}
-                <div className="w-[5px] shrink-0" style={{ background: stripeColor }} />
+                {/* Priority stripe — arredondada para não precisar de overflow-hidden no card */}
+                <div className="w-[5px] shrink-0 rounded-l-2xl" style={{ background: stripeColor }} />
 
                 <div className="flex-1 px-5 py-4 flex justify-between items-center gap-4 min-w-0">
                   {/* Left: job info */}

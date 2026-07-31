@@ -69,7 +69,7 @@ async function loadCities(): Promise<string[]> {
 }
 
 const inputClass =
-  "w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/30 focus:border-wg-green transition-colors";
+  "w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/30 focus:border-wg-green transition-colors";
 
 const labelClass = "block text-[13.5px] font-semibold text-gray-700 mb-1.5";
 
@@ -266,7 +266,7 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
         {/* Cidade (Brasil) */}
         <div>
           <label htmlFor="candidateCity" className={labelClass}>
-            Cidade onde reside
+            Cidade onde reside <span className="text-red-500">*</span>
           </label>
           <input
             id="candidateCity"
@@ -274,6 +274,7 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
             type="text"
             list="ibge-cities"
             autoComplete="off"
+            required
             onFocus={handleCityFocus}
             placeholder="Digite o nome da sua cidade"
             className={inputClass}

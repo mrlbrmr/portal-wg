@@ -46,7 +46,9 @@ export async function analyzeCv(
   jobTitle: string,
   jobDescription: string,
 ): Promise<CvAnalysisResult> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Strip BOM (U+FEFF) que editores Windows às vezes gravam no início de variáveis de ambiente
+  const apiKey = (process.env.ANTHROPIC_API_KEY ?? '').replace(/^﻿/, '').trim()
+  if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY não configurado')
   }
 
@@ -82,7 +84,7 @@ export async function analyzeCv(
     `Analise o currículo acima em relação à vaga e retorne o JSON de análise.`
 
   const { default: Anthropic } = await import('@anthropic-ai/sdk')
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const client = new Anthropic({ apiKey })
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5',

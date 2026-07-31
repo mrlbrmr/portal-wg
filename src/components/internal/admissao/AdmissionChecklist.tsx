@@ -15,6 +15,7 @@ import {
   CornerDownRight,
   Pencil,
   GripVertical,
+  Printer,
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SubtaskProgress } from "./SubtaskProgress";
@@ -35,25 +36,18 @@ import {
 
 type Status = "PENDING" | "IN_PROGRESS" | "DONE" | "NOT_APPLICABLE";
 
-const STATUSES: Status[] = ["PENDING", "IN_PROGRESS", "DONE", "NOT_APPLICABLE"];
 const STATUS_LABEL: Record<Status, string> = {
   PENDING: "Pendente",
   IN_PROGRESS: "Em andamento",
   DONE: "Concluído",
   NOT_APPLICABLE: "N/A",
 };
-const STATUS_COLOR: Record<Status, string> = {
-  PENDING: "#94a3b8",
-  IN_PROGRESS: "#3b82f6",
-  DONE: "#10b981",
-  NOT_APPLICABLE: "#a1a1aa",
-};
 
 export interface ChecklistItemView {
   id: string;
   name: string;
   status: Status;
-  dueDate: string | null; // "AAAA-MM-DD"
+  dueDate: string | null; // "YYYY-MM-DD"
   subtasks: ChecklistItemView[];
 }
 export interface ChecklistGroupView {
@@ -70,9 +64,8 @@ interface Props {
 }
 
 const smallInput =
-  "h-8 rounded-md border border-gray-300 px-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green";
+  "h-8 rounded-md border border-[#DCE8CC] px-2 text-xs text-[#1A2213] focus:outline-none focus:ring-2 focus:ring-[#90CB46]/30 focus:border-[#90CB46] bg-white";
 
-/** Conta apenas as folhas (itens sem subtarefas): pais viram apenas agrupadores. */
 function countLeaves(items: ChecklistItemView[]): { done: number; total: number } {
   let done = 0;
   let total = 0;
@@ -89,25 +82,39 @@ function countLeaves(items: ChecklistItemView[]): { done: number; total: number 
   return { done, total };
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isOverdue(dueDate: string | null): boolean {
+  if (!dueDate) return false;
+  return dueDate < todayISO();
+}
+
 export function AdmissionChecklist({ admissionId, canManage, groups, templates }: Props) {
   const { notify } = useToast();
   const [isPending, startTransition] = useTransition();
   const [tplId, setTplId] = useState("");
   const [newGroup, setNewGroup] = useState("");
 
-  // B1: colapsar grupos
+  // Grupos colapsados (todos expandidos por padrão)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
-  // Colapsar subtarefas de uma tarefa-mãe (seta).
-  const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
+  // Itens com subtarefas: iniciam COLAPSADOS
+  const [collapsedItems, setCollapsedItems] = useState<Set<string>>(() => {
+    const ids = new Set<string>();
+    for (const g of groups) {
+      for (const it of g.items) {
+        if (it.subtasks.length > 0) ids.add(it.id);
+      }
+    }
+    return ids;
+  });
 
-  // B3: seleção múltipla
+  const [hideDone, setHideDone] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-  // Drag-and-drop de itens: `drag` guarda o item arrastado e seu escopo de
-  // irmãos; `dragOverId` é o alvo sob o cursor (para o realce). O reordenamento
-  // só ocorre entre irmãos do mesmo escopo (mesmo grupo / mesma tarefa-mãe).
   const [drag, setDrag] = useState<{ id: string; scope: string } | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -159,6 +166,11 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     });
   }
 
+  function expandAll() {
+    setCollapsedGroups(new Set());
+    setCollapsedItems(new Set());
+  }
+
   function toggleSelect(id: string, checked: boolean) {
     setSelectedItems((prev) => {
       const next = new Set(prev);
@@ -186,7 +198,6 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     });
   }
 
-  // B2: totais globais (por folhas)
   const { done, total } = countLeaves(groups.flatMap((g) => g.items));
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
@@ -199,6 +210,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     toggleSelect,
     collapsedItems,
     toggleItemCollapse,
+    hideDone,
     run,
     dragId: drag?.id ?? null,
     dragScope: drag?.scope ?? null,
@@ -210,123 +222,175 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+    <div className="bg-white border border-[#E7EEDD] rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,.05)]">
       {/* Cabeçalho global */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-200">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            <ListChecks className="w-4 h-4" /> Checklist
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {done} de {total} concluídos · {pct}%
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canManage && (
-            <>
-              {/* B3: botão de modo seleção */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectionMode(!selectionMode);
-                  setSelectedItems(new Set());
-                }}
-                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ${
-                  selectionMode
-                    ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                }`}
-              >
-                <CheckSquare2 className="w-3.5 h-3.5" />
-                {selectionMode ? "Cancelar seleção" : "Selecionar"}
-              </button>
-              <select
-                value={tplId}
-                onChange={(e) => setTplId(e.target.value)}
-                className={smallInput}
-              >
-                <option value="">Aplicar modelo…</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={!tplId || isPending}
-                onClick={() =>
-                  run(async () => {
-                    const r = await applyChecklistTemplate(admissionId, tplId);
-                    if (r.ok) {
-                      notify("success", "Modelo aplicado.");
-                      setTplId("");
-                    }
-                    return r;
-                  })
-                }
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-wg-green-dark hover:opacity-80 disabled:opacity-40"
-              >
-                <Wand2 className="w-3.5 h-3.5" /> Aplicar
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      <div className="px-5 py-4 border-b border-[#EEF2E9]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-extrabold text-[#1A2213] flex items-center gap-2">
+              <ListChecks className="w-4 h-4" /> Checklist de G&amp;G
+            </h2>
+            <p className="text-[12.5px] text-[#55614A] mt-0.5">
+              {done} de {total} concluídos · {pct}%
+            </p>
+          </div>
 
-      <div className="p-5 space-y-4">
-        {/* B2: barra de progresso global */}
+          {/* Ações globais */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={expandAll}
+              className="bg-[#F6F8F3] text-[#3E4A34] border border-[#E7EEDD] px-3.5 py-2 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#EEF2E9] transition-colors"
+            >
+              Expandir tudo
+            </button>
+            <button
+              type="button"
+              onClick={() => setHideDone((v) => !v)}
+              className="px-3.5 py-2 rounded-lg text-[12.5px] font-semibold whitespace-nowrap border transition-colors"
+              style={{
+                background: hideDone ? "#90CB46" : "#F6F8F3",
+                color: hideDone ? "#0C0D0C" : "#3E4A34",
+                borderColor: hideDone ? "#90CB46" : "#E7EEDD",
+              }}
+            >
+              Ocultar concluídos
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="bg-[#F6F8F3] text-[#3E4A34] border border-[#E7EEDD] px-3.5 py-2 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#EEF2E9] transition-colors inline-flex items-center gap-1.5"
+            >
+              <Printer className="w-3.5 h-3.5" /> Imprimir
+            </button>
+            {canManage && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectionMode(!selectionMode);
+                    setSelectedItems(new Set());
+                  }}
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ${
+                    selectionMode
+                      ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      : "text-[#55614A] hover:bg-[#F0F5E8] hover:text-[#1A2213]"
+                  }`}
+                >
+                  <CheckSquare2 className="w-3.5 h-3.5" />
+                  {selectionMode ? "Cancelar seleção" : "Selecionar"}
+                </button>
+                <select
+                  value={tplId}
+                  onChange={(e) => setTplId(e.target.value)}
+                  className={smallInput}
+                >
+                  <option value="">Aplicar modelo…</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!tplId || isPending}
+                  onClick={() =>
+                    run(async () => {
+                      const r = await applyChecklistTemplate(admissionId, tplId);
+                      if (r.ok) {
+                        notify("success", "Modelo aplicado.");
+                        setTplId("");
+                      }
+                      return r;
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-[#4F6930] hover:opacity-80 disabled:opacity-40"
+                >
+                  <Wand2 className="w-3.5 h-3.5" /> Aplicar
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Barra de progresso global */}
         {total > 0 && (
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-wg-green transition-all" style={{ width: `${pct}%` }} />
+          <div className="mt-3 h-1.5 bg-[#EEF2E9] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#90CB46] rounded-full transition-all"
+              style={{ width: `${pct}%` }}
+            />
           </div>
         )}
+      </div>
 
+      <div className="p-5 space-y-3">
         {groups.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-6">
+          <p className="text-sm text-[#8A9480] text-center py-6">
             Nenhum grupo ainda.{" "}
             {canManage ? "Aplique um modelo ou crie um grupo abaixo." : ""}
           </p>
         )}
 
         {groups.map((g, gIdx) => {
-          // B2: totais por seção (por folhas)
           const { done: gDone, total: gTotal } = countLeaves(g.items);
           const gPct = gTotal > 0 ? Math.round((gDone / gTotal) * 100) : 0;
           const isCollapsed = collapsedGroups.has(g.id);
 
+          // Items visíveis (filtra concluídos quando hideDone)
+          const visibleItems = hideDone
+            ? g.items.filter((it) => {
+                if (it.subtasks.length === 0) return it.status !== "DONE";
+                return !it.subtasks.every((s) => s.status === "DONE");
+              })
+            : g.items;
+
+          // IDs completos para reordenação via DnD (sempre inclui todos)
+          const allItemIds = g.items.map((i) => i.id);
+
           return (
-            <div key={g.id} className="border border-gray-200 rounded-lg overflow-hidden">
-              {/* Cabeçalho do grupo (B1 + B2) */}
-              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(g.id)}
-                  className="p-0.5 text-gray-400 hover:text-gray-700 rounded transition-colors shrink-0"
-                  title={isCollapsed ? "Expandir" : "Recolher"}
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  )}
-                </button>
-                <span className="font-medium text-sm text-gray-800 truncate">{g.name}</span>
-                <span className="shrink-0 text-[11px] text-gray-500 bg-gray-200 rounded-full px-1.5">
-                  {gDone}/{gTotal}
+            <div key={g.id} className="border border-[#EEF2E9] rounded-xl overflow-hidden">
+              {/* Cabeçalho do grupo */}
+              <div
+                className="flex items-center gap-2.5 px-4 py-3 bg-[#F6F8F3] cursor-pointer select-none"
+                onClick={() => toggleGroup(g.id)}
+              >
+                <span className="text-[#55614A] text-[11px] shrink-0">
+                  {isCollapsed ? "▸" : "▾"}
                 </span>
-                {gTotal > 0 && (
-                  <span className="shrink-0 text-[11px] text-gray-400">{gPct}%</span>
-                )}
+                <span className="font-bold text-[14.5px] text-[#1A2213] truncate flex-1">
+                  {g.name}
+                </span>
+                <span className="bg-[#E4EED6] text-[#2E4319] text-[11.5px] font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                  [{gDone}/{gTotal}]
+                </span>
+                <span className="text-[#3E4A34] text-xs font-bold shrink-0">{gPct}%</span>
+
+                {/* Mini barra de progresso */}
+                <div
+                  className="w-[80px] h-1.5 bg-[#E7EEDD] rounded-full overflow-hidden shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div
+                    className="h-full bg-[#90CB46] rounded-full transition-all"
+                    style={{ width: `${gPct}%` }}
+                  />
+                </div>
+
+                {/* Ações de admin do grupo */}
                 {canManage && (
-                  <div className="ml-auto flex items-center gap-1">
+                  <div
+                    className="flex items-center gap-0.5 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {!selectionMode && (
                       <>
                         <button
                           type="button"
                           disabled={gIdx === 0 || isPending}
                           onClick={() => run(() => moveChecklistGroup(admissionId, g.id, "up"))}
-                          className="p-1 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+                          className="p-1 text-[#8A9480] hover:text-[#3E4A34] rounded disabled:opacity-30 disabled:cursor-default"
                           title="Mover grupo para cima"
                         >
                           <ChevronUp className="w-3.5 h-3.5" />
@@ -335,7 +399,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                           type="button"
                           disabled={gIdx === groups.length - 1 || isPending}
                           onClick={() => run(() => moveChecklistGroup(admissionId, g.id, "down"))}
-                          className="p-1 text-gray-400 hover:text-gray-700 rounded disabled:opacity-30 disabled:cursor-default"
+                          className="p-1 text-[#8A9480] hover:text-[#3E4A34] rounded disabled:opacity-30 disabled:cursor-default"
                           title="Mover grupo para baixo"
                         >
                           <ChevronDown className="w-3.5 h-3.5" />
@@ -344,7 +408,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                           type="button"
                           disabled={isPending}
                           onClick={() => run(() => duplicateChecklistGroup(admissionId, g.id))}
-                          className="p-1 text-gray-400 hover:text-gray-700 rounded disabled:opacity-40"
+                          className="p-1 text-[#8A9480] hover:text-[#3E4A34] rounded disabled:opacity-40"
                           title="Duplicar grupo"
                         >
                           <Copy className="w-3.5 h-3.5" />
@@ -361,7 +425,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                         if (confirm(`Excluir grupo "${g.name}" e seus itens?`))
                           run(() => deleteChecklistGroup(admissionId, g.id));
                       }}
-                      className="p-1 text-gray-400 hover:text-red-600 rounded"
+                      className="p-1 text-[#8A9480] hover:text-red-600 rounded"
                       title="Excluir grupo"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -370,23 +434,15 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                 )}
               </div>
 
-              {/* B2: barra de progresso por seção */}
-              {gTotal > 0 && (
-                <div className="h-0.5 bg-gray-100">
-                  <div
-                    className="h-full bg-wg-green transition-all"
-                    style={{ width: `${gPct}%` }}
-                  />
-                </div>
-              )}
-
-              {/* B1: itens ocultos quando recolhido */}
+              {/* Itens */}
               {!isCollapsed && (
-                <div className="divide-y divide-gray-100">
-                  {g.items.length === 0 && (
-                    <p className="text-xs text-gray-400 px-3 py-3">Sem itens.</p>
+                <div className="divide-y divide-[#F2F5EE]">
+                  {visibleItems.length === 0 && (
+                    <p className="text-[13px] text-[#8A9480] px-4 py-3.5">
+                      {hideDone ? "Todas as tarefas desta fase estão concluídas." : "Sem itens."}
+                    </p>
                   )}
-                  {g.items.map((it, iIdx) => (
+                  {visibleItems.map((it, iIdx) => (
                     <ItemRow
                       key={it.id}
                       item={it}
@@ -394,7 +450,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                       siblingCount={g.items.length}
                       depth={0}
                       scope={`grp:${g.id}`}
-                      siblingIds={g.items.map((i) => i.id)}
+                      siblingIds={allItemIds}
                       ctx={rowCtx}
                     />
                   ))}
@@ -404,7 +460,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
           );
         })}
 
-        {/* Adicionar grupo (oculto no modo seleção) */}
+        {/* Adicionar grupo */}
         {canManage && !selectionMode && (
           <div className="flex items-center gap-2 pt-1">
             <input
@@ -426,7 +482,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                 run(() => addChecklistGroup(admissionId, newGroup));
                 setNewGroup("");
               }}
-              className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 bg-[#F0F5E8] hover:bg-[#E4EED6] text-[#3E5A2A] text-sm font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-colors"
             >
               <Plus className="w-4 h-4" /> Grupo
             </button>
@@ -434,9 +490,9 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
         )}
       </div>
 
-      {/* B3: toolbar de ações em lote */}
+      {/* Toolbar de seleção em lote */}
       {selectionMode && (
-        <div className="border-t border-gray-800 px-5 py-3 bg-gray-900 rounded-b-2xl">
+        <div className="border-t border-[#1A2213] px-5 py-3 bg-[#1A2213] rounded-b-2xl">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-white shrink-0">
               {selectedItems.size > 0
@@ -444,7 +500,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
                 : "Selecione itens acima"}
             </span>
             {selectedItems.size > 0 &&
-              STATUSES.map((s) => (
+              (["PENDING", "DONE", "NOT_APPLICABLE"] as Status[]).map((s) => (
                 <button
                   key={s}
                   type="button"
@@ -458,7 +514,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
             <button
               type="button"
               onClick={exitSelectionMode}
-              className="ml-auto text-gray-400 hover:text-white transition-colors"
+              className="ml-auto text-white/50 hover:text-white transition-colors"
               title="Cancelar seleção"
             >
               <X className="w-4 h-4" />
@@ -479,8 +535,8 @@ interface RowContext {
   toggleSelect: (id: string, checked: boolean) => void;
   collapsedItems: Set<string>;
   toggleItemCollapse: (id: string) => void;
+  hideDone: boolean;
   run: (fn: () => Promise<ActionResult>) => void;
-  // Drag-and-drop de reordenação
   dragId: string | null;
   dragScope: string | null;
   dragOverId: string | null;
@@ -490,7 +546,6 @@ interface RowContext {
   onDropItem: (scope: string, siblingIds: string[], targetId: string) => void;
 }
 
-/** Uma linha de item de checklist. Em depth 0, renderiza também suas subtarefas. */
 function ItemRow({
   item,
   index,
@@ -508,38 +563,46 @@ function ItemRow({
   siblingIds: string[];
   ctx: RowContext;
 }) {
-  const { admissionId, canManage, isPending, selectionMode, selectedItems, toggleSelect, collapsedItems, toggleItemCollapse, run } = ctx;
+  const {
+    admissionId, canManage, isPending, selectionMode, selectedItems, toggleSelect,
+    collapsedItems, toggleItemCollapse, hideDone, run,
+  } = ctx;
   const [editing, setEditing] = useState(false);
   const isSub = depth === 1;
-  // Só é alvo de drop quando há um arraste ativo no mesmo escopo de irmãos.
   const canDrop = ctx.dragScope === scope;
   const hasSubtasks = !isSub && item.subtasks.length > 0;
   const subsDone = hasSubtasks ? item.subtasks.filter((s) => s.status === "DONE").length : 0;
   const allSubsDone = hasSubtasks && subsDone === item.subtasks.length;
-  // Numa tarefa-mãe, o "check" reflete todas as subtarefas concluídas.
   const checked = hasSubtasks ? allSubsDone : item.status === "DONE";
   const collapsed = collapsedItems.has(item.id);
+  const urgente = !checked && isOverdue(item.dueDate);
+
+  // Subtarefas visíveis (filtra concluídas quando hideDone)
+  const visibleSubs = hasSubtasks
+    ? (hideDone ? item.subtasks.filter((s) => s.status !== "DONE") : item.subtasks)
+    : [];
 
   return (
     <>
       <div
-        className={`group flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60 ${
-          isSub ? "pl-9" : ""
-        } ${ctx.dragOverId === item.id ? "bg-wg-green/10" : ""} ${
+        className={`group/row flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#FAFBF7] transition-colors ${
+          isSub ? "pl-10" : ""
+        } ${ctx.dragOverId === item.id ? "bg-[#90CB46]/10" : ""} ${
           ctx.dragId === item.id ? "opacity-50" : ""
         }`}
         onDragOver={canDrop ? (e) => e.preventDefault() : undefined}
         onDragEnter={canDrop ? () => ctx.onDragEnterItem(item.id, scope) : undefined}
         onDrop={canDrop ? () => ctx.onDropItem(scope, siblingIds, item.id) : undefined}
       >
-        {isSub && <CornerDownRight className="w-3.5 h-3.5 text-gray-300 shrink-0 -ml-4" />}
-        {/* Seta para ocultar/mostrar subtarefas (só na tarefa-mãe) */}
+        {isSub && <CornerDownRight className="w-3.5 h-3.5 text-[#C9D6BA] shrink-0 -ml-5" />}
+
+        {/* Toggle de subtarefas (apenas em item-pai) */}
         {!isSub &&
           (hasSubtasks ? (
             <button
               type="button"
               onClick={() => toggleItemCollapse(item.id)}
-              className="p-0.5 -ml-1 text-gray-400 hover:text-gray-700 rounded shrink-0"
+              className="p-0.5 -ml-1 text-[#8A9480] hover:text-[#3E4A34] rounded shrink-0 transition-colors"
               title={collapsed ? "Mostrar subtarefas" : "Ocultar subtarefas"}
             >
               {collapsed ? (
@@ -551,42 +614,48 @@ function ItemRow({
           ) : (
             <span className="w-[18px] shrink-0" aria-hidden />
           ))}
-        {/* B3: alterna entre checkbox de seleção e de status */}
+
+        {/* Checkbox: seleção em lote ou toggle done */}
         {canManage && selectionMode ? (
           <input
             type="checkbox"
             checked={selectedItems.has(item.id)}
             onChange={(e) => toggleSelect(item.id, e.target.checked)}
-            className="accent-blue-500 w-4 h-4 shrink-0"
-            title="Selecionar"
+            className="w-4 h-4 shrink-0 accent-[#90CB46]"
           />
         ) : (
-          <input
-            type="checkbox"
-            checked={checked}
-            disabled={!canManage || isPending}
-            onChange={(e) =>
-              run(() => setChecklistItemDone(admissionId, item.id, e.target.checked))
-            }
-            className="accent-wg-green shrink-0"
-          />
+          <span
+            className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center text-white text-[11px] font-bold shrink-0 transition-colors"
+            style={{
+              border: `1.5px solid ${checked ? "#90CB46" : "#C9D6BA"}`,
+              background: checked ? "#90CB46" : "#fff",
+              cursor: canManage && !isPending ? "pointer" : "default",
+            }}
+            onClick={() => {
+              if (!canManage || isPending) return;
+              run(() => setChecklistItemDone(admissionId, item.id, !checked));
+            }}
+          >
+            {checked ? "✓" : ""}
+          </span>
         )}
+
+        {/* Label */}
         {editing ? (
           <input
             autoFocus
             defaultValue={item.name}
             onBlur={(e) => {
               const v = e.target.value.trim();
-              if (v && v !== item.name) run(() => updateChecklistItem(admissionId, item.id, { name: v }));
+              if (v && v !== item.name)
+                run(() => updateChecklistItem(admissionId, item.id, { name: v }));
               setEditing(false);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
               if (e.key === "Escape") setEditing(false);
             }}
-            className={`flex-1 min-w-0 rounded border border-gray-300 px-1.5 py-0.5 ${
-              isSub ? "text-[13px]" : "text-sm"
-            } text-gray-800 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green`}
+            className={`flex-1 min-w-0 rounded border border-[#DCE8CC] px-1.5 py-0.5 text-[13.5px] text-[#1A2213] focus:outline-none focus:ring-2 focus:ring-[#90CB46]/30`}
           />
         ) : (
           <span
@@ -594,48 +663,49 @@ function ItemRow({
               if (canManage && !selectionMode) setEditing(true);
             }}
             title={canManage && !selectionMode ? "Duplo clique para editar" : undefined}
-            className={`flex-1 min-w-0 break-words ${isSub ? "text-[13px]" : "text-sm"} ${
-              checked ? "line-through text-gray-400" : "text-gray-800"
+            className={`flex-1 min-w-0 break-words text-[13.5px] ${
+              checked ? "line-through text-[#8A9480]" : "text-[#1A2213]"
             }`}
           >
             {item.name}
           </span>
         )}
+
+        {/* Badge de progresso de subtarefas */}
         {hasSubtasks && <SubtaskProgress done={subsDone} total={item.subtasks.length} />}
-        <input
-          type="date"
-          defaultValue={item.dueDate ?? ""}
-          disabled={!canManage || isPending || selectionMode}
-          onBlur={(e) =>
-            run(() =>
-              updateChecklistItem(admissionId, item.id, {
-                dueDate: e.target.value || null,
-              })
-            )
-          }
-          className={`${smallInput} w-[130px]`}
-        />
-        <select
-          value={item.status}
-          disabled={!canManage || isPending || selectionMode}
-          onChange={(e) =>
-            run(() =>
-              updateChecklistItem(admissionId, item.id, {
-                status: e.target.value as Status,
-              })
-            )
-          }
-          className={`${smallInput} w-[130px]`}
-          style={{ color: STATUS_COLOR[item.status] }}
-        >
-          {STATUSES.map((s) => (
-            <option key={s} value={s} style={{ color: "#111827" }}>
-              {STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
+
+        {/* Tag URGENTE */}
+        {urgente && (
+          <span className="bg-[#FBE6E1] text-[#8F2F1A] text-[10.5px] font-extrabold px-2 py-0.5 rounded-full tracking-wide whitespace-nowrap shrink-0">
+            ⚠ URGENTE
+          </span>
+        )}
+
+        {/* Data limite (só aparece quando há data e a tarefa não está concluída) */}
+        {!checked && item.dueDate && !urgente && (
+          <span className="text-[#6B7860] text-[11px] whitespace-nowrap shrink-0">
+            {new Date(item.dueDate + "T00:00:00").toLocaleDateString("pt-BR")}
+          </span>
+        )}
+
+        {/* Ações do admin (hover) */}
         {canManage && !selectionMode && (
-          <>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0">
+            {/* Campo de data como ação de admin */}
+            <input
+              type="date"
+              defaultValue={item.dueDate ?? ""}
+              disabled={isPending}
+              onBlur={(e) =>
+                run(() =>
+                  updateChecklistItem(admissionId, item.id, {
+                    dueDate: e.target.value || null,
+                  })
+                )
+              }
+              className="h-7 w-[120px] rounded-md border border-[#DCE8CC] px-1.5 text-[11px] text-[#3E4A34] focus:outline-none focus:border-[#90CB46] bg-white"
+              title="Data limite"
+            />
             {siblingCount > 1 && (
               <button
                 type="button"
@@ -646,9 +716,8 @@ function ItemRow({
                   ctx.onDragStartItem(item.id, scope);
                 }}
                 onDragEnd={ctx.onDragEndItem}
-                className="cursor-grab active:cursor-grabbing p-0.5 text-gray-300 hover:text-gray-600 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                title="Arraste para reordenar"
-                aria-label="Arraste para reordenar"
+                className="cursor-grab active:cursor-grabbing p-0.5 text-[#8A9480] hover:text-[#3E4A34] rounded"
+                title="Arrastar para reordenar"
               >
                 <GripVertical className="w-3.5 h-3.5" />
               </button>
@@ -656,12 +725,11 @@ function ItemRow({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="p-1 text-gray-400 hover:text-gray-700 rounded"
-              title={isSub ? "Editar subtarefa" : "Editar item"}
+              className="p-1 text-[#8A9480] hover:text-[#3E4A34] rounded"
+              title="Editar"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
-            {/* Adicionar subtarefa só em itens de topo */}
             {!isSub && (
               <AddItemInline
                 label="Subtarefa"
@@ -672,19 +740,18 @@ function ItemRow({
             <button
               type="button"
               onClick={() => run(() => deleteChecklistItem(admissionId, item.id))}
-              className="p-1 text-gray-400 hover:text-red-600 rounded"
-              title={isSub ? "Excluir subtarefa" : "Excluir item"}
+              className="p-1 text-[#8A9480] hover:text-red-600 rounded"
+              title="Excluir"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
-          </>
+          </div>
         )}
       </div>
 
-      {/* Subtarefas (um nível) — ocultas quando a mãe está recolhida */}
-      {!isSub &&
-        !collapsed &&
-        item.subtasks.map((sub, sIdx) => (
+      {/* Subtarefas — ocultas quando colapsadas */}
+      {!isSub && !collapsed &&
+        visibleSubs.map((sub, sIdx) => (
           <ItemRow
             key={sub.id}
             item={sub}
@@ -717,8 +784,8 @@ function AddItemInline({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className={`inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded ${
-          compact ? "opacity-0 group-hover:opacity-100 transition-opacity" : ""
+        className={`inline-flex items-center gap-1 text-xs text-[#8A9480] hover:text-[#3E4A34] px-1.5 py-1 rounded transition-colors ${
+          compact ? "opacity-0 group-hover/row:opacity-100" : ""
         }`}
         title={`Adicionar ${label.toLowerCase()}`}
       >
@@ -732,7 +799,7 @@ function AddItemInline({
       value={name}
       onChange={(e) => setName(e.target.value)}
       placeholder={`Nova ${label.toLowerCase()}…`}
-      className="h-7 w-[200px] rounded-md border border-gray-300 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-wg-green/40"
+      className="h-7 w-[180px] rounded-md border border-[#DCE8CC] px-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#90CB46]/30 bg-white"
       onKeyDown={(e) => {
         if (e.key === "Enter" && name.trim()) {
           onAdd(name.trim());

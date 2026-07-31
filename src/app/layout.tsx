@@ -1,9 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
+import { Outfit, Inter, Sora } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const outfit = Outfit({ subsets: ["latin"], display: "swap" });
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+const sora = Sora({
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-sora",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -43,7 +50,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className={outfit.className}>
+      <body className={`${outfit.className} ${inter.variable} ${sora.variable}`}>
         {children}
         <Analytics />
       </body>

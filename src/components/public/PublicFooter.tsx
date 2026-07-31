@@ -1,32 +1,29 @@
 import Link from "next/link";
-import Image from "next/image";
 
 export default function PublicFooter() {
   return (
-    <footer className="bg-black border-t border-wg-border px-4 pt-10 pb-8 mt-auto">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-          {/* Logo branca */}
-          <div className="flex items-center gap-3">
-            <Image
-              src="/logo-wg-branca.png"
-              alt="Grupo WG"
-              width={120}
-              height={60}
-              className="h-10 w-auto"
+    <footer className="bg-wg-dark border-t border-wg-border px-4 md:px-12 pt-8 pb-6 mt-auto">
+      <div className="max-w-[1180px] mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+          {/* Logo + tagline */}
+          <div className="flex items-center gap-2.5 text-[#B8B8B8] text-sm">
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                background: "linear-gradient(135deg, #90CB46, #4F6930)",
+                flexShrink: 0,
+              }}
             />
-            <div>
-              <p className="text-wg-gray text-xs mt-0.5">
-                Grupo WG — energia, movimento e pessoas
-              </p>
-            </div>
+            Grupo WG — energia, movimento e pessoas
           </div>
 
           {/* Links */}
           <div className="flex items-center gap-6 text-sm">
             <Link
               href="/privacidade"
-              className="text-wg-gray hover:text-wg-green transition-colors"
+              className="text-[#B8B8B8] hover:text-wg-green transition-colors"
             >
               Aviso de Privacidade
             </Link>
@@ -34,17 +31,15 @@ export default function PublicFooter() {
               href="https://www.wgbaterias.com.br"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-wg-gray hover:text-wg-green transition-colors"
+              className="text-[#B8B8B8] hover:text-wg-green transition-colors"
             >
               Site WG Baterias
             </a>
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-wg-border text-center">
-          <p className="text-wg-gray text-sm">
-            © {new Date().getFullYear()} Grupo WG. Todos os direitos reservados.
-          </p>
+        <div className="pt-5 border-t border-wg-border text-center text-[13px] text-[#6E6E6E]">
+          © {new Date().getFullYear()} Grupo WG. Todos os direitos reservados.
         </div>
       </div>
     </footer>

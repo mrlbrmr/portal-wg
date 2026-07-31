@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, ArrowRight, Clock, Building2, Wallet, Star, Users, Sparkles } from "lucide-react";
+import { MapPin, ArrowRight, Clock, Building2, Wallet, Star, Users, Sparkles, Globe } from "lucide-react";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import type { Job } from "@/types/domain";
 import type { HomepageConfigData } from "@/lib/homepage-config";
@@ -13,20 +13,21 @@ interface Props {
 
 export default function JobCard({ job, config }: Props) {
   const isNew = Date.now() - new Date(job.createdAt as Date | string).getTime() < SEVEN_DAYS_MS;
+  const hasLocation = Boolean(job.city && job.state);
 
   return (
     <Link
       href={`/vagas/${job.slug ?? job.id}`}
-      className="block bg-wg-card border border-wg-border rounded-2xl p-5
+      className="block bg-wg-card border border-wg-border rounded-[20px] p-6 md:p-7
         hover:border-wg-green hover:-translate-y-1
         hover:shadow-[0_8px_32px_rgba(144,203,70,0.13)]
         transition-all duration-200 ease-spring group"
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex-1 min-w-0">
           {/* Cargo + badge Nova */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base font-semibold text-white group-hover:text-wg-green transition-colors duration-200 line-clamp-2">
+          <div className="flex items-center gap-2 flex-wrap mb-2.5">
+            <h3 className="text-[18px] font-bold text-white group-hover:text-wg-green transition-colors duration-200 line-clamp-2 font-sora">
               {job.title}
             </h3>
             {isNew && (
@@ -39,41 +40,56 @@ export default function JobCard({ job, config }: Props) {
 
           {/* Área / departamento */}
           {config.showDepartment && job.department && (
-            <p className="text-sm text-wg-gray mt-0.5">{job.department}</p>
+            <p className="text-sm text-wg-gray mb-2">{job.department}</p>
           )}
 
           {/* Empresa / unidade */}
           {config.showCompany && job.company && (
-            <p className="flex items-center gap-1 text-xs text-wg-gray mt-0.5">
+            <p className="flex items-center gap-1 text-xs text-wg-gray mb-2">
               <Building2 className="w-3 h-3 flex-shrink-0" />
               {job.company}
             </p>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 mt-3">
-            {/* Cidade / UF */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Localização: pin ou globo */}
             {config.showLocation && (
-              <span className="flex items-center gap-1 text-xs text-wg-gray">
-                <MapPin className="w-3.5 h-3.5 text-wg-green flex-shrink-0" />
-                {job.city} / {job.state}
+              <span className="flex items-center gap-1.5 text-[14px] text-[#B8B8B8]">
+                {hasLocation ? (
+                  <>
+                    <MapPin className="w-3.5 h-3.5 text-wg-green flex-shrink-0" />
+                    {job.city} / {job.state}
+                  </>
+                ) : (
+                  <>
+                    <Globe className="w-3.5 h-3.5 text-[#9A9A9A] flex-shrink-0" />
+                    Diversas localidades
+                  </>
+                )}
               </span>
             )}
 
             {/* Modalidade */}
             {config.showModality && (
-              <span className="inline-flex items-center bg-wg-green/10 text-wg-green text-xs font-medium px-2.5 py-0.5 rounded-full">
+              <span className="inline-flex items-center text-[13px] font-semibold px-3.5 py-1 rounded-full"
+                style={{
+                  background: "rgba(144,203,70,0.16)",
+                  border: "1px solid rgba(144,203,70,0.4)",
+                  color: "#98DB55",
+                }}>
                 {MODALITY_LABELS[job.modality]}
               </span>
             )}
 
             {/* Tipo de contrato */}
             {config.showContractType && (
-              <span className="inline-flex items-center bg-wg-card-2 border border-wg-border text-wg-gray text-xs px-2.5 py-0.5 rounded-full">
+              <span className="inline-flex items-center text-[13px] font-semibold px-3.5 py-1 rounded-full"
+                style={{ background: "#2A2A2A", border: "1px solid #3A3A3A", color: "#E5E5E5" }}>
                 {CONTRACT_TYPE_LABELS[job.contractType]}
               </span>
             )}
 
-            {/* Jornada / horário */}
+            {/* Jornada */}
             {config.showWorkSchedule && job.workSchedule && (
               <span className="flex items-center gap-1 text-xs text-wg-gray">
                 <Clock className="w-3 h-3 flex-shrink-0" />
@@ -107,10 +123,12 @@ export default function JobCard({ job, config }: Props) {
           </div>
         </div>
 
-        <div className="flex-shrink-0 mt-0.5">
-          <span className="inline-flex items-center gap-1.5 bg-wg-green text-black text-sm font-bold px-4 py-2 rounded-full
-            group-hover:bg-wg-green-bright group-hover:shadow-[0_4px_14px_rgba(144,203,70,0.45)]
-            transition-all duration-200 whitespace-nowrap">
+        {/* CTA */}
+        <div className="flex-shrink-0">
+          <span className="inline-flex items-center gap-2 text-[14px] font-bold px-6 py-3 rounded-full whitespace-nowrap
+            group-hover:shadow-[0_4px_14px_rgba(144,203,70,0.45)]
+            transition-all duration-200"
+            style={{ background: "#90CB46", color: "#0C0D0C" }}>
             Ver vaga
             <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
           </span>

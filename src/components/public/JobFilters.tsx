@@ -10,8 +10,29 @@ const MODALITIES = [
   { value: "HYBRID", label: "Híbrido" },
 ];
 
-const inputClass =
-  "bg-wg-card border border-wg-border rounded-full px-4 py-2 text-sm text-white placeholder:text-wg-gray focus:outline-none focus:border-wg-green transition-colors";
+const ChevronDown = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#9A9A9A"
+    strokeWidth="2.5"
+    style={{ position: "absolute", right: 18, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+  >
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
+const inputBase: React.CSSProperties = {
+  width: "100%",
+  background: "#1C1D1D",
+  border: "1px solid #2A2A2A",
+  color: "#F2F2F2",
+  borderRadius: 999,
+  fontSize: 14,
+  outline: "none",
+};
 
 export default function JobFilters() {
   const router = useRouter();
@@ -42,48 +63,60 @@ export default function JobFilters() {
   const hasFilters = searchParams.size > 0;
 
   return (
-    <div className="flex flex-wrap gap-3 mb-6">
-      {/* Busca por título / palavra-chave */}
+    <div className="flex flex-wrap gap-3.5 mb-7">
+      {/* Busca por cargo — sem chevron */}
       <input
         type="text"
         placeholder="Buscar cargo..."
         defaultValue={searchParams.get("query") || ""}
         onChange={(e) => updateFilterDebounced("query", e.target.value)}
-        className={`${inputClass} w-44`}
+        style={{ ...inputBase, flex: 1, minWidth: 200, padding: "14px 20px" }}
       />
 
-      <input
-        type="text"
-        placeholder="Cidade..."
-        defaultValue={searchParams.get("city") || ""}
-        onChange={(e) => updateFilterDebounced("city", e.target.value)}
-        className={`${inputClass} w-32`}
-      />
+      {/* Cidade — com chevron */}
+      <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
+        <input
+          type="text"
+          placeholder="Cidade..."
+          defaultValue={searchParams.get("city") || ""}
+          onChange={(e) => updateFilterDebounced("city", e.target.value)}
+          style={{ ...inputBase, padding: "14px 40px 14px 20px" }}
+        />
+        <ChevronDown />
+      </div>
 
-      <select
-        defaultValue={searchParams.get("modality") || ""}
-        onChange={(e) => updateFilter("modality", e.target.value)}
-        className={`${inputClass} bg-wg-card`}
-      >
-        {MODALITIES.map((m) => (
-          <option key={m.value} value={m.value} className="bg-wg-card text-white">
-            {m.label}
-          </option>
-        ))}
-      </select>
+      {/* Modalidade — select com chevron */}
+      <div style={{ position: "relative", minWidth: 200 }}>
+        <select
+          defaultValue={searchParams.get("modality") || ""}
+          onChange={(e) => updateFilter("modality", e.target.value)}
+          style={{ ...inputBase, padding: "14px 40px 14px 20px", appearance: "none", cursor: "pointer" }}
+        >
+          {MODALITIES.map((m) => (
+            <option key={m.value} value={m.value} style={{ background: "#1C1D1D", color: "#F2F2F2" }}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown />
+      </div>
 
-      <input
-        type="text"
-        placeholder="Área / departamento..."
-        defaultValue={searchParams.get("department") || ""}
-        onChange={(e) => updateFilterDebounced("department", e.target.value)}
-        className={`${inputClass} w-48`}
-      />
+      {/* Área / departamento — com chevron */}
+      <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+        <input
+          type="text"
+          placeholder="Área / departamento..."
+          defaultValue={searchParams.get("department") || ""}
+          onChange={(e) => updateFilterDebounced("department", e.target.value)}
+          style={{ ...inputBase, padding: "14px 40px 14px 20px" }}
+        />
+        <ChevronDown />
+      </div>
 
       {hasFilters && (
         <button
           onClick={() => router.push("/")}
-          className="text-sm text-wg-green hover:text-wg-green-bright underline transition-colors"
+          className="text-sm text-wg-green hover:text-wg-green-bright underline transition-colors self-center"
         >
           Limpar filtros
         </button>

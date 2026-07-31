@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Image from "next/image";
 import { createAnonClient } from "@/lib/supabase/anon";
 import { DEFAULT_CONFIG, type HomepageConfigData } from "@/lib/homepage-config";
 import type { Job } from "@/types/domain";
@@ -8,14 +7,7 @@ import { applyJobFilters, onlyPublicVisible } from "@/lib/jobs-query";
 import JobFilters from "@/components/public/JobFilters";
 import { LoadMoreJobs } from "@/components/public/LoadMoreJobs";
 import { AnimateIn } from "@/components/ui/AnimateIn";
-import {
-  Briefcase,
-  ArrowRight,
-  Zap,
-  TrendingUp,
-  Globe,
-  Heart,
-} from "lucide-react";
+import { Zap, TrendingUp, Globe, Heart, Briefcase } from "lucide-react";
 
 const PAGE_SIZE = 9;
 
@@ -58,14 +50,12 @@ export default async function HomePage({
 
   const supabase = createAnonClient();
 
-  // Página de vagas visíveis + total (mesma query, count exact) numa só chamada.
   let listQuery = supabase.from("jobs").select("*", { count: "exact" });
   listQuery = onlyPublicVisible(listQuery);
   listQuery = applyJobFilters(listQuery, params);
 
   const [listRes, activeRes, configRes] = await Promise.all([
     listQuery.order("createdAt", { ascending: false }).range(0, PAGE_SIZE - 1),
-    // totalActive = todas as vagas em status público (ignora filtros e prazo).
     supabase
       .from("jobs")
       .select("id", { count: "exact", head: true })
@@ -84,179 +74,136 @@ export default async function HomePage({
     <div>
       {/* ── HERO ── */}
       <section
-        className="relative min-h-[560px] md:min-h-[640px] flex items-center"
-        style={{ background: "#96DB4F" }}
+        className="relative text-center"
+        style={{ background: "#90CB46", padding: "96px 48px 120px", position: "relative" }}
       >
-        {/* Dot texture */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, rgba(0,0,0,0.13) 1px, transparent 1px)",
-            backgroundSize: "18px 18px",
-          }}
-        />
+        <div style={{ maxWidth: 760, margin: "0 auto", position: "relative", zIndex: 1 }}>
+          {/* Badge pill */}
+          <div
+            className="inline-flex items-center gap-2 mb-7 animate-fade-up"
+            style={{
+              background: "rgba(12,13,12,0.12)",
+              color: "#0C0D0C",
+              padding: "8px 18px",
+              borderRadius: 999,
+              fontSize: 13,
+              fontWeight: 600,
+              animationDelay: "0ms",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0C0D0C" strokeWidth="2.2">
+              <path d="M13 2 4 14h6l-1 8 9-12h-6z" />
+            </svg>
+            Portal de Carreiras — Energia que move o Brasil
+          </div>
 
-        <div className="relative z-10 w-full py-20 md:py-28 px-4">
-          <div className="max-w-5xl mx-auto text-center">
-            {/* Logo WG — versão escura sobre fundo verde */}
-            <div
-              className="flex justify-center mb-8 animate-fade-in"
-              style={{ animationDelay: "0ms" }}
-            >
-              <Image
-                src="/logo-wg-branca.png"
-                alt="Grupo WG"
-                width={220}
-                height={110}
-                className="h-20 w-auto animate-float-subtle"
-                priority
-              />
-            </div>
+          {/* H1 */}
+          <h1
+            className="font-sora font-extrabold text-[#0C0D0C] animate-fade-up"
+            style={{ fontSize: 52, lineHeight: 1.1, margin: "0 0 20px", animationDelay: "120ms" }}
+          >
+            Faça parte do Grupo WG
+          </h1>
 
-            {/* Badge superior */}
-            <div
-              className="inline-flex items-center gap-2 bg-black/15 border border-black/20
-                rounded-full px-4 py-1.5 text-sm font-semibold text-black mb-6
-                animate-fade-up"
-              style={{ animationDelay: "120ms" }}
-            >
-              <Zap className="w-4 h-4" />
-              Portal de Carreiras — Energia que move o Brasil
-            </div>
+          {/* Parágrafo */}
+          <p
+            className="animate-fade-up"
+            style={{
+              fontSize: 18,
+              color: "#22301a",
+              lineHeight: 1.6,
+              margin: "0 0 36px",
+              fontWeight: 500,
+              animationDelay: "220ms",
+            }}
+          >
+            Desde 2002, o Grupo WG conecta energia, movimento e pessoas nas regiões Sul e Sudeste
+            do Brasil. Venha crescer com a nossa equipe.
+          </p>
 
-            {/* Título */}
-            <h1
-              className="text-4xl md:text-6xl font-black text-black leading-tight mb-6 animate-fade-up"
-              style={{ animationDelay: "220ms" }}
-            >
-              Faça parte do{" "}
-              <span className="underline decoration-black/30 underline-offset-4">
-                Grupo WG
-              </span>
-            </h1>
-
-            {/* Subtítulo */}
-            <p
-              className="text-black/70 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-up"
-              style={{ animationDelay: "340ms" }}
-            >
-              Desde 2002, o Grupo WG conecta energia, movimento e pessoas nas
-              regiões Sul e Sudeste do Brasil. Venha crescer com a nossa equipe.
-            </p>
-
-            {/* CTA */}
+          {/* CTAs */}
+          <div className="flex gap-4 justify-center flex-wrap animate-fade-up" style={{ animationDelay: "340ms" }}>
             <a
               href="#vagas"
-              className="inline-flex items-center gap-2 bg-black text-white font-bold
-                px-8 py-4 rounded-full text-base
-                hover:bg-black/80 hover:-translate-y-0.5 active:scale-[0.97]
-                transition-all duration-200 shadow-lg shadow-black/20
-                animate-fade-up"
-              style={{ animationDelay: "460ms" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: "#0C0D0C",
+                color: "#fff",
+                padding: "16px 30px",
+                borderRadius: 999,
+                fontWeight: 700,
+                fontSize: 15,
+                textDecoration: "none",
+              }}
             >
-              Ver vagas abertas
-              <ArrowRight className="w-5 h-5" />
+              Ver vagas abertas →
             </a>
 
-            {/* Indicador de vagas */}
             {config.showJobCounter && (
               <div
-                className="flex justify-center mt-10 animate-fade-up"
-                style={{ animationDelay: "580ms" }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "rgba(12,13,12,0.1)",
+                  color: "#0C0D0C",
+                  padding: "16px 26px",
+                  borderRadius: 999,
+                  fontWeight: 600,
+                  fontSize: 15,
+                }}
               >
-                <div className="flex items-center gap-2.5 bg-black/15 border border-black/20 rounded-full px-6 py-3 text-base font-semibold text-black">
-                  <Briefcase className="w-5 h-5" />
-                  {totalActive}{" "}
-                  {totalActive === 1 ? "vaga aberta" : "vagas abertas"}
-                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0C0D0C" strokeWidth="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2" />
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+                {totalActive} {totalActive === 1 ? "vaga aberta" : "vagas abertas"}
               </div>
             )}
           </div>
         </div>
-      </section>
 
-      {/* ── ARCO DE TRANSIÇÃO verde → escuro ── */}
-      <div
-        className="overflow-hidden"
-        style={{ background: "#96DB4F" }}
-        aria-hidden="true"
-      >
-        <div
-          className="bg-wg-dark h-16 md:h-24 w-[115%] -ml-[7.5%]"
-          style={{ borderRadius: "50% 50% 0 0 / 100% 100% 0 0" }}
-        />
-      </div>
-
-      {/* ── SOBRE O GRUPO WG ── */}
-      <section className="bg-wg-dark py-16 md:py-20 px-4">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-start">
-            {/* Coluna de texto */}
-            <AnimateIn>
-              <p className="text-wg-green text-xs font-semibold uppercase tracking-widest mb-3">
-                Sobre nós
-              </p>
-              <h2 className="text-3xl md:text-4xl font-black text-white leading-tight mb-6">
-                Nós somos o{" "}
-                <span className="text-wg-green">Grupo WG</span>
-              </h2>
-              <p className="text-wg-gray leading-relaxed mb-4">
-                Desde 2002, o <strong className="text-white">Grupo WG</strong>{" "}
-                conecta energia, movimento e pessoas nas regiões Sul e Sudeste
-                do Brasil. Atuamos no setor automotivo, especializados em
-                baterias, com referência em qualidade, atendimento e inovação.
-              </p>
-              <p className="text-wg-gray leading-relaxed">
-                Acreditamos que o sucesso da empresa é construído pelas pessoas.
-                Por isso, investimos no desenvolvimento dos nossos
-                colaboradores, oferecemos um ambiente de trabalho saudável e
-                oportunidades reais de crescimento de carreira.
-              </p>
-            </AnimateIn>
-
-            {/* Cards de diferenciais */}
-            <div className="grid grid-cols-2 gap-3">
-              {FEATURES.map((f, i) => (
-                <AnimateIn key={f.title} delay={i * 80}>
-                  <div className="bg-wg-card border border-wg-border rounded-2xl p-5
-                    hover:border-wg-green/50 hover:-translate-y-0.5
-                    hover:shadow-[0_4px_20px_rgba(144,203,70,0.08)]
-                    transition-all duration-200 h-full">
-                    <f.icon className="w-6 h-6 text-wg-green mb-3" />
-                    <h3 className="text-white font-semibold text-sm mb-1.5 leading-snug">
-                      {f.title}
-                    </h3>
-                    <p className="text-wg-gray text-xs leading-relaxed">{f.desc}</p>
-                  </div>
-                </AnimateIn>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* Curva convexa SVG: hero verde → fundo escuro */}
+        <svg
+          viewBox="0 0 1440 100"
+          preserveAspectRatio="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: -1,
+            width: "100%",
+            height: 100,
+            display: "block",
+          }}
+          aria-hidden="true"
+        >
+          <path d="M0,0 C 360,100 1080,100 1440,0 L1440,100 L0,100 Z" fill="#0C0D0C" />
+        </svg>
       </section>
 
       {/* ── VAGAS ABERTAS ── */}
-      <section id="vagas" className="bg-black py-14 md:py-18 px-4">
-        <div className="max-w-5xl mx-auto">
+      <section id="vagas" className="bg-wg-dark py-10 md:py-16 px-4 md:px-12">
+        <div className="max-w-[1180px] mx-auto">
           {/* Cabeçalho da seção */}
           <AnimateIn>
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
               <div>
-                <p className="text-wg-green text-xs font-semibold uppercase tracking-widest mb-2">
+                <p className="text-wg-green text-[13px] font-bold uppercase tracking-[1px] mb-2.5">
                   Oportunidades
                 </p>
-                <h2 className="text-3xl font-black text-white">
+                <h2 className="font-sora text-[34px] font-extrabold text-white leading-tight">
                   {config.jobsSectionTitle}
                 </h2>
-                <p className="text-wg-gray mt-1.5 text-sm">
+                <p className="text-[#B8B8B8] mt-2 text-[15px]">
                   {config.jobsSectionSubtitle}
                 </p>
               </div>
               {jobs.length > 0 && (
-                <span className="text-sm text-wg-gray flex-shrink-0">
-                  {jobs.length}{" "}
-                  {jobs.length === 1 ? "resultado" : "resultados"}
+                <span className="text-sm text-[#B8B8B8] flex-shrink-0">
+                  {total} {total === 1 ? "resultado" : "resultados"}
                 </span>
               )}
             </div>
@@ -272,16 +219,16 @@ export default async function HomePage({
           {/* Lista de vagas */}
           {jobs.length === 0 ? (
             <AnimateIn>
-              <div className="bg-wg-card border border-wg-border rounded-2xl p-12 text-center">
+              <div className="bg-wg-card border border-wg-border rounded-[20px] p-12 text-center">
                 <div className="w-14 h-14 bg-wg-green/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
                   <Briefcase className="w-7 h-7 text-wg-green" />
                 </div>
-                <p className="text-white text-lg font-semibold mb-2">
+                <p className="text-white text-lg font-semibold mb-2 font-sora">
                   {hasActiveFilters
                     ? "Nenhuma vaga encontrada"
                     : "No momento, não temos vagas abertas"}
                 </p>
-                <p className="text-wg-gray text-sm max-w-sm mx-auto leading-relaxed">
+                <p className="text-[#B8B8B8] text-sm max-w-sm mx-auto leading-relaxed">
                   {hasActiveFilters
                     ? "Tente outros filtros ou confira todas as vagas disponíveis."
                     : "Mas continue acompanhando nosso portal. Em breve, novas oportunidades podem surgir."}
@@ -297,6 +244,63 @@ export default async function HomePage({
               pageSize={PAGE_SIZE}
             />
           )}
+        </div>
+      </section>
+
+      {/* ── SOBRE NÓS ── */}
+      <section className="bg-wg-dark py-16 md:py-24 px-4 md:px-12">
+        <div className="max-w-[1180px] mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-14 items-stretch">
+            {/* Coluna de texto */}
+            <AnimateIn>
+              <div className="flex flex-col justify-center h-full">
+                <p className="text-wg-green text-[13px] font-bold uppercase tracking-[1px] mb-3.5">
+                  Sobre nós
+                </p>
+                <h2 className="font-sora text-[36px] font-extrabold text-white leading-[1.2] mb-6">
+                  Nós somos o{" "}
+                  <span className="text-wg-green">Grupo WG</span>
+                </h2>
+                <p className="text-[#C7C7C7] text-[16px] leading-[1.85] mb-5">
+                  Desde 2002, o <strong className="text-white">Grupo WG</strong>{" "}
+                  conecta energia, movimento e pessoas nas regiões Sul e Sudeste do Brasil.
+                  Atuamos no setor automotivo, especializados em baterias, com referência em
+                  qualidade, atendimento e inovação.
+                </p>
+                <p className="text-[#C7C7C7] text-[16px] leading-[1.85]">
+                  Acreditamos que o sucesso da empresa é construído pelas pessoas. Por isso,
+                  investimos no desenvolvimento dos nossos colaboradores, oferecemos um ambiente
+                  de trabalho saudável e oportunidades reais de crescimento de carreira.
+                </p>
+              </div>
+            </AnimateIn>
+
+            {/* Grid 2×2 de cards */}
+            <div className="grid grid-cols-2 gap-5">
+              {FEATURES.map((f, i) => (
+                <AnimateIn key={f.title} delay={i * 80}>
+                  <div
+                    className="flex flex-col justify-center h-full hover:border-wg-green/50 hover:-translate-y-0.5
+                      hover:shadow-[0_4px_20px_rgba(144,203,70,0.08)] transition-all duration-200"
+                    style={{
+                      background: "#151515",
+                      border: "1px solid #2A2A2A",
+                      borderRadius: 20,
+                      padding: 26,
+                    }}
+                  >
+                    <div className="mb-4">
+                      <f.icon className="w-7 h-7 text-wg-green" strokeWidth={2} />
+                    </div>
+                    <h3 className="font-sora text-white font-bold text-[16px] mb-2 leading-snug">
+                      {f.title}
+                    </h3>
+                    <p className="text-[#B8B8B8] text-[14px] leading-relaxed">{f.desc}</p>
+                  </div>
+                </AnimateIn>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
     </div>

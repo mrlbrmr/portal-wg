@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 export default function PublicHeader() {
@@ -19,29 +20,16 @@ export default function PublicHeader() {
     >
       <div className="max-w-[1180px] mx-auto px-4 md:px-12 h-[76px] flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: "linear-gradient(135deg, #90CB46, #4F6930)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 800,
-              color: "#0C0D0C",
-              fontSize: 14,
-              fontFamily: "Sora, sans-serif",
-              flexShrink: 0,
-            }}
-          >
-            WG
-          </div>
-          <span className="text-[15px]">
-            <span className="font-bold text-white">Grupo WG</span>{" "}
-            <span className="font-semibold text-wg-green">Carreiras</span>
-          </span>
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/logo-wg-branca.png"
+            alt="Grupo WG"
+            width={120}
+            height={70}
+            className="h-9 w-auto"
+            priority
+          />
+          <span className="text-[15px] font-semibold text-wg-green">Carreiras</span>
         </Link>
 
         {/* Nav */}

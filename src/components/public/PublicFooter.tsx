@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function PublicFooter() {
   return (
@@ -6,17 +7,15 @@ export default function PublicFooter() {
       <div className="max-w-[1180px] mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
           {/* Logo + tagline */}
-          <div className="flex items-center gap-2.5 text-[#B8B8B8] text-sm">
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                background: "linear-gradient(135deg, #90CB46, #4F6930)",
-                flexShrink: 0,
-              }}
+          <div className="flex items-center gap-3 text-[#B8B8B8] text-sm">
+            <Image
+              src="/logo-wg-branca.png"
+              alt="Grupo WG"
+              width={80}
+              height={46}
+              className="h-7 w-auto flex-shrink-0"
             />
-            Grupo WG — energia, movimento e pessoas
+            energia, movimento e pessoas
           </div>
 
           {/* Links */}

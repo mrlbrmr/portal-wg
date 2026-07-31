@@ -90,7 +90,7 @@ export default async function CandidatosPage({ params }: Props) {
     <div>
       <Link
         href="/vagas/gerenciar"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-wg-green-dark transition-colors mb-4"
+        className="inline-flex items-center gap-1 text-[13px] font-medium text-[#55614A] hover:text-[#1A2213] transition-colors mb-4"
       >
         <ChevronLeft className="w-4 h-4" />
         Voltar às vagas
@@ -98,8 +98,8 @@ export default async function CandidatosPage({ params }: Props) {
 
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{job.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-[26px] font-extrabold text-[#1A2213] leading-tight">{job.title}</h1>
+          <p className="text-[13px] text-[#55614A] mt-1">
             {job.isTalentPool
             ? "Banco de Talentos"
             : job.city
@@ -109,10 +109,10 @@ export default async function CandidatosPage({ params }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white border border-gray-200 shadow-sm rounded-xl px-4 py-2.5">
-            <Users className="w-4 h-4 text-wg-green-dark" />
-            <span className="text-sm text-gray-900 font-medium">{cards.length}</span>
-            <span className="text-sm text-gray-500">
+          <div className="flex items-center gap-2 bg-[#EEF4E3] border border-[#DCE8CC] rounded-xl px-4 py-2">
+            <Users className="w-4 h-4 text-[#4F6930]" />
+            <span className="text-[13.5px] font-bold text-[#1A2213]">{cards.length}</span>
+            <span className="text-[13.5px] text-[#55614A]">
               {cards.length === 1 ? "candidatura" : "candidaturas"}
             </span>
           </div>
@@ -121,7 +121,7 @@ export default async function CandidatosPage({ params }: Props) {
       </div>
 
       {cards.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300">
+        <div className="rounded-2xl border border-dashed border-[#DCE8CC]">
           <EmptyState
             icon={Users}
             title="Nenhuma candidatura recebida ainda"

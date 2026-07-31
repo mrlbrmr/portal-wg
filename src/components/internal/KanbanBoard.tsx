@@ -95,15 +95,15 @@ export function KanbanBoard({ applications, stages, canManage }: Props) {
             <button
               type="button"
               onClick={() => setDetailId(a.id)}
-              className="block max-w-full truncate text-left text-sm font-medium text-gray-900 transition-colors hover:text-wg-green-dark"
+              className="block max-w-full truncate text-left text-[13.5px] font-bold text-[#1A2213] transition-colors hover:text-[#4F6930]"
               title="Abrir ficha do candidato"
             >
               {a.fullName}
             </button>
             <div className="mt-0.5 flex items-center gap-1.5">
-              <p className="text-[11px] text-gray-500">{formatDate(a.createdAt)}</p>
+              <p className="text-[11.5px] text-[#8A9B7A]">{formatDate(a.createdAt)}</p>
               {a.source && a.source !== "PORTAL" && (
-                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                <span className="rounded-md bg-[#E4F3DA] text-[#2F5D1E] text-[10px] font-bold px-1.5 py-0.5">
                   {APPLICATION_SOURCE_LABELS[a.source] ?? a.source}
                 </span>
               )}
@@ -122,14 +122,14 @@ export function KanbanBoard({ applications, stages, canManage }: Props) {
           <div className="mt-2 flex flex-col gap-1">
             <a
               href={`mailto:${a.email}`}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-wg-green-dark transition-colors truncate"
+              className="flex items-center gap-1.5 text-[11.5px] text-[#55614A] hover:text-[#1A2213] transition-colors truncate"
             >
               <Mail className="w-3 h-3 shrink-0" />
               <span className="truncate">{a.email}</span>
             </a>
             <a
               href={`tel:${a.phone.replace(/\D/g, "")}`}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-wg-green-dark transition-colors"
+              className="flex items-center gap-1.5 text-[11.5px] text-[#55614A] hover:text-[#1A2213] transition-colors"
             >
               <Phone className="w-3 h-3 shrink-0" />
               {a.phone}
@@ -140,13 +140,13 @@ export function KanbanBoard({ applications, stages, canManage }: Props) {
             {a.resumeName ? (
               <a
                 href={`/api/applications/${a.id}/resume`}
-                className="inline-flex items-center gap-1 text-xs text-wg-green-dark hover:opacity-80 font-medium transition-opacity"
+                className="inline-flex items-center gap-1 text-[11.5px] font-bold text-[#4F6930] hover:opacity-80 transition-opacity"
               >
                 <Download className="w-3 h-3" />
                 Currículo
               </a>
             ) : (
-              <span className="text-xs text-gray-400">Sem currículo</span>
+              <span className="text-[11.5px] text-[#8A9B7A]">Sem currículo</span>
             )}
             {canManage && (
               <button

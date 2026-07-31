@@ -1,480 +1,334 @@
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Briefcase, PauseCircle, XCircle, Plus, FileText, Clock, Calendar, Users, UserPlus, CheckCircle2, AlertTriangle, CalendarClock } from "lucide-react";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { PageHeader } from "@/components/internal/PageHeader";
 import type { Metadata } from "next";
-import type { ElementType } from "react";
 
 export const metadata: Metadata = { title: "Dashboard — RH" };
 
+const STATUS_STRIPE: Record<string, string> = {
+  ADMISSION: "#D1503C",
+  INTERVIEW:  "#D9873C",
+  SCREENING:  "#D9873C",
+  ACTIVE:     "#B9C2AA",
+  DRAFT:      "#B9C2AA",
+  PAUSED:     "#B9C2AA",
+};
+
+const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
+  ACTIVE:    { bg: "#EAF4DC", color: "#4F6930" },
+  SCREENING: { bg: "#FCF1DD", color: "#A0721E" },
+  INTERVIEW: { bg: "#EAF4DC", color: "#4F6930" },
+  ADMISSION: { bg: "#FCF1DD", color: "#A0721E" },
+  DRAFT:     { bg: "#E9EDFA", color: "#3C56A8" },
+  PAUSED:    { bg: "#F3F3F3", color: "#777777" },
+  CLOSED:    { bg: "#F3F3F3", color: "#777777" },
+  FILLED:    { bg: "#E4F3DA", color: "#2F5D1E" },
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE: "Ativa", SCREENING: "Triagem", INTERVIEW: "Entrevistas",
+  ADMISSION: "Admissão", DRAFT: "Rascunho", PAUSED: "Pausada",
+  CLOSED: "Cancelada", FILLED: "Finalizada",
+};
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  return `há ${d} dia${d > 1 ? "s" : ""}`;
+}
+
 export default async function DashboardPage() {
   const session = await auth();
+  const firstName = session?.user.name?.split(" ")[0] ?? "";
 
   const now = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const startOfThisMonth  = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfNextMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const startOfLastMonth  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const in7UTC = new Date(todayUTC.getTime() + 7 * 86400000);
+  const in7UTC   = new Date(todayUTC.getTime() + 7 * 86400000);
 
   const supabase = await createClient();
   const publicStatuses = PUBLIC_JOB_STATUS_LIST as readonly string[];
 
   const [
-    activeJobsRes,
-    pausedJobsRes,
-    closedJobsRes,
-    filledJobsRes,
-    draftJobsRes,
-    expiringSoonRes,
-    openedLongRes,
-    thisMonthRes,
-    lastMonthRes,
-    totalAppsRes,
-    newAppsRes,
-    admissionsRes,
-    recentAdmissionsRes,
-    recentJobsRes,
+    activeJobsRes, draftJobsRes, pausedJobsRes, closedJobsRes, filledJobsRes,
+    thisMonthRes, lastMonthRes,
+    newAppsRes, totalAppsRes,
     recentApplicationsRes,
+    attentionJobsRes,
+    newAppsByJobRes,
+    expiringSoonRes,
   ] = await Promise.all([
-    // "Ativas" = pipeline aberto no portal (Ativa + Triagem + Entrevistas + Admissão)
     supabase.from("jobs").select("*", { count: "exact", head: true }).in("status", publicStatuses),
+    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "DRAFT"),
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "PAUSED"),
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "CLOSED"),
     supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "FILLED"),
-    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "DRAFT"),
-    supabase
-      .from("jobs")
-      .select("*", { count: "exact", head: true })
-      .in("status", publicStatuses)
-      .gte("closingDate", now.toISOString())
-      .lte("closingDate", sevenDaysFromNow.toISOString()),
-    supabase
-      .from("jobs")
-      .select("*", { count: "exact", head: true })
-      .in("status", publicStatuses)
-      .lte("createdAt", thirtyDaysAgo.toISOString()),
-    supabase
-      .from("jobs")
-      .select("*", { count: "exact", head: true })
+    supabase.from("jobs").select("*", { count: "exact", head: true })
       .gte("createdAt", startOfThisMonth.toISOString())
       .lt("createdAt", startOfNextMonth.toISOString()),
-    supabase
-      .from("jobs")
-      .select("*", { count: "exact", head: true })
+    supabase.from("jobs").select("*", { count: "exact", head: true })
       .gte("createdAt", startOfLastMonth.toISOString())
       .lt("createdAt", startOfThisMonth.toISOString()),
-    supabase.from("applications").select("*", { count: "exact", head: true }),
     supabase.from("applications").select("*", { count: "exact", head: true }).eq("stageId", "NEW"),
-    // Admissões: carrega as ativas com o flag isFinal da etapa e computa as
-    // 4 métricas no JS (supabase-js não filtra count por coluna de relação).
-    supabase
-      .from("admissions")
-      .select("startDate, stage:admission_stages(isFinal)")
-      .is("deletedAt", null),
-    supabase
-      .from("admissions")
-      .select("id, fullName, startDate, position:admission_positions(name), stage:admission_stages(name, color, isFinal)")
-      .is("deletedAt", null)
-      .order("createdAt", { ascending: false })
-      .limit(10),
-    supabase
-      .from("jobs")
-      .select("id, title, status, city, state, createdAt")
-      .order("createdAt", { ascending: false })
-      .limit(6),
-    supabase
-      .from("applications")
+    supabase.from("applications").select("*", { count: "exact", head: true }),
+    supabase.from("applications")
       .select("id, fullName, createdAt, jobId, job:jobs(title), stage:application_stages(name, color)")
       .order("createdAt", { ascending: false })
       .limit(5),
+    supabase.from("jobs")
+      .select("id, title, status, city, state")
+      .in("status", [...publicStatuses, "DRAFT"])
+      .order("createdAt", { ascending: false })
+      .limit(8),
+    supabase.from("applications").select("jobId").eq("stageId", "NEW"),
+    supabase.from("jobs").select("*", { count: "exact", head: true })
+      .in("status", publicStatuses)
+      .gte("closingDate", now.toISOString())
+      .lte("closingDate", sevenDaysFromNow.toISOString()),
   ]);
 
-  const activeJobs = activeJobsRes.count ?? 0;
-  const pausedJobs = pausedJobsRes.count ?? 0;
-  const closedJobs = closedJobsRes.count ?? 0;
-  const filledJobs = filledJobsRes.count ?? 0;
-  const draftJobs = draftJobsRes.count ?? 0;
-  const expiringSoon = expiringSoonRes.count ?? 0;
-  const openedLong = openedLongRes.count ?? 0;
-  const thisMonthCount = thisMonthRes.count ?? 0;
-  const lastMonthCount = lastMonthRes.count ?? 0;
-  const totalApplications = totalAppsRes.count ?? 0;
-  const newApplications = newAppsRes.count ?? 0;
+  const activeJobs   = activeJobsRes.count   ?? 0;
+  const draftJobs    = draftJobsRes.count    ?? 0;
+  const pausedJobs   = pausedJobsRes.count   ?? 0;
+  const closedJobs   = closedJobsRes.count   ?? 0;
+  const filledJobs   = filledJobsRes.count   ?? 0;
+  const thisMonth    = thisMonthRes.count     ?? 0;
+  const lastMonth    = lastMonthRes.count     ?? 0;
+  const newApps      = newAppsRes.count       ?? 0;
+  const totalApps    = totalAppsRes.count     ?? 0;
+  const expiringSoon = expiringSoonRes.count  ?? 0;
 
-  const admissionRows = (admissionsRes.data ?? []) as unknown as Array<{
-    startDate: string | null;
-    stage: { isFinal: boolean } | null;
-  }>;
-  const admissionsTotal = admissionRows.length;
-  const admissionsDone = admissionRows.filter((a) => a.stage?.isFinal).length;
-  const admissionsLate = admissionRows.filter(
-    (a) => a.startDate && new Date(a.startDate) < todayUTC && !a.stage?.isFinal
-  ).length;
-  const admissionsUpcoming = admissionRows.filter(
-    (a) => a.startDate && new Date(a.startDate) >= todayUTC && new Date(a.startDate) <= in7UTC && !a.stage?.isFinal
-  ).length;
+  const monthDiff  = thisMonth - lastMonth;
+  const monthTrend = monthDiff > 0 ? `+${monthDiff} vs mês anterior`
+    : monthDiff < 0 ? `${monthDiff} vs mês anterior`
+    : "igual ao mês anterior";
 
-  const admissionsInProgress = admissionsTotal - admissionsDone;
+  // New applications per job → used in "Vagas que Precisam de Atenção"
+  const countByJob: Record<string, number> = {};
+  for (const row of (newAppsByJobRes.data ?? [])) {
+    countByJob[row.jobId] = (countByJob[row.jobId] ?? 0) + 1;
+  }
 
-  const recentAdmissions = ((recentAdmissionsRes.data ?? []) as unknown as Array<{
-    id: string;
-    fullName: string;
-    startDate: string | null;
-    position: { name: string } | null;
-    stage: { name: string; color: string; isFinal: boolean } | null;
-  }>).filter((a) => !a.stage?.isFinal).slice(0, 5);
-
-  const recentJobs = (recentJobsRes.data ?? []) as Array<{
-    id: string;
-    title: string;
-    status: string;
-    city: string;
-    state: string;
-    createdAt: string;
-  }>;
+  const attentionJobs = ((attentionJobsRes.data ?? []) as Array<{
+    id: string; title: string; status: string; city: string; state: string;
+  }>)
+    .filter((j) => (countByJob[j.id] ?? 0) > 0 || ["ADMISSION", "INTERVIEW", "SCREENING"].includes(j.status))
+    .sort((a, b) => (countByJob[b.id] ?? 0) - (countByJob[a.id] ?? 0))
+    .slice(0, 4);
 
   const recentApplications = (recentApplicationsRes.data ?? []) as unknown as Array<{
-    id: string;
-    fullName: string;
-    stage: { name: string; color: string } | null;
-    createdAt: string;
-    jobId: string;
+    id: string; fullName: string; createdAt: string; jobId: string;
     job: { title: string } | null;
+    stage: { name: string; color: string } | null;
   }>;
 
-  const statusBadge: Record<string, string> = {
-    DRAFT: "bg-blue-100 text-blue-700",
-    ACTIVE: "bg-wg-green/15 text-wg-green-dark",
-    SCREENING: "bg-amber-100 text-amber-700",
-    INTERVIEW: "bg-purple-100 text-purple-700",
-    ADMISSION: "bg-cyan-100 text-cyan-700",
-    PAUSED: "bg-orange-100 text-orange-700",
-    CLOSED: "bg-gray-200 text-gray-600",
-    FILLED: "bg-emerald-100 text-emerald-700",
-  };
-  const statusLabel: Record<string, string> = {
-    DRAFT: "Rascunho",
-    ACTIVE: "Ativa",
-    SCREENING: "Triagem",
-    INTERVIEW: "Entrevistas",
-    ADMISSION: "Admissão",
-    PAUSED: "Pausada",
-    CLOSED: "Cancelada",
-    FILLED: "Finalizada",
-  };
+  const isAdmin = session?.user.role === "ADMIN_RH";
 
-
-  const stats = [
-    {
-      label: "Vagas Ativas",
-      value: activeJobs,
-      icon: Briefcase as ElementType,
-      iconClass: "bg-wg-green/15 text-wg-green-dark",
-      href: "/vagas/gerenciar?view=kanban",
-    },
-    {
-      label: "Rascunhos",
-      value: draftJobs,
-      icon: FileText as ElementType,
-      iconClass: "bg-blue-100 text-blue-600",
-      href: "/vagas/gerenciar?status=DRAFT",
-    },
-    {
-      label: "Vagas Pausadas",
-      value: pausedJobs,
-      icon: PauseCircle as ElementType,
-      iconClass: "bg-yellow-100 text-yellow-600",
-      href: "/vagas/gerenciar?status=PAUSED",
-    },
-    {
-      label: "Vagas Canceladas",
-      value: closedJobs,
-      icon: XCircle as ElementType,
-      iconClass: "bg-gray-200 text-gray-600",
-      href: "/vagas/gerenciar?status=CLOSED",
-    },
-    {
-      label: "Vagas Finalizadas",
-      value: filledJobs,
-      icon: CheckCircle2 as ElementType,
-      iconClass: "bg-emerald-100 text-emerald-600",
-      href: "/vagas/gerenciar?status=FILLED",
-    },
+  const KPIS = [
+    { icon: "💼", iconBg: "#EAF4DC", value: activeJobs,  label: "Vagas Ativas",    href: "/vagas/gerenciar" },
+    { icon: "📄", iconBg: "#E9EDFA", value: draftJobs,   label: "Rascunhos",       href: "/vagas/gerenciar?status=DRAFT" },
+    { icon: "⏸",  iconBg: "#FCF1DD", value: pausedJobs,  label: "Vagas Pausadas",  href: "/vagas/gerenciar?status=PAUSED" },
+    { icon: "⊗",  iconBg: "#EFEFEF", value: closedJobs,  label: "Vagas Canceladas",href: "/vagas/gerenciar?status=CLOSED" },
+    { icon: "✓",  iconBg: "#EAF4DC", value: filledJobs,  label: "Vagas Finalizadas",href: "/vagas/gerenciar?status=FILLED" },
   ];
 
-  const monthDiff = thisMonthCount - lastMonthCount;
-  const monthTrend =
-    monthDiff > 0 ? `+${monthDiff} vs mês anterior` :
-    monthDiff < 0 ? `${monthDiff} vs mês anterior` :
-    "igual ao mês anterior";
-
-  type Alert = { icon: ElementType; color: string; bg: string; message: string; href: string };
-  const alerts: Alert[] = [
-    expiringSoon > 0 && {
-      icon: Clock as ElementType,
-      color: "text-yellow-700",
-      bg: "bg-yellow-50 border-yellow-200",
-      message: `${expiringSoon} vaga${expiringSoon > 1 ? "s encerram" : " encerra"} nos próximos 7 dias`,
-      href: "/vagas/gerenciar?status=ACTIVE",
-    },
-    openedLong > 0 && {
-      icon: Calendar as ElementType,
-      color: "text-orange-700",
-      bg: "bg-orange-50 border-orange-200",
-      message: `${openedLong} vaga${openedLong > 1 ? "s abertas" : " aberta"} há mais de 30 dias — verificar andamento`,
-      href: "/vagas/gerenciar?status=ACTIVE",
-    },
-  ].filter(Boolean) as Alert[];
-
   return (
-    <div>
-      <PageHeader
-        title={`Olá, ${session?.user.name?.split(" ")[0] ?? ""} 👋`}
-        subtitle="Painel de Gente & Gestão — WG Baterias"
-      />
+    <div className="px-8 py-8 md:px-11 md:py-9 flex flex-col gap-6">
 
-      {/* Alertas proativos */}
-      {alerts.length > 0 && (
-        <div className="flex flex-col gap-2 mb-4">
-          {alerts.map((alert, i) => (
-            <Link
-              key={i}
-              href={alert.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition-opacity hover:opacity-80 ${alert.bg}`}
+      {/* Header */}
+      <div>
+        <h1 className="text-wg-ink text-[28px] font-extrabold tracking-tight">
+          Olá, {firstName} 👋
+        </h1>
+        <p className="text-wg-ink-secondary text-[14.5px] mt-1.5">
+          Você tem <strong>{newApps} novas candidaturas</strong> aguardando triagem
+          {expiringSoon > 0 && (
+            <> e <strong>{expiringSoon} {expiringSoon === 1 ? "vaga encerrando" : "vagas encerrando"}</strong> nos próximos 7 dias</>
+          )}.
+        </p>
+      </div>
+
+      {/* KPI grid */}
+      <div className="grid grid-cols-6 gap-3.5">
+        {KPIS.map((k) => (
+          <Link
+            key={k.label}
+            href={k.href}
+            className="block bg-white border border-wg-border-lighter rounded-2xl p-4 hover:shadow-[0_6px_16px_rgba(0,0,0,.06)] hover:-translate-y-0.5 transition"
+          >
+            <div
+              className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[15px] mb-2.5"
+              style={{ background: k.iconBg }}
             >
-              <alert.icon className={`w-4 h-4 shrink-0 ${alert.color}`} />
-              <span className={alert.color}>{alert.message}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Cards de métricas */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-white border border-gray-200 shadow-sm rounded-xl p-3">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${stat.iconClass}`}>
-              <stat.icon className="w-4 h-4" />
+              {k.icon}
             </div>
-            <div className="text-xl font-bold text-gray-900">{stat.value}</div>
-            <div className="text-sm text-gray-500 mt-0.5">{stat.label}</div>
-            <Link href={stat.href} className="text-xs text-wg-green-dark hover:opacity-80 underline mt-1 block transition-opacity">
-              Ver detalhes →
+            <div className="text-wg-ink text-2xl font-extrabold">{k.value}</div>
+            <div className="text-wg-ink-muted text-[12.5px] mt-0.5">{k.label}</div>
+            <div className="text-wg-green-dark text-[11px] font-bold mt-1.5">Ver detalhes →</div>
+          </Link>
+        ))}
+
+        {/* Publicadas este mês + sparkline */}
+        <div className="bg-white border border-wg-border-lighter rounded-2xl p-4">
+          <div className="flex justify-between items-start">
+            <div className="text-wg-ink text-2xl font-extrabold">{thisMonth}</div>
+            <svg width="56" height="24" viewBox="0 0 56 24" className="shrink-0">
+              <polyline
+                points="0,18 10,15 20,17 30,10 40,8 56,2"
+                fill="none" stroke="#90CB46" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div className="text-wg-ink-muted text-[12.5px] mt-0.5">Publicadas este mês</div>
+          <div className={`text-[11px] font-bold mt-1 ${monthDiff >= 0 ? "text-wg-green-dark" : "text-red-600"}`}>
+            {monthTrend}
+          </div>
+        </div>
+      </div>
+
+      {/* Dois painéis: candidaturas + vagas atenção */}
+      <div className="grid gap-5 items-start" style={{ gridTemplateColumns: "1.3fr 1fr" }}>
+
+        {/* Candidaturas Recentes */}
+        <div className="bg-white border border-wg-border-lighter rounded-2xl p-5 flex flex-col gap-3.5">
+          <div className="flex items-center justify-between flex-wrap gap-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[15px]">👥</span>
+              <span className="text-wg-ink text-base font-bold">Candidaturas Recentes</span>
+              <span className="text-[#6B7860] text-[13px]">{totalApps} no total</span>
+              {newApps > 0 && (
+                <span className="bg-[#EAF4DC] text-wg-green-dark text-[11.5px] font-bold px-2 py-0.5 rounded-full">
+                  {newApps} nova{newApps > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+            <Link href="/vagas/gerenciar" className="text-wg-green-dark text-[13px] font-semibold">
+              Ver todas →
             </Link>
           </div>
-        ))}
-      </div>
 
-      {/* Tendência mensal */}
-      <div className="bg-white border border-gray-200 shadow-sm rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Vagas publicadas este mês</p>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">{thisMonthCount}</p>
-        </div>
-        <div className="text-right">
-          <p className={`text-sm font-medium ${monthDiff > 0 ? "text-wg-green-dark" : monthDiff < 0 ? "text-red-600" : "text-gray-500"}`}>
-            {monthTrend}
-          </p>
-          <p className="text-xs text-gray-500 mt-0.5">{lastMonthCount} no mês anterior</p>
-        </div>
-      </div>
-
-      {/* Candidaturas */}
-      <div className="bg-white border border-gray-200 shadow-sm rounded-xl mb-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-wg-green-dark" />
-            <h2 className="font-semibold text-gray-900">Candidaturas</h2>
-            <span className="text-xs text-gray-500">
-              {totalApplications} no total
-              {newApplications > 0 && (
-                <span className="ml-2 text-blue-600">· {newApplications} nova{newApplications > 1 ? "s" : ""}</span>
-              )}
-            </span>
-          </div>
-        </div>
-
-        {recentApplications.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="Nenhuma candidatura recebida ainda"
-            description="As inscrições feitas pelo portal aparecem aqui."
-            className="py-10"
-          />
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {recentApplications.map((app) => (
-              <Link
-                key={app.id}
-                href={`/vagas/${app.jobId}/candidatos`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors gap-3"
-              >
-                <div className="min-w-0">
-                  <span className="text-sm font-medium text-gray-900">{app.fullName}</span>
-                  <span className="text-xs text-gray-500 ml-2">{app.job?.title}</span>
-                </div>
-                {app.stage && (
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                    style={{ backgroundColor: `${app.stage.color}1f`, color: app.stage.color }}
-                  >
-                    {app.stage.name}
-                  </span>
-                )}
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Admissões */}
-      <div className="bg-white border border-gray-200 shadow-sm rounded-xl mb-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <UserPlus className="w-4 h-4 text-wg-green-dark" />
-            <h2 className="font-semibold text-gray-900">Admissões</h2>
-            <span className="text-xs text-gray-500">{admissionsTotal} no total</span>
-          </div>
-          <Link href="/admissoes" className="text-sm text-wg-green-dark hover:opacity-80 transition-opacity">
-            Ver todas
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-5 border-b border-gray-100">
-          <MiniStat label="Em andamento" value={admissionsInProgress} icon={Users} iconClass="bg-blue-100 text-blue-600" />
-          <MiniStat label="Concluídas" value={admissionsDone} icon={CheckCircle2} iconClass="bg-wg-green/15 text-wg-green-dark" />
-          <MiniStat label="Atrasadas" value={admissionsLate} icon={AlertTriangle} iconClass="bg-red-100 text-red-600" />
-          <MiniStat label="Próximas 7 dias" value={admissionsUpcoming} icon={CalendarClock} iconClass="bg-amber-100 text-amber-600" />
-        </div>
-
-        {recentAdmissions.length === 0 ? (
-          <EmptyState
-            icon={UserPlus}
-            title="Nenhuma admissão em andamento"
-            description="As admissões cadastradas aparecem aqui."
-            className="py-10"
-          />
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {recentAdmissions.map((adm) => (
-              <Link
-                key={adm.id}
-                href={`/admissoes/${adm.id}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors gap-3"
-              >
-                <div className="min-w-0">
-                  <span className="text-sm font-medium text-gray-900">{adm.fullName}</span>
-                  {adm.position?.name && (
-                    <span className="text-xs text-gray-500 ml-2">{adm.position.name}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  {adm.startDate && (
-                    <span className="text-xs text-gray-500">
-                      {new Date(adm.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
-                    </span>
-                  )}
-                  {adm.stage && (
+          <div className="flex flex-col">
+            {recentApplications.length === 0 ? (
+              <p className="text-wg-ink-muted text-sm py-6 text-center">Nenhuma candidatura ainda.</p>
+            ) : (
+              recentApplications.map((app) => (
+                <Link
+                  key={app.id}
+                  href={`/vagas/${app.jobId}/candidatos`}
+                  className="group flex items-center justify-between gap-3 py-3 px-1 border-t border-[#F0F3EC] relative"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-wg-ink text-[14.5px] font-bold truncate">{app.fullName}</div>
+                    <div className="text-wg-ink-muted text-[12.5px] mt-0.5 truncate group-hover:opacity-0 transition-opacity">
+                      {app.job?.title} · {timeAgo(app.createdAt)}
+                    </div>
+                    <div className="absolute left-1 bottom-2.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
+                      <span className="bg-[#F0F5E8] text-[#3E5A2A] px-2.5 py-1 rounded-lg text-xs font-semibold">
+                        Ver Perfil
+                      </span>
+                    </div>
+                  </div>
+                  {app.stage && (
                     <span
-                      className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={{ backgroundColor: `${adm.stage.color}1f`, color: adm.stage.color }}
+                      className="text-[11.5px] font-bold px-2.5 py-1 rounded-full shrink-0"
+                      style={{ background: `${app.stage.color}1f`, color: app.stage.color }}
                     >
-                      {adm.stage.name}
+                      {app.stage.name}
                     </span>
                   )}
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Vagas recentes */}
-      <div className="bg-white border border-gray-200 shadow-sm rounded-xl mb-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h2 className="font-semibold text-gray-900">Vagas Recentes</h2>
-          <Link href="/vagas/gerenciar" className="text-sm text-wg-green-dark hover:opacity-80 transition-opacity">
-            Ver todas
-          </Link>
         </div>
 
-        {recentJobs.length === 0 ? (
-          <EmptyState
-            icon={Briefcase}
-            title="Nenhuma vaga cadastrada ainda"
-            description="Crie sua primeira vaga para começar."
-            className="py-10"
-          />
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {recentJobs.map((job) => (
-              <Link
-                key={job.id}
-                href={`/vagas/${job.id}/editar`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-              >
-                <div>
-                  <span className="text-sm font-medium text-gray-900">{job.title}</span>
-                  <span className="text-xs text-gray-500 ml-2">{job.city}/{job.state}</span>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge[job.status]}`}>
-                  {statusLabel[job.status]}
-                </span>
-              </Link>
-            ))}
+        {/* Vagas que Precisam de Atenção */}
+        <div className="bg-white border border-wg-border-lighter rounded-2xl p-5 flex flex-col gap-3.5">
+          <div className="flex items-center justify-between flex-wrap gap-1.5">
+            <span className="text-wg-ink text-base font-bold">Vagas que Precisam de Atenção</span>
+            <Link href="/vagas/gerenciar" className="text-wg-green-dark text-[13px] font-semibold">
+              Ver todas →
+            </Link>
           </div>
-        )}
+
+          <div className="flex flex-col">
+            {attentionJobs.length === 0 ? (
+              <p className="text-wg-ink-muted text-sm py-6 text-center">Nenhuma vaga precisando de atenção.</p>
+            ) : (
+              attentionJobs.map((vaga) => {
+                const badge  = STATUS_BADGE[vaga.status]  ?? { bg: "#F3F3F3", color: "#777" };
+                const stripe = STATUS_STRIPE[vaga.status] ?? "#B9C2AA";
+                const pendentes = countByJob[vaga.id] ?? 0;
+                return (
+                  <Link
+                    key={vaga.id}
+                    href={`/vagas/${vaga.id}/candidatos`}
+                    className="group flex items-center justify-between gap-2.5 py-2.5 px-1 border-t border-[#F0F3EC] relative"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span
+                        className="w-1 h-6 rounded shrink-0"
+                        style={{ background: stripe }}
+                      />
+                      <div className="min-w-0">
+                        <div className="text-wg-ink text-[13.5px] font-bold truncate">{vaga.title}</div>
+                        <div className="text-wg-ink-muted text-xs mt-0.5 group-hover:opacity-0 transition-opacity">
+                          {[vaga.city, vaga.state].filter(Boolean).join("/") || "—"}
+                        </div>
+                        <div className="absolute left-3 bottom-2.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
+                          <span className="bg-[#F0F5E8] text-[#3E5A2A] px-2.5 py-1 rounded-lg text-xs font-semibold">
+                            Ir para a vaga
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {pendentes > 0 && (
+                        <span className="bg-[#F0F5E8] text-[#3E5A2A] text-[11px] font-bold px-2 py-0.5 rounded-full">
+                          👥 {pendentes} {pendentes === 1 ? "novo" : "novos"}
+                        </span>
+                      )}
+                      <span
+                        className="text-[11px] font-bold px-2.5 py-1 rounded-md"
+                        style={{ background: badge.bg, color: badge.color }}
+                      >
+                        {STATUS_LABEL[vaga.status]?.toUpperCase() ?? vaga.status}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Atalhos rápidos */}
-      {session?.user.role === "ADMIN_RH" && (
-        <div className="grid grid-cols-2 gap-4">
+      {/* CTAs */}
+      {isAdmin && (
+        <div className="flex gap-3">
           <Link
             href="/vagas/nova"
-            className="bg-wg-green hover:bg-wg-green-bright text-black rounded-xl p-4 flex items-center gap-3 transition-colors font-medium"
+            className="flex-1 bg-wg-green text-wg-dark py-4 rounded-xl text-[15px] font-bold text-center hover:bg-wg-green-vivid transition-colors"
           >
-            <Plus className="w-5 h-5" />
-            Nova Vaga
+            + Nova Vaga
           </Link>
           <Link
             href="/vagas/gerenciar"
-            className="bg-white hover:bg-gray-50 border border-gray-200 shadow-sm rounded-xl p-4 flex items-center gap-3 transition-colors"
+            className="flex-1 bg-white text-wg-ink-secondary border border-wg-border-light py-4 rounded-xl text-[15px] font-bold text-center hover:bg-wg-bg transition-colors"
           >
-            <Briefcase className="w-5 h-5 text-wg-green-dark" />
-            <span className="font-medium text-gray-900">Gerenciar Vagas</span>
+            💼 Gerenciar Vagas
           </Link>
         </div>
       )}
-    </div>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  icon: Icon,
-  iconClass,
-}: {
-  label: string;
-  value: number;
-  icon: ElementType;
-  iconClass: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <div className="min-w-0">
-        <div className="text-lg font-bold text-gray-900 leading-tight">{value}</div>
-        <div className="text-xs text-gray-500 truncate">{label}</div>
-      </div>
     </div>
   );
 }

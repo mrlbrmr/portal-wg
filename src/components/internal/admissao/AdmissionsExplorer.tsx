@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Search, ClipboardCheck, Filter, ChevronDown, ArrowUpDown } from "lucide-react";
+import { Search, ClipboardCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export interface AdmissionRow {
@@ -35,157 +35,150 @@ interface Props {
 }
 
 type SortKey = "recent" | "oldest" | "nameAZ" | "nameZA" | "startAsc" | "startDesc" | "stage";
+type QuickFilter = null | "atrasadas" | "proximas";
 
-const SORT_LABELS: Record<SortKey, string> = {
-  recent: "Mais recentes",
-  oldest: "Mais antigas",
-  nameAZ: "Nome A→Z",
-  nameZA: "Nome Z→A",
-  startAsc: "Início ↑",
-  startDesc: "Início ↓",
-  stage: "Por etapa",
-};
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "recent",    label: "Mais recentes" },
+  { value: "oldest",    label: "Mais antigas" },
+  { value: "nameAZ",   label: "Nome A→Z" },
+  { value: "nameZA",   label: "Nome Z→A" },
+  { value: "startAsc", label: "Início ↑" },
+  { value: "startDesc",label: "Início ↓" },
+  { value: "stage",    label: "Por etapa" },
+];
 
-const ctrlClass =
-  "bg-white border border-gray-300 rounded-lg px-2.5 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green";
-
-function StageBadge({ name, color }: { name: string | null; color: string | null }) {
-  if (!name) return <span className="text-gray-400">—</span>;
-  const c = color ?? "#94a3b8";
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
-      style={{ backgroundColor: `${c}1f`, color: c }}
-    >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c }} />
-      {name}
-    </span>
-  );
+function daysFrom(iso: string, today: Date): number {
+  const start = new Date(iso + "T00:00:00");
+  return Math.round((start.getTime() - today.getTime()) / 86400000);
 }
 
-/** Dropdown com checkboxes para seleção múltipla. */
-function MultiSelect({
-  options,
-  selected,
+function countdownLabel(days: number): string {
+  if (days > 0) return `Em ${days}d`;
+  if (days === 0) return "Hoje";
+  return `Atrasado ${-days}d`;
+}
+
+function FilterCheckbox({
+  checked,
   onChange,
-  placeholder,
+  label,
 }: {
-  options: Option[];
-  selected: Set<string>;
-  onChange: (next: Set<string>) => void;
-  placeholder: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
 }) {
-  const [open, setOpen] = useState(false);
-
-  const label =
-    selected.size === 0
-      ? placeholder
-      : selected.size === 1
-      ? (options.find((o) => selected.has(o.id))?.name ?? placeholder)
-      : `${selected.size} selecionados`;
-
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`${ctrlClass} inline-flex items-center gap-2 hover:border-gray-400 transition-colors`}
+    <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-[#F3F7EC] cursor-pointer select-none">
+      <div
+        className="w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-colors"
+        style={
+          checked
+            ? { background: "#90CB46", borderColor: "#90CB46" }
+            : { background: "white", borderColor: "#C4D4AA" }
+        }
       >
-        <span className={selected.size > 0 ? "text-gray-900 font-medium" : "text-gray-500"}>
-          {label}
-        </span>
-        <ChevronDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-full mt-1 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-[180px] max-h-60 overflow-y-auto">
-            {options.map((o) => (
-              <label
-                key={o.id}
-                className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(o.id)}
-                  onChange={(e) => {
-                    const next = new Set(selected);
-                    if (e.target.checked) next.add(o.id);
-                    else next.delete(o.id);
-                    onChange(next);
-                  }}
-                  className="accent-wg-green w-4 h-4 shrink-0"
-                />
-                <span>{o.name}</span>
-              </label>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+        {checked && (
+          <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+            <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
+      <span className="text-[13px] text-[#1A2213]">{label}</span>
+    </label>
   );
 }
 
-export function AdmissionsExplorer({ rows, stages, companies, positions }: Props) {
+export function AdmissionsExplorer({ rows, stages, companies }: Props) {
   const [query, setQuery] = useState("");
-  const [selectedStages, setSelectedStages] = useState<Set<string>>(new Set());
-  const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
-  const [positionId, setPositionId] = useState("");
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
   const [sortKey, setSortKey] = useState<SortKey>("recent");
-  const [startFrom, setStartFrom] = useState("");
-  const [startTo, setStartTo] = useState("");
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+
+  const filterRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterMenuOpen(false);
+      }
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const { todayDate, in7Date } = useMemo(() => {
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const in7Date = new Date(todayDate.getTime() + 7 * 86400000);
+    return { todayDate, in7Date };
+  }, []);
+
+  const stageFilters = useMemo(
+    () => selectedFilters.filter((k) => k.startsWith("STAGE:")).map((k) => k.slice(6)),
+    [selectedFilters]
+  );
+  const compFilters = useMemo(
+    () => selectedFilters.filter((k) => k.startsWith("CO:")).map((k) => k.slice(3)),
+    [selectedFilters]
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    return rows
+      .filter((r) => {
+        if (q && !`${r.fullName} ${r.cpf ?? ""}`.toLowerCase().includes(q)) return false;
+        if (stageFilters.length > 0 && !stageFilters.includes(r.stageId ?? "")) return false;
+        if (compFilters.length > 0 && !compFilters.includes(r.companyId ?? "")) return false;
+        if (quickFilter === "atrasadas") {
+          if (!r.startDateISO) return false;
+          const days = daysFrom(r.startDateISO, todayDate);
+          if (days >= 0) return false;
+        }
+        if (quickFilter === "proximas") {
+          if (!r.startDateISO) return false;
+          const start = new Date(r.startDateISO + "T00:00:00");
+          if (start < todayDate || start > in7Date) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortKey) {
+          case "recent":    return b.createdAt.localeCompare(a.createdAt);
+          case "oldest":    return a.createdAt.localeCompare(b.createdAt);
+          case "nameAZ":    return a.fullName.localeCompare(b.fullName, "pt-BR");
+          case "nameZA":    return b.fullName.localeCompare(a.fullName, "pt-BR");
+          case "startAsc":  return (a.startDateISO ?? "").localeCompare(b.startDateISO ?? "");
+          case "startDesc": return (b.startDateISO ?? "").localeCompare(a.startDateISO ?? "");
+          case "stage":     return (a.stageName ?? "").localeCompare(b.stageName ?? "", "pt-BR");
+          default:          return 0;
+        }
+      });
+  }, [rows, query, stageFilters, compFilters, quickFilter, sortKey, todayDate, in7Date]);
 
-    const result = rows.filter((r) => {
-      if (selectedStages.size > 0 && !selectedStages.has(r.stageId ?? "")) return false;
-      if (selectedCompanies.size > 0 && !selectedCompanies.has(r.companyId ?? "")) return false;
-      if (positionId && r.positionName !== positions.find((p) => p.id === positionId)?.name) return false;
-      if (startFrom && (!r.startDateISO || r.startDateISO < startFrom)) return false;
-      if (startTo && (!r.startDateISO || r.startDateISO > startTo)) return false;
-      if (q) {
-        const hay = `${r.fullName} ${r.cpf ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-
-    return result.sort((a, b) => {
-      switch (sortKey) {
-        case "recent":    return b.createdAt.localeCompare(a.createdAt);
-        case "oldest":    return a.createdAt.localeCompare(b.createdAt);
-        case "nameAZ":    return a.fullName.localeCompare(b.fullName, "pt-BR");
-        case "nameZA":    return b.fullName.localeCompare(a.fullName, "pt-BR");
-        case "startAsc":  return (a.startDateISO ?? "").localeCompare(b.startDateISO ?? "");
-        case "startDesc": return (b.startDateISO ?? "").localeCompare(a.startDateISO ?? "");
-        case "stage":     return (a.stageName ?? "").localeCompare(b.stageName ?? "", "pt-BR");
-        default:          return 0;
-      }
-    });
-  }, [rows, query, selectedStages, selectedCompanies, positionId, sortKey, startFrom, startTo, positions]);
-
-  const hasFilters = !!(
-    query ||
-    selectedStages.size ||
-    selectedCompanies.size ||
-    positionId ||
-    startFrom ||
-    startTo
-  );
-
-  function clearFilters() {
-    setQuery("");
-    setSelectedStages(new Set());
-    setSelectedCompanies(new Set());
-    setPositionId("");
-    setStartFrom("");
-    setStartTo("");
+  function toggleFilter(key: string) {
+    setSelectedFilters((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
   }
+
+  const activeFilterCount = selectedFilters.length;
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortKey)?.label ?? "Recentes";
+
+  const QUICK_CHIPS: { key: QuickFilter; label: string }[] = [
+    { key: null,        label: "Todas" },
+    { key: "atrasadas", label: "Atrasadas" },
+    { key: "proximas",  label: "Próximos 7 dias" },
+  ];
 
   if (rows.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
+      <div className="bg-white border border-[#E7EEDD] rounded-2xl shadow-sm">
         <EmptyState
           icon={ClipboardCheck}
           title="Nenhuma admissão ainda"
@@ -205,158 +198,248 @@ export function AdmissionsExplorer({ rows, stages, companies, positions }: Props
 
   return (
     <div className="space-y-3">
-      {/* Linha 1: busca + filtros */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8A9B7A]" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por nome ou CPF…"
-            className="w-full bg-white border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green"
+            className="w-full bg-white border border-[#DCE8CC] rounded-xl pl-9 pr-3 py-2 text-[13.5px] text-[#1A2213] placeholder:text-[#8A9B7A] focus:outline-none focus:ring-2 focus:ring-wg-green/30 focus:border-wg-green transition-colors"
           />
         </div>
 
-        <MultiSelect
-          options={stages}
-          selected={selectedStages}
-          onChange={setSelectedStages}
-          placeholder="Todas as etapas"
-        />
-
-        <MultiSelect
-          options={companies}
-          selected={selectedCompanies}
-          onChange={setSelectedCompanies}
-          placeholder="Todas as empresas"
-        />
-
-        <select
-          value={positionId}
-          onChange={(e) => setPositionId(e.target.value)}
-          className={ctrlClass}
-        >
-          <option value="">Todos os cargos</option>
-          {positions.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Linha 2: data de início + ordenação */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span className="shrink-0">Início:</span>
-          <input
-            type="date"
-            value={startFrom}
-            onChange={(e) => setStartFrom(e.target.value)}
-            className={`${ctrlClass} text-gray-700 w-[150px]`}
-          />
-          <span className="shrink-0">até</span>
-          <input
-            type="date"
-            value={startTo}
-            onChange={(e) => setStartTo(e.target.value)}
-            className={`${ctrlClass} text-gray-700 w-[150px]`}
-          />
-        </div>
-
-        <div className="flex items-center gap-2 ml-auto">
-          <ArrowUpDown className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className={ctrlClass}
-          >
-            {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([k, label]) => (
-              <option key={k} value={k}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {hasFilters && (
+        {/* Filtros dropdown */}
+        <div className="relative" ref={filterRef}>
           <button
-            onClick={clearFilters}
-            className="text-sm font-medium text-wg-green-dark hover:underline"
+            type="button"
+            onClick={() => { setFilterMenuOpen((v) => !v); setSortMenuOpen(false); }}
+            className={`inline-flex items-center gap-2 border rounded-xl px-3.5 py-2 text-[13.5px] font-medium transition-colors ${
+              activeFilterCount > 0
+                ? "bg-[#EAF4DC] border-[#90CB46] text-[#3E5A2A]"
+                : "bg-white border-[#DCE8CC] text-[#55614A] hover:border-[#90CB46]"
+            }`}
           >
-            Limpar filtros
+            Filtros
+            {activeFilterCount > 0 && (
+              <span className="bg-[#90CB46] text-[#0C0D0C] text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" className="shrink-0">
+              <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
-        )}
+
+          {filterMenuOpen && (
+            <div className="absolute top-full mt-1.5 left-0 z-30 bg-white border border-[#DCE8CC] rounded-2xl shadow-xl py-2 min-w-[220px] max-h-80 overflow-y-auto">
+              {stages.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-[10.5px] font-bold text-[#8A9B7A] uppercase tracking-wider">
+                    Etapa
+                  </div>
+                  {stages.map((s) => (
+                    <FilterCheckbox
+                      key={s.id}
+                      checked={selectedFilters.includes(`STAGE:${s.id}`)}
+                      onChange={() => toggleFilter(`STAGE:${s.id}`)}
+                      label={s.name}
+                    />
+                  ))}
+                </>
+              )}
+              {companies.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 mt-1 text-[10.5px] font-bold text-[#8A9B7A] uppercase tracking-wider">
+                    Empresa
+                  </div>
+                  {companies.map((c) => (
+                    <FilterCheckbox
+                      key={c.id}
+                      checked={selectedFilters.includes(`CO:${c.id}`)}
+                      onChange={() => toggleFilter(`CO:${c.id}`)}
+                      label={c.name}
+                    />
+                  ))}
+                </>
+              )}
+              {activeFilterCount > 0 && (
+                <div className="px-3 pt-2 mt-1 border-t border-[#E7EEDD]">
+                  <button
+                    onClick={() => { setSelectedFilters([]); setFilterMenuOpen(false); }}
+                    className="text-[12.5px] font-semibold text-[#C4552E] hover:underline"
+                  >
+                    Limpar filtros
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Ordenar dropdown */}
+        <div className="relative" ref={sortRef}>
+          <button
+            type="button"
+            onClick={() => { setSortMenuOpen((v) => !v); setFilterMenuOpen(false); }}
+            className="inline-flex items-center gap-2 bg-white border border-[#DCE8CC] rounded-xl px-3.5 py-2 text-[13.5px] text-[#55614A] hover:border-[#90CB46] transition-colors"
+          >
+            <span>
+              Ordenar: <span className="font-semibold text-[#1A2213]">{currentSortLabel}</span>
+            </span>
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" className="shrink-0">
+              <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          {sortMenuOpen && (
+            <div className="absolute top-full mt-1.5 right-0 z-30 bg-white border border-[#DCE8CC] rounded-2xl shadow-xl py-2 min-w-[180px]">
+              {SORT_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { setSortKey(o.value); setSortMenuOpen(false); }}
+                  className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${
+                    sortKey === o.value
+                      ? "font-semibold text-[#1A2213] bg-[#F3F7EC]"
+                      : "text-[#55614A] hover:bg-[#F8FBF4]"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Lista / Kanban toggle */}
+        <div className="bg-[#EEF4E3] rounded-[10px] p-1 flex gap-0.5 shrink-0 ml-auto">
+          <span className="px-3.5 py-1.5 rounded-lg text-[13px] font-bold bg-white text-[#1A2213] shadow-sm">
+            Lista
+          </span>
+          <Link
+            href="/admissoes/kanban"
+            className="px-3.5 py-1.5 rounded-lg text-[13px] font-bold text-[#55614A] hover:text-[#1A2213] transition-colors"
+          >
+            Kanban
+          </Link>
+        </div>
       </div>
 
-      {/* Tabela */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        {filtered.length === 0 ? (
-          <EmptyState
-            icon={Filter}
-            title="Nenhum resultado"
-            description="Nenhuma admissão corresponde aos filtros aplicados."
-            action={
-              hasFilters ? (
-                <button
-                  onClick={clearFilters}
-                  className="text-sm font-medium text-wg-green-dark hover:underline"
-                >
-                  Limpar filtros
-                </button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-3">Colaborador</th>
-                  <th className="px-4 py-3">Cargo</th>
-                  <th className="px-4 py-3">Empresa / Filial</th>
-                  <th className="px-4 py-3">Etapa</th>
-                  <th className="px-4 py-3">Responsável</th>
-                  <th className="px-4 py-3">Início</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
+      {/* Quick filter chips */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {QUICK_CHIPS.map((c) => {
+          const active = quickFilter === c.key;
+          return (
+            <button
+              key={String(c.key)}
+              type="button"
+              onClick={() => setQuickFilter(active ? null : c.key)}
+              className={`px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+                active
+                  ? "bg-[#90CB46] text-[#0C0D0C]"
+                  : "bg-white border border-[#DCE8CC] text-[#55614A] hover:border-[#90CB46]"
+              }`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Cards */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={ClipboardCheck}
+          title="Nenhum resultado"
+          description="Nenhuma admissão corresponde aos filtros aplicados."
+          action={
+            activeFilterCount > 0 ? (
+              <button
+                onClick={() => setSelectedFilters([])}
+                className="text-sm font-medium text-wg-green-dark hover:underline"
+              >
+                Limpar filtros
+              </button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((r) => {
+            const days = r.startDateISO ? daysFrom(r.startDateISO, todayDate) : null;
+            const stripeColor = r.stageColor ?? "#B9C2AA";
+            const badgeBg = r.stageColor ? r.stageColor + "1f" : "#F0F3EC";
+            const company = [r.companyName, r.branchName].filter(Boolean).join(" · ");
+            const meta = [r.positionName, company, r.responsibleName].filter(Boolean).join(" · ");
+            const countdownColor =
+              days === null ? "#55614A"
+              : days < 0   ? "#C4552E"
+              : days === 0 ? "#A0721E"
+              :              "#4F6930";
+
+            return (
+              <div
+                key={r.id}
+                className="group bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,.05)] flex overflow-hidden hover:shadow-[0_8px_22px_rgba(0,0,0,.08)] transition-shadow"
+              >
+                <div className="w-[5px] shrink-0" style={{ background: stripeColor }} />
+                <div className="flex-1 px-5 py-4 flex justify-between items-start gap-4 min-w-0">
+                  {/* Left */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap">
                       <Link
                         href={`/admissoes/${r.id}`}
-                        className="font-medium text-gray-900 hover:text-wg-green-dark"
+                        className="text-[#1A2213] font-bold text-base hover:text-[#4F6930] transition-colors"
                       >
                         {r.fullName}
                       </Link>
-                      {r.cpf && <div className="text-xs text-gray-400">{r.cpf}</div>}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{r.positionName ?? "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {r.companyName ?? "—"}
-                      {r.branchName && (
-                        <span className="text-gray-400"> · {r.branchName}</span>
+                      {r.stageName && (
+                        <span
+                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-md whitespace-nowrap"
+                          style={{ background: badgeBg, color: stripeColor }}
+                        >
+                          {r.stageName.toUpperCase()}
+                        </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StageBadge name={r.stageName} color={r.stageColor} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{r.responsibleName ?? "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{r.startDate ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                    </div>
+                    {meta && (
+                      <div className="text-[#55614A] text-[12.5px] mt-1 truncate">{meta}</div>
+                    )}
+                  </div>
 
-      <p className="text-xs text-gray-400">
+                  {/* Right */}
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    {r.startDate && (
+                      <span
+                        className="text-[11.5px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
+                        style={{
+                          background: days !== null && days < 0 ? "#FBE6E1" : "#F0F3EC",
+                          color: countdownColor,
+                        }}
+                      >
+                        📅 Início {r.startDate}
+                        {days !== null && ` · ${countdownLabel(days)}`}
+                      </span>
+                    )}
+                    <Link
+                      href={`/admissoes/${r.id}`}
+                      className="bg-[#F0F5E8] text-[#3E5A2A] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#E4EED6] transition-colors opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                    >
+                      Ver checklist
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-xs text-[#8A9B7A]">
         {filtered.length} de {rows.length} admiss{rows.length === 1 ? "ão" : "ões"}
       </p>
     </div>

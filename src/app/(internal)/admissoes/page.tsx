@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Plus, Users, CheckCircle2, AlertTriangle, CalendarClock } from "lucide-react";
+import { Plus } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmissionConfig } from "@/lib/admissao/queries";
-import { DashboardCard } from "@/components/internal/DashboardCard";
 import { PageHeader } from "@/components/internal/PageHeader";
 import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
 import {
@@ -34,7 +33,6 @@ export default async function AdmissoesPage() {
       .is("deletedAt", null)
       .order("createdAt", { ascending: false })
       .limit(300),
-    // Métricas sobre TODAS as ativas (não só as 300 carregadas): computadas em JS.
     supabase.from("admissions").select("startDate, stage:admission_stages(isFinal)").is("deletedAt", null),
   ]);
 
@@ -62,15 +60,17 @@ export default async function AdmissoesPage() {
     (m) => m.startDate && new Date(m.startDate) < todayUTC && !m.stage?.isFinal
   ).length;
   const upcomingCount = metricRows.filter(
-    (m) => m.startDate && new Date(m.startDate) >= todayUTC && new Date(m.startDate) <= in7 && !m.stage?.isFinal
+    (m) =>
+      m.startDate &&
+      new Date(m.startDate) >= todayUTC &&
+      new Date(m.startDate) <= in7 &&
+      !m.stage?.isFinal
   ).length;
 
   const canWrite = session?.user.role === "ADMIN_RH";
   const userMap = new Map(config.users.map((u) => [u.id, u.name]));
   const inProgress = total - doneCount;
 
-  // Lista: apenas admissões em aberto (fora de etapas finais).
-  // Admissões concluídas aparecem no Kanban e no Histórico, não aqui.
   const openAdmissions = admissions.filter((a) => !a.stage?.isFinal);
 
   const rows: AdmissionRow[] = openAdmissions.map((a) => ({
@@ -92,6 +92,13 @@ export default async function AdmissoesPage() {
     createdAt: new Date(a.createdAt).toISOString(),
   }));
 
+  const kpiCards = [
+    { emoji: "👤", iconBg: "#E9EDFA", value: inProgress, label: "Em andamento" },
+    { emoji: "✓",  iconBg: "#EAF4DC", value: doneCount,   label: "Concluídas" },
+    { emoji: "⚠",  iconBg: "#FBE6E1", value: lateCount,   label: "Atrasadas · início já passou" },
+    { emoji: "📅", iconBg: "#FCF1DD", value: upcomingCount, label: "Próximos 7 dias" },
+  ];
+
   return (
     <div>
       <PageHeader
@@ -106,27 +113,22 @@ export default async function AdmissoesPage() {
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <DashboardCard label="Em andamento" value={inProgress} icon={Users} />
-        <DashboardCard
-          label="Concluídas"
-          value={doneCount}
-          icon={CheckCircle2}
-          iconClass="bg-wg-green/15 text-wg-green-dark"
-        />
-        <DashboardCard
-          label="Atrasadas"
-          value={lateCount}
-          icon={AlertTriangle}
-          iconClass="bg-red-100 text-red-600"
-          hint="Início já passou"
-        />
-        <DashboardCard
-          label="Próximas 7 dias"
-          value={upcomingCount}
-          icon={CalendarClock}
-          iconClass="bg-amber-100 text-amber-600"
-        />
+      <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {kpiCards.map((k) => (
+          <div
+            key={k.label}
+            className="bg-white border border-[#E7EEDD] rounded-2xl p-4 hover:shadow-[0_6px_16px_rgba(0,0,0,.06)] hover:-translate-y-0.5 transition-all cursor-default"
+          >
+            <div
+              className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[15px] mb-2.5"
+              style={{ background: k.iconBg }}
+            >
+              {k.emoji}
+            </div>
+            <div className="text-[#1A2213] text-2xl font-extrabold">{k.value}</div>
+            <div className="text-[#55614A] text-[12.5px] mt-0.5">{k.label}</div>
+          </div>
+        ))}
       </div>
 
       <AdmissionsExplorer

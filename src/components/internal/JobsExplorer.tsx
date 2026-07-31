@@ -1,45 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import {
-  ExternalLink,
-  Users,
-  List,
-  LayoutGrid,
-  ChevronDown,
-  Briefcase,
-  SearchX,
-  Plus,
-} from "lucide-react";
+import { Users, Briefcase, SearchX, Plus, Search } from "lucide-react";
 import {
   JOB_STATUS_LABELS,
-  MODALITY_LABELS,
   JOB_PRIORITY_ORDER,
-  STALE_JOB_DAYS,
-  ACTIVE_STATUS_FILTER,
-  formatDate,
   formatAge,
-  daysSince,
-  isPublicJobStatus,
-  isActiveJobStatus,
   isTerminalJobStatus,
   normalizeText,
 } from "@/lib/utils";
 import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
-import { JobDetailsPanel } from "@/components/internal/JobDetailsPanel";
-import { PriorityBadge } from "@/components/internal/PriorityBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { SearchBar } from "@/components/internal/SearchBar";
-import { FilterBar } from "@/components/internal/FilterBar";
-import { SortDropdown } from "@/components/internal/SortDropdown";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { EMPTY_JOB_FILTERS, type JobRow, type JobFilters } from "@/types/jobs";
+import { type JobRow } from "@/types/jobs";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-// O Kanban carrega o @dnd-kit; só é baixado quando o usuário troca para essa
-// visão (a Lista é a padrão), aliviando o bundle inicial da tela de Vagas.
 const JobKanbanBoard = dynamic(
   () =>
     import("@/components/internal/JobKanbanBoard").then((m) => m.JobKanbanBoard),
@@ -56,6 +33,7 @@ const JobKanbanBoard = dynamic(
 );
 
 type View = "list" | "kanban";
+type QuickFilter = null | "minhas" | "urgentes" | "comCandidatos";
 
 interface Props {
   jobs: JobRow[];
@@ -63,6 +41,7 @@ interface Props {
   initialView?: View;
   initialStatus?: string;
   initialSort?: string;
+  currentUserName?: string | null;
 }
 
 const SORT_OPTIONS = [
@@ -77,18 +56,40 @@ const SORT_OPTIONS = [
   { value: "title_asc", label: "Título (A-Z)" },
 ];
 
-const STATUS_BADGE: Record<string, string> = {
-  DRAFT: "bg-blue-100 text-blue-700",
-  ACTIVE: "bg-wg-green/15 text-wg-green-dark",
-  SCREENING: "bg-amber-100 text-amber-700",
-  INTERVIEW: "bg-purple-100 text-purple-700",
-  ADMISSION: "bg-cyan-100 text-cyan-700",
-  PAUSED: "bg-orange-100 text-orange-700",
-  CLOSED: "bg-gray-200 text-gray-600",
-  FILLED: "bg-emerald-100 text-emerald-700",
+const STATUS_FILTER_OPTIONS = [
+  { value: "DRAFT", label: "Rascunho" },
+  { value: "ACTIVE", label: "Ativa" },
+  { value: "SCREENING", label: "Triagem" },
+  { value: "INTERVIEW", label: "Entrevistas" },
+  { value: "ADMISSION", label: "Admissão" },
+  { value: "PAUSED", label: "Pausada" },
+  { value: "CLOSED", label: "Cancelada" },
+  { value: "FILLED", label: "Finalizada" },
+];
+
+const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  DRAFT:     { bg: "#E9EDFA", color: "#3C56A8" },
+  ACTIVE:    { bg: "#EAF4DC", color: "#4F6930" },
+  SCREENING: { bg: "#FCF1DD", color: "#A0721E" },
+  INTERVIEW: { bg: "#EAF4DC", color: "#4F6930" },
+  ADMISSION: { bg: "#FCF1DD", color: "#A0721E" },
+  PAUSED:    { bg: "#FCF1DD", color: "#A0721E" },
+  CLOSED:    { bg: "#EFEFEF", color: "#6B7860" },
+  FILLED:    { bg: "#EAF4DC", color: "#4F6930" },
 };
 
-// Desempate estável: dentro do mesmo critério, mais recentes primeiro.
+const PRIORITY_STRIPE: Record<string, string> = {
+  URGENT: "#D1503C",
+  HIGH:   "#D9873C",
+  MEDIUM: "#B9C2AA",
+  LOW:    "#B9C2AA",
+};
+
+const PRIORITY_BADGE_INFO: Record<string, { label: string; color: string } | undefined> = {
+  HIGH:   { label: "ALTA PRIORIDADE", color: "#D9873C" },
+  URGENT: { label: "URGENTE", color: "#D1503C" },
+};
+
 function byNewest(a: JobRow, b: JobRow): number {
   return b.createdAt.localeCompare(a.createdAt);
 }
@@ -101,18 +102,14 @@ function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
     case "updated_desc":
       return copy.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     case "candidates_desc":
-      return copy.sort(
-        (a, b) => b.candidateCount - a.candidateCount || byNewest(a, b)
-      );
+      return copy.sort((a, b) => b.candidateCount - a.candidateCount || byNewest(a, b));
     case "candidates_asc":
-      return copy.sort(
-        (a, b) => a.candidateCount - b.candidateCount || byNewest(a, b)
-      );
+      return copy.sort((a, b) => a.candidateCount - b.candidateCount || byNewest(a, b));
     case "priority_desc":
       return copy.sort(
         (a, b) =>
-          (JOB_PRIORITY_ORDER[b.priority] ?? 0) -
-            (JOB_PRIORITY_ORDER[a.priority] ?? 0) || byNewest(a, b)
+          (JOB_PRIORITY_ORDER[b.priority] ?? 0) - (JOB_PRIORITY_ORDER[a.priority] ?? 0) ||
+          byNewest(a, b)
       );
     case "city_asc":
       return copy.sort((a, b) => (a.city ?? "").localeCompare(b.city ?? "", "pt-BR"));
@@ -120,16 +117,42 @@ function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
       return copy.sort((a, b) => (a.state ?? "").localeCompare(b.state ?? "", "pt-BR"));
     case "title_asc":
       return copy.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
-    case "date_desc":
     default:
       return copy.sort(byNewest);
   }
 }
 
-/** Valores únicos, não vazios e ordenados de um campo textual das vagas. */
 function uniqueSorted(values: (string | null)[]): string[] {
-  return Array.from(new Set(values.filter((v): v is string => Boolean(v)))).sort(
-    (a, b) => a.localeCompare(b, "pt-BR")
+  return Array.from(new Set(values.filter((v): v is string => Boolean(v)))).sort((a, b) =>
+    a.localeCompare(b, "pt-BR")
+  );
+}
+
+function FilterCheckbox({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      className="px-2.5 py-2 rounded-lg text-wg-ink text-[13px] cursor-pointer flex items-center gap-2.5 hover:bg-[#F0F5E8]"
+      onClick={onClick}
+    >
+      <span
+        className="w-4 h-4 rounded flex items-center justify-center text-white text-[11px] shrink-0"
+        style={{
+          border: `1.5px solid ${active ? "#90CB46" : "#DCE8CC"}`,
+          background: active ? "#90CB46" : "#fff",
+        }}
+      >
+        {active ? "✓" : ""}
+      </span>
+      {label}
+    </div>
   );
 }
 
@@ -139,36 +162,55 @@ export function JobsExplorer({
   initialView = "list",
   initialStatus = "",
   initialSort = "date_desc",
+  currentUserName,
 }: Props) {
   const [view, setView] = useState<View>(initialView);
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<JobFilters>({
-    ...EMPTY_JOB_FILTERS,
-    status: initialStatus,
-  });
+  const [selectedFilters, setSelectedFilters] = useState<string[]>(
+    initialStatus && STATUS_FILTER_OPTIONS.some((o) => o.value === initialStatus)
+      ? [initialStatus]
+      : []
+  );
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
   const [sort, setSort] = useState(
     SORT_OPTIONS.some((o) => o.value === initialSort) ? initialSort : "date_desc"
   );
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+
+  const filterRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
 
   const query = useDebouncedValue(search, 300);
 
-  // Opções dos filtros derivadas do conjunto de vagas (fonte única de verdade)
+  useEffect(() => {
+    function onOutsideClick(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node))
+        setFilterMenuOpen(false);
+      if (sortRef.current && !sortRef.current.contains(e.target as Node))
+        setSortMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onOutsideClick);
+    return () => document.removeEventListener("mousedown", onOutsideClick);
+  }, []);
+
+  const toggleFilter = (key: string) =>
+    setSelectedFilters((f) =>
+      f.includes(key) ? f.filter((k) => k !== key) : [...f, key]
+    );
+
   const options = useMemo(
     () => ({
       cities: uniqueSorted(jobs.map((j) => j.city)),
       departments: uniqueSorted(jobs.map((j) => j.department)),
-      managers: uniqueSorted(jobs.map((j) => j.responsible)),
     }),
     [jobs]
   );
 
   const filtered = useMemo(() => {
     const q = normalizeText(query);
-
     let result = jobs;
 
-    // Pesquisa por título, cidade ou departamento
     if (q) {
       result = result.filter((job) => {
         const haystack = normalizeText(
@@ -178,97 +220,254 @@ export function JobsExplorer({
       });
     }
 
-    // Filtros combináveis (AND). Status só na lista — no Kanban as colunas SÃO os status.
+    // Status filter (list view only; kanban shows all statuses as columns)
     if (view === "list") {
-      if (filters.status === ACTIVE_STATUS_FILTER) {
-        // "Ativas": as 5 etapas em andamento (Rascunho → Admissão).
-        result = result.filter((j) => isActiveJobStatus(j.status));
-      } else if (filters.status) {
-        // Status específico escolhido (inclui Finalizada/Cancelada, se for o caso).
-        result = result.filter((j) => j.status === filters.status);
-      } else {
-        // Padrão: oculta vagas concluídas (Finalizada) e canceladas (Cancelada).
+      const statusFilters = selectedFilters.filter((k) =>
+        STATUS_FILTER_OPTIONS.some((o) => o.value === k)
+      );
+      if (statusFilters.length === 0) {
+        // Default: hide terminal jobs (CLOSED / FILLED)
         result = result.filter((j) => !isTerminalJobStatus(j.status));
+      } else {
+        result = result.filter((j) => statusFilters.includes(j.status));
       }
     }
-    if (filters.city) result = result.filter((j) => j.city === filters.city);
-    if (filters.department)
-      result = result.filter((j) => j.department === filters.department);
-    if (filters.modality)
-      result = result.filter((j) => j.modality === filters.modality);
-    if (filters.contractType)
-      result = result.filter((j) => j.contractType === filters.contractType);
-    if (filters.responsible)
-      result = result.filter((j) => j.responsible === filters.responsible);
-    if (filters.priority)
-      result = result.filter((j) => j.priority === filters.priority);
+
+    // Priority filter
+    const priorityFilters = selectedFilters.filter((k) => k.startsWith("PRIORITY:"));
+    if (priorityFilters.length > 0) {
+      result = result.filter((j) => priorityFilters.includes(`PRIORITY:${j.priority}`));
+    }
+
+    // City filter
+    const cityFilters = selectedFilters.filter((k) => k.startsWith("CITY:"));
+    if (cityFilters.length > 0) {
+      result = result.filter((j) => j.city && cityFilters.includes(`CITY:${j.city}`));
+    }
+
+    // Department filter
+    const deptFilters = selectedFilters.filter((k) => k.startsWith("DEPT:"));
+    if (deptFilters.length > 0) {
+      result = result.filter(
+        (j) => j.department && deptFilters.includes(`DEPT:${j.department}`)
+      );
+    }
+
+    // Quick filter
+    if (quickFilter === "minhas" && currentUserName) {
+      result = result.filter((j) => j.responsible === currentUserName);
+    } else if (quickFilter === "urgentes") {
+      result = result.filter((j) => j.priority === "HIGH" || j.priority === "URGENT");
+    } else if (quickFilter === "comCandidatos") {
+      result = result.filter((j) => j.candidateCount > 0);
+    }
 
     return sortJobs(result, sort);
-  }, [jobs, query, filters, sort, view]);
+  }, [jobs, query, selectedFilters, quickFilter, sort, view, currentUserName]);
+
+  const activeFilterCount = selectedFilters.length;
+  const currentSortLabel =
+    SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "Mais recentes";
 
   return (
     <div className={view === "kanban" ? "" : "max-w-4xl"}>
-      {/* Toolbar fixa: gruda logo abaixo do header (h-14) ao rolar, para não
-          perder pesquisa/ordenação/filtros em listas longas. */}
-      <div className="sticky top-14 z-30 mb-3 border-b border-gray-200 bg-gray-50 pt-1 pb-2">
-      {/* Toolbar — linha 1: pesquisa, ordenação, visão */}
-      <div className="mb-2 flex flex-wrap items-center gap-3">
-        <SearchBar
-          value={search}
-          onChange={setSearch}
-          placeholder="Pesquisar por vaga, cidade ou departamento..."
-          className="min-w-[240px] flex-1"
-        />
+      {/* Toolbar */}
+      <div className="sticky top-14 z-30 mb-3 border-b border-wg-border-lighter bg-wg-bg pt-2 pb-3">
+        {/* Row 1: search + filters + sort + toggle */}
+        <div className="flex gap-3 items-center flex-wrap">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-wg-ink-muted pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar por vaga, cidade ou departamento…"
+              className="w-full bg-white border border-[#E7EEDD] rounded-[10px] pl-9 pr-3.5 py-2.5 text-wg-ink text-sm outline-none focus:border-wg-green transition-colors placeholder:text-wg-ink-muted"
+            />
+          </div>
 
-        <SortDropdown value={sort} onChange={setSort} options={SORT_OPTIONS} />
+          {/* Filtros dropdown */}
+          <div className="relative" ref={filterRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterMenuOpen((v) => !v);
+                setSortMenuOpen(false);
+              }}
+              className="bg-white border border-[#E7EEDD] rounded-[10px] px-4 py-2.5 text-wg-ink-secondary text-sm font-medium whitespace-nowrap select-none hover:bg-wg-bg transition-colors"
+            >
+              {activeFilterCount > 0 ? `Filtros (${activeFilterCount})` : "Filtros"} ▾
+            </button>
+            {filterMenuOpen && (
+              <div className="absolute top-[calc(100%+6px)] left-0 bg-white border border-[#E7EEDD] rounded-[10px] shadow-[0_10px_28px_rgba(0,0,0,.1)] p-2 min-w-[220px] max-h-[420px] overflow-y-auto z-20">
+                <div className="text-[#6B7860] text-[11px] tracking-[.06em] uppercase px-2.5 pt-1.5 pb-1">
+                  Etapa
+                </div>
+                {STATUS_FILTER_OPTIONS.map((opt) => (
+                  <FilterCheckbox
+                    key={opt.value}
+                    label={opt.label}
+                    active={selectedFilters.includes(opt.value)}
+                    onClick={() => toggleFilter(opt.value)}
+                  />
+                ))}
 
-        <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
-          <button
-            type="button"
-            onClick={() => setView("list")}
-            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              view === "list"
-                ? "bg-wg-green/15 text-wg-green-dark"
-                : "text-gray-500 hover:text-gray-900"
-            }`}
-            title="Ver em lista"
-          >
-            <List className="h-3.5 w-3.5" />
-            Lista
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("kanban")}
-            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              view === "kanban"
-                ? "bg-wg-green/15 text-wg-green-dark"
-                : "text-gray-500 hover:text-gray-900"
-            }`}
-            title="Ver em Kanban por status"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            Kanban
-          </button>
+                <div className="text-[#6B7860] text-[11px] tracking-[.06em] uppercase px-2.5 pt-2.5 pb-1">
+                  Prioridade
+                </div>
+                <FilterCheckbox
+                  label="Alta prioridade"
+                  active={selectedFilters.includes("PRIORITY:HIGH")}
+                  onClick={() => toggleFilter("PRIORITY:HIGH")}
+                />
+                <FilterCheckbox
+                  label="Urgente"
+                  active={selectedFilters.includes("PRIORITY:URGENT")}
+                  onClick={() => toggleFilter("PRIORITY:URGENT")}
+                />
+
+                {options.cities.length > 0 && (
+                  <>
+                    <div className="text-[#6B7860] text-[11px] tracking-[.06em] uppercase px-2.5 pt-2.5 pb-1">
+                      Cidade
+                    </div>
+                    {options.cities.map((city) => (
+                      <FilterCheckbox
+                        key={city}
+                        label={city}
+                        active={selectedFilters.includes(`CITY:${city}`)}
+                        onClick={() => toggleFilter(`CITY:${city}`)}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {options.departments.length > 0 && (
+                  <>
+                    <div className="text-[#6B7860] text-[11px] tracking-[.06em] uppercase px-2.5 pt-2.5 pb-1">
+                      Área
+                    </div>
+                    {options.departments.map((dept) => (
+                      <FilterCheckbox
+                        key={dept}
+                        label={dept}
+                        active={selectedFilters.includes(`DEPT:${dept}`)}
+                        onClick={() => toggleFilter(`DEPT:${dept}`)}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {activeFilterCount > 0 && (
+                  <div className="border-t border-[#EEF2E9] mt-1.5 pt-1.5">
+                    <div
+                      className="px-2.5 py-2 rounded-lg text-[#C4552E] text-[13px] cursor-pointer hover:bg-[#FDF1EE]"
+                      onClick={() => setSelectedFilters([])}
+                    >
+                      Limpar filtros
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Ordenar dropdown */}
+          <div className="relative" ref={sortRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setSortMenuOpen((v) => !v);
+                setFilterMenuOpen(false);
+              }}
+              className="bg-white border border-[#E7EEDD] rounded-[10px] px-4 py-2.5 text-wg-ink-secondary text-sm font-medium whitespace-nowrap select-none hover:bg-wg-bg transition-colors"
+            >
+              Ordenar: {currentSortLabel} ▾
+            </button>
+            {sortMenuOpen && (
+              <div className="absolute top-[calc(100%+6px)] left-0 bg-white border border-[#E7EEDD] rounded-[10px] shadow-[0_10px_28px_rgba(0,0,0,.1)] p-1.5 min-w-[190px] z-20">
+                {SORT_OPTIONS.map((opt) => (
+                  <div
+                    key={opt.value}
+                    className={`px-3 py-2 rounded-lg text-[13px] cursor-pointer hover:bg-[#F0F5E8] ${
+                      sort === opt.value
+                        ? "text-wg-ink font-semibold"
+                        : "text-[#2E3A26]"
+                    }`}
+                    onClick={() => {
+                      setSort(opt.value);
+                      setSortMenuOpen(false);
+                    }}
+                  >
+                    {opt.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Lista / Kanban toggle */}
+          <div className="bg-[#EEF4E3] rounded-[10px] p-1 flex gap-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setView("list")}
+              className={`px-3.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
+                view === "list"
+                  ? "bg-wg-green text-[#0C0D0C]"
+                  : "text-wg-ink-secondary hover:text-wg-ink"
+              }`}
+            >
+              Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("kanban")}
+              className={`px-3.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
+                view === "kanban"
+                  ? "bg-wg-green text-[#0C0D0C]"
+                  : "text-wg-ink-secondary hover:text-wg-ink"
+              }`}
+            >
+              Kanban
+            </button>
+          </div>
         </div>
 
-        <span className="text-xs text-gray-500">
-          {filtered.length} {filtered.length === 1 ? "vaga" : "vagas"}
-        </span>
+        {/* Row 2: quick-filter chips */}
+        <div className="flex gap-2 items-center mt-2.5 flex-wrap">
+          {(
+            [
+              { key: null, label: "Todas" },
+              { key: "minhas", label: "Minhas Vagas" },
+              { key: "urgentes", label: "Urgentes" },
+              { key: "comCandidatos", label: "Com Candidatos" },
+            ] as const
+          ).map((c) => {
+            const active = quickFilter === c.key;
+            return (
+              <button
+                key={c.label}
+                type="button"
+                onClick={() => setQuickFilter(c.key)}
+                className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-all"
+                style={{
+                  background: active ? "#90CB46" : "#fff",
+                  color: active ? "#0C0D0C" : "#3E4A34",
+                  border: `1px solid ${active ? "#90CB46" : "#E7EEDD"}`,
+                }}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+          <span className="text-[#6B7860] text-[12.5px] ml-auto">
+            {filtered.length} de {jobs.length} vagas
+          </span>
+        </div>
       </div>
 
-      {/* Toolbar — linha 2: filtros combináveis */}
-      <div>
-        <FilterBar
-          filters={filters}
-          onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
-          onClear={() => setFilters(EMPTY_JOB_FILTERS)}
-          options={options}
-          showStatus={view === "list"}
-        />
-      </div>
-      </div>
-
-      {/* Conteúdo */}
+      {/* Content */}
       {view === "kanban" ? (
         <JobKanbanBoard
           jobs={filtered.map((j) => ({
@@ -313,9 +512,10 @@ export function JobsExplorer({
                 type="button"
                 onClick={() => {
                   setSearch("");
-                  setFilters(EMPTY_JOB_FILTERS);
+                  setSelectedFilters([]);
+                  setQuickFilter(null);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-wg-green hover:text-wg-green-dark"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#E7EEDD] px-3 py-2 text-sm font-medium text-wg-ink-secondary transition-colors hover:border-wg-green hover:text-wg-green-dark"
               >
                 Limpar pesquisa e filtros
               </button>
@@ -324,104 +524,87 @@ export function JobsExplorer({
         )
       ) : (
         <div className="flex flex-col gap-3">
-          {filtered.map((job) => (
-            <div
-              key={job.id}
-              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-wg-green/50"
-            >
-              <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <h2 className="font-semibold text-gray-900">{job.title}</h2>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[job.status]}`}
-                  >
-                    {JOB_STATUS_LABELS[job.status]}
-                  </span>
-                  <PriorityBadge priority={job.priority} />
-                </div>
-                <div className="flex flex-wrap gap-3 text-sm text-gray-500">
-                  <span>
-                    {job.isTalentPool
-                      ? "Banco de Talentos"
-                      : job.city
-                      ? `${job.city} / ${job.state}`
-                      : "Múltiplas cidades"}
-                  </span>
-                  <span>·</span>
-                  <span>{MODALITY_LABELS[job.modality]}</span>
-                  {job.department && (
-                    <>
-                      <span>·</span>
-                      <span>{job.department}</span>
-                    </>
-                  )}
-                  <span>·</span>
-                  <span title={`Criada em ${formatDate(job.createdAt)}`}>
-                    Criada {formatAge(job.createdAt)}
-                  </span>
-                  {isPublicJobStatus(job.status) &&
-                    daysSince(job.createdAt) >= STALE_JOB_DAYS && (
-                      <span className="font-medium text-amber-700">
-                        · parada há {daysSince(job.createdAt)} dias
+          {filtered.map((job) => {
+            const stripeColor = PRIORITY_STRIPE[job.priority] ?? "#B9C2AA";
+            const statusStyle = STATUS_STYLE[job.status] ?? { bg: "#EFEFEF", color: "#6B7860" };
+            const priorityInfo = PRIORITY_BADGE_INFO[job.priority];
+            const location = job.isTalentPool
+              ? "Todas as praças"
+              : [job.city, job.state].filter(Boolean).join("/") || "—";
+            const meta = [location, job.department, `Criada ${formatAge(job.createdAt)}`]
+              .filter(Boolean)
+              .join(" · ");
+
+            return (
+              <div
+                key={job.id}
+                className="group bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,.05)] flex overflow-hidden hover:shadow-[0_8px_22px_rgba(0,0,0,.08)] transition-shadow"
+              >
+                {/* Priority stripe */}
+                <div className="w-[5px] shrink-0" style={{ background: stripeColor }} />
+
+                <div className="flex-1 px-5 py-4 flex justify-between items-center gap-4 min-w-0">
+                  {/* Left: job info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="text-wg-ink text-base font-bold">{job.title}</span>
+                      <span
+                        className="text-[11px] font-bold px-2.5 py-0.5 rounded-md shrink-0"
+                        style={{ background: statusStyle.bg, color: statusStyle.color }}
+                      >
+                        {JOB_STATUS_LABELS[job.status] ?? job.status}
                       </span>
-                    )}
-                </div>
-                {job.responsible && (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                    <span className="text-xs text-gray-500">👤 {job.responsible}</span>
+                      {priorityInfo && (
+                        <span
+                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-md flex items-center gap-1 shrink-0"
+                          style={{
+                            border: `1.5px solid ${priorityInfo.color}`,
+                            color: priorityInfo.color,
+                          }}
+                        >
+                          ⚠ {priorityInfo.label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-wg-ink-muted text-[13px] mt-1.5">{meta}</div>
                   </div>
-                )}
-              </div>
 
-              <div className="flex flex-shrink-0 items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpandedId((cur) => (cur === job.id ? null : job.id))
-                  }
-                  aria-expanded={expandedId === job.id}
-                  title={expandedId === job.id ? "Recolher detalhes" : "Ver detalhes"}
-                  className="rounded-lg border border-gray-300 p-1.5 text-gray-500 transition-colors hover:border-wg-green hover:text-wg-green-dark"
-                >
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${
-                      expandedId === job.id ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                <Link
-                  href={`/vagas/${job.id}/candidatos`}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:border-wg-green hover:text-wg-green-dark"
-                  title="Ver candidatos"
-                >
-                  <Users className="h-4 w-4" />
-                  <span>{job.candidateCount}</span>
-                </Link>
-                {isPublicJobStatus(job.status) && (
-                  <Link
-                    href={`/vagas/${job.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-500 transition-colors hover:text-wg-green-dark"
-                    title="Ver vaga pública"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Link>
-                )}
-                {canManage && (
-                  <JobActionsMenu
-                    jobId={job.id}
-                    jobTitle={job.title}
-                    status={job.status}
-                  />
-                )}
-              </div>
-              </div>
+                  {/* Right: hover actions + candidate count + menu */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    {/* Hover-reveal action */}
+                    <div className="flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
+                      <Link
+                        href={`/vagas/${job.id}/candidatos`}
+                        className="bg-[#F0F5E8] text-[#3E5A2A] px-3 py-2 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#E4EED6] transition-colors"
+                      >
+                        Ver candidatos
+                      </Link>
+                    </div>
 
-              {expandedId === job.id && <JobDetailsPanel jobId={job.id} />}
-            </div>
-          ))}
+                    {/* Candidate count */}
+                    <div className="text-right shrink-0 min-w-[56px]">
+                      <div className="text-wg-ink text-lg font-extrabold flex items-center gap-1 justify-end">
+                        <Users className="w-4 h-4 text-wg-ink-muted" />
+                        {job.candidateCount}
+                      </div>
+                      <div className="text-[#6B7860] text-[11px]">
+                        {job.candidateCount === 1 ? "candidato" : "candidatos"}
+                      </div>
+                    </div>
+
+                    {/* Actions menu (⋯) */}
+                    {canManage && (
+                      <JobActionsMenu
+                        jobId={job.id}
+                        jobTitle={job.title}
+                        status={job.status}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

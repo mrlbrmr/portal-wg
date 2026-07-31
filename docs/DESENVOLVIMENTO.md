@@ -7,6 +7,55 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-07-31 — Design Sync completo (4 telas do painel RH)
+
+Sincronização visual das 4 telas principais do painel interno com o handoff do **Claude Design
+(WG Baterias UI)**. Referências em `.tsx` exportadas do Vercel Design (não commitadas). Abordagem:
+substituir apenas a camada visual — toda a busca de dados Supabase, Server Actions e lógica de
+filtro foram preservadas.
+
+**Tokens globais (tailwind.config.ts):**  
+`wg-bg`, `wg-sidebar`, `wg-border-light`, `wg-border-lighter`, `wg-ink`, `wg-ink-muted`,
+`wg-ink-secondary`, `wg-hover-light` — todos com valores da paleta WG aprovada.
+
+**Fase 1 — Dashboard (`dashboard/page.tsx`):**  
+KPIs em cards emoji-icon (w-8 h-8 rounded-[9px], `text-2xl font-extrabold`), sparkline SVG inline
+(polyline verde `#90CB46`), remoção de `DashboardCard`. Sidebar e shell ajustados para tokens WG.
+
+**Fase 2 — Vagas (`vagas/gerenciar/page.tsx` + `JobsExplorer.tsx`):**  
+- 6 KPI cards + 1 sparkline ("Publicadas este mês").
+- `JobsExplorer` reescrito: toolbar com search + "Filtros ▾" dropdown com checkboxes (OR intragrupo,
+  AND intergrupos) + "Ordenar ▾" dropdown + toggle Lista/Kanban `bg-[#EEF4E3]`.
+- Quick-chips: Todas · Minhas Vagas · Urgentes · Com Candidatos.
+- Cards: `rounded-2xl shadow-[0_1px_3px…]`, stripe 5px com `PRIORITY_STRIPE` por prioridade, badge
+  de status, contagem de candidatos com ícone `Users`, hover "Ver candidatos".
+- `selectedFilters: string[]` (flat, prefixed `STATUS:`, `PRIORITY:`, `CITY:`, `DEPT:`) substitui
+  o antigo objeto `JobFilters`.
+
+**Fase 3 — Admissões (`admissoes/page.tsx` + `AdmissionsExplorer.tsx`):**  
+- 4 KPI cards emoji-icon (👤 Em andamento, ✓ Concluídas, ⚠ Atrasadas, 📅 Próximos 7 dias).
+- `AdmissionsExplorer` reescrito: toolbar search + "Filtros ▾" (etapa/empresa) + "Ordenar ▾" +
+  toggle Lista/Kanban (Kanban = Link para `/admissoes/kanban`).
+- Quick-chips: Todas · Atrasadas · Próximos 7 dias (cada um filtra via `quickFilter` state).
+- Cards com stripe colorida por `stageColor`, badge de etapa (`stageColor + '1f'` bg), meta
+  (cargo · empresa/filial · responsável), badge 📅 Início DD/MM/YYYY · Em Xd / Atrasado Xd com
+  cor dinâmica (verde → âmbar → vermelho), hover "Ver checklist".
+- `selectedFilters: string[]` com chaves `STAGE:id` e `CO:id`.
+
+**Fase 4 — Candidatos (`candidatos/page.tsx` + `KanbanBoard.tsx` + `KanbanBoardShell.tsx`):**  
+- Header: "← Voltar às vagas" em `text-[#55614A]`; título `text-[26px] font-extrabold
+  text-[#1A2213]`; badge candidaturas em `bg-[#EEF4E3] border-[#DCE8CC]`.
+- `KanbanBoardShell`: coluna sem `border-b`; dot `w-2 h-2`; label `font-bold text-[#1A2213]`;
+  contador → pill `bg-[#1A2213] text-white` (era `bg-gray-300 text-gray-700`).
+- `KanbanBoard` renderCard: nome `font-bold text-[#1A2213]`; badge canal `bg-[#E4F3DA]
+  text-[#2F5D1E]`; email/fone `text-[#55614A]`; "Currículo" `font-bold text-[#4F6930]`.
+
+**Notas:** nenhuma migração de banco. Type-check `tsc --noEmit` passou clean. Validado em browser
+(localhost:3000). Sem mudança de comportamento funcional — só visual.  
+**Commit:** `feat(ui): design sync completo — 4 telas do painel RH`.
+
+---
+
 ## Como trabalhar neste repo (resumo operacional)
 
 - **Deploy:** `git push origin master` dispara o deploy de produção na Vercel.

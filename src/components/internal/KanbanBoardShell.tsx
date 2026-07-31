@@ -202,19 +202,17 @@ export function KanbanBoardShell<T>({
             const cards = visibleItems.filter((it) => getColumn(it) === col.key);
             return (
               <KanbanColumn key={col.key} id={col.key}>
-                <div className={`border-b border-gray-300 ${col.kind === "TEST" ? "bg-purple-50/60" : ""}`}>
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/10 ${col.dotColor ? "" : col.dot ?? ""}`}
-                        style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
-                      />
-                      <span className="text-sm font-semibold text-gray-900 truncate">{col.label}</span>
-                      {col.kind === "TEST" && (
-                        <FlaskConical className="w-3.5 h-3.5 text-purple-500 shrink-0" aria-label="Etapa de teste" />
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-700 bg-gray-300 rounded-full px-2 py-0.5 shrink-0">
+                <div className={col.kind === "TEST" ? "bg-purple-50/60" : ""}>
+                  <div className="flex items-center gap-2 px-4 py-3 min-w-0">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10 ${col.dotColor ? "" : col.dot ?? ""}`}
+                      style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
+                    />
+                    <span className="text-[13.5px] font-bold text-[#1A2213] truncate min-w-0">{col.label}</span>
+                    {col.kind === "TEST" && (
+                      <FlaskConical className="w-3.5 h-3.5 text-purple-500 shrink-0" aria-label="Etapa de teste" />
+                    )}
+                    <span className="text-[11px] font-bold text-white bg-[#1A2213] rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shrink-0 ml-auto">
                       {cards.length}
                     </span>
                   </div>

@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   role: string;
+  name?: string | null;
   onNavClick?: () => void;
 }
 
@@ -33,7 +34,13 @@ interface NavLink {
   icon: ElementType;
 }
 
-export default function InternalSidebar({ role, onNavClick }: Props) {
+function initials(name: string | null | undefined) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+export default function InternalSidebar({ role, name, onNavClick }: Props) {
   const pathname = usePathname();
   const isAdmin = role === "ADMIN_RH";
 
@@ -42,8 +49,6 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
     { href: "/vagas/gerenciar", label: "Vagas", icon: Briefcase },
   ];
 
-  // Submenus de Admissões — espelham o app original (Admissões, Kanban,
-  // Calendário, Relatórios, Histórico, Configurações), adaptados ao portal.
   const admissaoSub: NavLink[] = [
     { href: "/admissoes", label: "Lista", icon: List },
     { href: "/admissoes/kanban", label: "Kanban", icon: Kanban },
@@ -51,15 +56,10 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
     { href: "/admissoes/relatorios", label: "Relatórios", icon: BarChart3 },
     { href: "/admissoes/historico", label: "Histórico", icon: History },
     ...(isAdmin
-      ? [
-          // { href: "/admissoes/digitais", label: "Digital (WhatsApp)", icon: MessageSquare }, // módulo desativado
-          { href: "/admissoes/configuracoes", label: "Configurações", icon: Settings },
-        ]
+      ? [{ href: "/admissoes/configuracoes", label: "Configurações", icon: Settings }]
       : []),
   ];
 
-  // Bloco de gestão de sistema (só ADMIN_RH). A ação "Nova Vaga" saiu da sidebar
-  // — vive exclusivamente no cabeçalho da tela de Vagas e no atalho do Dashboard.
   const systemLinks: NavLink[] = isAdmin
     ? [
         { href: "/usuarios", label: "Usuários", icon: Users },
@@ -76,33 +76,40 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
     { href: "/avaliacoes/banco", label: "Banco de Testes", icon: BookOpen },
   ];
 
-  function itemClass(active: boolean) {
+  function itemClass(active: boolean, sub = false) {
     return cn(
-      "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+      "flex items-center gap-2.5 py-2.5 rounded-[10px] text-sm transition-colors",
+      sub ? "px-3 text-[13px]" : "px-3",
       active
-        ? "bg-wg-green/15 text-wg-green-dark"
-        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+        ? "bg-white text-wg-ink font-bold shadow-[0_1px_3px_rgba(0,0,0,.06)] border-l-[3px] border-wg-green"
+        : "text-wg-ink-secondary font-medium hover:bg-wg-hover-light"
     );
   }
 
-  function renderLink(link: NavLink, exact = false) {
+  function renderLink(link: NavLink, exact = false, sub = false) {
     const active = exact
       ? pathname === link.href
       : pathname === link.href || pathname.startsWith(link.href + "/");
     return (
-      <Link key={link.href} href={link.href} onClick={onNavClick} className={itemClass(active)}>
-        <link.icon className="w-4 h-4" />
+      <Link key={link.href} href={link.href} onClick={onNavClick} className={itemClass(active, sub)}>
+        <link.icon className="w-4 h-4 shrink-0" />
         {link.label}
       </Link>
     );
   }
 
+  const roleLabel = role === "ADMIN_RH" ? "Admin RH" : "Visualizador";
+
   return (
-    <aside className="w-52 border-r border-gray-200 bg-white min-h-[calc(100vh-56px)] p-3 flex-shrink-0">
-      <nav className="flex flex-col gap-1">
+    <aside className="w-[232px] bg-wg-sidebar border-r border-wg-border-light min-h-[calc(100vh-56px)] px-4 py-5 flex-shrink-0 flex flex-col">
+      <nav className="flex flex-col gap-0.5 flex-1">
+        <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-1 pb-2">
+          Recrutamento
+        </p>
+
         {topLinks.map((l) => renderLink(l))}
 
-        {/* Avaliações: item-pai + submenus */}
+        {/* Avaliações */}
         <Link
           href="/avaliacoes/banco"
           onClick={onNavClick}
@@ -113,16 +120,16 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
           <span className="flex-1">Avaliações</span>
           {avaliacoesActive
             ? <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" />
-            : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+            : <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-40" />
           }
         </Link>
         {avaliacoesActive && (
-          <div className="ml-3 flex flex-col gap-1 border-l border-gray-200 pl-2">
-            {avaliacoesSub.map((l) => renderLink(l))}
+          <div className="ml-3 flex flex-col gap-0.5 border-l border-wg-border-light pl-2">
+            {avaliacoesSub.map((l) => renderLink(l, false, true))}
           </div>
         )}
 
-        {/* Admissões: item-pai + submenus (visíveis quando a seção está ativa) */}
+        {/* Admissões */}
         <Link
           href="/admissoes"
           onClick={onNavClick}
@@ -133,25 +140,33 @@ export default function InternalSidebar({ role, onNavClick }: Props) {
           <span className="flex-1">Admissões</span>
           {admissaoActive
             ? <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" />
-            : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+            : <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-40" />
           }
         </Link>
         {admissaoActive && (
-          <div className="ml-3 flex flex-col gap-1 border-l border-gray-200 pl-2">
-            {admissaoSub.map((l) => renderLink(l, l.href === "/admissoes"))}
+          <div className="ml-3 flex flex-col gap-0.5 border-l border-wg-border-light pl-2">
+            {admissaoSub.map((l) => renderLink(l, l.href === "/admissoes", true))}
           </div>
         )}
 
-        {/* Separador: isola navegação operacional do bloco de sistema/conta */}
-        <div className="my-2 border-t border-gray-200" />
-        {systemLinks.length > 0 && (
-          <p className="px-3 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            Sistema
-          </p>
-        )}
+        {/* Sistema */}
+        <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-4 pb-2">
+          Sistema
+        </p>
         {systemLinks.map((l) => renderLink(l))}
         {renderLink(perfilLink)}
       </nav>
+
+      {/* User info */}
+      <div className="mt-4 pt-4 border-t border-wg-border-light flex items-center gap-2.5 px-1">
+        <div className="w-[30px] h-[30px] rounded-full bg-wg-green-dark text-white flex items-center justify-center text-[12px] font-bold shrink-0">
+          {initials(name)}
+        </div>
+        <div className="min-w-0">
+          <div className="text-wg-ink text-[13px] font-semibold truncate">{name ?? "Usuário"}</div>
+          <div className="text-wg-ink-muted text-[11px]">{roleLabel}</div>
+        </div>
+      </div>
     </aside>
   );
 }

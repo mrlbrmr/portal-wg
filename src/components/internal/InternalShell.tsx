@@ -15,7 +15,7 @@ export default function InternalShell({ user, children }: Props) {
 
   return (
     <ToastProvider>
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-wg-bg">
       <InternalHeader
         user={user}
         onMenuClick={() => setSidebarOpen((o) => !o)}
@@ -41,6 +41,7 @@ export default function InternalShell({ user, children }: Props) {
         >
           <InternalSidebar
             role={user.role}
+            name={user.name}
             onNavClick={() => setSidebarOpen(false)}
           />
         </div>

@@ -1,20 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { auth } from "@/lib/auth";
-import {
-  Plus,
-  Briefcase,
-  Users,
-  UserPlus,
-  CalendarClock,
-  UserCheck,
-  Timer,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import { ExportCsvButton } from "@/components/internal/ExportCsvButton";
 import { JobsExplorer } from "@/components/internal/JobsExplorer";
-import { DashboardCard } from "@/components/internal/DashboardCard";
 import { PageHeader } from "@/components/internal/PageHeader";
 import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
-import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
 import type { JobRow } from "@/types/jobs";
 import type { Metadata } from "next";
 
@@ -28,27 +18,13 @@ export default async function GerenciarVagasPage({
   const [session, params] = await Promise.all([auth(), searchParams]);
   const canManage = session?.user.role === "ADMIN_RH";
 
-  // ── Métricas da faixa superior (dashboard) ──────────────────────────────
-  // Contadas direto no banco (não limitadas às 200 linhas carregadas).
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
 
-  // Uma única ida ao banco: a base de vagas (pesquisa/filtro/ordenação
-  // acontecem no cliente, no JobsExplorer), a contagem de candidaturas por
-  // vaga e as métricas do topo rodam todas em paralelo.
   const supabase = await createClient();
-  const startOfTodayIso = startOfToday.toISOString();
 
-  const [
-    jobsRes,
-    appRowsRes,
-    openJobsRes,
-    totalRes,
-    newTodayRes,
-    interviewRes,
-    hiredRes,
-    closedRes,
-  ] = await Promise.all([
+  const [jobsRes, appRowsRes] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -57,28 +33,6 @@ export default async function GerenciarVagasPage({
       .order("createdAt", { ascending: false })
       .limit(200),
     supabase.from("applications").select("jobId"),
-    supabase
-      .from("jobs")
-      .select("*", { count: "exact", head: true })
-      .in("status", PUBLIC_JOB_STATUS_LIST as readonly string[]),
-    supabase.from("applications").select("*", { count: "exact", head: true }),
-    supabase
-      .from("applications")
-      .select("*", { count: "exact", head: true })
-      .gte("createdAt", startOfTodayIso),
-    supabase
-      .from("applications")
-      .select("*", { count: "exact", head: true })
-      .eq("stageId", "INTERVIEW"),
-    supabase
-      .from("applications")
-      .select("*", { count: "exact", head: true })
-      .eq("stageId", "HIRED"),
-    supabase
-      .from("job_status_history")
-      .select("jobId, changedAt, job:jobs(createdAt, isTalentPool)")
-      .in("status", ["CLOSED", "FILLED"])
-      .order("changedAt", { ascending: true }),
   ]);
 
   const jobs = (jobsRes.data ?? []) as Array<{
@@ -97,45 +51,24 @@ export default async function GerenciarVagasPage({
     createdAt: string;
     updatedAt: string;
   }>;
-  const openJobs = openJobsRes.count ?? 0;
-  const totalCandidates = totalRes.count ?? 0;
-  const newToday = newTodayRes.count ?? 0;
-  const inInterview = interviewRes.count ?? 0;
-  const hired = hiredRes.count ?? 0;
 
-  // Contagem de candidaturas por vaga (groupBy manual — supabase-js não agrega).
   const countByJob = new Map<string, number>();
   for (const a of (appRowsRes.data ?? []) as Array<{ jobId: string }>) {
     countByJob.set(a.jobId, (countByJob.get(a.jobId) ?? 0) + 1);
   }
 
-  // Tempo médio p/ fechamento: dias entre a criação da vaga e o 1º encerramento
-  // (CLOSED ou FILLED), média sobre as vagas já encerradas/finalizadas. Deriva
-  // de JobStatusHistory.
-  const closedHistory = (closedRes.data ?? []) as unknown as Array<{
-    jobId: string;
-    changedAt: string;
-    job: { createdAt: string; isTalentPool: boolean } | null;
-  }>;
-  const firstClosePerJob = new Map<string, { changedAt: string; createdAt: string }>();
-  for (const h of closedHistory) {
-    if (!firstClosePerJob.has(h.jobId) && h.job && !h.job.isTalentPool) {
-      firstClosePerJob.set(h.jobId, {
-        changedAt: h.changedAt,
-        createdAt: h.job.createdAt,
-      });
-    }
-  }
-  const closeDurations = Array.from(firstClosePerJob.values()).map(
-    ({ changedAt, createdAt }) =>
-      (new Date(changedAt).getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const avgDaysToClose =
-    closeDurations.length > 0
-      ? Math.round(
-          closeDurations.reduce((a, b) => a + b, 0) / closeDurations.length
-        )
-      : null;
+  // KPI counts from the loaded jobs array
+  const activeCount = jobs.filter((j) =>
+    ["ACTIVE", "SCREENING", "INTERVIEW", "ADMISSION"].includes(j.status)
+  ).length;
+  const draftCount = jobs.filter((j) => j.status === "DRAFT").length;
+  const pausedCount = jobs.filter((j) => j.status === "PAUSED").length;
+  const closedCount = jobs.filter((j) => j.status === "CLOSED").length;
+  const filledCount = jobs.filter((j) => j.status === "FILLED").length;
+  const thisMonthCount = jobs.filter((j) => j.createdAt >= startOfMonth).length;
+  const lastMonthCount = jobs.filter(
+    (j) => j.createdAt >= startOfLastMonth && j.createdAt < startOfMonth
+  ).length;
 
   const rows = jobs.map((job) => ({
     id: job.id,
@@ -157,6 +90,14 @@ export default async function GerenciarVagasPage({
 
   const initialView = params.view === "kanban" ? "kanban" : "list";
 
+  const kpiCards = [
+    { emoji: "💼", iconBg: "#EAF4DC", value: activeCount, label: "Vagas Ativas" },
+    { emoji: "📄", iconBg: "#E9EDFA", value: draftCount, label: "Rascunhos" },
+    { emoji: "⏸", iconBg: "#FCF1DD", value: pausedCount, label: "Pausadas" },
+    { emoji: "⊗", iconBg: "#EFEFEF", value: closedCount, label: "Canceladas" },
+    { emoji: "✓", iconBg: "#EAF4DC", value: filledCount, label: "Finalizadas" },
+  ];
+
   return (
     <div>
       <PageHeader
@@ -173,53 +114,47 @@ export default async function GerenciarVagasPage({
         }
       />
 
-      {/* Faixa de indicadores (dashboard superior) */}
+      {/* KPI Grid */}
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <DashboardCard
-          label="Vagas abertas"
-          value={openJobs}
-          icon={Briefcase}
-          iconClass="bg-wg-green/15 text-wg-green-dark"
-          hint="visíveis no portal"
-          href="/vagas/gerenciar?view=kanban"
-        />
-        <DashboardCard
-          label="Candidatos"
-          value={totalCandidates}
-          icon={Users}
-          iconClass="bg-blue-100 text-blue-600"
-          hint="total recebido"
-        />
-        <DashboardCard
-          label="Novos hoje"
-          value={newToday}
-          icon={UserPlus}
-          iconClass="bg-cyan-100 text-cyan-600"
-          hint="candidaturas de hoje"
-        />
-        <DashboardCard
-          label="Em entrevista"
-          value={inInterview}
-          icon={CalendarClock}
-          iconClass="bg-purple-100 text-purple-600"
-          hint="candidatos nesta etapa"
-        />
-        <DashboardCard
-          label="Admissões"
-          value={hired}
-          icon={UserCheck}
-          iconClass="bg-emerald-100 text-emerald-600"
-          hint="candidatos contratados"
-        />
-        <DashboardCard
-          label="Tempo p/ fechar"
-          value={avgDaysToClose === null ? "—" : `${avgDaysToClose}d`}
-          icon={Timer}
-          iconClass="bg-amber-100 text-amber-600"
-          hint={
-            avgDaysToClose === null ? "sem histórico" : "média por vaga fechada"
-          }
-        />
+        {kpiCards.map((k) => (
+          <div
+            key={k.label}
+            className="bg-white border border-[#E7EEDD] rounded-2xl p-4 hover:shadow-[0_6px_16px_rgba(0,0,0,.06)] hover:-translate-y-0.5 transition-all cursor-default"
+          >
+            <div
+              className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[15px] mb-2.5"
+              style={{ background: k.iconBg }}
+            >
+              {k.emoji}
+            </div>
+            <div className="text-[#1A2213] text-2xl font-extrabold">{k.value}</div>
+            <div className="text-[#55614A] text-[12.5px] mt-0.5">{k.label}</div>
+          </div>
+        ))}
+
+        {/* Sparkline card */}
+        <div className="bg-white border border-[#E7EEDD] rounded-2xl p-4">
+          <div className="flex justify-between items-start">
+            <div className="text-[#1A2213] text-2xl font-extrabold">{thisMonthCount}</div>
+            <svg width="56" height="24" viewBox="0 0 56 24" className="shrink-0">
+              <polyline
+                points="0,18 10,15 20,17 30,10 40,8 56,2"
+                fill="none"
+                stroke="#90CB46"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div className="text-[#55614A] text-[12.5px] mt-0.5">Publicadas este mês</div>
+          {lastMonthCount > 0 && (
+            <div className="text-[#4F6930] text-[11px] font-bold mt-1">
+              {thisMonthCount >= lastMonthCount ? "+" : ""}
+              {thisMonthCount - lastMonthCount} vs mês anterior
+            </div>
+          )}
+        </div>
       </div>
 
       <JobsExplorer
@@ -228,6 +163,7 @@ export default async function GerenciarVagasPage({
         initialView={initialView}
         initialStatus={params.status ?? ""}
         initialSort={params.sort ?? "date_desc"}
+        currentUserName={(session?.user as { name?: string | null } | undefined)?.name ?? null}
       />
     </div>
   );

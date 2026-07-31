@@ -11,15 +11,26 @@ const config: Config = {
     extend: {
       colors: {
         wg: {
+          // Brand greens
           green:          "#90CB46",
           "green-bright": "#98DB55",
           "green-dark":   "#4F6930",
           "green-vivid":  "#7FD400",
+          // Dark (public-facing) theme
           dark:        "#0C0D0C",
           card:        "#151515",
           "card-2":    "#1C1D1D",
           border:      "#2A2A2A",
           gray:        "#B8B8B8",
+          // Light panel theme (internal RH panel)
+          bg:              "#F6F8F3",
+          sidebar:         "#EEF4E3",
+          "border-light":  "#DCE8CC",
+          "border-lighter":"#E7EEDD",
+          ink:             "#1A2213",
+          "ink-muted":     "#55614A",
+          "ink-secondary": "#3E4A34",
+          "hover-light":   "#E4EED6",
         },
       },
       borderRadius: {

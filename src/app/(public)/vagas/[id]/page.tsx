@@ -117,11 +117,6 @@ export default async function JobPage({ params }: Props) {
                 {job.title}
               </h1>
 
-              {/* Departamento */}
-              {job.department && (
-                <p className="text-[15px] text-gray-500 mb-4">{job.department}</p>
-              )}
-
               {/* Pills de localização / modalidade */}
               <div className="flex flex-wrap gap-2 mb-8">
                 <span className="inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3.5 py-1.5 text-sm text-gray-600 shadow-sm">

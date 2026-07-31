@@ -29,51 +29,40 @@ const inputClass =
 
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
-const REQUIRED_RICH_FIELDS: { key: "description" | "responsibilities" | "requiredRequirements"; label: string }[] = [
-  { key: "description", label: "Descrição da vaga" },
-  { key: "responsibilities", label: "Responsabilidades" },
-  { key: "requiredRequirements", label: "Requisitos Obrigatórios" },
-];
+// Ao editar vaga com campos legados (5 seções separadas), consolida tudo num
+// único bloco para o RH editar livremente sem perder conteúdo.
+function buildInitialDescription(job?: Job): string {
+  if (!job) return "";
+  const hasLegacy = job.responsibilities || job.requiredRequirements || job.desiredRequirements || job.benefits;
+  if (!hasLegacy) return job.description ?? "";
+  const parts: string[] = [];
+  if (job.description) parts.push(job.description);
+  if (job.responsibilities) parts.push(`<h2>Responsabilidades</h2>${job.responsibilities}`);
+  if (job.requiredRequirements) parts.push(`<h2>Requisitos Obrigatórios</h2>${job.requiredRequirements}`);
+  if (job.desiredRequirements) parts.push(`<h2>Requisitos Desejáveis</h2>${job.desiredRequirements}`);
+  if (job.benefits) parts.push(`<h2>Benefícios</h2>${job.benefits}`);
+  return parts.join("");
+}
 
 export default function JobForm({ job }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [richFields, setRichFields] = useState({
-    description: job?.description ?? "",
-    responsibilities: job?.responsibilities ?? "",
-    requiredRequirements: job?.requiredRequirements ?? "",
-    desiredRequirements: job?.desiredRequirements ?? "",
-    benefits: job?.benefits ?? "",
-  });
+  const [description, setDescription] = useState(() => buildInitialDescription(job));
 
   const [isTalentPool, setIsTalentPool] = useState(job?.isTalentPool ?? false);
   const [salaryRange, setSalaryRange] = useState(job?.salaryRange ?? "");
   const [highlightBenefit, setHighlightBenefit] = useState(
     job?.highlightBenefit ?? ""
   );
-  function setRich(key: keyof typeof richFields) {
-    return (html: string) => setRichFields((prev) => ({ ...prev, [key]: html }));
-  }
-
-  function validateRichFields(): string | null {
-    for (const { key, label } of REQUIRED_RICH_FIELDS) {
-      const text = richFields[key].replace(/<[^>]*>/g, "").trim();
-      if (text.length < 10) {
-        return `O campo "${label}" é obrigatório (mínimo 10 caracteres de texto).`;
-      }
-    }
-    return null;
-  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    const richError = validateRichFields();
-    if (richError) {
-      setError(richError);
+    if (description.replace(/<[^>]*>/g, "").trim().length < 10) {
+      setError('O campo "Conteúdo da vaga" é obrigatório (mínimo 10 caracteres).');
       return;
     }
 
@@ -91,11 +80,12 @@ export default function JobForm({ job }: Props) {
       state: isTalentPool ? null : formData.get("state"),
       modality: formData.get("modality"),
       contractType: formData.get("contractType"),
-      description: richFields.description,
-      responsibilities: richFields.responsibilities,
-      requiredRequirements: richFields.requiredRequirements,
-      desiredRequirements: richFields.desiredRequirements || undefined,
-      benefits: richFields.benefits || undefined,
+      description,
+      // Nulifica campos legados para que a página pública exiba apenas description.
+      responsibilities: null,
+      requiredRequirements: null,
+      desiredRequirements: null,
+      benefits: null,
       workSchedule: formData.get("workSchedule") || undefined,
       salaryRange: salaryRange || undefined,
       openings: formData.get("openings")
@@ -403,45 +393,15 @@ export default function JobForm({ job }: Props) {
         </div>
       </div>
 
-      {([
-        { label: "Descrição da vaga", key: "description", required: true },
-        { label: "Responsabilidades", key: "responsibilities", required: true },
-        { label: "Requisitos Obrigatórios", key: "requiredRequirements", required: true },
-        { label: "Requisitos Desejáveis", key: "desiredRequirements", required: false },
-        { label: "Benefícios", key: "benefits", required: false },
-      ] as const).map((f) => (
-        <div key={f.key}>
-          <label className={labelClass}>
-            {f.label}{" "}
-            {f.required && <span className="text-red-500">*</span>}
-          </label>
-          <RichTextEditor content={richFields[f.key]} onChange={setRich(f.key)} />
-          {f.required && (
-            <p className="text-xs text-gray-500 mt-1">Campo obrigatório — preencha com pelo menos uma frase.</p>
-          )}
-        </div>
-      ))}
-
-      {/* Progresso das seções obrigatórias */}
-      {(() => {
-        const filled = REQUIRED_RICH_FIELDS.filter(
-          ({ key }) => richFields[key].replace(/<[^>]*>/g, "").trim().length >= 10
-        ).length;
-        const total = REQUIRED_RICH_FIELDS.length;
-        return (
-          <div className="flex items-center gap-3 py-1">
-            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-wg-green transition-all duration-300 rounded-full"
-                style={{ width: `${(filled / total) * 100}%` }}
-              />
-            </div>
-            <span className="text-xs text-gray-500 shrink-0">
-              {filled}/{total} seções preenchidas
-            </span>
-          </div>
-        );
-      })()}
+      <div>
+        <label className={labelClass}>
+          Conteúdo da vaga <span className="text-red-500">*</span>
+        </label>
+        <RichTextEditor content={description} onChange={setDescription} />
+        <p className="text-xs text-gray-500 mt-1">
+          Escreva livremente — use os títulos do editor para organizar seções como Responsabilidades, Requisitos e Benefícios.
+        </p>
+      </div>
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import InternalHeader from "./InternalHeader";
 import InternalSidebar from "./InternalSidebar";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { PageTransition } from "./PageTransition";
 
 interface Props {
   user: { name?: string | null; email?: string | null; role: string };
@@ -46,7 +47,9 @@ export default function InternalShell({ user, children }: Props) {
           />
         </div>
 
-        <main className="flex-1 p-4 md:p-5 min-w-0">{children}</main>
+        <main className="flex-1 p-4 md:p-5 min-w-0">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
     </div>
     </ToastProvider>

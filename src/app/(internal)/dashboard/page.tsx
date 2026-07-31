@@ -157,7 +157,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-6 gap-3.5 page-stagger">
         {KPIS.map((k) => (
           <Link
             key={k.label}
@@ -196,7 +196,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Dois painéis: candidaturas + vagas atenção */}
-      <div className="grid gap-5 items-start" style={{ gridTemplateColumns: "1.3fr 1fr" }}>
+      <div className="grid gap-5 items-start page-stagger" style={{ gridTemplateColumns: "1.3fr 1fr" }}>
 
         {/* Candidaturas Recentes */}
         <div className="bg-white border border-wg-border-lighter rounded-2xl p-5 flex flex-col gap-3.5">

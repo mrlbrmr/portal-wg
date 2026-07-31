@@ -1,0 +1,30 @@
+{
+  "projectId": "827b421f-7faf-4fa2-8c5d-cb93af030fa4",
+  "shape": "package",
+  "pkg": "portal-vagas-wg-ui",
+  "globalName": "WGBateriasUI",
+  "srcDir": "src/components/ui",
+  "tsconfig": "./tsconfig.json",
+  "cssEntry": ".ds-sync/ds-tailwind.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "guidelinesGlob": [],
+  "componentSrcMap": {
+    "AnimateIn": "src/components/ui/AnimateIn.tsx",
+    "ConfirmModal": "src/components/ui/ConfirmModal.tsx",
+    "EmptyState": "src/components/ui/EmptyState.tsx",
+    "Skeleton": "src/components/ui/Skeleton.tsx",
+    "ToastProvider": "src/components/ui/ToastProvider.tsx"
+  },
+  "overrides": {
+    "ConfirmModal": { "cardMode": "single", "primaryStory": "Danger", "viewport": "460x380" },
+    "ToastProvider": { "cardMode": "single", "primaryStory": "Success", "viewport": "380x260" },
+    "EmptyState": { "cardMode": "column" }
+  },
+  "dtsPropsFor": {
+    "AnimateIn": "children: React.ReactNode; className?: string; delay?: number;",
+    "ConfirmModal": "isOpen: boolean; title: string; message: string; confirmLabel?: string; variant?: \"danger\" | \"warning\"; onConfirm: () => void; onCancel: () => void;",
+    "EmptyState": "icon?: React.ElementType; title: string; description?: string; action?: React.ReactNode; className?: string;",
+    "Skeleton": "className?: string;",
+    "ToastProvider": "children: React.ReactNode;"
+  }
+}

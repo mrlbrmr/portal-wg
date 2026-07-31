@@ -253,7 +253,8 @@ export function CandidateDrawer({
                         {done ? "✓" : i + 1}
                       </div>
                       <div
-                        className="text-[9px] font-bold text-center leading-tight px-0.5"
+                        title={s.name}
+                        className="text-[9px] font-bold text-center leading-tight w-full line-clamp-1"
                         style={{ color: current ? "#1A2213" : "#7B8869" }}
                       >
                         {s.name}

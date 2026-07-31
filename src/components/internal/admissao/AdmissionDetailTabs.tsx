@@ -44,7 +44,7 @@ export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount }
         </button>
       </div>
 
-      <div className="min-w-0">
+      <div key={tab} className="tab-content min-w-0">
         {tab === "checklist" ? checklist : attachments}
       </div>
     </div>

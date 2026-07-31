@@ -35,6 +35,15 @@
   }
 }
 
+/* Transição de conteúdo de aba */
+@keyframes tab-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tab-content {
+  animation: tab-fade-in 0.18s ease;
+}
+
 /* Respeita preferência por redução de movimento */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

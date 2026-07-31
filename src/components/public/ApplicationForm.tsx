@@ -54,7 +54,7 @@ async function getRecaptchaToken(): Promise<string | null> {
 }
 
 const inputClass =
-  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
+  "w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/30 focus:border-wg-green transition-colors";
 
 export function ApplicationForm({ jobId, jobTitle }: Props) {
   const [phone, setPhone] = useState("");
@@ -129,8 +129,8 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
     return (
       <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center shadow-sm">
         <CheckCircle2 className="w-12 h-12 text-wg-green mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-gray-900 mb-1">Inscrição enviada!</h3>
-        <p className="text-sm text-gray-600">
+        <h3 className="text-lg font-bold text-gray-900 mb-2 font-sora">Inscrição enviada!</h3>
+        <p className="text-sm text-gray-600 leading-relaxed">
           Recebemos sua candidatura para <strong>{jobTitle}</strong>. Seu currículo será
           avaliado pela nossa equipe de Gente &amp; Gestão e, caso esteja dentro do perfil
           da vaga, entraremos em contato. Agradecemos o seu interesse em fazer parte do
@@ -146,11 +146,13 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
       className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm"
       noValidate
     >
-      <h3 className="text-base font-semibold text-gray-900 mb-4">Inscreva-se nesta vaga</h3>
+      <h3 className="text-[17px] font-bold text-gray-900 mb-5 font-sora">
+        Inscreva-se nesta vaga
+      </h3>
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
-          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="fullName" className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
             Nome completo <span className="text-red-500">*</span>
           </label>
           <input
@@ -165,7 +167,7 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="email" className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
             E-mail <span className="text-red-500">*</span>
           </label>
           <input
@@ -182,7 +184,7 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
         </div>
 
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="phone" className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
             Celular <span className="text-red-500">*</span>
           </label>
           <input
@@ -200,7 +202,7 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
             Currículo <span className="text-red-500">*</span>
           </label>
           <input
@@ -214,16 +216,16 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
           />
           <label
             htmlFor="resume-input"
-            className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-300 hover:border-wg-green rounded-lg px-3 py-3 text-sm text-gray-600 transition-colors"
+            className="flex items-center gap-2.5 cursor-pointer border border-dashed border-gray-300 hover:border-wg-green rounded-lg px-4 py-3.5 text-[14px] text-gray-500 transition-colors"
           >
             {fileName ? (
               <>
                 <Paperclip className="w-4 h-4 text-wg-green shrink-0" />
-                <span className="truncate text-gray-900">{fileName}</span>
+                <span className="truncate text-gray-900 font-medium">{fileName}</span>
               </>
             ) : (
               <>
-                <Upload className="w-4 h-4 text-gray-400 shrink-0" />
+                <Upload className="w-4 h-4 shrink-0" />
                 <span>Anexar currículo (PDF, DOC ou DOCX — até {MAX_MB} MB)</span>
               </>
             )}
@@ -232,13 +234,13 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
 
         <input type="hidden" name="termsVersion" value="1.0" />
 
-        <label className="flex items-start gap-2 text-xs text-gray-600 leading-relaxed">
+        <label className="flex items-start gap-2.5 text-xs text-gray-600 leading-relaxed">
           <input
             type="checkbox"
             name="consent"
             value="true"
             required
-            className="mt-0.5 accent-wg-green"
+            className="mt-0.5 accent-wg-green shrink-0"
           />
           <span>
             Li e concordo com os{" "}
@@ -254,7 +256,7 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
         </label>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             {error}
           </div>
         )}
@@ -262,7 +264,7 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-wg-green hover:bg-wg-green-bright disabled:opacity-60 text-black font-semibold py-3 rounded-full transition-colors flex items-center justify-center gap-2"
+          className="w-full bg-wg-green hover:bg-wg-green-bright disabled:opacity-60 text-black font-bold py-3.5 rounded-full transition-colors flex items-center justify-center gap-2 text-[15px]"
         >
           {isLoading ? (
             <>

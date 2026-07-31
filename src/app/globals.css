@@ -8,8 +8,21 @@
   }
 
   body {
-    @apply text-gray-900 bg-gray-50;
+    @apply text-gray-900 bg-gray-50 font-inter;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Headings usam Sora por padrão */
+  h1, h2, h3, h4 {
+    @apply font-sora;
+  }
+
+  /* Dados numéricos alinhados (datas, contadores, KPIs, CPF, PIS) */
+  time, [data-numeric], .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
   }
 
   * {

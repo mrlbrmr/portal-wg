@@ -27,7 +27,7 @@ export function PrimaryActionLink({
     <Link
       href={href}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      className={`inline-flex items-center gap-2 rounded-lg bg-wg-green px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-wg-green-bright ${className}`}
+      className={`inline-flex items-center gap-2 rounded-lg bg-wg-green px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-wg-green-bright font-sora ${className}`}
     >
       {Icon && <Icon className="h-4 w-4" />}
       {children}

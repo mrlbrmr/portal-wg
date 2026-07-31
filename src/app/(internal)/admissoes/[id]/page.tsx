@@ -239,7 +239,7 @@ export default async function AdmissaoDetalhePage({
           {initials}
         </div>
         <div>
-          <h1 className="text-[24px] font-extrabold text-[#1A2213] tracking-tight">
+          <h1 className="text-[24px] font-extrabold text-[#1A2213] tracking-tight font-sora">
             {admission.fullName}
           </h1>
           <p className="text-[#3E4A34] text-sm mt-0.5">
@@ -272,7 +272,7 @@ export default async function AdmissaoDetalhePage({
                 <div className="text-[#3E5A2A] text-[11px] font-bold tracking-wide">
                   📅 DATA DE INÍCIO
                 </div>
-                <div className="text-[#1A2213] text-[19px] font-extrabold mt-0.5">
+                <div className="text-[#1A2213] text-[19px] font-extrabold mt-0.5 font-sora tabular-nums">
                   {fmtDate(admission.startDate)}
                 </div>
               </div>

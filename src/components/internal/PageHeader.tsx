@@ -18,8 +18,8 @@ export function PageHeader({ title, subtitle, action, className = "" }: Props) {
   return (
     <div className={`mb-4 flex items-start justify-between gap-3 ${className}`}>
       <div className="min-w-0">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+        <h1 className="text-xl md:text-2xl font-bold text-[#1A2213] font-sora tracking-tight">{title}</h1>
+        {subtitle && <p className="text-sm text-[#55614A] mt-0.5 font-inter">{subtitle}</p>}
       </div>
       {action && <div className="flex items-center gap-2 shrink-0">{action}</div>}
     </div>

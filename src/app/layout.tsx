@@ -1,10 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit, Inter, Sora } from "next/font/google";
+import { Inter, Sora } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
-const outfit = Outfit({ subsets: ["latin"], display: "swap" });
-const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 const sora = Sora({
   subsets: ["latin"],
   display: "swap",
@@ -50,7 +53,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className={`${outfit.className} ${inter.variable} ${sora.variable}`}>
+      <body className={`${inter.variable} ${sora.variable} font-inter antialiased`}>
         {children}
         <Analytics />
       </body>

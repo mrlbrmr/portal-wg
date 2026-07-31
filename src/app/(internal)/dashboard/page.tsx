@@ -145,7 +145,7 @@ export default async function DashboardPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-wg-ink text-[28px] font-extrabold tracking-tight">
+        <h1 className="text-wg-ink text-[28px] font-extrabold tracking-tight font-sora">
           Olá, {firstName} 👋
         </h1>
         <p className="text-wg-ink-secondary text-[14.5px] mt-1.5">
@@ -170,8 +170,8 @@ export default async function DashboardPage() {
             >
               {k.icon}
             </div>
-            <div className="text-wg-ink text-2xl font-extrabold">{k.value}</div>
-            <div className="text-wg-ink-muted text-[12.5px] mt-0.5">{k.label}</div>
+            <div className="text-wg-ink text-2xl font-extrabold font-sora tabular-nums">{k.value}</div>
+            <div className="text-wg-ink-muted text-[12.5px] mt-0.5 font-inter">{k.label}</div>
             <div className="text-wg-green-dark text-[11px] font-bold mt-1.5">Ver detalhes →</div>
           </Link>
         ))}
@@ -179,7 +179,7 @@ export default async function DashboardPage() {
         {/* Publicadas este mês + sparkline */}
         <div className="bg-white border border-wg-border-lighter rounded-2xl p-4">
           <div className="flex justify-between items-start">
-            <div className="text-wg-ink text-2xl font-extrabold">{thisMonth}</div>
+            <div className="text-wg-ink text-2xl font-extrabold font-sora tabular-nums">{thisMonth}</div>
             <svg width="56" height="24" viewBox="0 0 56 24" className="shrink-0">
               <polyline
                 points="0,18 10,15 20,17 30,10 40,8 56,2"
@@ -203,7 +203,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between flex-wrap gap-1.5">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[15px]">👥</span>
-              <span className="text-wg-ink text-base font-bold">Candidaturas Recentes</span>
+              <span className="text-wg-ink text-base font-bold font-sora">Candidaturas Recentes</span>
               <span className="text-[#6B7860] text-[13px]">{totalApps} no total</span>
               {newApps > 0 && (
                 <span className="bg-[#EAF4DC] text-wg-green-dark text-[11.5px] font-bold px-2 py-0.5 rounded-full">
@@ -254,7 +254,7 @@ export default async function DashboardPage() {
         {/* Vagas que Precisam de Atenção */}
         <div className="bg-white border border-wg-border-lighter rounded-2xl p-5 flex flex-col gap-3.5">
           <div className="flex items-center justify-between flex-wrap gap-1.5">
-            <span className="text-wg-ink text-base font-bold">Vagas que Precisam de Atenção</span>
+            <span className="text-wg-ink text-base font-bold font-sora">Vagas que Precisam de Atenção</span>
             <Link href="/vagas/gerenciar" className="text-wg-green-dark text-[13px] font-semibold">
               Ver todas →
             </Link>

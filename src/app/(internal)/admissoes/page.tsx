@@ -139,8 +139,8 @@ export default async function AdmissoesPage() {
             >
               {k.emoji}
             </div>
-            <div className="text-[#1A2213] text-2xl font-extrabold">{k.value}</div>
-            <div className="text-[#55614A] text-[12.5px] mt-0.5">{k.label}</div>
+            <div className="text-[#1A2213] text-2xl font-extrabold font-sora tabular-nums">{k.value}</div>
+            <div className="text-[#55614A] text-[12.5px] mt-0.5 font-inter">{k.label}</div>
           </div>
         ))}
       </div>

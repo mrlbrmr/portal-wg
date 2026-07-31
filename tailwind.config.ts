@@ -10,8 +10,12 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sora:  ["var(--font-sora)",  "sans-serif"],
-        inter: ["var(--font-inter)", "sans-serif"],
+        // Fonte de corpo padrão — Inter
+        sans:    ["var(--font-inter)", "system-ui", "sans-serif"],
+        inter:   ["var(--font-inter)", "system-ui", "sans-serif"],
+        // Fonte de título — Sora
+        sora:    ["var(--font-sora)", "sans-serif"],
+        heading: ["var(--font-sora)", "sans-serif"],
       },
       colors: {
         wg: {

@@ -33,10 +33,10 @@ export function DashboardCard({
       >
         <Icon className="h-4 w-4" />
       </div>
-      <div className="mt-2 text-xl font-bold leading-none text-gray-900">
+      <div className="mt-2 text-xl font-bold leading-none text-gray-900 font-sora tabular-nums">
         {value}
       </div>
-      <div className="mt-0.5 text-xs font-medium text-gray-500">{label}</div>
+      <div className="mt-0.5 text-xs font-medium text-gray-500 font-inter">{label}</div>
       {hint && <div className="mt-0.5 text-[11px] text-gray-400">{hint}</div>}
     </>
   );

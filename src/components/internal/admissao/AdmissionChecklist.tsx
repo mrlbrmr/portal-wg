@@ -227,7 +227,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
       <div className="px-5 py-4 border-b border-[#EEF2E9]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-extrabold text-[#1A2213] flex items-center gap-2">
+            <h2 className="text-base font-extrabold text-[#1A2213] flex items-center gap-2 font-sora">
               <ListChecks className="w-4 h-4" /> Checklist de G&amp;G
             </h2>
             <p className="text-[12.5px] text-[#55614A] mt-0.5">

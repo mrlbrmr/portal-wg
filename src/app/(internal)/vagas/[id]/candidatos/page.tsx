@@ -72,6 +72,34 @@ export default async function CandidatosPage({ params }: Props) {
     assessments: Array<{ id: string }>;
   }>;
 
+  // Sessões de teste: carrega só para apps em etapas TEST
+  const testStageIds = new Set(rawStages.filter((s) => s.kind === "TEST").map((s) => s.id));
+  const testAppIds = appList.filter((a) => testStageIds.has(a.stageId)).map((a) => a.id);
+  // outcome: null = sessão ainda não submetida ou nenhuma sessão criada; string = resultado
+  const testOutcomeByApp = new Map<string, "PASS" | "FAIL" | "PENDING_REVIEW" | null>();
+
+  if (testAppIds.length > 0) {
+    const { data: sessData } = await supabase
+      .from("assessment_sessions")
+      .select("applicationId, outcome, submittedAt")
+      .in("applicationId", testAppIds)
+      .order("createdAt", { ascending: false });
+
+    // Mantém apenas a sessão mais recente por candidato
+    for (const s of (sessData ?? []) as Array<{ applicationId: string; outcome: string | null; submittedAt: string | null }>) {
+      if (!testOutcomeByApp.has(s.applicationId)) {
+        testOutcomeByApp.set(
+          s.applicationId,
+          s.submittedAt ? ((s.outcome as "PASS" | "FAIL" | "PENDING_REVIEW") ?? null) : null,
+        );
+      }
+    }
+    // Apps em TEST sem nenhuma sessão: outcome = null (badge "Teste pendente")
+    for (const appId of testAppIds) {
+      if (!testOutcomeByApp.has(appId)) testOutcomeByApp.set(appId, null);
+    }
+  }
+
   const cards: KanbanApplication[] = appList.map((a) => ({
     id: a.id,
     fullName: a.fullName,
@@ -82,6 +110,8 @@ export default async function CandidatosPage({ params }: Props) {
     source: a.source,
     assessmentCount: (a.assessments ?? []).length,
     createdAt: new Date(a.createdAt).toISOString(),
+    // undefined quando não está em etapa TEST → sem badge
+    testOutcome: testOutcomeByApp.has(a.id) ? testOutcomeByApp.get(a.id) : undefined,
   }));
 
   const canManage = session?.user.role === "ADMIN_RH";

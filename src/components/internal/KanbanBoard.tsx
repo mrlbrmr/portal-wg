@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardCheck, Download, Mail, Phone, Trash2 } from "lucide-react";
+import { ClipboardCheck, Download, FlaskConical, Mail, Phone, Trash2 } from "lucide-react";
 import { formatDate, normalizeText } from "@/lib/utils";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import {
@@ -20,6 +20,8 @@ export interface KanbanApplication {
   source: string;
   assessmentCount: number;
   createdAt: string; // ISO
+  /** Outcome da sessão de teste mais recente (só preenchido quando a etapa é TEST). */
+  testOutcome?: "PASS" | "FAIL" | "PENDING_REVIEW" | "PENDING" | null;
 }
 
 export interface KanbanStage {
@@ -117,6 +119,30 @@ export function KanbanBoard({ applications, stages, canManage, jobTitle, jobLoca
                 >
                   <ClipboardCheck className="h-2.5 w-2.5" />
                   {a.assessmentCount}
+                </span>
+              )}
+              {a.testOutcome !== undefined && a.testOutcome !== null && (
+                <span
+                  className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    a.testOutcome === "PASS"
+                      ? "bg-wg-green/15 text-wg-green-dark"
+                      : a.testOutcome === "FAIL"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-amber-100 text-amber-700"
+                  }`}
+                  title="Resultado do teste online"
+                >
+                  <FlaskConical className="h-2.5 w-2.5" />
+                  {a.testOutcome === "PASS" ? "Aprovado" : a.testOutcome === "FAIL" ? "Reprovado" : "Revisão"}
+                </span>
+              )}
+              {a.testOutcome === null && (
+                <span
+                  className="inline-flex items-center gap-0.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-600"
+                  title="Teste pendente de resposta"
+                >
+                  <FlaskConical className="h-2.5 w-2.5" />
+                  Teste pendente
                 </span>
               )}
             </div>

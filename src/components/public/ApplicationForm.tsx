@@ -183,7 +183,7 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm"
+      className="bg-white border border-gray-200 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.10)]"
       noValidate
     >
       <h3 className="text-[17px] font-bold text-gray-900 mb-5 font-sora">

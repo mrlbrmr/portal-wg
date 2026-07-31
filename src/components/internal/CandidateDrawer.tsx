@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Mail, Phone, Download, Clock, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, Download, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import { AssessmentsSection } from "@/components/internal/AssessmentsSection";
+import type { KanbanStage } from "@/components/internal/KanbanBoard";
 
 interface StageRef {
   name: string;
@@ -26,6 +28,7 @@ interface CandidateDetail {
   email: string;
   phone: string;
   resumeName: string | null;
+  stageId: string;
   stage: StageRef | null;
   source: string;
   addedBy: string | null;
@@ -34,7 +37,6 @@ interface CandidateDetail {
   stageHistory: StageHistoryEntry[];
 }
 
-/** Badge de etapa com a cor configurável do funil (mesmo padrão das admissões). */
 function stageStyle(color: string | undefined) {
   const c = color ?? "#94a3b8";
   return { backgroundColor: `${c}1f`, color: c };
@@ -43,21 +45,28 @@ function stageStyle(color: string | undefined) {
 interface Props {
   applicationId: string | null;
   canManage: boolean;
+  stages: KanbanStage[];
+  jobTitle?: string;
+  jobLocation?: string;
   onClose: () => void;
 }
 
-/**
- * Ficha do candidato em drawer lateral: dados de contato, currículo, etapa
- * atual, anotações internas do RH (editáveis, campo `notes` do schema) e a
- * timeline de mudanças de etapa (de `ApplicationStageHistory`). Busca sob
- * demanda em GET /api/applications/[id] ao abrir.
- */
-export function CandidateDrawer({ applicationId, canManage, onClose }: Props) {
+export function CandidateDrawer({
+  applicationId,
+  canManage,
+  stages,
+  jobTitle,
+  jobLocation,
+  onClose,
+}: Props) {
+  const router = useRouter();
   const { notify } = useToast();
   const [data, setData] = useState<CandidateDetail | null>(null);
   const [error, setError] = useState(false);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
     if (!applicationId) return;
@@ -114,111 +123,264 @@ export function CandidateDrawer({ applicationId, canManage, onClose }: Props) {
     }
   }
 
+  async function advanceStage() {
+    if (!data || !applicationId) return;
+    const currentIdx = stages.findIndex((s) => s.id === data.stageId);
+    const nextStage = stages[currentIdx + 1];
+    if (!nextStage) return;
+
+    setAdvancing(true);
+    try {
+      const res = await fetch(`/api/applications/${applicationId}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stageId: nextStage.id }),
+      });
+      if (!res.ok) {
+        notify("error", "Erro ao avançar etapa.");
+        return;
+      }
+      notify("success", `${data.fullName} movido para ${nextStage.name}.`);
+      setData((d) =>
+        d
+          ? {
+              ...d,
+              stageId: nextStage.id,
+              stage: { name: nextStage.name, color: nextStage.color },
+            }
+          : d
+      );
+      router.refresh();
+    } catch {
+      notify("error", "Erro de conexão. Tente novamente.");
+    } finally {
+      setAdvancing(false);
+    }
+  }
+
+  function copyField(field: string, text: string) {
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopiedField(field);
+    setTimeout(() => setCopiedField((f) => (f === field ? null : f)), 1500);
+  }
+
   const dirty = data ? (data.notes ?? "") !== notes : false;
+
+  const currentStepIdx = data ? stages.findIndex((s) => s.id === data.stageId) : -1;
+  const canAdvance = canManage && currentStepIdx >= 0 && currentStepIdx < stages.length - 1;
+  const phoneDigits = data ? data.phone.replace(/\D/g, "") : "";
+  const whatsappUrl = phoneDigits ? `https://wa.me/55${phoneDigits}` : "#";
+  const jobLabel = [jobTitle, jobLocation].filter(Boolean).join(" · ");
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      <div className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200">
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-          <h2 className="font-semibold text-gray-900">Ficha do candidato</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar"
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
+      <div
+        className="relative flex h-full w-full max-w-[480px] flex-col bg-white shadow-[-10px_0_34px_rgba(0,0,0,.16)] animate-in slide-in-from-right duration-200"
+        style={{ overflowY: "hidden" }}
+      >
+        {/* ── Sticky header ── */}
+        <div className="sticky top-0 bg-white z-10 px-6 pt-5 pb-4 border-b border-[#EEF1E7] flex flex-col gap-3 shrink-0">
+          {/* Name + close */}
+          <div className="flex justify-between items-start gap-2.5">
+            <div className="min-w-0 flex-1">
+              {data ? (
+                <>
+                  <p className="text-[19px] font-extrabold text-[#1A2213] leading-tight">
+                    {data.fullName}
+                  </p>
+                  {jobLabel && (
+                    <p className="text-[12.5px] text-[#55614A] mt-0.5">{jobLabel}</p>
+                  )}
+                </>
+              ) : (
+                <Skeleton className="h-6 w-48" />
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar"
+              className="shrink-0 rounded-lg p-1 text-[#55614A] transition-colors hover:bg-[#EEF1E7] hover:text-[#1A2213]"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Badges */}
+          {data && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {data.source && (
+                <span className="bg-[#E4F3DA] text-[#2F5D1E] text-[10.5px] font-bold px-2.5 py-1 rounded-full">
+                  via {APPLICATION_SOURCE_LABELS[data.source] ?? data.source}
+                </span>
+              )}
+              {data.stage && (
+                <span
+                  className="text-[10.5px] font-bold px-2.5 py-1 rounded-full"
+                  style={stageStyle(data.stage.color)}
+                >
+                  {data.stage.name.toUpperCase()}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Stepper */}
+          {stages.length > 0 && (
+            <div className="relative px-1 pt-0.5">
+              <div className="absolute top-[14px] left-[20px] right-[20px] h-0.5 bg-[#E7EEDD] z-0" />
+              <div className="flex justify-between relative z-10">
+                {stages.map((s, i) => {
+                  const done = currentStepIdx >= 0 && i < currentStepIdx;
+                  const current = i === currentStepIdx;
+                  return (
+                    <div key={s.id} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0"
+                        style={{
+                          background: done
+                            ? "#4F6930"
+                            : current
+                            ? "#90CB46"
+                            : "#F1F3EC",
+                          color: done || current ? "#fff" : "#8A9678",
+                          border: `2px solid ${done ? "#4F6930" : current ? "#90CB46" : "#DCE8CC"}`,
+                        }}
+                      >
+                        {done ? "✓" : i + 1}
+                      </div>
+                      <div
+                        className="text-[9px] font-bold text-center leading-tight px-0.5"
+                        style={{ color: current ? "#1A2213" : "#7B8869" }}
+                      >
+                        {s.name}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          {data && (
+            <div className="flex gap-2 items-center">
+              {canAdvance && (
+                <button
+                  type="button"
+                  onClick={advanceStage}
+                  disabled={advancing}
+                  className="flex-1 bg-[#90CB46] text-[#0C0D0C] px-3.5 py-2.5 rounded-[10px] text-[13px] font-bold whitespace-nowrap hover:bg-[#7FD400] disabled:opacity-60 transition-colors inline-flex items-center justify-center gap-1.5"
+                >
+                  {advancing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {advancing ? "Avançando…" : "Avançar de etapa ➔"}
+                </button>
+              )}
+              {!canAdvance && currentStepIdx >= 0 && currentStepIdx === stages.length - 1 && (
+                <div className="flex-1 text-center bg-[#EAF4DC] text-[#2F5D1E] px-3.5 py-2.5 rounded-[10px] text-[12.5px] font-bold">
+                  🏆 Última etapa
+                </div>
+              )}
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Falar no WhatsApp"
+                className="w-10 h-10 rounded-[10px] bg-[#25D366] text-white flex items-center justify-center text-[17px] shrink-0 hover:opacity-90 transition-opacity"
+              >
+                💬
+              </a>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        {/* ── Scrollable content ── */}
+        <div className="flex-1 overflow-y-auto px-6 pt-5 pb-8 flex flex-col gap-6">
           {error ? (
             <p className="text-sm text-red-600">Não foi possível carregar a ficha.</p>
           ) : !data ? (
             <div className="space-y-3">
-              <Skeleton className="h-6 w-48" />
               <Skeleton className="h-4 w-40" />
               <Skeleton className="h-4 w-56" />
               <Skeleton className="mt-4 h-28 w-full" />
             </div>
           ) : (
             <>
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-lg font-semibold text-gray-900">{data.fullName}</p>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    {data.source && data.source !== "PORTAL" ? "Cadastrado" : "Inscrito"} em{" "}
-                    {formatDate(data.createdAt)}
-                    {data.source && data.source !== "PORTAL" && (
-                      <>
-                        {" · via "}
-                        <span className="font-medium text-gray-600">
-                          {APPLICATION_SOURCE_LABELS[data.source] ?? data.source}
-                        </span>
-                        {data.addedBy ? ` (por ${data.addedBy})` : ""}
-                      </>
-                    )}
-                  </p>
+              {/* Currículo */}
+              {data.resumeName ? (
+                <a
+                  href={`/api/applications/${data.id}/resume`}
+                  className="flex items-center gap-3 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl px-3.5 py-3 cursor-pointer hover:bg-[#EEF4E3] transition-colors group"
+                >
+                  <span className="text-xl">📄</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[#1A2213] text-[13.5px] font-bold">
+                      Visualizar / Baixar currículo
+                    </div>
+                    <div className="text-[#55614A] text-[11.5px]">
+                      PDF · enviado em {formatDate(data.createdAt)}
+                    </div>
+                  </div>
+                  <Download className="w-4 h-4 text-[#4F6930] shrink-0" />
+                </a>
+              ) : (
+                <div className="flex items-center gap-3 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl px-3.5 py-3 opacity-60">
+                  <span className="text-xl">📄</span>
+                  <span className="text-[#55614A] text-[13.5px]">Sem currículo anexado</span>
                 </div>
-                {data.stage && (
-                  <span
-                    className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-                    style={stageStyle(data.stage.color)}
-                  >
-                    {data.stage.name}
-                  </span>
+              )}
+
+              {/* Contato */}
+              <div>
+                <div className="text-[#1A2213] text-[13px] font-bold mb-2">Contato</div>
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    { field: "email", icon: "✉", value: data.email },
+                    { field: "telefone", icon: "☎", value: data.phone },
+                  ].map((row) => (
+                    <div
+                      key={row.field}
+                      className="flex items-center gap-2 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2"
+                    >
+                      <span className="text-[#3E4A34] text-[12.5px] flex-1 min-w-0 truncate">
+                        {row.icon} {row.value}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-[#4F6930] text-[11px] font-bold shrink-0 hover:opacity-70 transition-opacity"
+                        onClick={() => copyField(row.field, row.value)}
+                      >
+                        {copiedField === row.field ? "Copiado ✓" : "copiar"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {data.addedBy && (
+                  <p className="mt-2 text-[11px] text-[#9AA68A]">
+                    Cadastrado por {data.addedBy} em {formatDate(data.createdAt)}
+                  </p>
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
-                <a
-                  href={`mailto:${data.email}`}
-                  className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-wg-green-dark"
-                >
-                  <Mail className="h-4 w-4 shrink-0 text-gray-400" />
-                  <span className="truncate">{data.email}</span>
-                </a>
-                <a
-                  href={`tel:${data.phone.replace(/\D/g, "")}`}
-                  className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-wg-green-dark"
-                >
-                  <Phone className="h-4 w-4 shrink-0 text-gray-400" />
-                  {data.phone}
-                </a>
-                {data.resumeName ? (
-                  <a
-                    href={`/api/applications/${data.id}/resume`}
-                    className="flex items-center gap-2 text-sm font-medium text-wg-green-dark transition-opacity hover:opacity-80"
-                  >
-                    <Download className="h-4 w-4 shrink-0" />
-                    Baixar currículo
-                  </a>
-                ) : (
-                  <span className="flex items-center gap-2 text-sm text-gray-400">
-                    <Download className="h-4 w-4 shrink-0" />
-                    Sem currículo
-                  </span>
-                )}
-              </div>
-
-              {/* Anotações internas */}
-              <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-semibold text-gray-900">
-                  Anotações internas
+              {/* Anotações */}
+              <div>
+                <label className="block text-[#1A2213] text-[13px] font-bold mb-2">
+                  Anotações da equipe
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   disabled={!canManage}
-                  rows={5}
+                  rows={4}
                   placeholder={
                     canManage
                       ? "Observações sobre o candidato (visível só para o RH)..."
                       : "Sem anotações."
                   }
-                  className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 transition-colors focus:border-wg-green focus:outline-none focus:ring-2 focus:ring-wg-green/40 disabled:bg-gray-50 disabled:text-gray-500"
+                  className="w-full resize-y bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2 text-[12.5px] text-[#1A2213] outline-none focus:border-[#90CB46] focus:ring-2 focus:ring-[#90CB46]/30 transition-colors disabled:opacity-60"
                 />
                 {canManage && (
                   <div className="mt-2 flex justify-end">
@@ -226,7 +388,7 @@ export function CandidateDrawer({ applicationId, canManage, onClose }: Props) {
                       type="button"
                       onClick={saveNotes}
                       disabled={!dirty || saving}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-wg-green px-3 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-wg-green-bright disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 bg-[#90CB46] text-[#0C0D0C] px-3.5 py-1.5 rounded-[9px] text-[12.5px] font-bold hover:bg-[#7FD400] disabled:opacity-50 transition-colors"
                     >
                       {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                       Salvar anotações
@@ -235,41 +397,46 @@ export function CandidateDrawer({ applicationId, canManage, onClose }: Props) {
                 )}
               </div>
 
-              {/* Avaliações (entrevistas / testes / IA) */}
+              {/* Avaliações */}
               <AssessmentsSection applicationId={data.id} canManage={canManage} />
 
-              {/* Timeline de etapas */}
-              <div className="mt-6">
-                <div className="mb-2 flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <h3 className="text-sm font-semibold text-gray-900">Histórico de etapas</h3>
-                </div>
-                {data.stageHistory.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    Sem movimentações registradas ainda.
-                  </p>
-                ) : (
-                  <ol className="relative ml-1 border-l border-gray-200">
-                    {data.stageHistory.map((h) => (
-                      <li key={h.id} className="mb-4 ml-4 last:mb-0">
-                        <span className="absolute -left-[5px] mt-1.5 h-2 w-2 rounded-full bg-wg-green" />
-                        <div className="flex flex-wrap items-center gap-2">
+              {/* Histórico de etapas */}
+              {data.stageHistory.length > 0 && (
+                <div>
+                  <div className="text-[#1A2213] text-[13px] font-bold mb-3">
+                    Histórico de etapas
+                  </div>
+                  <div className="flex flex-col">
+                    {data.stageHistory.map((h, i) => (
+                      <div key={h.id} className="flex gap-3">
+                        <div className="flex flex-col items-center w-3 shrink-0">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#90CB46] shrink-0" />
+                          {i < data.stageHistory.length - 1 && (
+                            <span className="w-0.5 flex-1 bg-[#DCE8CC] mt-0.5" />
+                          )}
+                        </div>
+                        <div className="pb-4 min-w-0">
                           <span
-                            className="rounded-full px-2 py-0.5 text-xs font-medium"
+                            className="text-[10.5px] font-bold px-2 py-0.5 rounded-md inline-block"
                             style={stageStyle(h.stage?.color)}
                           >
                             {h.stage?.name ?? "—"}
                           </span>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-[#55614A] text-[11.5px] ml-1.5">
                             {formatDateTime(h.changedAt)}
                           </span>
+                          <div className="text-[#3E4A34] text-[11.5px] mt-0.5">
+                            por {h.changedBy}
+                          </div>
                         </div>
-                        <p className="mt-0.5 text-xs text-gray-500">por {h.changedBy}</p>
-                      </li>
+                      </div>
                     ))}
-                  </ol>
-                )}
-              </div>
+                  </div>
+                </div>
+              )}
+              {data.stageHistory.length === 0 && (
+                <p className="text-sm text-[#9AA68A]">Sem movimentações registradas ainda.</p>
+              )}
             </>
           )}
         </div>

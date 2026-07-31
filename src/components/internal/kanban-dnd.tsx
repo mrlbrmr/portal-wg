@@ -38,8 +38,8 @@ export function KanbanColumn({ id, children }: ColumnProps) {
   return (
     <div
       ref={setNodeRef}
-      className={`shrink-0 w-72 rounded-xl border transition-colors ${
-        isOver ? "border-wg-green bg-wg-green/5" : "border-gray-300 bg-gray-200"
+      className={`shrink-0 w-[260px] rounded-2xl transition-colors ${
+        isOver ? "bg-wg-green/10 ring-2 ring-wg-green/30" : "bg-[#F4F5EF]"
       }`}
     >
       {children}
@@ -73,12 +73,12 @@ export function KanbanCard({ id, draggable, className = "", children }: CardProp
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative rounded-lg border bg-white p-3 shadow-sm ${
+      className={`relative rounded-xl bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,.05)] transition-shadow ${
         draggable ? "pr-7" : ""
       } ${
         isDragging
-          ? "border-wg-green/60 shadow-lg ring-2 ring-wg-green/30"
-          : "border-gray-200"
+          ? "shadow-lg ring-2 ring-wg-green/30"
+          : "hover:shadow-[0_8px_22px_rgba(0,0,0,.08)]"
       } ${className}`}
     >
       {draggable && (

@@ -197,13 +197,13 @@ export function KanbanBoardShell<T>({
         />
       )}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-3.5 overflow-x-auto pb-4">
           {columns.map((col) => {
             const cards = visibleItems.filter((it) => getColumn(it) === col.key);
             return (
               <KanbanColumn key={col.key} id={col.key}>
-                <div className={col.kind === "TEST" ? "bg-purple-50/60" : ""}>
-                  <div className="flex items-center gap-2 px-4 py-3 min-w-0">
+                <div className={col.kind === "TEST" ? "rounded-t-2xl bg-[#F0EAFA]" : ""}>
+                  <div className="flex items-center gap-2 px-3.5 py-3 min-w-0">
                     <span
                       className={`w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10 ${col.dotColor ? "" : col.dot ?? ""}`}
                       style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
@@ -221,7 +221,7 @@ export function KanbanBoardShell<T>({
                   )}
                 </div>
 
-                <div className="p-2 flex flex-col gap-2 min-h-[120px]">
+                <div className="p-2.5 flex flex-col gap-2 min-h-[120px]">
                   {cards.length === 0 && (
                     <p className="text-xs text-gray-500 text-center py-6">{emptyLabel}</p>
                   )}

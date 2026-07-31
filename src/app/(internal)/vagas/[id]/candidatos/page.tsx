@@ -129,7 +129,20 @@ export default async function CandidatosPage({ params }: Props) {
           />
         </div>
       ) : (
-        <KanbanBoard key={cards.length} applications={cards} stages={stages} canManage={canManage} />
+        <KanbanBoard
+          key={cards.length}
+          applications={cards}
+          stages={stages}
+          canManage={canManage}
+          jobTitle={job.title}
+          jobLocation={
+            job.isTalentPool
+              ? "Banco de Talentos"
+              : job.city
+              ? `${job.city}/${job.state}`
+              : "Múltiplas cidades"
+          }
+        />
       )}
     </div>
   );

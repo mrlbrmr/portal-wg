@@ -34,9 +34,11 @@ interface Props {
   applications: KanbanApplication[];
   stages: KanbanStage[];
   canManage: boolean;
+  jobTitle?: string;
+  jobLocation?: string;
 }
 
-export function KanbanBoard({ applications, stages, canManage }: Props) {
+export function KanbanBoard({ applications, stages, canManage, jobTitle, jobLocation }: Props) {
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const columns: KanbanColumnDef[] = stages.map((s) => ({
@@ -165,6 +167,9 @@ export function KanbanBoard({ applications, stages, canManage }: Props) {
     <CandidateDrawer
       applicationId={detailId}
       canManage={canManage}
+      stages={stages}
+      jobTitle={jobTitle}
+      jobLocation={jobLocation}
       onClose={() => setDetailId(null)}
     />
     </>

@@ -221,7 +221,7 @@ export function KanbanBoardShell<T>({
                   )}
                 </div>
 
-                <div className="p-2.5 flex flex-col gap-2 min-h-[120px]">
+                <div className="p-2.5 flex flex-col gap-2 min-h-[120px] overflow-y-auto max-h-[calc(100vh-300px)]">
                   {cards.length === 0 && (
                     <p className="text-xs text-gray-500 text-center py-6">{emptyLabel}</p>
                   )}

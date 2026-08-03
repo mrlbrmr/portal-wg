@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { X, Download, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -185,7 +186,7 @@ export function CandidateDrawer({
   const whatsappUrl = phoneDigits ? `https://wa.me/55${phoneDigits}` : "#";
   const jobLabel = [jobTitle, jobLocation].filter(Boolean).join(" · ");
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
@@ -521,6 +522,7 @@ export function CandidateDrawer({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

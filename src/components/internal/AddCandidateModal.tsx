@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Loader2, Paperclip, Plus, Upload, UserPlus, X } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -39,6 +40,13 @@ export function AddCandidateModal({ jobId }: Props) {
   const [phone, setPhone] = useState("");
   const [source, setSource] = useState<string>(MANUAL_APPLICATION_SOURCES[0]);
   const [fileName, setFileName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
 
   function reset() {
     setFullName("");
@@ -131,7 +139,7 @@ export function AddCandidateModal({ jobId }: Props) {
         Adicionar candidato
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={close} />
 
@@ -245,7 +253,8 @@ export function AddCandidateModal({ jobId }: Props) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

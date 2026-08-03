@@ -66,9 +66,11 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
     return true;
   }
 
-  async function handleAdmissionSuccess(admissionId: string, toStageId: string) {
+  async function handleAdmissionSuccess(_admissionId: string) {
+    if (!pendingAdmission) return;
+    const { candidateId, toStageId } = pendingAdmission;
     setPendingAdmission(null);
-    await fetch(`/api/applications/${pendingAdmission!.candidateId}`, {
+    await fetch(`/api/applications/${candidateId}`, {
       method: "PATCH",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },

@@ -29,7 +29,7 @@ interface Props {
   meta: AdmissionMeta | null;
   onClose: () => void;
   /** Chamado após o usuário clicar "Fechar": o pai deve mover o card no ATS. */
-  onSuccess: (admissionId: string, toStageId: string) => void;
+  onSuccess: (admissionId: string) => void;
 }
 
 type Step = "form" | "success";
@@ -38,7 +38,6 @@ interface SuccessData {
   admissionId: string;
   formUrl: string;
   whatsappMessage: string;
-  toStageId: string;
 }
 
 export function AdmissionLinkModal({ open, candidate, meta, onClose, onSuccess }: Props) {
@@ -134,7 +133,7 @@ export function AdmissionLinkModal({ open, candidate, meta, onClose, onSuccess }
         notify("error", "Admissão criada, mas houve erro ao gerar o link do formulário.");
       }
 
-      setSuccessData({ admissionId, formUrl, whatsappMessage, toStageId: meta!.intakeStageId! });
+      setSuccessData({ admissionId, formUrl, whatsappMessage });
       setStep("success");
     } catch {
       notify("error", "Erro de conexão. Tente novamente.");
@@ -151,7 +150,7 @@ export function AdmissionLinkModal({ open, candidate, meta, onClose, onSuccess }
 
   function handleClose() {
     if (step === "success" && successData) {
-      onSuccess(successData.admissionId, successData.toStageId);
+      onSuccess(successData.admissionId);
     } else {
       onClose();
     }

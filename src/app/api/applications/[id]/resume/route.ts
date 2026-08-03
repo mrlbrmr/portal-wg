@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getResumeBlob } from "@/lib/storage";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Download do currículo — SOMENTE para RH autenticado.
 // LGPD: o currículo fica em Blob privado; esta rota o entrega server-side,
@@ -15,6 +16,14 @@ export async function GET(
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+  }
+
+  const { allowed, retryAfter } = rateLimit(`resume:${session.user.id}`, { limit: 30, windowMs: 60_000 });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Muitas requisições. Aguarde antes de baixar mais currículos." },
+      { status: 429, headers: { "Retry-After": String(retryAfter ?? 60) } }
+    );
   }
 
   const supabase = await createClient();

@@ -57,43 +57,50 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const publicStatuses = PUBLIC_JOB_STATUS_LIST as readonly string[];
 
+  const ZERO = { count: null, data: null };
+  const queryResults = await Promise.race([
+    Promise.all([
+      supabase.from("jobs").select("*", { count: "exact", head: true }).in("status", publicStatuses),
+      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "DRAFT"),
+      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "PAUSED"),
+      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "CLOSED"),
+      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "FILLED"),
+      supabase.from("jobs").select("*", { count: "exact", head: true })
+        .gte("createdAt", startOfThisMonth.toISOString())
+        .lt("createdAt", startOfNextMonth.toISOString()),
+      supabase.from("jobs").select("*", { count: "exact", head: true })
+        .gte("createdAt", startOfLastMonth.toISOString())
+        .lt("createdAt", startOfThisMonth.toISOString()),
+      supabase.from("applications").select("*", { count: "exact", head: true }).eq("stageId", "NEW"),
+      supabase.from("applications").select("*", { count: "exact", head: true }),
+      supabase.from("applications")
+        .select("id, fullName, createdAt, jobId, job:jobs(title), stage:application_stages(name, color)")
+        .order("createdAt", { ascending: false })
+        .limit(5),
+      supabase.from("jobs")
+        .select("id, title, status, city, state")
+        .in("status", [...publicStatuses, "DRAFT"])
+        .order("createdAt", { ascending: false })
+        .limit(8),
+      supabase.from("applications").select("jobId").eq("stageId", "NEW"),
+      supabase.from("jobs").select("*", { count: "exact", head: true })
+        .in("status", publicStatuses)
+        .gte("closingDate", now.toISOString())
+        .lte("closingDate", sevenDaysFromNow.toISOString()),
+    ]),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error("dashboard timeout")), 8_000)),
+  ]).catch(() => null);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [
-    activeJobsRes, draftJobsRes, pausedJobsRes, closedJobsRes, filledJobsRes,
-    thisMonthRes, lastMonthRes,
-    newAppsRes, totalAppsRes,
-    recentApplicationsRes,
-    attentionJobsRes,
-    newAppsByJobRes,
-    expiringSoonRes,
-  ] = await Promise.all([
-    supabase.from("jobs").select("*", { count: "exact", head: true }).in("status", publicStatuses),
-    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "DRAFT"),
-    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "PAUSED"),
-    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "CLOSED"),
-    supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "FILLED"),
-    supabase.from("jobs").select("*", { count: "exact", head: true })
-      .gte("createdAt", startOfThisMonth.toISOString())
-      .lt("createdAt", startOfNextMonth.toISOString()),
-    supabase.from("jobs").select("*", { count: "exact", head: true })
-      .gte("createdAt", startOfLastMonth.toISOString())
-      .lt("createdAt", startOfThisMonth.toISOString()),
-    supabase.from("applications").select("*", { count: "exact", head: true }).eq("stageId", "NEW"),
-    supabase.from("applications").select("*", { count: "exact", head: true }),
-    supabase.from("applications")
-      .select("id, fullName, createdAt, jobId, job:jobs(title), stage:application_stages(name, color)")
-      .order("createdAt", { ascending: false })
-      .limit(5),
-    supabase.from("jobs")
-      .select("id, title, status, city, state")
-      .in("status", [...publicStatuses, "DRAFT"])
-      .order("createdAt", { ascending: false })
-      .limit(8),
-    supabase.from("applications").select("jobId").eq("stageId", "NEW"),
-    supabase.from("jobs").select("*", { count: "exact", head: true })
-      .in("status", publicStatuses)
-      .gte("closingDate", now.toISOString())
-      .lte("closingDate", sevenDaysFromNow.toISOString()),
-  ]);
+    activeJobsRes = ZERO, draftJobsRes = ZERO, pausedJobsRes = ZERO, closedJobsRes = ZERO, filledJobsRes = ZERO,
+    thisMonthRes = ZERO, lastMonthRes = ZERO,
+    newAppsRes = ZERO, totalAppsRes = ZERO,
+    recentApplicationsRes = ZERO,
+    attentionJobsRes = ZERO,
+    newAppsByJobRes = ZERO,
+    expiringSoonRes = ZERO,
+  ] = (queryResults ?? []) as any[];
 
   const activeJobs   = activeJobsRes.count   ?? 0;
   const draftJobs    = draftJobsRes.count    ?? 0;

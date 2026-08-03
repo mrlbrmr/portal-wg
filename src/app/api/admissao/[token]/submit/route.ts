@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { deleteAdmissionAttachment } from '@/lib/admissao/storage'
 import { z } from 'zod'
+import { isValidCpf } from '@/lib/cpf'
 
 const schema = z.object({
   fullName:               z.string().trim().min(3).max(120),
-  cpf:                    z.string().min(11).max(14),
+  cpf:                    z.string().min(11).max(14).refine(isValidCpf, 'CPF inválido'),
   birthDate:              z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   email:                  z.string().email(),
   phone:                  z.string().min(8).max(20),

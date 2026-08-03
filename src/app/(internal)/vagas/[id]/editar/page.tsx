@@ -28,6 +28,7 @@ export default async function EditarVagaPage({ params }: Props) {
     .select("*, statusHistory:job_status_history(*), publications:job_publications(*)")
     .eq("id", id)
     .order("changedAt", { referencedTable: "job_status_history", ascending: false })
+    .limit(20, { referencedTable: "job_publications" })
     .maybeSingle();
   const job = jobRaw as unknown as
     | (Job & {

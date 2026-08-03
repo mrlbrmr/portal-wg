@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, Users } from "lucide-react";
 import { KanbanBoard, type KanbanApplication } from "@/components/internal/KanbanBoard";
 import { AddCandidateModal } from "@/components/internal/AddCandidateModal";
+import { JobStageConfigButton } from "@/components/internal/JobStageConfigButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Metadata } from "next";
 
@@ -55,10 +56,22 @@ export default async function CandidatosPage({ params }: Props) {
     (tmplData ?? []).forEach((t: { id: string; name: string }) => templateNames.set(t.id, t.name));
   }
 
-  const stages = rawStages.map((s) => ({
+  const allStages = rawStages.map((s) => ({
     ...s,
     templateName: s.templateId ? (templateNames.get(s.templateId) ?? null) : null,
   }));
+
+  // Etapas configuradas para esta vaga (vazio = usa todas as globais)
+  const { data: stageConfigData } = await supabase
+    .from("job_stage_config")
+    .select("stageId")
+    .eq("jobId", id);
+
+  const activeStageIds = (stageConfigData ?? []).map((r: { stageId: string }) => r.stageId);
+  const stages =
+    activeStageIds.length > 0
+      ? allStages.filter((s) => activeStageIds.includes(s.id))
+      : allStages;
   const appList = (applications ?? []) as Array<{
     id: string;
     fullName: string;
@@ -185,6 +198,13 @@ export default async function CandidatosPage({ params }: Props) {
               {cards.length === 1 ? "candidatura" : "candidaturas"}
             </span>
           </div>
+          {canManage && (
+            <JobStageConfigButton
+              jobId={job.id}
+              allStages={allStages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
+              activeStageIds={activeStageIds}
+            />
+          )}
           {canManage && <AddCandidateModal jobId={job.id} />}
         </div>
       </div>

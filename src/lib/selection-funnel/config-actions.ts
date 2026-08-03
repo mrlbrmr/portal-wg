@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
-export type StageKind = "OPEN" | "WON" | "LOST" | "TEST";
+export type StageKind = "OPEN" | "WON" | "LOST" | "TEST" | "ADMISSION";
 
 const PATH = "/configuracoes/funil";
 const DEFAULT_COLOR = "#94a3b8";
@@ -76,7 +76,7 @@ export async function recolorStage(id: string, color: string): Promise<ActionRes
 export async function setStageKind(id: string, kind: StageKind): Promise<ActionResult> {
   const err = await ensureAdmin();
   if (err) return { ok: false, error: err };
-  if (!["OPEN", "WON", "LOST", "TEST"].includes(kind)) return { ok: false, error: "Tipo inválido." };
+  if (!["OPEN", "WON", "LOST", "TEST", "ADMISSION"].includes(kind)) return { ok: false, error: "Tipo inválido." };
 
   const supabase = await createClient();
   await supabase.from("application_stages").update({ kind }).eq("id", id);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { X, Download, Loader2 } from "lucide-react";
+import { ExternalLink, X, Download, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -73,26 +73,32 @@ export function CandidateDrawer({
   const [saving, setSaving] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [linkedAdmission, setLinkedAdmission] = useState<{
+    id: string;
+    startDate: string | null;
+    digitalFormSubmittedAt: string | null;
+    stage: { name: string; color: string } | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!applicationId) return;
     let active = true;
     setData(null);
     setError(false);
-    fetch(`/api/applications/${applicationId}`, { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: CandidateDetail) => {
-        if (active) {
-          setData(d);
-          setNotes(d.notes ?? "");
-        }
-      })
-      .catch(() => {
-        if (active) setError(true);
-      });
-    return () => {
-      active = false;
-    };
+    setLinkedAdmission(null);
+
+    Promise.all([
+      fetch(`/api/applications/${applicationId}`, { credentials: "same-origin" })
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((d: CandidateDetail) => { if (active) { setData(d); setNotes(d.notes ?? ""); } })
+        .catch(() => { if (active) setError(true); }),
+      fetch(`/api/applications/${applicationId}/admission`, { credentials: "same-origin" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => { if (active) setLinkedAdmission(d); })
+        .catch(() => {}),
+    ]);
+
+    return () => { active = false; };
   }, [applicationId]);
 
   useEffect(() => {
@@ -181,7 +187,9 @@ export function CandidateDrawer({
   const dirty = data ? (data.notes ?? "") !== notes : false;
 
   const currentStepIdx = data ? stages.findIndex((s) => s.id === data.stageId) : -1;
-  const canAdvance = canManage && currentStepIdx >= 0 && currentStepIdx < stages.length - 1;
+  const nextStageKind = currentStepIdx >= 0 ? stages[currentStepIdx + 1]?.kind : undefined;
+  const nextIsAdmission = nextStageKind === "ADMISSION";
+  const canAdvance = canManage && currentStepIdx >= 0 && currentStepIdx < stages.length - 1 && !nextIsAdmission;
   const phoneDigits = data ? data.phone.replace(/\D/g, "") : "";
   const whatsappUrl = phoneDigits ? `https://wa.me/55${phoneDigits}` : "#";
   const jobLabel = [jobTitle, jobLocation].filter(Boolean).join(" · ");
@@ -293,7 +301,12 @@ export function CandidateDrawer({
                   {advancing ? "Avançando…" : "Avançar de etapa ➔"}
                 </button>
               )}
-              {!canAdvance && currentStepIdx >= 0 && currentStepIdx === stages.length - 1 && (
+              {!canAdvance && nextIsAdmission && (
+                <div className="flex-1 text-center bg-indigo-50 text-indigo-700 px-3.5 py-2.5 rounded-[10px] text-[12px] font-medium">
+                  Mova pelo Kanban para iniciar a admissão
+                </div>
+              )}
+              {!canAdvance && !nextIsAdmission && currentStepIdx >= 0 && currentStepIdx === stages.length - 1 && (
                 <div className="flex-1 text-center bg-[#EAF4DC] text-[#2F5D1E] px-3.5 py-2.5 rounded-[10px] text-[12.5px] font-bold">
                   🏆 Última etapa
                 </div>
@@ -480,6 +493,44 @@ export function CandidateDrawer({
                   stages.find((s) => s.id === data.stageId && s.kind === "TEST")?.templateId ?? null
                 }
               />
+
+              {/* Admissão vinculada */}
+              {linkedAdmission && (
+                <div className="border border-indigo-200 bg-indigo-50 rounded-xl px-3.5 py-3">
+                  <div className="text-[12px] font-bold text-indigo-800 mb-2">Admissão</div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col gap-1">
+                      {linkedAdmission.stage && (
+                        <span
+                          className="text-[11px] font-bold px-2 py-0.5 rounded-md inline-block w-fit"
+                          style={{ backgroundColor: `${linkedAdmission.stage.color}20`, color: linkedAdmission.stage.color }}
+                        >
+                          {linkedAdmission.stage.name}
+                        </span>
+                      )}
+                      {linkedAdmission.startDate && (
+                        <p className="text-[11.5px] text-indigo-700">
+                          Início previsto: {formatDate(linkedAdmission.startDate)}
+                        </p>
+                      )}
+                      {linkedAdmission.digitalFormSubmittedAt ? (
+                        <p className="text-[11.5px] text-green-700 font-medium">✓ Formulário preenchido</p>
+                      ) : (
+                        <p className="text-[11.5px] text-amber-700">Formulário pendente de preenchimento</p>
+                      )}
+                    </div>
+                    <a
+                      href={`/admissoes/${linkedAdmission.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 inline-flex items-center gap-1 text-[11.5px] font-bold text-indigo-700 hover:opacity-80 transition-opacity"
+                    >
+                      Ver admissão
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* Histórico de etapas */}
               {data.stageHistory.length > 0 && (

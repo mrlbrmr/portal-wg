@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
-import { FlaskConical } from "lucide-react";
+import { FlaskConical, UserCheck } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SearchBar } from "@/components/internal/SearchBar";
@@ -55,6 +55,12 @@ interface Props<T> {
   deleteError?: string;
   /** Se informado, pede confirmação (ConfirmModal) antes de excluir. */
   confirmDelete?: (item: T) => { title: string; message: string; confirmLabel: string };
+  /**
+   * Chamado antes do update otimista. Retorne false para abortar o move
+   * (sem update visual, sem toast de erro). Usado para interceptar moves
+   * que exigem confirmação (ex: etapas de Admissão).
+   */
+  onBeforeMove?: (id: string, toColumn: string) => boolean;
 }
 
 /**
@@ -83,6 +89,7 @@ export function KanbanBoardShell<T>({
   deleteSuccess,
   deleteError = "Erro ao excluir.",
   confirmDelete,
+  onBeforeMove,
 }: Props<T>) {
   // O quadro reflete `initialItems` (que já vem ordenado/filtrado pelo pai) e
   // aplica por cima os movimentos/exclusões otimistas feitos por drag-and-drop.
@@ -117,6 +124,7 @@ export function KanbanBoardShell<T>({
   async function move(id: string, toColumn: string) {
     const item = items.find((it) => getId(it) === id);
     if (!item || getColumn(item) === toColumn) return;
+    if (onBeforeMove && !onBeforeMove(id, toColumn)) return;
 
     const prevOverride = overrides[id];
     setOverrides((o) => ({ ...o, [id]: toColumn }));
@@ -202,7 +210,7 @@ export function KanbanBoardShell<T>({
             const cards = visibleItems.filter((it) => getColumn(it) === col.key);
             return (
               <KanbanColumn key={col.key} id={col.key}>
-                <div className={col.kind === "TEST" ? "rounded-t-2xl bg-[#F0EAFA]" : ""}>
+                <div className={col.kind === "TEST" ? "rounded-t-2xl bg-[#F0EAFA]" : col.kind === "ADMISSION" ? "rounded-t-2xl bg-[#EEF1FF]" : ""}>
                   <div className="flex items-center gap-2 px-3.5 py-3 min-w-0">
                     <span
                       className={`w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10 ${col.dotColor ? "" : col.dot ?? ""}`}
@@ -211,6 +219,9 @@ export function KanbanBoardShell<T>({
                     <span className="text-[13.5px] font-bold text-[#1A2213] truncate min-w-0">{col.label}</span>
                     {col.kind === "TEST" && (
                       <FlaskConical className="w-3.5 h-3.5 text-purple-500 shrink-0" aria-label="Etapa de teste" />
+                    )}
+                    {col.kind === "ADMISSION" && (
+                      <UserCheck className="w-3.5 h-3.5 text-indigo-500 shrink-0" aria-label="Etapa de admissão" />
                     )}
                     <span className="text-[11px] font-bold text-white bg-[#1A2213] rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shrink-0 ml-auto">
                       {cards.length}

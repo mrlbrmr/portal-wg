@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Eye, EyeOff, FlaskConical, Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, FlaskConical, Loader2, Plus, Trash2, UserCheck } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
   createStage,
@@ -37,6 +37,7 @@ const KIND_LABELS: Record<StageKind, string> = {
   WON:  "Contratado",
   LOST: "Reprovado",
   TEST: "Teste",
+  ADMISSION: "Admissão",
 };
 
 interface Props {
@@ -159,6 +160,14 @@ export function FunnelStagesManager({ stages, templates }: Props) {
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
+
+            {/* Informação de integração — visível apenas quando kind = ADMISSION */}
+            {s.kind === "ADMISSION" && (
+              <div className="mt-2 ml-[52px] flex items-center gap-1.5 text-xs text-indigo-600">
+                <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                Ao mover um candidato aqui, o sistema cria automaticamente uma admissão.
+              </div>
+            )}
 
             {/* Seletor de template — visível apenas quando kind = TEST */}
             {s.kind === "TEST" && (

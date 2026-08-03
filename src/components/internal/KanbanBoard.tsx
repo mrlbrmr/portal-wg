@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ClipboardCheck, Download, FlaskConical, Mail, Phone, Trash2 } from "lucide-react";
 import { formatDate, normalizeText } from "@/lib/utils";
@@ -9,6 +10,7 @@ import {
   type KanbanColumnDef,
 } from "@/components/internal/KanbanBoardShell";
 import { CandidateDrawer } from "@/components/internal/CandidateDrawer";
+import { AdmissionLinkModal, type AdmissionMeta } from "@/components/internal/AdmissionLinkModal";
 
 export interface KanbanApplication {
   id: string;
@@ -37,12 +39,16 @@ interface Props {
   applications: KanbanApplication[];
   stages: KanbanStage[];
   canManage: boolean;
+  jobId: string;
   jobTitle?: string;
   jobLocation?: string;
+  admissionMeta?: AdmissionMeta | null;
 }
 
-export function KanbanBoard({ applications, stages, canManage, jobTitle, jobLocation }: Props) {
+export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, jobLocation, admissionMeta }: Props) {
+  const router = useRouter();
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [pendingAdmission, setPendingAdmission] = useState<{ candidateId: string; toStageId: string } | null>(null);
 
   const columns: KanbanColumnDef[] = stages.map((s) => ({
     key: s.id,
@@ -51,6 +57,29 @@ export function KanbanBoard({ applications, stages, canManage, jobTitle, jobLoca
     kind: s.kind,
     subtitle: s.kind === "TEST" && s.templateName ? s.templateName : undefined,
   }));
+
+  function handleBeforeMove(id: string, toStageId: string): boolean {
+    if (admissionMeta && stages.find((s) => s.id === toStageId)?.kind === "ADMISSION") {
+      setPendingAdmission({ candidateId: id, toStageId });
+      return false;
+    }
+    return true;
+  }
+
+  async function handleAdmissionSuccess(admissionId: string, toStageId: string) {
+    setPendingAdmission(null);
+    await fetch(`/api/applications/${pendingAdmission!.candidateId}`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stageId: toStageId }),
+    });
+    router.refresh();
+  }
+
+  const pendingCandidate = pendingAdmission
+    ? applications.find((a) => a.id === pendingAdmission.candidateId) ?? null
+    : null;
 
   return (
     <>
@@ -78,6 +107,7 @@ export function KanbanBoard({ applications, stages, canManage, jobTitle, jobLoca
           body: JSON.stringify({ stageId }),
         })
       }
+      onBeforeMove={handleBeforeMove}
       moveSuccess={(a, label) => `${a.fullName} movido para ${label}.`}
       moveError="Erro ao mover candidatura."
       emptyLabel="Nenhuma candidatura"
@@ -198,6 +228,20 @@ export function KanbanBoard({ applications, stages, canManage, jobTitle, jobLoca
       jobTitle={jobTitle}
       jobLocation={jobLocation}
       onClose={() => setDetailId(null)}
+    />
+
+    <AdmissionLinkModal
+      open={pendingAdmission !== null}
+      candidate={pendingCandidate ? {
+        id: pendingCandidate.id,
+        fullName: pendingCandidate.fullName,
+        email: pendingCandidate.email,
+        phone: pendingCandidate.phone,
+        jobId,
+      } : null}
+      meta={admissionMeta ?? null}
+      onClose={() => setPendingAdmission(null)}
+      onSuccess={handleAdmissionSuccess}
     />
     </>
   );

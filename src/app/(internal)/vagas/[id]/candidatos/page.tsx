@@ -39,7 +39,6 @@ export default async function CandidatosPage({ params }: Props) {
       .order("sortOrder", { ascending: true }),
   ]);
 
-  // Para colunas TEST, busca o nome do template vinculado
   const rawStages = (stagesData ?? []) as Array<{
     id: string; name: string; color: string; kind: string; templateId: string | null;
   }>;
@@ -71,6 +70,46 @@ export default async function CandidatosPage({ params }: Props) {
     createdAt: string;
     assessments: Array<{ id: string }>;
   }>;
+
+  // Meta de admissão: carrega só quando existe etapa ADMISSION no funil
+  const hasAdmissionStage = rawStages.some((s) => s.kind === "ADMISSION");
+  type MetaItem = { id: string; name: string };
+  let admissionMeta: {
+    positions: MetaItem[];
+    companies: MetaItem[];
+    branches: MetaItem[];
+    templates: MetaItem[];
+    intakeStageId: string | null;
+  } | null = null;
+
+  if (hasAdmissionStage) {
+    const [
+      { data: positions },
+      { data: companies },
+      { data: branches },
+      { data: templates },
+      { data: intakeStage },
+    ] = await Promise.all([
+      supabase.from("admission_positions").select("id, name").order("sortOrder", { ascending: true }),
+      supabase.from("admission_companies").select("id, name").order("sortOrder", { ascending: true }),
+      supabase.from("admission_branches").select("id, name").order("sortOrder", { ascending: true }),
+      supabase.from("admission_templates").select("id, name").order("name", { ascending: true }),
+      supabase
+        .from("admission_stages")
+        .select("id")
+        .eq("name", "Envio do formulário admissional")
+        .eq("active", true)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    admissionMeta = {
+      positions: (positions ?? []) as MetaItem[],
+      companies: (companies ?? []) as MetaItem[],
+      branches: (branches ?? []) as MetaItem[],
+      templates: (templates ?? []) as MetaItem[],
+      intakeStageId: (intakeStage as { id: string } | null)?.id ?? null,
+    };
+  }
 
   // Sessões de teste: carrega só para apps em etapas TEST
   const testStageIds = new Set(rawStages.filter((s) => s.kind === "TEST").map((s) => s.id));
@@ -164,6 +203,7 @@ export default async function CandidatosPage({ params }: Props) {
           applications={cards}
           stages={stages}
           canManage={canManage}
+          jobId={job.id}
           jobTitle={job.title}
           jobLocation={
             job.isTalentPool
@@ -172,6 +212,7 @@ export default async function CandidatosPage({ params }: Props) {
               ? `${job.city}/${job.state}`
               : "Múltiplas cidades"
           }
+          admissionMeta={admissionMeta}
         />
       )}
     </div>

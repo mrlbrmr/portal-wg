@@ -56,6 +56,8 @@ export const admissionSchema = z.object({
   uniformPants: optStr(20),
   uniformShoe: optStr(20),
   notes: optStr(5000),
+  sourceApplicationId: optId,
+  sourceJobId: optId,
 });
 
 export type AdmissionInput = z.infer<typeof admissionSchema>;

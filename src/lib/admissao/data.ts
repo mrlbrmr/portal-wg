@@ -29,6 +29,8 @@ export interface AdmissionWriteData {
   uniformPants: string | null;
   uniformShoe: string | null;
   notes: string | null;
+  sourceApplicationId: string | null;
+  sourceJobId: string | null;
 }
 
 /**
@@ -62,5 +64,7 @@ export function admissionInputToData(input: AdmissionInput): AdmissionWriteData 
     uniformPants: input.uniformPants ?? null,
     uniformShoe: input.uniformShoe ?? null,
     notes: input.notes ?? null,
+    sourceApplicationId: input.sourceApplicationId ?? null,
+    sourceJobId: input.sourceJobId ?? null,
   };
 }

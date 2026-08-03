@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { DndContext, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { FlaskConical, UserCheck } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -9,6 +9,7 @@ import { SearchBar } from "@/components/internal/SearchBar";
 import {
   KanbanColumn,
   KanbanCard,
+  KanbanCardOverlay,
   useKanbanSensors,
 } from "@/components/internal/kanban-dnd";
 
@@ -101,6 +102,7 @@ export function KanbanBoardShell<T>({
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeId, setActiveId] = useState<string | null>(null);
   const { notify } = useToast();
   const sensors = useKanbanSensors();
 
@@ -116,7 +118,12 @@ export function KanbanBoardShell<T>({
     });
   }, [initialItems, overrides, deletedIds, getId, applyColumn]);
 
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
     const { active, over } = event;
     if (over) move(String(active.id), String(over.id));
   }
@@ -204,7 +211,7 @@ export function KanbanBoardShell<T>({
           className="mb-4 max-w-xs"
         />
       )}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex gap-3.5 overflow-x-auto pb-4">
           {columns.map((col) => {
             const cards = visibleItems.filter((it) => getColumn(it) === col.key);
@@ -252,6 +259,17 @@ export function KanbanBoardShell<T>({
             );
           })}
         </div>
+
+        <DragOverlay dropAnimation={null}>
+          {activeId ? (() => {
+            const item = items.find((it) => getId(it) === activeId);
+            return item ? (
+              <KanbanCardOverlay draggable={canManage} className={cardClassName}>
+                {renderCard(item, cardApi)}
+              </KanbanCardOverlay>
+            ) : null;
+          })() : null}
+        </DragOverlay>
       </DndContext>
 
       {confirmDelete && (

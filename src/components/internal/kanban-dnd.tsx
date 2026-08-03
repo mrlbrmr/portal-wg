@@ -9,7 +9,6 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
 /**
@@ -61,23 +60,17 @@ export function KanbanCard({ id, draggable, className = "", children }: CardProp
     setActivatorNodeRef,
     listeners,
     attributes,
-    transform,
     isDragging,
   } = useDraggable({ id, disabled: !draggable });
-
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform), zIndex: 50 }
-    : undefined;
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
       className={`relative rounded-xl bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,.05)] transition-shadow ${
         draggable ? "pr-7" : ""
       } ${
         isDragging
-          ? "shadow-lg ring-2 ring-wg-green/30"
+          ? "opacity-40 ring-2 ring-wg-green/20"
           : "hover:shadow-[0_8px_22px_rgba(0,0,0,.08)]"
       } ${className}`}
     >
@@ -93,6 +86,28 @@ export function KanbanCard({ id, draggable, className = "", children }: CardProp
         >
           <GripVertical className="h-4 w-4" />
         </button>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** Clone flutuante renderizado no DragOverlay (acima de qualquer overflow). */
+export function KanbanCardOverlay({
+  draggable,
+  className = "",
+  children,
+}: Omit<CardProps, "id">) {
+  return (
+    <div
+      className={`relative rounded-xl bg-white p-3 shadow-[0_12px_32px_rgba(0,0,0,.15)] ring-2 ring-wg-green/40 ${
+        draggable ? "pr-7" : ""
+      } ${className}`}
+    >
+      {draggable && (
+        <span className="absolute right-1 top-1.5 rounded p-0.5 text-gray-400">
+          <GripVertical className="h-4 w-4" />
+        </span>
       )}
       {children}
     </div>

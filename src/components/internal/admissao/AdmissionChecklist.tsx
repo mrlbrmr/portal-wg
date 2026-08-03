@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useOptimistic, useRef } from "react";
 import {
   Plus,
   Trash2,
@@ -568,12 +568,15 @@ function ItemRow({
     collapsedItems, toggleItemCollapse, hideDone, run,
   } = ctx;
   const [editing, setEditing] = useState(false);
+  const checkTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const dateTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isSub = depth === 1;
   const canDrop = ctx.dragScope === scope;
   const hasSubtasks = !isSub && item.subtasks.length > 0;
   const subsDone = hasSubtasks ? item.subtasks.filter((s) => s.status === "DONE").length : 0;
   const allSubsDone = hasSubtasks && subsDone === item.subtasks.length;
   const checked = hasSubtasks ? allSubsDone : item.status === "DONE";
+  const [optimisticChecked, setOptimisticChecked] = useOptimistic(checked);
   const collapsed = collapsedItems.has(item.id);
   const urgente = !checked && isOverdue(item.dueDate);
 
@@ -627,16 +630,20 @@ function ItemRow({
           <span
             className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center text-white text-[11px] font-bold shrink-0 transition-colors"
             style={{
-              border: `1.5px solid ${checked ? "#90CB46" : "#C9D6BA"}`,
-              background: checked ? "#90CB46" : "#fff",
-              cursor: canManage && !isPending ? "pointer" : "default",
+              border: `1.5px solid ${optimisticChecked ? "#90CB46" : "#C9D6BA"}`,
+              background: optimisticChecked ? "#90CB46" : "#fff",
+              cursor: canManage ? "pointer" : "default",
             }}
             onClick={() => {
-              if (!canManage || isPending) return;
-              run(() => setChecklistItemDone(admissionId, item.id, !checked));
+              if (!canManage) return;
+              if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+              setOptimisticChecked(!optimisticChecked);
+              checkTimerRef.current = setTimeout(() => {
+                run(() => setChecklistItemDone(admissionId, item.id, !checked));
+              }, 300);
             }}
           >
-            {checked ? "✓" : ""}
+            {optimisticChecked ? "✓" : ""}
           </span>
         )}
 
@@ -695,14 +702,13 @@ function ItemRow({
             <input
               type="date"
               defaultValue={item.dueDate ?? ""}
-              disabled={isPending}
-              onBlur={(e) =>
-                run(() =>
-                  updateChecklistItem(admissionId, item.id, {
-                    dueDate: e.target.value || null,
-                  })
-                )
-              }
+              onChange={(e) => {
+                const val = e.target.value || null;
+                if (dateTimerRef.current) clearTimeout(dateTimerRef.current);
+                dateTimerRef.current = setTimeout(() => {
+                  run(() => updateChecklistItem(admissionId, item.id, { dueDate: val }));
+                }, 600);
+              }}
               className="h-7 w-[120px] rounded-md border border-[#DCE8CC] px-1.5 text-[11px] text-[#3E4A34] focus:outline-none focus:border-[#90CB46] bg-white"
               title="Data limite"
             />

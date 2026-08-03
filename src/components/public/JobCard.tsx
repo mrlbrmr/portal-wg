@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Link from "next/link";
 import { MapPin, ArrowRight, Clock, Building2, Wallet, Star, Users, Sparkles, Globe } from "lucide-react";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
@@ -11,7 +12,7 @@ interface Props {
   config: HomepageConfigData;
 }
 
-export default function JobCard({ job, config }: Props) {
+export default memo(function JobCard({ job, config }: Props) {
   const isNew = Date.now() - new Date(job.createdAt as Date | string).getTime() < SEVEN_DAYS_MS;
   const hasLocation = Boolean(job.city && job.state);
 
@@ -136,4 +137,4 @@ export default function JobCard({ job, config }: Props) {
       </div>
     </Link>
   );
-}
+});

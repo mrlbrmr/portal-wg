@@ -73,23 +73,12 @@ export default async function HomePage({
   return (
     <div>
       {/* ── HERO ── */}
-      <section
-        className="relative text-center"
-        style={{ background: "#90CB46", padding: "96px 48px 120px", position: "relative" }}
-      >
-        <div style={{ maxWidth: 760, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      <section className="relative text-center bg-[#90CB46] px-6 md:px-12 pt-24 pb-[120px]">
+        <div className="max-w-[760px] mx-auto relative z-[1]">
           {/* Badge pill */}
           <div
-            className="inline-flex items-center gap-2 mb-7 animate-fade-up"
-            style={{
-              background: "rgba(12,13,12,0.12)",
-              color: "#0C0D0C",
-              padding: "8px 18px",
-              borderRadius: 999,
-              fontSize: 13,
-              fontWeight: 600,
-              animationDelay: "0ms",
-            }}
+            className="inline-flex items-center gap-2 mb-7 animate-fade-up bg-black/[0.12] text-[#0C0D0C] px-[18px] py-2 rounded-full text-[13px] font-semibold"
+            style={{ animationDelay: "0ms" }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0C0D0C" strokeWidth="2.2">
               <path d="M13 2 4 14h6l-1 8 9-12h-6z" />
@@ -99,23 +88,16 @@ export default async function HomePage({
 
           {/* H1 */}
           <h1
-            className="font-sora font-extrabold text-[#0C0D0C] animate-fade-up"
-            style={{ fontSize: 52, lineHeight: 1.1, margin: "0 0 20px", animationDelay: "120ms" }}
+            className="font-sora font-extrabold text-[#0C0D0C] animate-fade-up text-[38px] md:text-[52px] leading-[1.1] mb-5"
+            style={{ animationDelay: "120ms" }}
           >
             Faça parte do Grupo WG
           </h1>
 
           {/* Parágrafo */}
           <p
-            className="animate-fade-up"
-            style={{
-              fontSize: 18,
-              color: "#22301a",
-              lineHeight: 1.6,
-              margin: "0 0 36px",
-              fontWeight: 500,
-              animationDelay: "220ms",
-            }}
+            className="animate-fade-up text-base md:text-[18px] text-[#22301a] leading-[1.6] mb-9 font-medium"
+            style={{ animationDelay: "220ms" }}
           >
             Desde 2002, o Grupo WG conecta energia, movimento e pessoas nas regiões Sul e Sudeste
             do Brasil. Venha crescer com a nossa equipe.
@@ -125,36 +107,13 @@ export default async function HomePage({
           <div className="flex gap-4 justify-center flex-wrap animate-fade-up" style={{ animationDelay: "340ms" }}>
             <a
               href="#vagas"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                background: "#0C0D0C",
-                color: "#fff",
-                padding: "16px 30px",
-                borderRadius: 999,
-                fontWeight: 700,
-                fontSize: 15,
-                textDecoration: "none",
-              }}
+              className="inline-flex items-center gap-2 bg-[#0C0D0C] text-white px-[30px] py-4 rounded-full font-bold text-[15px] no-underline"
             >
               Ver vagas abertas →
             </a>
 
             {config.showJobCounter && (
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "rgba(12,13,12,0.1)",
-                  color: "#0C0D0C",
-                  padding: "16px 26px",
-                  borderRadius: 999,
-                  fontWeight: 600,
-                  fontSize: 15,
-                }}
-              >
+              <div className="inline-flex items-center gap-2 bg-black/10 text-[#0C0D0C] px-[26px] py-4 rounded-full font-semibold text-[15px]">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0C0D0C" strokeWidth="2">
                   <rect x="2" y="7" width="20" height="14" rx="2" />
                   <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
@@ -169,15 +128,7 @@ export default async function HomePage({
         <svg
           viewBox="0 0 1440 100"
           preserveAspectRatio="none"
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: -1,
-            width: "100%",
-            height: 100,
-            display: "block",
-          }}
+          className="absolute left-0 right-0 bottom-[-1px] w-full h-[100px] block"
           aria-hidden="true"
         >
           <path d="M0,0 C 360,100 1080,100 1440,0 L1440,100 L0,100 Z" fill="#0C0D0C" />

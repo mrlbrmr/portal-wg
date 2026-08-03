@@ -55,17 +55,23 @@ async function getRecaptchaToken(): Promise<string | null> {
   }
 }
 
-// Cache das cidades do IBGE para não refazer a requisição a cada foco.
-let cachedCities: string[] | null = null;
+const IBGE_CACHE_KEY = "wg_ibge_cities";
+const IBGE_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 async function loadCities(): Promise<string[]> {
-  if (cachedCities) return cachedCities;
+  try {
+    const raw = sessionStorage.getItem(IBGE_CACHE_KEY);
+    if (raw) {
+      const { data, ts } = JSON.parse(raw) as { data: string[]; ts: number };
+      if (Date.now() - ts < IBGE_CACHE_TTL) return data;
+    }
+  } catch {}
   const res = await fetch(
     "https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome"
   );
-  const data = (await res.json()) as Array<{ nome: string }>;
-  cachedCities = data.map((m) => m.nome);
-  return cachedCities;
+  const data = ((await res.json()) as Array<{ nome: string }>).map((m) => m.nome);
+  try { sessionStorage.setItem(IBGE_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
+  return data;
 }
 
 const inputClass =

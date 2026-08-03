@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { RichTextErrorBoundary } from "@/components/internal/RichTextErrorBoundary";
 import { useRouter } from "next/navigation";
 import { BRAZIL_STATES, isPublicJobStatus } from "@/lib/utils";
 import { Loader2, Check, ExternalLink } from "lucide-react";
@@ -397,7 +398,18 @@ export default function JobForm({ job }: Props) {
         <label className={labelClass}>
           Conteúdo da vaga <span className="text-red-500">*</span>
         </label>
-        <RichTextEditor content={description} onChange={setDescription} />
+        <RichTextErrorBoundary
+          fallback={
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full min-h-[120px] rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y"
+              placeholder="O editor não pôde carregar. Digite o conteúdo aqui."
+            />
+          }
+        >
+          <RichTextEditor content={description} onChange={setDescription} />
+        </RichTextErrorBoundary>
         <p className="text-xs text-gray-500 mt-1">
           Escreva livremente — use os títulos do editor para organizar seções como Responsabilidades, Requisitos e Benefícios.
         </p>

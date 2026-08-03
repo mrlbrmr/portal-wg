@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import JobCard from "@/components/public/JobCard";
 import { AnimateIn } from "@/components/ui/AnimateIn";
 import type { Job } from "@/types/domain";
@@ -24,11 +24,13 @@ export function LoadMoreJobs({ initialJobs, total, filters, config, pageSize }: 
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   const hasMore = jobs.length < total;
 
   async function loadMore() {
     setLoading(true);
+    setError(false);
     const nextPage = page + 1;
     const params = new URLSearchParams({ page: String(nextPage), limit: String(pageSize) });
     if (filters.city) params.set("city", filters.city);
@@ -38,11 +40,12 @@ export function LoadMoreJobs({ initialJobs, total, filters, config, pageSize }: 
 
     try {
       const res = await fetch(`/api/jobs?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setJobs((prev) => [...prev, ...(data.jobs as Job[])]);
-        setPage(nextPage);
-      }
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setJobs((prev) => [...prev, ...(data.jobs as Job[])]);
+      setPage(nextPage);
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -59,7 +62,7 @@ export function LoadMoreJobs({ initialJobs, total, filters, config, pageSize }: 
       </div>
 
       {hasMore && (
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center flex flex-col items-center gap-2">
           <button
             onClick={loadMore}
             disabled={loading}
@@ -70,10 +73,20 @@ export function LoadMoreJobs({ initialJobs, total, filters, config, pageSize }: 
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Carregando...
               </>
+            ) : error ? (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                Tentar novamente
+              </>
             ) : (
               `Carregar mais (${total - jobs.length} restantes)`
             )}
           </button>
+          {error && (
+            <p className="text-sm text-red-500">
+              Não foi possível carregar mais vagas. Verifique sua conexão.
+            </p>
+          )}
         </div>
       )}
     </>

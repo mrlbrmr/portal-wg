@@ -103,6 +103,13 @@ export function CandidateDrawer({
     return () => document.removeEventListener("keydown", onKey);
   }, [applicationId, onClose]);
 
+  useEffect(() => {
+    if (!applicationId) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [applicationId]);
+
   if (!applicationId) return null;
 
   async function saveNotes() {
@@ -184,7 +191,7 @@ export function CandidateDrawer({
 
       <div
         className="relative flex h-full w-full max-w-[620px] flex-col bg-white shadow-[-10px_0_34px_rgba(0,0,0,.16)] animate-in slide-in-from-right duration-200"
-        style={{ overflowY: "hidden" }}
+        style={{ overflowY: "auto" }}
       >
         {/* ── Sticky header ── */}
         <div className="sticky top-0 bg-white z-10 px-6 pt-5 pb-4 border-b border-[#EEF1E7] flex flex-col gap-3 shrink-0">

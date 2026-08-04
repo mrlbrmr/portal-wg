@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from 'react'
-import { CheckCircle2, Upload, Loader2, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react'
+import { CheckCircle2, Upload, Loader2, AlertTriangle, ChevronRight, ChevronLeft, X } from 'lucide-react'
 import {
   getVisibleDocuments,
   type FormConfig,
@@ -34,7 +34,8 @@ interface AdditionalData {
 }
 
 interface UploadState {
-  status: 'idle' | 'uploading' | 'done' | 'error'
+  id: string
+  status: 'uploading' | 'done' | 'error'
   fileName?: string
   attachmentId?: string
   error?: string
@@ -160,19 +161,22 @@ function YesNo({
 }
 
 function FileUpload({
-  docKey, label, required, token, state, onUpload,
+  docKey, label, required, token, files, onAddFile, onUpdateFile, onRemoveFile,
 }: {
   docKey: string
   label: string
   required: boolean
   token: string
-  state: UploadState
-  onUpload: (key: string, st: UploadState) => void
+  files: UploadState[]
+  onAddFile: (key: string, item: UploadState) => void
+  onUpdateFile: (key: string, id: string, patch: Partial<UploadState>) => void
+  onRemoveFile: (key: string, id: string) => void
 }) {
   const ref = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
-    onUpload(docKey, { status: 'uploading' })
+    const id = Math.random().toString(36).slice(2, 10)
+    onAddFile(docKey, { id, status: 'uploading' })
 
     // Fotos do celular são grandes demais para a função serverless (~4,5 MB).
     // Comprimimos imagens antes de enviar; PDFs/DOC seguem sem alteração.
@@ -180,7 +184,7 @@ function FileUpload({
     try { toSend = await compressImage(file) } catch { /* mantém o original */ }
 
     if (toSend.size > MAX_UPLOAD_BYTES) {
-      onUpload(docKey, {
+      onUpdateFile(docKey, id, {
         status: 'error',
         error: 'Arquivo muito grande. Se for um PDF, envie um menor; se for foto, tente novamente.',
       })
@@ -193,59 +197,85 @@ function FileUpload({
     try {
       const res = await fetchWithTimeout(`/api/admissao/${token}/upload`, { method: 'POST', body: fd }, 60_000)
       const body = await res.json().catch(() => ({})) as { error?: string; fileName?: string; attachmentId?: string }
-      if (!res.ok) { onUpload(docKey, { status: 'error', error: body.error ?? 'Erro no upload.' }); return }
-      onUpload(docKey, { status: 'done', fileName: body.fileName ?? file.name, attachmentId: body.attachmentId })
+      if (!res.ok) {
+        onUpdateFile(docKey, id, { status: 'error', error: body.error ?? 'Erro no upload.' })
+        return
+      }
+      onUpdateFile(docKey, id, { status: 'done', fileName: body.fileName ?? file.name, attachmentId: body.attachmentId })
     } catch {
-      onUpload(docKey, { status: 'error', error: 'Conexão instável. Toque para tentar novamente.' })
+      onUpdateFile(docKey, id, { status: 'error', error: 'Conexão instável. Toque para tentar novamente.' })
     }
   }
+
+  const isUploading = files.some(f => f.status === 'uploading')
+  const hasFiles = files.length > 0
 
   return (
     <div>
       <label className={labelCls(required)}>{label}</label>
+
+      {/* Lista de arquivos adicionados */}
+      {hasFiles && (
+        <div className="mt-1 space-y-1.5">
+          {files.map(f => (
+            <div
+              key={f.id}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                f.status === 'done'  ? 'border-green-300 bg-green-50'
+                : f.status === 'error' ? 'border-red-300 bg-red-50'
+                : 'border-gray-200 bg-gray-50'
+              }`}
+            >
+              {f.status === 'uploading' && <Loader2 className="w-4 h-4 animate-spin text-wg-green shrink-0" />}
+              {f.status === 'done'      && <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />}
+              {f.status === 'error'     && <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />}
+              <span className={`flex-1 truncate ${f.status === 'error' ? 'text-red-600' : 'text-gray-700'}`}>
+                {f.status === 'uploading' ? 'Enviando…'
+                  : f.status === 'error'  ? f.error
+                  : f.fileName}
+              </span>
+              {f.status !== 'uploading' && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveFile(docKey, f.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors ml-1 shrink-0"
+                  title="Remover arquivo"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Botão para adicionar arquivo */}
       <div
-        className={`mt-1 border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors ${
-          state.status === 'done'
-            ? 'border-green-400 bg-green-50'
-            : state.status === 'error'
-            ? 'border-red-300 bg-red-50'
-            : 'border-gray-300 hover:border-wg-green bg-white'
+        className={`mt-2 border-2 border-dashed rounded-xl p-3 text-center transition-colors ${
+          isUploading
+            ? 'border-wg-green bg-green-50 opacity-50 pointer-events-none'
+            : 'border-gray-300 hover:border-wg-green bg-white cursor-pointer'
         }`}
-        onClick={() => state.status !== 'uploading' && ref.current?.click()}
+        onClick={() => !isUploading && ref.current?.click()}
       >
         <input
           ref={ref}
           type="file"
           className="hidden"
           accept="image/*,.pdf,.doc,.docx,.heic,.heif"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) { e.target.value = ''; handleFile(f) }
+          }}
         />
-        {state.status === 'uploading' && (
-          <div className="flex items-center justify-center gap-2 text-wg-green text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" /> Enviando...
-          </div>
-        )}
-        {state.status === 'done' && (
-          <div className="flex items-center justify-center gap-2 text-green-700 text-sm">
-            <CheckCircle2 className="w-4 h-4" />
-            <span className="truncate max-w-xs">{state.fileName}</span>
-            <span className="text-xs text-green-600 ml-1">(clique para substituir)</span>
-          </div>
-        )}
-        {state.status === 'error' && (
-          <div className="flex flex-col items-center gap-1">
-            <div className="flex items-center gap-2 text-red-600 text-sm">
-              <AlertTriangle className="w-4 h-4" /> {state.error}
-            </div>
-            <span className="text-xs text-gray-500">Clique para tentar novamente</span>
-          </div>
-        )}
-        {state.status === 'idle' && (
-          <div className="flex flex-col items-center gap-1 text-gray-500">
-            <Upload className="w-5 h-5" />
-            <span className="text-sm">Toque para tirar foto ou escolher o arquivo</span>
-            <span className="text-xs">PDF ou imagem · fotos são otimizadas automaticamente</span>
-          </div>
+        <div className="flex items-center justify-center gap-2 text-gray-500">
+          <Upload className="w-4 h-4" />
+          <span className="text-sm">
+            {hasFiles ? 'Adicionar outro arquivo' : 'Toque para tirar foto ou escolher o arquivo'}
+          </span>
+        </div>
+        {!hasFiles && (
+          <p className="text-xs text-gray-400 mt-0.5">PDF ou imagem · fotos são otimizadas automaticamente</p>
         )}
       </div>
     </div>
@@ -303,11 +333,25 @@ export function DigitalForm({
     bankAgency: '', bankAccount: '', colorDeclaration: '', isDriverOperator: null,
   })
 
-  const [uploads, setUploads] = useState<Record<string, UploadState>>({})
-  const [extras, setExtras]   = useState<Record<string, string>>({})
+  const [uploads, setUploads]     = useState<Record<string, UploadState[]>>({})
+  const [removedIds, setRemovedIds] = useState<string[]>([])
+  const [extras, setExtras]       = useState<Record<string, string>>({})
 
-  function setUpload(key: string, st: UploadState) {
-    setUploads(prev => ({ ...prev, [key]: st }))
+  function addFile(key: string, item: UploadState) {
+    setUploads(prev => ({ ...prev, [key]: [...(prev[key] ?? []), item] }))
+  }
+
+  function updateFile(key: string, id: string, patch: Partial<UploadState>) {
+    setUploads(prev => ({
+      ...prev,
+      [key]: (prev[key] ?? []).map(f => f.id === id ? { ...f, ...patch } : f),
+    }))
+  }
+
+  function removeFile(key: string, id: string) {
+    const item = (uploads[key] ?? []).find(f => f.id === id)
+    if (item?.attachmentId) setRemovedIds(prev => [...prev, item.attachmentId!])
+    setUploads(prev => ({ ...prev, [key]: (prev[key] ?? []).filter(f => f.id !== id) }))
   }
 
   const visibleDocs: DocumentConfig[] = getVisibleDocuments(config, {
@@ -356,8 +400,9 @@ export function DigitalForm({
   function validateStep2(): boolean {
     const e: Record<string, string> = {}
     for (const doc of visibleDocs) {
-      const st = uploads[doc.key]
-      if (doc.required && (!st || st.status !== 'done'))
+      const files = uploads[doc.key] ?? []
+      const hasDone = files.some(f => f.status === 'done')
+      if (doc.required && !hasDone)
         e[doc.key] = 'Documento obrigatório não enviado.'
       for (const f of doc.extraFields ?? []) {
         if (f.required && !(extras[f.key] ?? '').trim())
@@ -389,13 +434,16 @@ export function DigitalForm({
   }
 
   // Anexos que o candidato subiu e depois deixaram de ser visíveis (ex.: enviou o
-  // documento do cônjuge e depois mudou o estado civil). Enviamos os ids para o
-  // servidor apagá-los, evitando arquivos órfãos no armazenamento.
+  // documento do cônjuge e depois mudou o estado civil), ou que foram explicitamente
+  // removidos. Enviamos os ids para o servidor apagá-los, evitando arquivos órfãos.
   function collectAbandonedAttachmentIds(): string[] {
     const visibleKeys = new Set(visibleDocs.map(d => d.key))
-    return Object.entries(uploads)
-      .filter(([key, st]) => st.status === 'done' && st.attachmentId && !visibleKeys.has(key))
-      .map(([, st]) => st.attachmentId as string)
+    const hiddenIds = Object.entries(uploads)
+      .filter(([key]) => !visibleKeys.has(key))
+      .flatMap(([, files]) =>
+        files.filter(f => f.status === 'done' && f.attachmentId).map(f => f.attachmentId as string)
+      )
+    return [...new Set([...hiddenIds, ...removedIds])]
   }
 
   async function handleSubmit() {
@@ -604,8 +652,10 @@ export function DigitalForm({
                 label={doc.label}
                 required={doc.required}
                 token={token}
-                state={uploads[doc.key] ?? { status: 'idle' }}
-                onUpload={setUpload}
+                files={uploads[doc.key] ?? []}
+                onAddFile={addFile}
+                onUpdateFile={updateFile}
+                onRemoveFile={removeFile}
               />
               {errors[doc.key] && <p className="text-xs text-red-500 mt-1">{errors[doc.key]}</p>}
 
@@ -662,15 +712,19 @@ export function DigitalForm({
           <div className="bg-gray-50 rounded-xl p-4 space-y-1 text-sm">
             <p className="font-medium text-gray-700 mb-2">Documentos enviados</p>
             {visibleDocs.map(doc => {
-              const st = uploads[doc.key]
+              const files = uploads[doc.key] ?? []
+              const doneCount = files.filter(f => f.status === 'done').length
               return (
                 <div key={doc.key} className="flex items-center gap-2">
-                  {st?.status === 'done'
+                  {doneCount > 0
                     ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
                     : <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 shrink-0" />}
-                  <span className={st?.status === 'done' ? 'text-gray-700' : 'text-gray-400'}>
+                  <span className={doneCount > 0 ? 'text-gray-700' : 'text-gray-400'}>
                     {doc.label}
                   </span>
+                  {doneCount > 1 && (
+                    <span className="text-xs text-green-600">({doneCount} arquivos)</span>
+                  )}
                 </div>
               )
             })}

@@ -7,33 +7,27 @@ interface Props {
   checklist: ReactNode;
   attachments: ReactNode;
   pendingDocsCount: number;
+  formViewer?: ReactNode;
 }
 
-export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount }: Props) {
-  const [tab, setTab] = useState<"checklist" | "docs">("checklist");
+export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount, formViewer }: Props) {
+  const [tab, setTab] = useState<"checklist" | "docs" | "form">("checklist");
+
+  const btnClass = (active: boolean) =>
+    `px-4 py-2 rounded-[8px] text-[13.5px] font-bold transition-colors ${
+      active ? "bg-[#90CB46] text-[#0C0D0C]" : "text-[#3E4A34] hover:text-[#1A2213]"
+    }`;
 
   return (
     <div className="flex flex-col gap-4 min-w-0">
       <div className="bg-[#EEF4E3] rounded-[10px] p-1 flex gap-0.5 w-fit">
-        <button
-          type="button"
-          onClick={() => setTab("checklist")}
-          className={`px-4 py-2 rounded-[8px] text-[13.5px] font-bold transition-colors ${
-            tab === "checklist"
-              ? "bg-[#90CB46] text-[#0C0D0C]"
-              : "text-[#3E4A34] hover:text-[#1A2213]"
-          }`}
-        >
+        <button type="button" onClick={() => setTab("checklist")} className={btnClass(tab === "checklist")}>
           Checklist
         </button>
         <button
           type="button"
           onClick={() => setTab("docs")}
-          className={`px-4 py-2 rounded-[8px] text-[13.5px] font-bold transition-colors flex items-center gap-1.5 ${
-            tab === "docs"
-              ? "bg-[#90CB46] text-[#0C0D0C]"
-              : "text-[#3E4A34] hover:text-[#1A2213]"
-          }`}
+          className={`${btnClass(tab === "docs")} flex items-center gap-1.5`}
         >
           Documentos
           {pendingDocsCount > 0 && (
@@ -42,10 +36,17 @@ export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount }
             </span>
           )}
         </button>
+        {formViewer && (
+          <button type="button" onClick={() => setTab("form")} className={btnClass(tab === "form")}>
+            Formulário
+          </button>
+        )}
       </div>
 
       <div key={tab} className="tab-content min-w-0">
-        {tab === "checklist" ? checklist : attachments}
+        {tab === "checklist" && checklist}
+        {tab === "docs" && attachments}
+        {tab === "form" && formViewer}
       </div>
     </div>
   );

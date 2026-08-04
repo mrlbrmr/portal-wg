@@ -14,6 +14,7 @@ import {
 } from "@/components/internal/admissao/AdmissionAttachments";
 import { DigitalAdmissionCard } from "@/components/internal/admissao/DigitalAdmissionCard";
 import { AdmissionDetailTabs } from "@/components/internal/admissao/AdmissionDetailTabs";
+import { DigitalFormViewer } from "@/components/internal/admissao/DigitalFormViewer";
 import { loadFormConfig } from "@/lib/admissao/form-config-loader";
 
 export const metadata: Metadata = { title: "Ficha da admissão — RH" };
@@ -23,6 +24,19 @@ function fmtDate(d: string | null): string | null {
 }
 function dateInput(d: string | null): string | null {
   return d ? new Date(d).toISOString().slice(0, 10) : null;
+}
+function fmtCpf(v: string | null): string | null {
+  if (!v) return null;
+  const d = v.replace(/\D/g, "");
+  if (d.length !== 11) return v;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+function fmtPhone(v: string | null): string | null {
+  if (!v) return null;
+  const d = v.replace(/\D/g, "");
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return v;
 }
 
 interface AdmissionDetail {
@@ -41,6 +55,17 @@ interface AdmissionDetail {
   uniformPants: string | null;
   uniformShoe: string | null;
   notes: string | null;
+  // digital form fields
+  gender: string | null;
+  maritalStatus: string | null;
+  hasChildren: boolean | null;
+  needsTransportVoucher: boolean | null;
+  transportVoucherDetails: string | null;
+  hasItauAccount: boolean | null;
+  bankAgency: string | null;
+  bankAccount: string | null;
+  colorDeclaration: string | null;
+  isDriverOperator: boolean | null;
   position: { name: string } | null;
   company: { name: string } | null;
   branch: { name: string } | null;
@@ -190,11 +215,37 @@ export default async function AdmissaoDetalhePage({
     { label: "Turno", value: admission.shift ?? "" },
     { label: "Salário", value: salaryFmt ?? "" },
     { label: "Nascimento", value: fmtDate(admission.birthDate) ?? "" },
-    { label: "CPF", value: admission.cpf ?? "" },
+    { label: "CPF", value: fmtCpf(admission.cpf) ?? "" },
     { label: "E-mail", value: admission.email ?? "" },
-    { label: "Telefone", value: admission.phone ?? "" },
+    { label: "Telefone", value: fmtPhone(admission.phone) ?? "" },
     { label: "Exame médico", value: fmtDate(admission.medicalExamDate) ?? "" },
   ].filter((f) => f.value);
+
+  const digitalFormSubmittedAt = (admissionRaw.digitalFormSubmittedAt as string | null) ?? null;
+  const formViewerNode = digitalFormSubmittedAt ? (
+    <DigitalFormViewer
+      formConfig={formConfig}
+      data={{
+        fullName: admission.fullName,
+        cpf: admission.cpf,
+        birthDate: admission.birthDate,
+        email: admission.email,
+        phone: admission.phone,
+        gender: admission.gender,
+        maritalStatus: admission.maritalStatus,
+        hasChildren: admission.hasChildren,
+        needsTransportVoucher: admission.needsTransportVoucher,
+        transportVoucherDetails: admission.transportVoucherDetails,
+        hasItauAccount: admission.hasItauAccount,
+        bankAgency: admission.bankAgency,
+        bankAccount: admission.bankAccount,
+        colorDeclaration: admission.colorDeclaration,
+        isDriverOperator: admission.isDriverOperator,
+        formExtras: (admissionRaw.formExtras as Record<string, string> | null) ?? null,
+        submittedAt: digitalFormSubmittedAt,
+      }}
+    />
+  ) : undefined;
 
   return (
     <div>
@@ -320,16 +371,17 @@ export default async function AdmissaoDetalhePage({
           {canManage && (
             <DigitalAdmissionCard
               admissionId={id}
-              submittedAt={(admissionRaw.digitalFormSubmittedAt as string | null) ?? null}
+              submittedAt={digitalFormSubmittedAt}
               tokenExpiresAt={(admissionRaw.digitalFormExpiresAt as string | null) ?? null}
               hasToken={!!admissionRaw.digitalFormToken}
             />
           )}
         </div>
 
-        {/* Right: tabbed checklist / docs */}
+        {/* Right: tabbed checklist / docs / form */}
         <AdmissionDetailTabs
           pendingDocsCount={pendingDocsCount}
+          formViewer={formViewerNode}
           checklist={
             <AdmissionChecklist
               admissionId={id}

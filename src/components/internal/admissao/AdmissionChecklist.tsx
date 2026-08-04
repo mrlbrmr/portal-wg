@@ -148,6 +148,15 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     });
   }
 
+  function runCheck(itemId: string, currentChecked: boolean, setOptimistic: (v: boolean) => void) {
+    const nextValue = !currentChecked;
+    startTransition(async () => {
+      setOptimistic(nextValue);
+      const res = await setChecklistItemDone(admissionId, itemId, nextValue);
+      if (!res.ok) notify("error", res.error);
+    });
+  }
+
   function toggleGroup(id: string) {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
@@ -212,6 +221,7 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     toggleItemCollapse,
     hideDone,
     run,
+    runCheck,
     dragId: drag?.id ?? null,
     dragScope: drag?.scope ?? null,
     dragOverId,
@@ -537,6 +547,7 @@ interface RowContext {
   toggleItemCollapse: (id: string) => void;
   hideDone: boolean;
   run: (fn: () => Promise<ActionResult>) => void;
+  runCheck: (itemId: string, currentChecked: boolean, setOptimistic: (v: boolean) => void) => void;
   dragId: string | null;
   dragScope: string | null;
   dragOverId: string | null;
@@ -568,7 +579,6 @@ function ItemRow({
     collapsedItems, toggleItemCollapse, hideDone, run,
   } = ctx;
   const [editing, setEditing] = useState(false);
-  const checkTimerRef = useRef<NodeJS.Timeout | null>(null);
   const dateTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isSub = depth === 1;
   const canDrop = ctx.dragScope === scope;
@@ -636,11 +646,7 @@ function ItemRow({
             }}
             onClick={() => {
               if (!canManage) return;
-              if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
-              setOptimisticChecked(!optimisticChecked);
-              checkTimerRef.current = setTimeout(() => {
-                run(() => setChecklistItemDone(admissionId, item.id, !checked));
-              }, 300);
+              ctx.runCheck(item.id, checked, setOptimisticChecked);
             }}
           >
             {optimisticChecked ? "✓" : ""}

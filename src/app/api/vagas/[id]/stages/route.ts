@@ -6,6 +6,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+
   const { id: jobId } = await params;
   const supabase = await createClient();
   const { data } = await supabase

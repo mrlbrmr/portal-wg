@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+
+export const revalidate = 60;
 import { createAnonClient } from "@/lib/supabase/anon";
 import { DEFAULT_CONFIG, type HomepageConfigData } from "@/lib/homepage-config";
 import type { Job } from "@/types/domain";

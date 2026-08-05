@@ -6,6 +6,9 @@ import { templateInputSchema } from '@/lib/avaliacoes/schema'
 import { ZodError } from 'zod'
 
 export async function GET(request: Request) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Não autorizado.' }, { status: 403 })
+
   const { searchParams } = new URL(request.url)
   const kind     = searchParams.get('kind')
   const subtype  = searchParams.get('subtype')

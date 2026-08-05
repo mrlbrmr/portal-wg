@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -517,9 +517,9 @@ export function AdmissaoAtividadesWidgetClient({ data }: { data: WidgetData }) {
 
   const { overdue, today, upcoming, overdueCount, todayCount, todayDone, todayStr } = data;
 
-  const overdueGroups = groupByAdmission(overdue);
-  const todayGroups = groupByAdmission(today);
-  const upcomingGroups = groupByAdmission(upcoming);
+  const overdueGroups = useMemo(() => groupByAdmission(overdue), [overdue]);
+  const todayGroups = useMemo(() => groupByAdmission(today), [today]);
+  const upcomingGroups = useMemo(() => groupByAdmission(upcoming), [upcoming]);
 
   const cut5 = addDaysToStr(todayStr, 5);
   const byStartDate = (groups: AdmissionGroup[]) =>

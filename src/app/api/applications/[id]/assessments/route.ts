@@ -66,7 +66,7 @@ export async function POST(
   // A candidatura precisa existir.
   const { data: application } = await supabase
     .from("applications")
-    .select("id")
+    .select("id, jobId")
     .eq("id", id)
     .maybeSingle();
   if (!application) {
@@ -111,6 +111,6 @@ export async function POST(
     return NextResponse.json({ error: "Não foi possível registrar a avaliação." }, { status: 500 });
   }
 
-  revalidatePath(`/vagas/*/candidatos`);
+  if (application.jobId) revalidatePath(`/vagas/${application.jobId}/candidatos`);
   return NextResponse.json({ ok: true }, { status: 201 });
 }

@@ -31,8 +31,8 @@ export async function POST(
     return NextResponse.json({ error: 'Formulário já enviado pelo candidato.' }, { status: 409 })
   }
 
-  // Reutiliza token existente ou gera novo
-  const token      = (admission.digitalFormToken as string | null) ?? randomUUID()
+  // Gera sempre um novo token para invalidar link anterior
+  const token      = randomUUID()
   const expiresAt  = new Date(Date.now() + DIGITAL_FORM_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
 
   await supabase.from('admissions').update({

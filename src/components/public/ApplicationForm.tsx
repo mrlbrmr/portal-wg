@@ -242,7 +242,7 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
             type="tel"
             required
             autoComplete="tel"
-            inputMode="numeric"
+            inputMode="tel"
             value={phone}
             onChange={(e) => setPhone(maskPhone(e.target.value))}
             placeholder="(11) 9 1234-5678"

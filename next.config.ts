@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const nextConfig: NextConfig = {
   // pdf-parse usa require() do Node.js e não pode ser bundlado pelo webpack
   serverExternalPackages: ["pdf-parse"],
@@ -8,6 +10,7 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -17,7 +20,8 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // google.com + gstatic.com liberam o script do reCAPTCHA v3 (api.js e deps).
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com",
+              // unsafe-eval só em desenvolvimento (Next.js usa eval() no hot-reload).
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.google.com https://www.gstatic.com`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://www.gstatic.com",

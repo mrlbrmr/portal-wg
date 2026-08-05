@@ -265,6 +265,30 @@ export async function setChecklistItemDone(
   return done(admissionId);
 }
 
+/** Conclui múltiplos itens de uma admissão em lote (usado pelo widget do dashboard). */
+export async function setBatchItemsDone(
+  admissionId: string,
+  itemIds: string[]
+): Promise<ActionResult> {
+  const auth = await requireWrite();
+  if ("error" in auth) return { ok: false, error: auth.error };
+  if (!itemIds.length) return { ok: true };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("admission_checklist_items")
+    .update({
+      status: "DONE" as const,
+      completedAt: new Date().toISOString(),
+      completedById: auth.userId,
+    })
+    .in("id", itemIds)
+    .eq("admissionId", admissionId);
+
+  if (error) return { ok: false, error: error.message };
+  return done(admissionId);
+}
+
 /** Recalcula o status de uma tarefa-mãe a partir das suas subtarefas. */
 async function syncParentStatus(
   supabase: Awaited<ReturnType<typeof createClient>>,

@@ -549,14 +549,14 @@ export function JobsExplorer({
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="text-wg-ink text-base font-bold">{job.title}</span>
                       <span
-                        className="text-[11px] font-bold px-2.5 py-0.5 rounded-md shrink-0"
+                        className="text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0"
                         style={{ background: statusStyle.bg, color: statusStyle.color }}
                       >
                         {JOB_STATUS_LABELS[job.status] ?? job.status}
                       </span>
                       {priorityInfo && (
                         <span
-                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-md flex items-center gap-1 shrink-0"
+                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"
                           style={{
                             border: `1.5px solid ${priorityInfo.color}`,
                             color: priorityInfo.color,

@@ -307,7 +307,7 @@ export default async function DashboardPage() {
                         </span>
                       )}
                       <span
-                        className="text-[11px] font-bold px-2.5 py-1 rounded-md"
+                        className="text-[11px] font-bold px-2.5 py-1 rounded-full"
                         style={{ background: badge.bg, color: badge.color }}
                       >
                         {STATUS_LABEL[vaga.status]?.toUpperCase() ?? vaga.status}

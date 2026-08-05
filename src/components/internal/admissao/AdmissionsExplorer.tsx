@@ -401,7 +401,7 @@ export function AdmissionsExplorer({ rows, stages, companies }: Props) {
                       </Link>
                       {r.stageName && (
                         <span
-                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-md whitespace-nowrap"
+                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap"
                           style={{ background: badgeBg, color: stripeColor }}
                         >
                           {r.stageName.toUpperCase()}

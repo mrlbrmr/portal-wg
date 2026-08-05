@@ -198,7 +198,7 @@ function StartDateBadge({ startDate, todayStr }: { startDate: string | null; tod
 function OverdueBadge({ dueDate, todayStr }: { dueDate: string; todayStr: string }) {
   const n = Math.abs(daysFromToday(dueDate, todayStr) ?? 0);
   return (
-    <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-[#FDECEA] text-[#C0392B] shrink-0">
+    <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-[#FDECEA] text-[#C0392B] shrink-0">
       {n === 1 ? "Venceu ontem" : `${n} dias atraso`}
     </span>
   );
@@ -214,7 +214,7 @@ function ActivityRow({
           <span className="text-[13px] text-wg-ink font-medium leading-snug">{item.name}</span>
           {urgency === "overdue" && <OverdueBadge dueDate={item.dueDate} todayStr={todayStr} />}
           {urgency === "today" && (
-            <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-[#FCF1DD] text-[#A0721E] shrink-0">Hoje</span>
+            <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-[#FCF1DD] text-[#A0721E] shrink-0">Hoje</span>
           )}
           {urgency === "upcoming" && (
             <span className="text-[10.5px] text-wg-ink-muted shrink-0">{ptBRDate(item.dueDate)}</span>

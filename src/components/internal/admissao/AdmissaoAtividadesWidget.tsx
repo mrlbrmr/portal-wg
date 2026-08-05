@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   AdmissaoAtividadesWidgetClient,
   type WidgetData,
@@ -22,8 +23,9 @@ function addDaysToStr(dateStr: string, days: number): string {
 
 // ─── Data fetch ───────────────────────────────────────────────────────────────
 
-async function fetchWidgetData(): Promise<WidgetData> {
-  const supabase = await createClient();
+const fetchWidgetData = unstable_cache(
+  async (): Promise<WidgetData> => {
+  const supabase = createAdminClient();
   const todayStr = todayUTCStr();
   const in3Str = addDaysToStr(todayStr, 3);
   const todayStart = new Date(todayStr + "T00:00:00Z").toISOString();
@@ -131,7 +133,10 @@ async function fetchWidgetData(): Promise<WidgetData> {
     todayDone: doneRes.count ?? 0,
     todayStr,
   };
-}
+  },
+  ["admissao-widget"],
+  { revalidate: 60, tags: ["admissoes-widget"] }
+);
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 

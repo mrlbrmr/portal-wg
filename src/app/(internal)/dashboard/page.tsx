@@ -58,21 +58,13 @@ export default async function DashboardPage() {
 
   const supabase = await createClient();
   const publicStatuses = PUBLIC_JOB_STATUS_LIST as readonly string[];
+  const publicStatusSet = new Set<string>(publicStatuses);
 
   const ZERO = { count: null, data: null };
   const queryResults = await Promise.race([
     Promise.all([
-      supabase.from("jobs").select("*", { count: "exact", head: true }).in("status", publicStatuses),
-      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "DRAFT"),
-      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "PAUSED"),
-      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "CLOSED"),
-      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "FILLED"),
-      supabase.from("jobs").select("*", { count: "exact", head: true })
-        .gte("createdAt", startOfThisMonth.toISOString())
-        .lt("createdAt", startOfNextMonth.toISOString()),
-      supabase.from("jobs").select("*", { count: "exact", head: true })
-        .gte("createdAt", startOfLastMonth.toISOString())
-        .lt("createdAt", startOfThisMonth.toISOString()),
+      // Uma query para todos os metadados de vagas (substitui 8 queries COUNT)
+      supabase.from("jobs").select("status, createdAt, closingDate"),
       supabase.from("applications").select("*", { count: "exact", head: true }).eq("stageId", "NEW"),
       supabase.from("applications").select("*", { count: "exact", head: true }),
       supabase.from("applications")
@@ -85,35 +77,40 @@ export default async function DashboardPage() {
         .order("createdAt", { ascending: false })
         .limit(8),
       supabase.from("applications").select("jobId").eq("stageId", "NEW"),
-      supabase.from("jobs").select("*", { count: "exact", head: true })
-        .in("status", publicStatuses)
-        .gte("closingDate", now.toISOString())
-        .lte("closingDate", sevenDaysFromNow.toISOString()),
     ]),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error("dashboard timeout")), 8_000)),
   ]).catch(() => null);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [
-    activeJobsRes = ZERO, draftJobsRes = ZERO, pausedJobsRes = ZERO, closedJobsRes = ZERO, filledJobsRes = ZERO,
-    thisMonthRes = ZERO, lastMonthRes = ZERO,
+    jobsMetaRes = ZERO,
     newAppsRes = ZERO, totalAppsRes = ZERO,
     recentApplicationsRes = ZERO,
     attentionJobsRes = ZERO,
     newAppsByJobRes = ZERO,
-    expiringSoonRes = ZERO,
   ] = (queryResults ?? []) as any[];
 
-  const activeJobs   = activeJobsRes.count   ?? 0;
-  const draftJobs    = draftJobsRes.count    ?? 0;
-  const pausedJobs   = pausedJobsRes.count   ?? 0;
-  const closedJobs   = closedJobsRes.count   ?? 0;
-  const filledJobs   = filledJobsRes.count   ?? 0;
-  const thisMonth    = thisMonthRes.count     ?? 0;
-  const lastMonth    = lastMonthRes.count     ?? 0;
-  const newApps      = newAppsRes.count       ?? 0;
-  const totalApps    = totalAppsRes.count     ?? 0;
-  const expiringSoon = expiringSoonRes.count  ?? 0;
+  // Métricas de vagas calculadas em JS a partir de uma única query
+  type JobMeta = { status: string; createdAt: string; closingDate: string | null };
+  const jobsMeta = (jobsMetaRes.data ?? []) as JobMeta[];
+  const thisMonthStart = startOfThisMonth.toISOString();
+  const nextMonthStart = startOfNextMonth.toISOString();
+  const lastMonthStart = startOfLastMonth.toISOString();
+  const nowISO         = now.toISOString();
+  const in7ISO         = sevenDaysFromNow.toISOString();
+
+  const activeJobs   = jobsMeta.filter((j) => publicStatusSet.has(j.status)).length;
+  const draftJobs    = jobsMeta.filter((j) => j.status === "DRAFT").length;
+  const pausedJobs   = jobsMeta.filter((j) => j.status === "PAUSED").length;
+  const closedJobs   = jobsMeta.filter((j) => j.status === "CLOSED").length;
+  const filledJobs   = jobsMeta.filter((j) => j.status === "FILLED").length;
+  const thisMonth    = jobsMeta.filter((j) => j.createdAt >= thisMonthStart && j.createdAt < nextMonthStart).length;
+  const lastMonth    = jobsMeta.filter((j) => j.createdAt >= lastMonthStart && j.createdAt < thisMonthStart).length;
+  const expiringSoon = jobsMeta.filter(
+    (j) => publicStatusSet.has(j.status) && j.closingDate != null && j.closingDate >= nowISO && j.closingDate <= in7ISO
+  ).length;
+  const newApps   = newAppsRes.count   ?? 0;
+  const totalApps = totalAppsRes.count ?? 0;
 
   const monthDiff  = thisMonth - lastMonth;
   const monthTrend = monthDiff > 0 ? `+${monthDiff} vs mês anterior`

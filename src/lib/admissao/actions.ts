@@ -5,7 +5,7 @@
 // já revalidam a ficha (/admissoes/[id]) após cada mudança. Toda ação exige
 // escrita (ADMIN_RH). O download de anexo é uma GET route separada (streaming).
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { ChecklistItemStatus } from "@/types/domain";
 import { requireAdmissionWrite } from "./permissions";

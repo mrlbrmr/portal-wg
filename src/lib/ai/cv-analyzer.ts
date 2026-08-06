@@ -17,6 +17,93 @@ export interface CvAnalysisResult {
   gaps: string[]          // até 3 lacunas em relação à vaga
 }
 
+// ─── Extração de perfil (sem contexto de vaga) ───────────────────────────────
+
+const EXTRACT_PROFILE_PROMPT = `Você é um especialista em recrutamento. Extraia as informações do currículo fornecido e retorne APENAS um JSON válido, sem markdown, sem texto fora do JSON.
+
+Formato obrigatório:
+{
+  "experienceYears": number | null,
+  "education": string | null,
+  "lastPosition": string | null,
+  "skills": [string]
+}
+
+Regras:
+- experienceYears: total de anos de experiência profissional (número inteiro) ou null se não identificado
+- education: grau mais alto de formação (ex: "Ensino Médio", "Graduação em Administração") ou null
+- lastPosition: cargo mais recente (ex: "Vendedor", "Assistente Administrativo") ou null
+- skills: lista de até 8 habilidades técnicas ou comportamentais relevantes
+- Responda em português brasileiro`
+
+export interface CvProfileExtraction extends CvProfile {
+  extractedAt: string
+  modelUsed: string
+}
+
+/**
+ * Extrai perfil estruturado de um currículo PDF sem contexto de vaga.
+ * Usado na inscrição pública (assíncrono, pós-resposta).
+ */
+export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtraction> {
+  const apiKey = (process.env.GROQ_API_KEY ?? '').replace(/^﻿/, '').trim()
+  if (!apiKey) throw new Error('GROQ_API_KEY não configurado')
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfParse = require('pdf-parse') as (
+    buffer: Buffer,
+    options?: object,
+  ) => Promise<{ text: string }>
+
+  let pdfText: string
+  try {
+    const data = await pdfParse(pdfBuffer, { max: 0 })
+    pdfText = (data.text ?? '').trim()
+  } catch (err) {
+    throw new Error(
+      `Falha ao ler o PDF: ${err instanceof Error ? err.message : 'arquivo inválido'}`,
+    )
+  }
+
+  if (!pdfText) throw new Error('PDF sem texto extraível (pode ser scan/imagem).')
+
+  const { default: Groq } = await import('groq-sdk')
+  const client = new Groq({ apiKey })
+
+  const response = await client.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    max_tokens: 512,
+    messages: [
+      { role: 'system', content: EXTRACT_PROFILE_PROMPT },
+      {
+        role: 'user',
+        content: `CURRÍCULO:\n${pdfText.slice(0, 8000)}\n\nExtraia as informações e retorne o JSON.`,
+      },
+    ],
+  })
+
+  const raw = response.choices[0]?.message?.content ?? ''
+  const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
+
+  let parsed: Partial<CvProfile>
+  try {
+    parsed = JSON.parse(cleaned) as Partial<CvProfile>
+  } catch {
+    throw new Error(`Resposta IA inválida: ${raw.slice(0, 200)}`)
+  }
+
+  return {
+    experienceYears: typeof parsed.experienceYears === 'number' ? parsed.experienceYears : null,
+    education: parsed.education ?? null,
+    lastPosition: parsed.lastPosition ?? null,
+    skills: Array.isArray(parsed.skills) ? parsed.skills.slice(0, 8) : [],
+    extractedAt: new Date().toISOString(),
+    modelUsed: 'groq/llama-3.3-70b-versatile',
+  }
+}
+
+// ─── Análise de aderência à vaga (com contexto) ───────────────────────────────
+
 const SYSTEM_PROMPT = `Você é um especialista em recrutamento e seleção. Analise o currículo fornecido em relação à vaga descrita e retorne APENAS um JSON válido, sem markdown, sem texto fora do JSON.
 
 Formato obrigatório:

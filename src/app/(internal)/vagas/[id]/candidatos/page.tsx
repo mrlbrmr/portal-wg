@@ -30,7 +30,7 @@ export default async function CandidatosPage({ params }: Props) {
   const [{ data: applications }, { data: stagesData }] = await Promise.all([
     supabase
       .from("applications")
-      .select("id, fullName, email, phone, resumeName, stageId, source, createdAt, assessments:application_assessments(id)")
+      .select("id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, assessments:application_assessments(id)")
       .eq("jobId", id)
       .order("createdAt", { ascending: false }),
     supabase
@@ -86,6 +86,7 @@ export default async function CandidatosPage({ params }: Props) {
     stageId: string;
     source: string;
     createdAt: string;
+    cv_extraction_status: string;
     assessments: Array<{ id: string }>;
   }>;
 
@@ -186,6 +187,7 @@ export default async function CandidatosPage({ params }: Props) {
     // undefined quando não está em etapa TEST → sem badge
     testOutcome: testOutcomeByApp.has(a.id) ? testOutcomeByApp.get(a.id) : undefined,
     aiScore: aiScoreByApp.get(a.id),
+    cvExtractionStatus: a.cv_extraction_status ?? undefined,
   }));
 
   const canManage = session?.user.role === "ADMIN_RH";

@@ -1,18 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyRecaptcha } from "@/lib/recaptcha";
-import { uploadResume, validateResumeFile } from "@/lib/storage";
+import { uploadResume, validateResumeFile, RESUMES_BUCKET } from "@/lib/storage";
 import { isPublicJobStatus } from "@/lib/utils";
-import { applicantContactSchema } from "@/lib/application-schema";
+import { applicantContactSchema, applicantCpfSchema } from "@/lib/application-schema";
+import { extractCvProfile } from "@/lib/ai/cv-analyzer";
 
 // Rota PÚBLICA — recebe candidaturas nativas do portal.
 // LGPD: os dados gravados aqui NUNCA são devolvidos por esta rota nem por
 // qualquer rota pública. Currículo vai para storage privado (Supabase Storage).
 
 const fieldsSchema = applicantContactSchema.extend({
+  cpf: applicantCpfSchema,
   jobId: z.string().min(1, "Vaga inválida"),
   consent: z
     .string()
@@ -20,9 +22,65 @@ const fieldsSchema = applicantContactSchema.extend({
   recaptchaToken: z.string().optional().nullable(),
   country: z.string().max(100).optional().nullable(),
   candidateCity: z.string().max(150).optional().nullable(),
-  availablePresential: z.enum(["true", "false"]).optional().nullable(),
+  candidateState: z.string().max(2).optional().nullable(),
   salaryExpectation: z.string().optional().nullable(),
 });
+
+// Extrai e armazena o perfil do CV de forma assíncrona (pós-resposta ao candidato).
+// Erros são silenciosos para o candidato — apenas atualizam cv_extraction_status.
+async function runCvExtraction(
+  applicationId: string,
+  resumeUrl: string,
+  resumeName: string,
+): Promise<void> {
+  const supabase = createAdminClient();
+
+  if (!resumeName.toLowerCase().endsWith(".pdf")) {
+    await supabase
+      .from("applications")
+      .update({ cv_extraction_status: "MANUAL_REVIEW" })
+      .eq("id", applicationId);
+    return;
+  }
+
+  const { data: signedData } = await supabase.storage
+    .from(RESUMES_BUCKET)
+    .createSignedUrl(resumeUrl, 120);
+
+  if (!signedData?.signedUrl) {
+    await supabase
+      .from("applications")
+      .update({ cv_extraction_status: "FAILED" })
+      .eq("id", applicationId);
+    return;
+  }
+
+  let pdfBuffer: Buffer;
+  try {
+    const fileRes = await fetch(signedData.signedUrl);
+    if (!fileRes.ok) throw new Error(`HTTP ${fileRes.status}`);
+    pdfBuffer = Buffer.from(await fileRes.arrayBuffer());
+  } catch {
+    await supabase
+      .from("applications")
+      .update({ cv_extraction_status: "FAILED" })
+      .eq("id", applicationId);
+    return;
+  }
+
+  try {
+    const profile = await extractCvProfile(pdfBuffer);
+    await supabase
+      .from("applications")
+      .update({ cv_profile: profile, cv_extraction_status: "SUCCESS" })
+      .eq("id", applicationId);
+  } catch {
+    await supabase
+      .from("applications")
+      .update({ cv_extraction_status: "FAILED" })
+      .eq("id", applicationId);
+  }
+}
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -45,6 +103,7 @@ export async function POST(req: NextRequest) {
   }
 
   const parsed = fieldsSchema.safeParse({
+    cpf: form.get("cpf"),
     jobId: form.get("jobId"),
     fullName: form.get("fullName"),
     email: form.get("email"),
@@ -53,7 +112,7 @@ export async function POST(req: NextRequest) {
     recaptchaToken: form.get("recaptchaToken"),
     country: form.get("country"),
     candidateCity: form.get("candidateCity"),
-    availablePresential: form.get("availablePresential"),
+    candidateState: form.get("candidateState"),
     salaryExpectation: form.get("salaryExpectation"),
   });
   if (!parsed.success) {
@@ -61,7 +120,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: first ?? "Dados inválidos." }, { status: 400 });
   }
 
-  const { jobId, fullName, email, phone, recaptchaToken, country, candidateCity, availablePresential, salaryExpectation } = parsed.data;
+  const {
+    cpf,
+    jobId,
+    fullName,
+    email,
+    phone,
+    recaptchaToken,
+    country,
+    candidateCity,
+    candidateState,
+    salaryExpectation,
+  } = parsed.data;
 
   // reCAPTCHA v3 é ADVISORY (ver src/lib/recaptcha.ts): só bloqueia bot evidente
   // (token válido + score muito baixo). Token ausente/expirado e score moderado —
@@ -79,8 +149,6 @@ export async function POST(req: NextRequest) {
   }
 
   // A vaga precisa existir e estar em status aberto (visível no portal).
-  // A inscrição pelo portal é o único modo desde 2026-07 (Tally aposentado).
-  // Usa service-role (bypassa RLS): rota pública sem sessão, sem policy anon.
   const supabase = createAdminClient();
   const { data: job } = await supabase
     .from("jobs")
@@ -91,6 +159,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "Esta vaga não está aberta para inscrição pelo portal." },
       { status: 404 }
+    );
+  }
+
+  // Verifica duplicata: mesmo CPF já candidatado a esta vaga.
+  const cpfDigits = cpf.replace(/\D/g, "");
+  const { data: existing } = await supabase
+    .from("applications")
+    .select("id")
+    .eq("jobId", job.id)
+    .eq("cpf_digits", cpfDigits)
+    .maybeSingle();
+  if (existing) {
+    return NextResponse.json(
+      { error: "Você já enviou uma candidatura para esta vaga com este CPF." },
+      { status: 409 }
     );
   }
 
@@ -120,6 +203,7 @@ export async function POST(req: NextRequest) {
     .from("applications")
     .insert({
       jobId: job.id,
+      cpf,
       fullName,
       email,
       phone,
@@ -130,8 +214,7 @@ export async function POST(req: NextRequest) {
       termsVersion,
       country: country || null,
       candidateCity: candidateCity || null,
-      availablePresential:
-        availablePresential === "true" ? true : availablePresential === "false" ? false : null,
+      candidateState: candidateState || null,
       salaryExpectation:
         salaryExpectation && salaryExpectation !== "" ? parseFloat(salaryExpectation) : null,
     })
@@ -151,7 +234,12 @@ export async function POST(req: NextRequest) {
     changedBy: "Candidato (inscrição)",
   });
 
-  // Atualiza contadores no painel interno (não expõe dado nenhum).
+  // Extração assíncrona do perfil do CV — não bloqueia a resposta ao candidato.
+  after(async () => {
+    await runCvExtraction(application.id, resume.url, resume.name);
+  });
+
+  // Atualiza contadores no painel interno.
   revalidatePath("/dashboard");
   revalidatePath(`/vagas/${job.id}/candidatos`);
 

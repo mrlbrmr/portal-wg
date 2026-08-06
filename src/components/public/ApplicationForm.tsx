@@ -2,13 +2,12 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Loader2, CheckCircle2, Upload, Paperclip } from "lucide-react";
-import { maskPhone } from "@/lib/utils";
+import { maskPhone, maskCpf, BRAZIL_STATES } from "@/lib/utils";
 import { COUNTRIES } from "@/lib/data/countries";
 
 interface Props {
   jobId: string;
   jobTitle: string;
-  jobCity?: string | null;
 }
 
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
@@ -79,29 +78,59 @@ const inputClass =
 
 const labelClass = "block text-[13.5px] font-semibold text-gray-700 mb-1.5";
 
-export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
+interface LookupResult {
+  exists: boolean;
+  name?: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+}
+
+export function ApplicationForm({ jobId, jobTitle }: Props) {
+  const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState("");
   const [cities, setCities] = useState<string[]>([]);
   const citiesLoadedRef = useRef(false);
   const [salaryDisplay, setSalaryDisplay] = useState("");
-  const [salaryValue, setSalaryValue] = useState(""); // valor numérico em string ("3500.00")
+  const [salaryValue, setSalaryValue] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const cityRef = useRef<HTMLInputElement>(null);
+  const stateRef = useRef<HTMLSelectElement>(null);
 
-  // Carrega cidades na primeira vez que o campo é focado.
   const handleCityFocus = useCallback(async () => {
     if (citiesLoadedRef.current) return;
     citiesLoadedRef.current = true;
     try {
       const list = await loadCities();
       setCities(list);
-    } catch {
-      /* silencioso: o campo continua funcionando como texto livre */
-    }
+    } catch {}
   }, []);
+
+  // Pré-preenche o formulário com dados da candidatura mais recente do CPF.
+  const handleCpfBlur = useCallback(async (val: string) => {
+    if (val.replace(/\D/g, "").length !== 11) return;
+    try {
+      const res = await fetch(`/api/candidatura/lookup?cpf=${encodeURIComponent(val)}`);
+      if (!res.ok) return;
+      const data: LookupResult = await res.json();
+      if (!data.exists) return;
+      if (nameRef.current && !nameRef.current.value && data.name) nameRef.current.value = data.name;
+      if (emailRef.current && !emailRef.current.value && data.email) emailRef.current.value = data.email;
+      if (data.phone && !phone) setPhone(maskPhone(data.phone));
+      if (cityRef.current && !cityRef.current.value && data.city) cityRef.current.value = data.city;
+      if (stateRef.current && !stateRef.current.value && data.state) stateRef.current.value = data.state;
+      if (data.country && !country) setCountry(data.country);
+    } catch {}
+  }, [phone, country]);
 
   function handleSalary(e: React.ChangeEvent<HTMLInputElement>) {
     const digits = e.target.value.replace(/\D/g, "");
@@ -147,7 +176,9 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
 
       const data = new FormData(formEl);
       data.set("jobId", jobId);
+      data.set("cpf", cpf);
       data.set("phone", phone);
+      data.set("country", country);
       data.set("salaryExpectation", salaryValue);
       if (token) data.set("recaptchaToken", token);
 
@@ -158,7 +189,7 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
         try {
           const j = await res.json();
           if (typeof j.error === "string") message = j.error;
-        } catch { /* mantém mensagem padrão */ }
+        } catch {}
         setError(message);
         return;
       }
@@ -182,6 +213,12 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
           da vaga, entraremos em contato. Agradecemos o seu interesse em fazer parte do
           Grupo WG!
         </p>
+        <p className="text-xs text-gray-400 mt-4">
+          Quer acompanhar o status da sua candidatura?{" "}
+          <a href="/vagas/status" className="text-wg-green underline hover:text-wg-green-dark">
+            Clique aqui
+          </a>
+        </p>
       </div>
     );
   }
@@ -203,6 +240,7 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
             Nome completo <span className="text-red-500">*</span>
           </label>
           <input
+            ref={nameRef}
             id="fullName"
             name="fullName"
             type="text"
@@ -213,12 +251,32 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
           />
         </div>
 
+        {/* CPF */}
+        <div>
+          <label htmlFor="cpf" className={labelClass}>
+            CPF <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="cpf"
+            type="text"
+            inputMode="numeric"
+            required
+            autoComplete="off"
+            placeholder="000.000.000-00"
+            value={cpf}
+            onChange={(e) => setCpf(maskCpf(e.target.value))}
+            onBlur={() => handleCpfBlur(cpf)}
+            className={inputClass}
+          />
+        </div>
+
         {/* E-mail */}
         <div>
           <label htmlFor="email" className={labelClass}>
             E-mail <span className="text-red-500">*</span>
           </label>
           <input
+            ref={emailRef}
             id="email"
             name="email"
             type="email"
@@ -259,7 +317,8 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
             id="country"
             name="country"
             required
-            defaultValue=""
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
             className={`${inputClass} cursor-pointer`}
           >
             <option value="" disabled>Selecione seu país</option>
@@ -269,65 +328,56 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
           </select>
         </div>
 
-        {/* Cidade (Brasil) */}
-        <div>
-          <label htmlFor="candidateCity" className={labelClass}>
-            Cidade onde reside <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="candidateCity"
-            name="candidateCity"
-            type="text"
-            list="ibge-cities"
-            autoComplete="off"
-            required
-            onFocus={handleCityFocus}
-            placeholder="Digite o nome da sua cidade"
-            className={inputClass}
-          />
-          <datalist id="ibge-cities">
-            {cities.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
+        {/* Cidade e Estado (lado a lado) */}
+        <div className={`grid gap-3 ${country === "Brasil" ? "grid-cols-[1fr_88px]" : ""}`}>
+          <div>
+            <label htmlFor="candidateCity" className={labelClass}>
+              Cidade onde reside <span className="text-red-500">*</span>
+            </label>
+            <input
+              ref={cityRef}
+              id="candidateCity"
+              name="candidateCity"
+              type="text"
+              list="ibge-cities"
+              autoComplete="off"
+              required
+              onFocus={handleCityFocus}
+              placeholder="Nome da sua cidade"
+              className={inputClass}
+            />
+            <datalist id="ibge-cities">
+              {cities.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </div>
+          {country === "Brasil" && (
+            <div>
+              <label htmlFor="candidateState" className={labelClass}>
+                UF
+              </label>
+              <select
+                ref={stateRef}
+                id="candidateState"
+                name="candidateState"
+                defaultValue=""
+                className={`${inputClass} cursor-pointer`}
+              >
+                <option value="" disabled>--</option>
+                {BRAZIL_STATES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* Disponibilidade presencial — só exibe quando a vaga tem cidade definida */}
-        {jobCity && (
-          <div>
-            <p className={`${labelClass} mb-2`}>
-              Você tem disponibilidade para trabalhar no modelo presencial em{" "}
-              <span className="text-gray-900">{jobCity}</span>?{" "}
-              <span className="text-red-500">*</span>
-            </p>
-            <div className="flex gap-5">
-              <label className="flex items-center gap-2 cursor-pointer text-[15px] text-gray-800">
-                <input
-                  type="radio"
-                  name="availablePresential"
-                  value="true"
-                  required
-                  className="accent-wg-green w-4 h-4"
-                />
-                Sim
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer text-[15px] text-gray-800">
-                <input
-                  type="radio"
-                  name="availablePresential"
-                  value="false"
-                  className="accent-wg-green w-4 h-4"
-                />
-                Não
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* Pretensão salarial */}
+        {/* Pretensão salarial (opcional) */}
         <div>
           <label htmlFor="salaryDisplay" className={labelClass}>
-            Pretensão salarial
+            Pretensão salarial{" "}
+            <span className="text-gray-400 font-normal text-[12px]">(opcional)</span>
           </label>
           <input
             id="salaryDisplay"
@@ -345,6 +395,9 @@ export function ApplicationForm({ jobId, jobTitle, jobCity }: Props) {
           <label className={labelClass}>
             Currículo <span className="text-red-500">*</span>
           </label>
+          <p className="text-[12px] text-gray-400 mb-2">
+            Nossa IA lerá seu currículo e preencherá automaticamente seu perfil.
+          </p>
           <input
             ref={fileRef}
             name="resume"

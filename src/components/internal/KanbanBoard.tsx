@@ -28,6 +28,8 @@ export interface KanbanApplication {
   testOutcome?: "PASS" | "FAIL" | "PENDING_REVIEW" | "PENDING" | null;
   /** Score de compatibilidade por IA (0-100). undefined = não analisado; number = score disponível. */
   aiScore?: number;
+  /** Status da extração de perfil do CV por IA. 'FAILED'/'MANUAL_REVIEW' exibem badge de alerta para o RH. */
+  cvExtractionStatus?: string;
 }
 
 export interface KanbanStage {
@@ -245,6 +247,14 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
                 >
                   <FlaskConical className="h-2.5 w-2.5" />
                   Teste pendente
+                </span>
+              )}
+              {(a.cvExtractionStatus === "FAILED" || a.cvExtractionStatus === "MANUAL_REVIEW") && (
+                <span
+                  className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700"
+                  title="A IA não conseguiu ler o CV — analise manualmente"
+                >
+                  ⚠ CV não lido
                 </span>
               )}
             </div>

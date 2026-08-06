@@ -114,6 +114,13 @@ export default async function HomePage({
               Ver vagas abertas →
             </a>
 
+            <a
+              href="/vagas/status"
+              className="inline-flex items-center gap-2 bg-black/10 text-[#0C0D0C] px-[26px] py-4 rounded-full font-semibold text-[15px] no-underline hover:bg-black/15 transition-colors"
+            >
+              Consultar minha candidatura
+            </a>
+
             {config.showJobCounter && (
               <div className="inline-flex items-center gap-2 bg-black/10 text-[#0C0D0C] px-[26px] py-4 rounded-full font-semibold text-[15px]">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0C0D0C" strokeWidth="2">

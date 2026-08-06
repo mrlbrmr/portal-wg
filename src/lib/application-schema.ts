@@ -1,6 +1,7 @@
 // Validações e vocabulário compartilhados de candidaturas — usados tanto pela
 // rota PÚBLICA (formulário do portal) quanto pela inserção MANUAL do RH.
 import { z } from "zod";
+import { isValidCpf } from "@/lib/cpf";
 
 // E-mail no formato xxxx@xxxx.com
 export const applicantEmailSchema = z.string().trim().email("E-mail inválido").max(150);
@@ -12,6 +13,11 @@ export const applicantPhoneSchema = z
   .refine((v) => v.replace(/\D/g, "").length === 11, "Celular inválido. Use o formato (xx) x xxxx-xxxx.");
 
 export const applicantNameSchema = z.string().trim().min(3, "Informe o nome completo").max(120);
+
+export const applicantCpfSchema = z
+  .string()
+  .trim()
+  .refine((v) => isValidCpf(v), "CPF inválido. Verifique o número digitado.");
 
 // Campos comuns de contato do candidato (nome/email/telefone).
 export const applicantContactSchema = z.object({

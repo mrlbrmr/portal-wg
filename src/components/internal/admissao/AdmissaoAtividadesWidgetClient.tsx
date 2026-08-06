@@ -158,6 +158,16 @@ function WhatsAppIcon() {
   );
 }
 
+// ─── CheckIcon ───────────────────────────────────────────────────────────────
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 14 14" className="w-3.5 h-3.5 fill-none stroke-white stroke-2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="2,7 5.5,10.5 12,3" />
+    </svg>
+  );
+}
+
 // ─── ActivityRowCheckbox ──────────────────────────────────────────────────────
 
 function ActivityRowCheckbox({
@@ -166,6 +176,7 @@ function ActivityRowCheckbox({
   urgency,
   fullName,
   checked,
+  completing,
   onToggle,
 }: {
   item: WidgetItem;
@@ -173,32 +184,53 @@ function ActivityRowCheckbox({
   urgency: "overdue" | "today" | "upcoming";
   fullName: string;
   checked: boolean;
+  completing: boolean;
   onToggle: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2.5 py-2 pl-2 pr-2 border-t border-[#F0F3EC]">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={() => onToggle(item.id)}
-        aria-label={`Selecionar: ${item.name}`}
-        className="w-3.5 h-3.5 shrink-0 cursor-pointer accent-[#90CB46]"
-      />
+    <div
+      className="flex items-center gap-2.5 py-2 pl-2 pr-2 border-t border-[#F0F3EC] transition-all duration-300"
+      style={{
+        opacity: completing ? 0.45 : 1,
+        transform: completing ? "translateX(6px)" : "none",
+      }}
+    >
+      {completing ? (
+        <span className="w-3.5 h-3.5 shrink-0 rounded-sm bg-[#90CB46] flex items-center justify-center">
+          <CheckIcon />
+        </span>
+      ) : (
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => onToggle(item.id)}
+          aria-label={`Selecionar: ${item.name}`}
+          className="w-3.5 h-3.5 shrink-0 cursor-pointer accent-[#90CB46]"
+        />
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[13px] text-wg-ink font-medium leading-snug">{item.name}</span>
-          {urgency === "overdue" && (
+          <span
+            className={`text-[13px] font-medium leading-snug transition-colors ${
+              completing ? "text-wg-ink-muted line-through" : "text-wg-ink"
+            }`}
+          >
+            {item.name}
+          </span>
+          {!completing && urgency === "overdue" && (
             <OverdueBadge dueDate={item.dueDate} todayStr={todayStr} />
           )}
-          {/* Tag "Hoje" omitida: o cabeçalho de seção já indica urgência */}
-          {urgency === "upcoming" && (
+          {!completing && urgency === "upcoming" && (
             <span className="text-[10.5px] text-wg-ink-muted shrink-0">
               {ptBRDate(item.dueDate)}
             </span>
           )}
+          {completing && (
+            <span className="text-[10.5px] text-[#90CB46] font-semibold shrink-0">✓ Concluído</span>
+          )}
         </div>
       </div>
-      {isWhatsApp(item.name) && (
+      {!completing && isWhatsApp(item.name) && (
         <a
           href={waLink(fullName)}
           target="_blank"
@@ -290,6 +322,7 @@ function AdmissionAccordionCard({
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [completing, setCompleting] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   const companyInfo = [admission.companyName, admission.branchName]
@@ -317,9 +350,11 @@ function AdmissionAccordionCard({
 
   function handleBatch(itemIds: string[]) {
     if (!itemIds.length) return;
+    setCompleting((prev) => new Set([...prev, ...itemIds]));
     startTransition(async () => {
       await setBatchItemsDone(admission.id, itemIds);
       setSelected(new Set());
+      setCompleting(new Set());
       router.refresh();
     });
   }
@@ -406,6 +441,7 @@ function AdmissionAccordionCard({
                       urgency={urgency}
                       fullName={admission.fullName}
                       checked={selected.has(item.id)}
+                      completing={completing.has(item.id)}
                       onToggle={toggleItem}
                     />
                   ))}

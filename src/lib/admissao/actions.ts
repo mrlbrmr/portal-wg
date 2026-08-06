@@ -27,6 +27,7 @@ async function requireWrite(): Promise<{ userId: string } | { error: string }> {
 
 function done(admissionId: string): ActionResult {
   revalidatePath(`/admissoes/${admissionId}`);
+  revalidateTag("admissoes-widget");
   return { ok: true };
 }
 

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('assessment_sessions')
-    .select('id, token, templateId, template:assessment_templates(name, kind, estimatedMin), expiresAt, startedAt, submittedAt, score, outcome, sentBy, createdAt')
+    .select('id, token, templateId, template:assessment_templates(name, kind, estimatedMin), expiresAt, startedAt, submittedAt, score, outcome, scoreBreakdown, sentBy, createdAt')
     .eq('applicationId', applicationId)
     .order('createdAt', { ascending: false })
 

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Megaphone, ChevronRight, ListChecks, ClipboardList } from "lucide-react";
+import { Megaphone, ListChecks, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CONFIG } from "@/lib/homepage-config";
 import HomepageConfigForm from "@/components/internal/HomepageConfigForm";
@@ -29,53 +29,44 @@ export default async function ConfiguracoesPage() {
       />
       <HomepageConfigForm initialConfig={config ?? DEFAULT_CONFIG} />
 
-      <div className="mt-6 space-y-3">
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
         <Link
           href="/configuracoes/funil"
-          className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-xl px-5 py-4 hover:border-wg-green/40 transition-colors group"
+          className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 hover:border-wg-green/50 hover:bg-wg-green/5 transition-colors"
         >
-          <div className="w-10 h-10 rounded-lg bg-wg-green/15 text-wg-green-dark flex items-center justify-center shrink-0">
-            <ListChecks className="w-5 h-5" />
+          <div className="h-9 w-9 rounded-lg bg-wg-green/15 text-wg-green-dark grid place-items-center mb-3">
+            <ListChecks className="w-4 h-4" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-gray-900">Funil de seleção</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Etapas do processo seletivo (colunas do Kanban de candidatos de todas as vagas).
-            </p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-wg-green transition-colors shrink-0" />
+          <h2 className="text-base font-semibold text-gray-900">Funil de seleção</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Etapas do processo seletivo (colunas do Kanban de candidatos de todas as vagas).
+          </p>
         </Link>
 
         <Link
           href="/configuracoes/formulario-vaga"
-          className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-xl px-5 py-4 hover:border-wg-green/40 transition-colors group"
+          className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 hover:border-wg-green/50 hover:bg-wg-green/5 transition-colors"
         >
-          <div className="w-10 h-10 rounded-lg bg-wg-green/15 text-wg-green-dark flex items-center justify-center shrink-0">
-            <ClipboardList className="w-5 h-5" />
+          <div className="h-9 w-9 rounded-lg bg-wg-green/15 text-wg-green-dark grid place-items-center mb-3">
+            <ClipboardList className="w-4 h-4" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-gray-900">Formulário de abertura de vaga</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Campos, título e opções do formulário que os gestores preenchem para solicitar vagas.
-            </p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-wg-green transition-colors shrink-0" />
+          <h2 className="text-base font-semibold text-gray-900">Formulário de abertura de vaga</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Campos, título e opções do formulário que os gestores preenchem para solicitar vagas.
+          </p>
         </Link>
 
         <Link
           href="/configuracoes/divulgacao"
-          className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-xl px-5 py-4 hover:border-wg-green/40 transition-colors group"
+          className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 hover:border-wg-green/50 hover:bg-wg-green/5 transition-colors"
         >
-          <div className="w-10 h-10 rounded-lg bg-wg-green/15 text-wg-green-dark flex items-center justify-center shrink-0">
-            <Megaphone className="w-5 h-5" />
+          <div className="h-9 w-9 rounded-lg bg-wg-green/15 text-wg-green-dark grid place-items-center mb-3">
+            <Megaphone className="w-4 h-4" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-gray-900">Divulgação de vagas</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Conexões com canais externos (LinkedIn) para divulgar as vagas.
-            </p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-wg-green transition-colors shrink-0" />
+          <h2 className="text-base font-semibold text-gray-900">Divulgação de vagas</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Conexões com canais externos (LinkedIn) para divulgar as vagas.
+          </p>
         </Link>
       </div>
     </div>

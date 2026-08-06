@@ -7,6 +7,107 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-08-06 — Big Five, Kanban IA, dashboard e CPF+IA na candidatura
+
+### 1. Avaliações: gráfico radar Big Five — commits `871333f` / `2e87bb2`
+
+Página `/avaliacoes/resultados` com visualização dos resultados de sessões de avaliação.
+
+- **`src/components/internal/BigFiveChart.tsx`**: gráfico radar SVG puro (sem dependência externa),
+  cinco eixos Big Five (Abertura, Conscienciosidade, Extroversão, Amabilidade, Neuroticismo),
+  polígono preenchido + pontos com tooltip de score. Reutilizável inline ou em modal.
+- **`src/app/(internal)/avaliacoes/resultados/page.tsx`**: lista sessões submetidas com expansão inline
+  (accordion) que carrega o radar + breakdown de score por dimensão.
+- Nenhuma migração — lê dados de `assessment_sessions` e `assessment_answers` já existentes.
+
+### 2. Kanban de candidatos: score IA, botão de teste por tipo e modal de entrevista — commit `eaeed0b`
+
+Três melhorias no card e na ficha de candidatos do Kanban:
+
+- **Score de compatibilidade IA**: barra percentual (`bg-wg-green`) no card, mostra `aiScore` (0-100)
+  quando disponível. Carregado em paralelo de `application_assessments WHERE kind='AI_FIT'`.
+- **Botão de teste por template kind**: ícone diferenciado — `Brain` para PERSONALITY, `Code2` para
+  TECHNICAL, `FlaskConical` para demais. Copia link de teste ou dispara sessão conforme `templateKind`.
+- **`InterviewModal.tsx`**: modal de registro de entrevista com campo de notas + score manual;
+  salva em `application_assessments` com `kind='INTERVIEW'`.
+
+### 3. Dashboard: correção de conclusão de tarefas e animação — commit `b79736b`
+
+- **`AdmissaoAtividadesWidget`**: ao concluir tarefa, `revalidateTag('admissoes-widget')` em
+  `actions.ts` invalida o cache do widget sem recarregar a página inteira.
+- Fade-out animado no item concluído (`completing` state → `opacity-0 scale-95` via Tailwind) antes
+  de remover da lista, evitando "salto" visual.
+
+### 4. Configurações: layout 2 colunas — commit `c63bc44`
+
+Cards de `/configuracoes` migrados para grid 2 colunas, alinhado com o padrão visual de Admissões.
+Sem migração de banco.
+
+### 5. Candidatura: CPF único + extração de CV por IA + consulta pública de status — commit `80efc21`
+
+Feature completa em três partes.
+
+#### Migração SQL aplicada — `supabase/migrations/20260806120000_cpf_profile_status.sql`
+
+```sql
+-- Colunas novas em applications:
+cpf TEXT
+cpf_digits TEXT GENERATED ALWAYS AS (regexp_replace(cpf, '[^0-9]', '', 'g')) STORED
+cv_profile JSONB
+cv_extraction_status TEXT DEFAULT 'PENDING'
+  CHECK (cv_extraction_status IN ('PENDING','SUCCESS','FAILED','MANUAL_REVIEW'))
+"candidateState" TEXT
+-- Índice parcial: applications_cpf_digits_idx ON applications(cpf_digits) WHERE cpf_digits <> ''
+
+-- Coluna nova em application_stages:
+"externalLabel" TEXT
+-- Seeds: NEW→'Candidatura recebida', SCREENING→'Em análise', INTERVIEW→'Entrevista agendada',
+--        OFFER→'Proposta enviada', HIRED→'Selecionado(a)', REJECTED→'Processo encerrado'
+```
+
+#### Feature 1 — Unificação por CPF
+
+- `cpf_digits` é coluna **GENERATED ALWAYS AS STORED** — sem trigger, nunca dessincroniza.
+- `POST /api/applications`: valida CPF (dígitos verificadores via `isValidCpf`), checa
+  `cpf_digits + jobId` para duplicata (409 "Você já se candidatou a esta vaga"), insere com CPF.
+- **`GET /api/candidatura/lookup`** (novo, rate-limit 10/min): recebe CPF, devolve dados da candidatura
+  mais recente para pré-preencher o formulário (`{ exists, name, email, phone, city, state }`).
+- **`ApplicationForm.tsx`**: `onBlur` no CPF chama lookup e pré-preenche campos vazios.
+  Campo UF só aparece quando `country === 'Brasil'`. Campo `availablePresential` removido.
+
+#### Feature 2 — Formulário enxuto + extração de perfil por IA
+
+- **`src/lib/ai/cv-analyzer.ts`**: nova função `extractCvProfile(pdfBuffer)` — versão sem
+  `jobTitle` do `analyzeCv()` existente; usa Groq `llama-3.3-70b-versatile`, `max_tokens: 512`.
+  Retorna `{ experienceYears, education, lastPosition, skills[:8], extractedAt, modelUsed }`.
+- Candidato recebe **201 imediatamente**. Extração roda em background via `after()` do Next.js 15.
+  - PDF bem-formado → `cv_extraction_status = 'SUCCESS'`, `cv_profile = {...}`
+  - Não-PDF → `'MANUAL_REVIEW'`; erro de extração → `'FAILED'`
+- **Badge no Kanban**: `KanbanBoard.tsx` exibe badge âmbar "⚠ CV não lido" quando
+  `cvExtractionStatus === 'FAILED' || 'MANUAL_REVIEW'`. Novo campo opcional `cvExtractionStatus?`
+  na interface `KanbanApplication`; passado via `candidatos/page.tsx` no mapeamento dos cards.
+
+#### Feature 3 — Consulta pública de status
+
+- **`/vagas/status`** (`src/app/(public)/vagas/status/page.tsx`): formulário CPF + e-mail;
+  chips de etapa coloridos por `stageKind` (verde WON, cinza LOST, azul OPEN) com `externalLabel`.
+- **`POST /api/candidatura/status`** (novo): rate-limit 5 req / 10 min por IP; requer CPF + e-mail
+  (segundo fator LGPD — CPF sozinho não autentica); resposta genérica `{ found: false }` para
+  qualquer não-match, sem revelar se o CPF existe.
+- Link "Consultar minha candidatura" adicionado ao hero da home pública.
+
+#### Decisões de design registradas
+
+| Decisão | Alternativa descartada | Motivo |
+|---|---|---|
+| CPF em `applications` (sem tabela `candidates`) | Criar tabela `candidates` | Mantém arquitetura existente; histórico fica em `applications` |
+| Dado mais recente prevalece no pré-preenchimento | Mescla campos | Simples e intuitivo |
+| CPF + e-mail como segundo fator | CPF sozinho | LGPD: CPF é previsível; e-mail evita enumeração |
+| `after()` do Next.js 15 para extração assíncrona | Fila/worker separado | Zero infra extra; candidato não espera |
+| `GENERATED ALWAYS AS STORED` para `cpf_digits` | Trigger ou app code | Integridade garantida pelo banco |
+
+---
+
 ## Sessão de 2026-07-31 (continuação) — Análise AI-native de Currículos (Groq)
 
 Implementação do botão **"Analisar com IA"** na ficha do candidato: extrai texto do PDF,

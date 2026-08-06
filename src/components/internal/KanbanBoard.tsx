@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { ClipboardCheck, Download, FlaskConical, Mail, Phone, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Brain, Calendar, Check, ClipboardCheck, Code2, Download, FlaskConical, Loader2, Mail, Phone, Trash2 } from "lucide-react";
 import { formatDate, normalizeText } from "@/lib/utils";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
+import { useToast } from "@/components/ui/ToastProvider";
+import { InterviewModal } from "@/components/internal/InterviewModal";
 import {
   KanbanBoardShell,
   type KanbanColumnDef,
@@ -24,6 +26,8 @@ export interface KanbanApplication {
   createdAt: string; // ISO
   /** Outcome da sessão de teste mais recente (só preenchido quando a etapa é TEST). */
   testOutcome?: "PASS" | "FAIL" | "PENDING_REVIEW" | "PENDING" | null;
+  /** Score de compatibilidade por IA (0-100). undefined = não analisado; number = score disponível. */
+  aiScore?: number;
 }
 
 export interface KanbanStage {
@@ -33,6 +37,7 @@ export interface KanbanStage {
   kind?: string;
   templateId?: string | null;
   templateName?: string | null;
+  templateKind?: string | null;
 }
 
 interface Props {
@@ -49,6 +54,71 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
   const router = useRouter();
   const [detailId, setDetailId] = useState<string | null>(null);
   const [pendingAdmission, setPendingAdmission] = useState<{ candidateId: string; toStageId: string } | null>(null);
+  const { notify } = useToast()
+  const [aiScoreOverrides, setAiScoreOverrides] = useState<Map<string, number>>(new Map())
+  const [sendingTestFor, setSendingTestFor] = useState<string | null>(null)
+  const [copiedTestFor, setCopiedTestFor] = useState<string | null>(null)
+  const [interviewTarget, setInterviewTarget] = useState<{ applicationId: string; candidateName: string } | null>(null)
+  const analyzedRef = useRef(new Set<string>())
+
+  const stageMap = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages])
+
+  // Analisa candidatos com PDF sem score IA ainda — dispara uma vez no mount, fire-and-forget
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!canManage) return
+    const toAnalyze = applications.filter(
+      (a) =>
+        a.resumeName?.toLowerCase().endsWith('.pdf') &&
+        a.aiScore === undefined &&
+        !analyzedRef.current.has(a.id),
+    )
+    if (toAnalyze.length === 0) return
+    toAnalyze.forEach((a) => analyzedRef.current.add(a.id))
+    let active = true
+    void (async () => {
+      for (const app of toAnalyze.slice(0, 20)) {
+        if (!active) break
+        try {
+          const res = await fetch(`/api/applications/${app.id}/analyze`, {
+            method: 'POST',
+            credentials: 'same-origin',
+          })
+          if (res.ok) {
+            const { score } = (await res.json()) as { score?: number }
+            if (active && typeof score === 'number') {
+              setAiScoreOverrides((prev) => new Map(prev).set(app.id, score))
+            }
+          }
+        } catch { /* background task — ignore */ }
+        if (active) await new Promise((r) => setTimeout(r, 800))
+      }
+    })()
+    return () => { active = false }
+  }, []) // intencional: roda uma vez no mount para candidatos sem score
+
+  async function handleSendTest(applicationId: string, templateId: string) {
+    setSendingTestFor(applicationId)
+    try {
+      const res = await fetch('/api/assessment-sessions', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationId, templateId }),
+      })
+      const data = (await res.json()) as { error?: string; url?: string; token?: string }
+      if (!res.ok) throw new Error(data.error ?? 'Erro ao criar sessão')
+      const url = data.url ?? `${window.location.origin}/avaliacao/${data.token}`
+      navigator.clipboard?.writeText(url).catch(() => {})
+      setCopiedTestFor(applicationId)
+      setTimeout(() => setCopiedTestFor((prev) => (prev === applicationId ? null : prev)), 3000)
+      notify('success', 'Link de teste copiado! Envie ao candidato.')
+    } catch (err) {
+      notify('error', err instanceof Error ? err.message : 'Erro ao enviar teste.')
+    } finally {
+      setSendingTestFor(null)
+    }
+  }
 
   const columns: KanbanColumnDef[] = stages.map((s) => ({
     key: s.id,
@@ -219,6 +289,69 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
               </button>
             )}
           </div>
+
+          {/* Barra de compatibilidade por IA */}
+          {(() => {
+            const score = aiScoreOverrides.get(a.id) ?? a.aiScore
+            if (score === undefined) return null
+            return (
+              <div className="mt-2.5 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-[#8A9B7A]">Compatibilidade IA</span>
+                  <span className={`text-[10px] font-bold ${score >= 70 ? 'text-emerald-600' : score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                    {score}%
+                  </span>
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${score >= 70 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                    style={{ width: `${score}%` }}
+                  />
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Botão de envio de teste (etapas TEST) */}
+          {(() => {
+            const stage = stageMap.get(a.stageId)
+            const templateId = stage?.templateId
+            if (stage?.kind !== 'TEST' || !templateId || !canManage) return null
+            const busy = sendingTestFor === a.id
+            const copied = copiedTestFor === a.id
+            return (
+              <button
+                type="button"
+                onClick={() => handleSendTest(a.id, templateId)}
+                disabled={busy}
+                className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2 py-1.5 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 disabled:opacity-50 transition-colors"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> :
+                 copied ? <Check className="h-3 w-3 text-green-600" /> :
+                 stage.templateKind === 'PERSONALITY_BIG5' ? <Brain className="h-3 w-3" /> :
+                 stage.templateKind === 'TECHNICAL' ? <Code2 className="h-3 w-3" /> :
+                 <FlaskConical className="h-3 w-3" />}
+                {copied ? 'Link copiado!' : busy ? 'Criando…' :
+                 stage.templateName ? `Enviar ${stage.templateName}` : 'Enviar Teste'}
+              </button>
+            )
+          })()}
+
+          {/* Botão de entrevista (etapas com nome contendo "entrevista") */}
+          {(() => {
+            const stage = stageMap.get(a.stageId)
+            if (!stage || !/entrevista/i.test(stage.name) || !canManage) return null
+            return (
+              <button
+                type="button"
+                onClick={() => setInterviewTarget({ applicationId: a.id, candidateName: a.fullName })}
+                className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                <Calendar className="h-3 w-3" />
+                Registrar entrevista
+              </button>
+            )
+          })()}
         </>
       )}
     />
@@ -245,6 +378,15 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
       onClose={() => setPendingAdmission(null)}
       onSuccess={handleAdmissionSuccess}
     />
+
+    {interviewTarget && (
+      <InterviewModal
+        applicationId={interviewTarget.applicationId}
+        candidateName={interviewTarget.candidateName}
+        onClose={() => setInterviewTarget(null)}
+        onSuccess={() => router.refresh()}
+      />
+    )}
     </>
   );
 }

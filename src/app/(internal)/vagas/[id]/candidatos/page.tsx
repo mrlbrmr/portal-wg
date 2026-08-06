@@ -48,17 +48,22 @@ export default async function CandidatosPage({ params }: Props) {
     .map((s) => s.templateId as string);
 
   const templateNames = new Map<string, string>();
+  const templateKinds = new Map<string, string>();
   if (testTemplateIds.length > 0) {
     const { data: tmplData } = await supabase
       .from("assessment_templates")
-      .select("id, name")
+      .select("id, name, kind")
       .in("id", testTemplateIds);
-    (tmplData ?? []).forEach((t: { id: string; name: string }) => templateNames.set(t.id, t.name));
+    (tmplData ?? []).forEach((t: { id: string; name: string; kind: string }) => {
+      templateNames.set(t.id, t.name);
+      templateKinds.set(t.id, t.kind);
+    });
   }
 
   const allStages = rawStages.map((s) => ({
     ...s,
     templateName: s.templateId ? (templateNames.get(s.templateId) ?? null) : null,
+    templateKind: s.templateId ? (templateKinds.get(s.templateId) ?? null) : null,
   }));
 
   // Etapas configuradas para esta vaga (vazio = usa todas as globais)
@@ -152,6 +157,22 @@ export default async function CandidatosPage({ params }: Props) {
     }
   }
 
+  // Scores de compatibilidade por IA: pega o mais recente por candidato
+  const allAppIds = appList.map((a) => a.id);
+  const aiScoreByApp = new Map<string, number>();
+  if (allAppIds.length > 0) {
+    const { data: aiData } = await supabase
+      .from("application_assessments")
+      .select("applicationId, score, createdAt")
+      .eq("kind", "AI_FIT")
+      .in("applicationId", allAppIds)
+      .not("score", "is", null)
+      .order("createdAt", { ascending: false });
+    for (const row of (aiData ?? []) as Array<{ applicationId: string; score: number }>) {
+      if (!aiScoreByApp.has(row.applicationId)) aiScoreByApp.set(row.applicationId, row.score);
+    }
+  }
+
   const cards: KanbanApplication[] = appList.map((a) => ({
     id: a.id,
     fullName: a.fullName,
@@ -164,6 +185,7 @@ export default async function CandidatosPage({ params }: Props) {
     createdAt: new Date(a.createdAt).toISOString(),
     // undefined quando não está em etapa TEST → sem badge
     testOutcome: testOutcomeByApp.has(a.id) ? testOutcomeByApp.get(a.id) : undefined,
+    aiScore: aiScoreByApp.get(a.id),
   }));
 
   const canManage = session?.user.role === "ADMIN_RH";

@@ -1,7 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireTalentoWrite } from "@/lib/talentos/permissions";
+import { requireTalentoWrite, requireTalentoRead } from "@/lib/talentos/permissions";
 import { z } from "zod";
+
+export async function GET(req: NextRequest) {
+  const access = await requireTalentoRead();
+  if (!access.ok) return NextResponse.json({ error: "Não autorizado" }, { status: access.status });
+
+  const { searchParams } = new URL(req.url);
+  const search = (searchParams.get("search") ?? "").trim();
+  const limit = Math.min(parseInt(searchParams.get("limit") ?? "30"), 50);
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("talentos")
+    .select("id, nomeCompleto, email, telefone, cidade, estado, cargoDesejado, statusBanco")
+    .in("statusBanco", ["ATIVO", "EM_PROCESSO"])
+    .order("nomeCompleto", { ascending: true })
+    .limit(limit);
+
+  if (search) {
+    query = query.or(`nomeCompleto.ilike.%${search}%,email.ilike.%${search}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json(data ?? []);
+}
 
 const createSchema = z.object({
   nomeCompleto:  z.string().min(2).max(200),

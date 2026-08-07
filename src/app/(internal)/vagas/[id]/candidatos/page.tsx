@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, Users } from "lucide-react";
 import { KanbanBoard, type KanbanApplication } from "@/components/internal/KanbanBoard";
 import { AddCandidateModal } from "@/components/internal/AddCandidateModal";
+import { IncluirTalentoModal } from "@/components/internal/IncluirTalentoModal";
 import { JobStageConfigButton } from "@/components/internal/JobStageConfigButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Metadata } from "next";
@@ -234,6 +235,7 @@ export default async function CandidatosPage({ params }: Props) {
               activeStageIds={activeStageIds}
             />
           )}
+          {canManage && <IncluirTalentoModal jobId={job.id} />}
           {canManage && <AddCandidateModal jobId={job.id} />}
         </div>
       </div>

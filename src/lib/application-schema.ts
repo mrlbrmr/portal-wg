@@ -35,10 +35,11 @@ export const ApplicationSource = {
   INDEED: "INDEED",
   INTERNAL_REFERRAL: "INTERNAL_REFERRAL",
   OTHER: "OTHER",
+  BANCO_TALENTOS: "BANCO_TALENTOS",
 } as const;
 export type ApplicationSource = (typeof ApplicationSource)[keyof typeof ApplicationSource];
 
-// Origens que o RH pode escolher ao cadastrar manualmente (exclui PORTAL).
+// Origens que o RH pode escolher ao cadastrar manualmente (exclui PORTAL e BANCO_TALENTOS).
 export const MANUAL_APPLICATION_SOURCES: ApplicationSource[] = [
   ApplicationSource.WHATSAPP,
   ApplicationSource.CATHO,
@@ -54,4 +55,5 @@ export const APPLICATION_SOURCE_LABELS: Record<string, string> = {
   INDEED: "Indeed",
   INTERNAL_REFERRAL: "Indicação",
   OTHER: "Outro",
+  BANCO_TALENTOS: "Banco de Talentos",
 };

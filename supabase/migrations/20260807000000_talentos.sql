@@ -1,0 +1,184 @@
+-- ========================================================================================
+-- Banco de Talentos — Schema
+-- Cria: talentos, talento_tags, talento_tag_assignments, talento_notes, talento_audit_log
+-- Altera: assessment_templates (validityMonths), assessment_sessions (talentoId+validade),
+--         applications (talentoId)
+-- Aplicar: SUPABASE_DB_URL="..." node scripts/_supabase-apply.mjs \
+--            supabase/migrations/20260807000000_talentos.sql 20260807000000
+-- ========================================================================================
+
+-- ─── 1. Validade configurável por template ────────────────────────────────────────────
+ALTER TABLE "assessment_templates"
+  ADD COLUMN IF NOT EXISTS "validityMonths" int NOT NULL DEFAULT 12
+    CHECK ("validityMonths" > 0);
+
+-- ─── 2. Tabela principal de talentos ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "talentos" (
+  "id"                       text        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "nomeCompleto"             text        NOT NULL,
+  "email"                    text        NOT NULL,
+  "emailNormalizado"         text        GENERATED ALWAYS AS (lower(trim("email"))) STORED,
+  "cpf"                      text,
+  "cpfDigits"                text        GENERATED ALWAYS AS (
+                                           regexp_replace(coalesce("cpf", ''), '[^0-9]', '', 'g')
+                                         ) STORED,
+  "telefone"                 text,
+  "cidade"                   text,
+  "estado"                   text,
+  "cargoDesejado"            text,
+  "pretensaoSalarial"        numeric(12, 2),
+  "linkedinUrl"              text,
+  "curriculoUrl"             text,
+  "curriculoNome"            text,
+  "resumoProfissional"       text,
+  "origem"                   text        NOT NULL DEFAULT 'VAGA_ESPECIFICA'
+                               CHECK ("origem" IN (
+                                 'CANDIDATURA_ESPONTANEA', 'VAGA_ESPECIFICA',
+                                 'INDICACAO', 'IMPORTACAO'
+                               )),
+  "statusBanco"              text        NOT NULL DEFAULT 'ATIVO'
+                               CHECK ("statusBanco" IN (
+                                 'ATIVO', 'EM_PROCESSO', 'CONTRATADO', 'NAO_ADERENTE', 'ARQUIVADO'
+                               )),
+  "consentimentoLgpdEm"      timestamptz,
+  "consentimentoValidadeAte" timestamptz,
+  "ultimaAtividadeEm"        timestamptz NOT NULL DEFAULT now(),
+  "createdAt"                timestamptz NOT NULL DEFAULT now(),
+  "updatedAt"                timestamptz NOT NULL DEFAULT now()
+);
+
+-- Unicidade de e-mail normalizado (case-insensitive, sem espaço)
+CREATE UNIQUE INDEX IF NOT EXISTS "talentos_email_unique"
+  ON "talentos" ("emailNormalizado");
+
+-- Unicidade de CPF somente quando preenchido
+CREATE UNIQUE INDEX IF NOT EXISTS "talentos_cpf_unique"
+  ON "talentos" ("cpfDigits")
+  WHERE "cpfDigits" <> '';
+
+CREATE INDEX IF NOT EXISTS "talentos_statusBanco_idx"     ON "talentos" ("statusBanco");
+CREATE INDEX IF NOT EXISTS "talentos_createdAt_idx"       ON "talentos" ("createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "talentos_ultimaAtividade_idx" ON "talentos" ("ultimaAtividadeEm" DESC);
+CREATE INDEX IF NOT EXISTS "talentos_cidade_estado_idx"   ON "talentos" ("cidade", "estado");
+
+-- ─── 3. Tags criadas pelo RH ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "talento_tags" (
+  "id"          text        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "nome"        text        NOT NULL,
+  "cor"         text        NOT NULL DEFAULT '#64748b',
+  "criadoPorId" text        NOT NULL REFERENCES "users"("id"),
+  "createdAt"   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "talento_tags_nome_unique"
+  ON "talento_tags" (lower("nome"));
+
+-- ─── 4. Atribuição N:N talento ↔ tag ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "talento_tag_assignments" (
+  "talentoId" text NOT NULL REFERENCES "talentos"("id") ON DELETE CASCADE,
+  "tagId"     text NOT NULL REFERENCES "talento_tags"("id") ON DELETE CASCADE,
+  PRIMARY KEY ("talentoId", "tagId")
+);
+
+-- ─── 5. Notas internas do RH ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS "talento_notes" (
+  "id"        text        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "talentoId" text        NOT NULL REFERENCES "talentos"("id") ON DELETE CASCADE,
+  "autorId"   text        NOT NULL REFERENCES "users"("id"),
+  "conteudo"  text        NOT NULL,
+  "createdAt" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "talento_notes_talento_idx"
+  ON "talento_notes" ("talentoId", "createdAt" DESC);
+
+-- ─── 6. Log de auditoria ─────────────────────────────────────────────────────────────
+-- acao: VISUALIZOU_RESULTADO | INVALIDOU_APLICACAO | EXPORTOU | EXCLUIU_TALENTO
+CREATE TABLE IF NOT EXISTS "talento_audit_log" (
+  "id"         bigint      GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  "talentoId"  text        REFERENCES "talentos"("id") ON DELETE SET NULL,
+  "userId"     text,
+  "acao"       text        NOT NULL,
+  "entidade"   text,
+  "entidadeId" text,
+  "descricao"  text,
+  "metadata"   jsonb,
+  "createdAt"  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "talento_audit_log_talento_idx"
+  ON "talento_audit_log" ("talentoId", "createdAt" DESC);
+
+-- ─── 7. applications: FK para talento ────────────────────────────────────────────────
+ALTER TABLE "applications"
+  ADD COLUMN IF NOT EXISTS "talentoId" text REFERENCES "talentos"("id") ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS "applications_talentoId_idx"
+  ON "applications" ("talentoId");
+
+-- ─── 8. assessment_sessions: talentoId + campos de validade/invalidação ───────────────
+
+-- 8a. applicationId vira nullable: suporte a sessões standalone (sem candidatura associada)
+ALTER TABLE "assessment_sessions"
+  ALTER COLUMN "applicationId" DROP NOT NULL;
+
+-- 8b. Troca CASCADE → SET NULL: histórico de teste sobrevive à exclusão da candidatura
+ALTER TABLE "assessment_sessions"
+  DROP CONSTRAINT IF EXISTS "assessment_sessions_applicationId_fkey";
+
+ALTER TABLE "assessment_sessions"
+  ADD CONSTRAINT "assessment_sessions_applicationId_fkey"
+  FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE SET NULL;
+
+-- 8c. Novos campos
+ALTER TABLE "assessment_sessions"
+  ADD COLUMN IF NOT EXISTS "talentoId"         text        REFERENCES "talentos"("id") ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS "validoAte"         timestamptz,
+  ADD COLUMN IF NOT EXISTS "invalidadoEm"      timestamptz,
+  ADD COLUMN IF NOT EXISTS "invalidadoPorId"   text,
+  ADD COLUMN IF NOT EXISTS "motivoInvalidacao" text;
+
+CREATE INDEX IF NOT EXISTS "assessment_sessions_talentoId_idx"
+  ON "assessment_sessions" ("talentoId");
+
+-- ─── 9. updatedAt trigger ────────────────────────────────────────────────────────────
+CREATE TRIGGER "talentos_updated_at"
+  BEFORE UPDATE ON "talentos"
+  FOR EACH ROW EXECUTE PROCEDURE extensions.moddatetime("updatedAt");
+
+-- ─── 10. Row Level Security ───────────────────────────────────────────────────────────
+ALTER TABLE "talentos"                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "talento_tags"            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "talento_tag_assignments" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "talento_notes"           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "talento_audit_log"       ENABLE ROW LEVEL SECURITY;
+
+-- talentos
+CREATE POLICY "talentos_staff_select" ON "talentos"
+  FOR SELECT TO authenticated USING (public.is_staff());
+CREATE POLICY "talentos_admin_all" ON "talentos"
+  FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+-- tags
+CREATE POLICY "talento_tags_staff_select" ON "talento_tags"
+  FOR SELECT TO authenticated USING (public.is_staff());
+CREATE POLICY "talento_tags_admin_all" ON "talento_tags"
+  FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+-- atribuições de tag
+CREATE POLICY "talento_tag_assignments_staff_select" ON "talento_tag_assignments"
+  FOR SELECT TO authenticated USING (public.is_staff());
+CREATE POLICY "talento_tag_assignments_admin_all" ON "talento_tag_assignments"
+  FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+-- notas: staff lê e insere; admin exclui (imutabilidade do histórico)
+CREATE POLICY "talento_notes_staff_select" ON "talento_notes"
+  FOR SELECT TO authenticated USING (public.is_staff());
+CREATE POLICY "talento_notes_staff_insert" ON "talento_notes"
+  FOR INSERT TO authenticated WITH CHECK (public.is_staff());
+CREATE POLICY "talento_notes_admin_delete" ON "talento_notes"
+  FOR DELETE TO authenticated USING (public.is_admin());
+
+-- audit log: admin lê; inserts via service_role (server-side)
+CREATE POLICY "talento_audit_log_admin_select" ON "talento_audit_log"
+  FOR SELECT TO authenticated USING (public.is_admin());

@@ -18,6 +18,7 @@ import {
   ChevronRight,
   FlaskConical,
   BookOpen,
+  Star,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
@@ -45,8 +46,9 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
   const isAdmin = role === "ADMIN_RH";
 
   const topLinks: NavLink[] = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/vagas/gerenciar", label: "Vagas", icon: Briefcase },
+    { href: "/dashboard",      label: "Dashboard", icon: LayoutDashboard },
+    { href: "/vagas/gerenciar", label: "Vagas",     icon: Briefcase },
+    { href: "/talentos",       label: "Talentos",  icon: Star },
   ];
 
   const admissaoSub: NavLink[] = [

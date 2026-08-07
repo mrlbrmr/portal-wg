@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BarChart3, Users, TrendingUp, Building2, FileSpreadsheet } from "lucide-react";
+import { BarChart3, Users, TrendingUp, Building2, FileSpreadsheet, CheckCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardCard } from "@/components/internal/DashboardCard";
 
@@ -54,17 +54,18 @@ export default async function RelatoriosPage() {
   const { data } = await supabase
     .from("admissions")
     .select(
-      "createdAt, stage:admission_stages(name, color), company:admission_companies(name), branch:admission_branches(name)"
+      "createdAt, stage:admission_stages(name, color, isFinal), company:admission_companies(name), branch:admission_branches(name)"
     )
     .is("deletedAt", null);
   const admissions = (data ?? []) as unknown as Array<{
     createdAt: string;
-    stage: { name: string; color: string } | null;
+    stage: { name: string; color: string; isFinal: boolean } | null;
     company: { name: string } | null;
     branch: { name: string } | null;
   }>;
 
-  const total = admissions.length;
+  const concluidas = admissions.filter((a) => a.stage?.isFinal === true);
+  const ativas     = admissions.filter((a) => !a.stage?.isFinal);
 
   const now = new Date();
   const start30 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
@@ -81,6 +82,8 @@ export default async function RelatoriosPage() {
     }
     return [...map.values()].sort((x, y) => y.count - x.count);
   };
+
+  const total = admissions.length;
 
   const byStage = agg((a) => (a.stage ? { name: a.stage.name, color: a.stage.color } : { name: "Sem etapa" }));
   const byCompany = agg((a) => ({ name: a.company?.name ?? "Sem empresa" }));
@@ -122,8 +125,9 @@ export default async function RelatoriosPage() {
         </a>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-        <DashboardCard label="Admissões ativas" value={total} icon={Users} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <DashboardCard label="Admissões ativas" value={ativas.length} icon={Users} />
+        <DashboardCard label="Admissões concluídas" value={concluidas.length} icon={CheckCircle} />
         <DashboardCard
           label="Últimos 30 dias"
           value={last30}

@@ -7,6 +7,112 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-08-07 — Banco de Talentos (perfil consolidado + validade de teste)
+
+Foco: implementação completa do **Banco de Talentos** — área interna para gerenciar candidatos
+desvinculados de vagas específicas, com deduplicação por CPF/e-mail, histórico de testes com
+validade configurável e perfil unificado por abas. Commit `08406cf`.
+
+### 1. Schema SQL — migrações aplicadas
+
+**`supabase/migrations/20260807000000_talentos.sql`**
+
+- `ALTER TABLE assessment_templates ADD COLUMN validityMonths int NOT NULL DEFAULT 12` — validade
+  configurável por template (gate da Fase 3).
+- `CREATE TABLE talentos` com **colunas geradas** (`GENERATED ALWAYS AS STORED`):
+  - `emailNormalizado` = `lower(trim(email))` — chave de dedup por e-mail.
+  - `cpfDigits` = `regexp_replace(cpf, '[^0-9]', '', 'g')` — chave de dedup por CPF.
+  - Índice único condicional `WHERE cpfDigits <> ''` (ignora nulos/vazios sem violar unicidade).
+- `CREATE TABLE talento_tags`, `talento_tag_assignments`, `talento_notes`, `talento_audit_log`.
+- `ALTER TABLE applications ADD COLUMN talentoId text REFERENCES talentos(id) ON DELETE SET NULL`.
+- `ALTER TABLE assessment_sessions`:
+  - `applicationId` torna-se `NULL`-ável (permite convite direto do perfil, sem candidatura).
+  - FK recriada como `ON DELETE SET NULL` (era CASCADE — preserva histórico de testes).
+  - Novas colunas: `talentoId`, `validoAte`, `invalidadoEm`, `invalidadoPorId`, `motivoInvalidacao`.
+- RLS: notas lidas/inseridas por ambos os papéis; exclusão só ADMIN_RH; audit_log somente
+  via service_role (sem policy de insert para autenticados).
+
+**`supabase/migrations/20260807000001_talentos_datamig.sql`** (idempotente)
+
+Migração de dados em 6 passos:
+1. INSERT talentos por CPF (`ROW_NUMBER PARTITION BY cpf_digits`, mais recente vence) → `ON CONFLICT (cpfDigits) WHERE cpfDigits <> '' DO NOTHING`.
+2. UPDATE applications SET talentoId (por CPF).
+3. INSERT talentos restantes por e-mail → `ON CONFLICT (emailNormalizado) DO NOTHING`.
+4. UPDATE applications restantes SET talentoId (por e-mail).
+5. UPDATE assessment_sessions SET talentoId (propagado da candidatura vinculada).
+6. UPDATE assessment_sessions SET validoAte = submittedAt + validityMonths meses.
+
+> **Bug corrigido antes do push:** Passo 6 tinha `at."id"::text` ao comparar com `s."templateId"` (uuid).
+> PostgreSQL não aceita `uuid = text`. Removido o cast — ambas as colunas já são `uuid`.
+
+### 2. Lib — `src/lib/talentos/`
+
+- **`types.ts`**: `TalentoStatus`, `TalentoOrigem`, `Talento`, `TalentoListItem`, `TesteCard`,
+  `TesteValidezResult` (union type discriminada), `TalentoNote`, `CandidaturaHistorico`, `TalentoProfile`.
+- **`permissions.ts`**: funções puras `canReadTalentos`, `canWriteTalentos`, `canWriteNotes`,
+  `canDeleteNotes`, `canInvalidateSession`, `canManageTags` + helpers assíncronos
+  `requireTalentoRead` / `requireTalentoWrite` (retornam `TalentoAccess` discriminado).
+- **`validity.ts`**: `computeValidez(session, dataReferencia?)` → `TesteValidezResult` —
+  **fonte única de verdade** para validade; chamada no Server Component, nunca recalculada no cliente.
+  `computeValidoAte(submittedAt, validityMonths)` — chamada uma única vez na submissão e persistida em
+  `validoAte`. Constante `AVISO_VENCIMENTO_DIAS = 30`.
+
+### 3. API Routes — `src/app/api/talentos/`
+
+| Rota | Método | Função |
+|---|---|---|
+| `/api/talentos` | POST | Cria talento (ADMIN_RH) |
+| `/api/talentos/[id]` | PATCH | Edita campos + atualiza `ultimaAtividadeEm` |
+| `/api/talentos/[id]/notes` | POST | Adiciona nota (ambos os papéis) |
+| `/api/talentos/[id]/notes/[noteId]` | DELETE | Remove nota (ADMIN_RH) |
+| `/api/talentos/[id]/tags` | PUT | Substitui todas as tags (delete + insert) |
+| `/api/talentos/[id]/sessions/[sessionId]/invalidate` | POST | Invalida sessão (ADMIN_RH); grava audit_log via service_role |
+| `/api/talentos/[id]/test-invite` | POST | Gera `assessment_session` com `talentoId`; checa validade existente (409 se válida, salvo `forceReinvite: true`); retorna `testeUrl` |
+
+### 4. UI — páginas e componentes
+
+**Server Components (`src/app/(internal)/talentos/`)**
+
+- **`page.tsx`**: lista paginada (25/página); 2 queries paralelas (talentos + tags disponíveis);
+  filtros via URL search params (`q`, `status`, `estado`, `page`); guard `canReadTalentos`.
+- **`[id]/page.tsx`**: perfil; **5 queries em `Promise.all`** — talento, sessões+templates,
+  candidaturas+vagas+stages, notas, tags; computa `TesteCard[]` agrupando sessões por template e
+  chamando `computeValidez`; grava audit_log de acesso (fire-and-forget, service_role).
+- `loading.tsx` e `[id]/loading.tsx` — skeletons.
+
+**Client Components (`src/components/internal/talentos/`)**
+
+- **`TalentosList.tsx`**: tabela responsiva; busca com `useDebouncedValue(400ms)` sincronizada à URL;
+  selects de status e UF; paginação por URL params (server-rendered, compartilhável/bookmarkável).
+- **`TalentoProfile.tsx`**: abas Dados / Testes / Candidaturas / Notas com contadores; sub-componente
+  `TagEditor` (toggle + `PUT /api/talentos/[id]/tags`; só ADMIN_RH).
+- **`TalentoTestsTab.tsx`**: card por template com `ValidezBadge` (verde / amarelo 30d / laranja expirado / cinza não realizado / vermelho invalidado); `InvalidateModal` (motivo ≥5 chars); `InviteModal` (validade 1–30 dias, `forceReinvite`); `router.refresh()` após ação.
+- **`TalentoNotesTab.tsx`**: timeline cronológica inversa; formulário inline; exclusão otimista.
+- **`TalentoHistoryTab.tsx`**: lista de candidaturas com link para `/vagas/[id]/candidatos`.
+
+### 5. Sidebar
+
+`InternalSidebar.tsx`: ícone `Star` + item `{ href: "/talentos", label: "Talentos" }` inserido
+na seção Recrutamento, após Vagas.
+
+### Decisões de design
+
+| Decisão | Alternativa descartada | Motivo |
+|---|---|---|
+| Dedup CPF primeiro, e-mail como fallback | Só e-mail | CPF é a chave mais confiável; e-mail pode mudar |
+| `validoAte` armazenado na submissão | Computado na leitura | Single source of truth; sem divergência de timezone ou lógica duplicada |
+| Sessões reaplicadas criam nova linha | Sobrescrevem a existente | Preserva histórico completo de aplicações |
+| Convite independe de candidatura (`applicationId` nullable) | Sempre exige candidatura | ADMIN_RH pode convidar talento do banco sem vaga aberta |
+| Audit_log via service_role | Policy de insert para autenticados | Log é infraestrutura, não dado do usuário; RLS de insert seria sobreposição |
+
+### Pendente (próximas sessões)
+
+- Página pública `/teste/[token]` para candidatos realizarem testes por link (hoje o link existe mas a página não).
+- Após a página pública: ativar envio de e-mail via Resend no `test-invite` route (TODO já marcado).
+- Tags: tela de gerenciamento de tags disponíveis (`/talentos/tags` ou em `/configuracoes`).
+
+---
+
 ## Sessão de 2026-08-06 — Big Five, Kanban IA, dashboard e CPF+IA na candidatura
 
 ### 1. Avaliações: gráfico radar Big Five — commits `871333f` / `2e87bb2`

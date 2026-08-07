@@ -14,7 +14,14 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  return { title: `Talento ${id.slice(0, 8)}… — RH` };
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("talentos")
+    .select("nomeCompleto")
+    .eq("id", id)
+    .single();
+  const nome = data?.nomeCompleto ?? "Talento";
+  return { title: `${nome} — RH` };
 }
 
 export default async function TalentoPerfilPage({ params }: Props) {

@@ -132,7 +132,11 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
           </div>
         )}
 
-        {/* Admissões */}
+        {/* ── Admissões ───────────────────────────────── */}
+        <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-4 pb-2">
+          Admissões
+        </p>
+
         <Link
           href="/admissoes"
           onClick={onNavClick}
@@ -152,7 +156,7 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
           </div>
         )}
 
-        {/* Sistema */}
+        {/* ── Sistema ─────────────────────────────────── */}
         <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-4 pb-2">
           Sistema
         </p>

@@ -17,7 +17,12 @@ import { AdmissionDetailTabs } from "@/components/internal/admissao/AdmissionDet
 import { DigitalFormViewer } from "@/components/internal/admissao/DigitalFormViewer";
 import { loadFormConfig } from "@/lib/admissao/form-config-loader";
 
-export const metadata: Metadata = { title: "Ficha da admissão — RH" };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data } = await supabase.from("admissions").select("fullName").eq("id", id).single();
+  return { title: data?.fullName ? `${data.fullName} — Admissão — RH` : "Ficha da admissão — RH" };
+}
 
 function fmtDate(d: string | null): string | null {
   return d ? new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : null;

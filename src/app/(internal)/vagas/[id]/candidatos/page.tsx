@@ -9,7 +9,12 @@ import { JobStageConfigButton } from "@/components/internal/JobStageConfigButton
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Candidatos — RH" };
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data } = await supabase.from("jobs").select("title").eq("id", id).single();
+  return { title: data?.title ? `${data.title} — Candidatos — RH` : "Candidatos — RH" };
+}
 
 interface Props {
   params: Promise<{ id: string }>;

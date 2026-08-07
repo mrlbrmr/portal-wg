@@ -8,7 +8,6 @@ import {
   Settings,
   Users,
   UserCircle,
-  ClipboardCheck,
   List,
   Kanban,
   Calendar,
@@ -71,7 +70,6 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
 
   const perfilLink: NavLink = { href: "/perfil", label: "Meu Perfil", icon: UserCircle };
 
-  const admissaoActive = pathname === "/admissoes" || pathname.startsWith("/admissoes/");
   const avaliacoesActive = pathname.startsWith("/avaliacoes");
 
   const avaliacoesSub: NavLink[] = [
@@ -137,24 +135,7 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
           Admissões
         </p>
 
-        <Link
-          href="/admissoes"
-          onClick={onNavClick}
-          className={itemClass(admissaoActive)}
-          aria-expanded={admissaoActive}
-        >
-          <ClipboardCheck className="w-4 h-4 shrink-0" />
-          <span className="flex-1">Admissões</span>
-          {admissaoActive
-            ? <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-60" />
-            : <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-40" />
-          }
-        </Link>
-        {admissaoActive && (
-          <div className="ml-3 flex flex-col gap-0.5 border-l border-wg-border-light pl-2">
-            {admissaoSub.map((l) => renderLink(l, l.href === "/admissoes", true))}
-          </div>
-        )}
+        {admissaoSub.map((l) => renderLink(l, l.href === "/admissoes"))}
 
         {/* ── Sistema ─────────────────────────────────── */}
         <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-4 pb-2">

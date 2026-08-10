@@ -234,6 +234,61 @@ export async function POST(req: NextRequest) {
     changedBy: "Candidato (inscrição)",
   });
 
+  // Sincroniza candidato no Banco de Talentos (silent — não bloqueia a candidatura).
+  after(async () => {
+    try {
+      const cpfDigits = cpf.replace(/\D/g, "");
+
+      const { data: newTalento, error: talentoError } = await supabase
+        .from("talentos")
+        .insert({
+          nomeCompleto:        fullName,
+          email,
+          cpf,
+          telefone:            phone ?? null,
+          cidade:              candidateCity ?? null,
+          estado:              candidateState ?? null,
+          curriculoUrl:        resume.url,
+          curriculoNome:       resume.name,
+          origem:              "VAGA_ESPECIFICA",
+          consentimentoLgpdEm: new Date().toISOString(),
+          pretensaoSalarial:   salaryExpectation ? parseFloat(salaryExpectation) : null,
+        })
+        .select("id")
+        .single();
+
+      let syncedId = newTalento?.id;
+
+      // Talento já existe (e-mail ou CPF duplicado) — reutiliza registro existente.
+      if (!syncedId && talentoError?.code === "23505") {
+        const { data: byEmail } = await supabase
+          .from("talentos")
+          .select("id")
+          .ilike("email", email.trim())
+          .maybeSingle();
+        syncedId = byEmail?.id;
+
+        if (!syncedId && cpfDigits) {
+          const { data: byCpf } = await supabase
+            .from("talentos")
+            .select("id")
+            .eq("cpfDigits", cpfDigits)
+            .maybeSingle();
+          syncedId = byCpf?.id;
+        }
+      }
+
+      if (syncedId) {
+        await supabase
+          .from("applications")
+          .update({ talentoId: syncedId })
+          .eq("id", application.id);
+      }
+    } catch {
+      // Falha silenciosa — candidatura já registrada com sucesso
+    }
+  });
+
   // Extração assíncrona do perfil do CV — não bloqueia a resposta ao candidato.
   after(async () => {
     await runCvExtraction(application.id, resume.url, resume.name);

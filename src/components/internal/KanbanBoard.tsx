@@ -204,15 +204,15 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
             <button
               type="button"
               onClick={() => setDetailId(a.id)}
-              className="block max-w-full truncate text-left text-[13.5px] font-bold text-[#1A2213] transition-colors hover:text-[#4F6930]"
+              className="block w-full truncate text-left text-[13.5px] font-bold text-[#1A2213] transition-colors hover:text-[#4F6930]"
               title="Abrir ficha do candidato"
             >
               {a.fullName}
             </button>
-            <div className="mt-0.5 flex items-center gap-1.5">
-              <p className="text-[11.5px] text-[#8A9B7A]">{formatDate(a.createdAt)}</p>
+            <p className="mt-0.5 text-[11px] text-[#8A9B7A]">{formatDate(a.createdAt)}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
               {a.source && a.source !== "PORTAL" && (
-                <span className="rounded-md bg-[#E4F3DA] text-[#2F5D1E] text-[10px] font-bold px-1.5 py-0.5">
+                <span className="inline-flex rounded-md bg-[#E4F3DA] text-[#2F5D1E] text-[10px] font-bold px-1.5 py-0.5">
                   {APPLICATION_SOURCE_LABELS[a.source] ?? a.source}
                 </span>
               )}

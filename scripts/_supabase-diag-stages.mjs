@@ -1,0 +1,10 @@
+import { Client } from "pg";
+const sb = new Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } });
+await sb.connect();
+const s = await sb.query(`select id, name, color, "sortOrder", kind, active from application_stages order by "sortOrder"`);
+console.log("etapas:"); for (const r of s.rows) console.log(` ${r.sortOrder} ${r.id.padEnd(10)} ${r.name.padEnd(12)} ${r.kind} ${r.color}`);
+const a = await sb.query(`select "stageId", count(*)::int n from applications group by "stageId"`);
+console.log("applications por stageId:", JSON.stringify(a.rows));
+const nulls = await sb.query(`select count(*)::int n from applications where "stageId" is null`);
+console.log("applications sem stageId:", nulls.rows[0].n);
+await sb.end();

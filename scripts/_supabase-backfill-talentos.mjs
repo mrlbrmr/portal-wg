@@ -13,7 +13,23 @@
 import pg from "pg";
 
 const { Client } = pg;
-const client = new Client({ connectionString: process.env.SUPABASE_DB_URL });
+
+// Suporta senha em DB_PASSWORD separado (evita problemas com chars especiais na URL).
+// Uso: DB_HOST=... DB_PORT=5432 DB_USER=... DB_PASSWORD="..." DB_NAME=postgres node script.mjs
+// Ou:  SUPABASE_DB_URL="postgresql://..." node script.mjs  (se a senha não tiver chars especiais)
+let client;
+if (process.env.DB_HOST) {
+  client = new Client({
+    host:     process.env.DB_HOST,
+    port:     Number(process.env.DB_PORT ?? 5432),
+    user:     process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME ?? "postgres",
+    ssl:      true,
+  });
+} else {
+  client = new Client({ connectionString: process.env.SUPABASE_DB_URL });
+}
 await client.connect();
 
 // ── Diagnóstico ─────────────────────────────────────────────────────────────

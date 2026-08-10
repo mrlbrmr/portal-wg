@@ -1,0 +1,10 @@
+import { Client } from "pg";
+const sb = new Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } });
+await sb.connect();
+const all = await sb.query(`select count(*)::int n from applications`);
+const job = await sb.query(`select id, "fullName", "stageId", "jobId" from applications where "jobId" = 'cmrl2yc410000jo0400b9jrxt'`);
+const st = await sb.query(`select id, name, active from application_stages order by "sortOrder"`);
+console.log("total applications:", all.rows[0].n);
+console.log("apps desta vaga:", JSON.stringify(job.rows));
+console.log("stages:", JSON.stringify(st.rows.map(r=>r.id+":"+r.name+(r.active?"":"(inativa)"))));
+await sb.end();

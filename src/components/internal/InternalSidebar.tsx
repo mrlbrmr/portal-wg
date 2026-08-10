@@ -7,7 +7,6 @@ import {
   Briefcase,
   Settings,
   Users,
-  UserCircle,
   List,
   Kanban,
   Calendar,
@@ -62,13 +61,8 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
   ];
 
   const systemLinks: NavLink[] = isAdmin
-    ? [
-        { href: "/usuarios", label: "Usuários", icon: Users },
-        { href: "/configuracoes", label: "Configurações", icon: Settings },
-      ]
+    ? [{ href: "/usuarios", label: "Usuários", icon: Users }]
     : [];
-
-  const perfilLink: NavLink = { href: "/perfil", label: "Meu Perfil", icon: UserCircle };
 
   const avaliacoesActive = pathname.startsWith("/avaliacoes");
 
@@ -138,11 +132,14 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
         {admissaoSub.map((l) => renderLink(l, l.href === "/admissoes"))}
 
         {/* ── Sistema ─────────────────────────────────── */}
-        <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-4 pb-2">
-          Sistema
-        </p>
-        {systemLinks.map((l) => renderLink(l))}
-        {renderLink(perfilLink)}
+        {systemLinks.length > 0 && (
+          <>
+            <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-4 pb-2">
+              Sistema
+            </p>
+            {systemLinks.map((l) => renderLink(l))}
+          </>
+        )}
       </nav>
 
       {/* User info */}

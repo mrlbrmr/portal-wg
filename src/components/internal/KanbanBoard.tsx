@@ -198,19 +198,35 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
         message: `A candidatura de "${a.fullName}" e o currículo serão removidos permanentemente (LGPD). Esta ação não pode ser desfeita.`,
         confirmLabel: "Sim, excluir",
       })}
-      renderCard={(a, api) => (
+      renderCard={(a, api) => {
+        const score = aiScoreOverrides.get(a.id) ?? a.aiScore;
+        return (
         <>
-          <div className="min-w-0">
+          {/* Nome + badge de compatibilidade IA */}
+          <div className="flex items-start justify-between gap-1.5 min-w-0">
             <button
               type="button"
               onClick={() => setDetailId(a.id)}
-              className="block w-full truncate text-left text-[13.5px] font-bold text-[#1A2213] transition-colors hover:text-[#4F6930]"
+              className="flex-1 min-w-0 truncate text-left text-[13.5px] font-bold text-[#1A2213] transition-colors hover:text-[#4F6930]"
               title="Abrir ficha do candidato"
             >
               {a.fullName}
             </button>
-            <p className="mt-0.5 text-[11px] text-[#8A9B7A]">{formatDate(a.createdAt)}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-1">
+            {score !== undefined && (
+              <span
+                className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                  score >= 80 ? "bg-emerald-100 text-emerald-700"
+                  : score >= 60 ? "bg-amber-100 text-amber-700"
+                  : "bg-gray-100 text-gray-500"
+                }`}
+                title={`Compatibilidade IA: ${score}%`}
+              >
+                {score}% IA
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-[11px] text-[#55614A]">{formatDate(a.createdAt)}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
               {a.source && a.source !== "PORTAL" && (
                 <span className="inline-flex rounded-md bg-[#E4F3DA] text-[#2F5D1E] text-[10px] font-bold px-1.5 py-0.5">
                   {APPLICATION_SOURCE_LABELS[a.source] ?? a.source}
@@ -258,69 +274,44 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
                 </span>
               )}
             </div>
-          </div>
 
-          <div className="mt-2 flex flex-col gap-1">
-            <a
-              href={`mailto:${a.email}`}
-              className="flex items-center gap-1.5 text-[11.5px] text-[#55614A] hover:text-[#1A2213] transition-colors truncate"
-            >
-              <Mail className="w-3 h-3 shrink-0" />
-              <span className="truncate">{a.email}</span>
-            </a>
-            <a
-              href={`tel:${a.phone.replace(/\D/g, "")}`}
-              className="flex items-center gap-1.5 text-[11.5px] text-[#55614A] hover:text-[#1A2213] transition-colors"
-            >
-              <Phone className="w-3 h-3 shrink-0" />
-              {a.phone}
-            </a>
-          </div>
-
-          <div className="mt-2.5 flex items-center justify-between gap-2">
-            {a.resumeName ? (
+          {/* Ações rápidas (ícones) + exclusão */}
+          <div className="mt-2 flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1">
               <a
-                href={`/api/applications/${a.id}/resume`}
-                className="inline-flex items-center gap-1 text-[11.5px] font-bold text-[#4F6930] hover:opacity-80 transition-opacity"
+                href={`mailto:${a.email}`}
+                title={a.email}
+                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[#55614A] hover:bg-[#EEF4E3] hover:text-[#1A2213] transition-colors"
               >
-                <Download className="w-3 h-3" />
-                Currículo
+                <Mail className="w-3 h-3" />
               </a>
-            ) : (
-              <span className="text-[11.5px] text-[#8A9B7A]">Sem currículo</span>
-            )}
+              <a
+                href={`tel:${a.phone.replace(/\D/g, "")}`}
+                title={a.phone}
+                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[#55614A] hover:bg-[#EEF4E3] hover:text-[#1A2213] transition-colors"
+              >
+                <Phone className="w-3 h-3" />
+              </a>
+              {a.resumeName && (
+                <a
+                  href={`/api/applications/${a.id}/resume`}
+                  title="Baixar currículo"
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[#4F6930] hover:bg-[#EEF4E3] transition-colors"
+                >
+                  <Download className="w-3 h-3" />
+                </a>
+              )}
+            </div>
             {canManage && (
               <button
                 onClick={() => api.requestDelete(a.id)}
                 title="Excluir candidatura"
-                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-3 h-3" />
               </button>
             )}
           </div>
-
-          {/* Barra de compatibilidade por IA */}
-          {(() => {
-            const score = aiScoreOverrides.get(a.id) ?? a.aiScore
-            if (score === undefined) return null
-            return (
-              <div className="mt-2.5 pt-2 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-[#8A9B7A]">Compatibilidade IA</span>
-                  <span className={`text-[10px] font-bold ${score >= 70 ? 'text-emerald-600' : score >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
-                    {score}%
-                  </span>
-                </div>
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${score >= 70 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
-                    style={{ width: `${score}%` }}
-                  />
-                </div>
-              </div>
-            )
-          })()}
 
           {/* Botão de envio de teste (etapas TEST) */}
           {(() => {
@@ -363,7 +354,8 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
             )
           })()}
         </>
-      )}
+        );
+      }}
     />
 
     <CandidateDrawer

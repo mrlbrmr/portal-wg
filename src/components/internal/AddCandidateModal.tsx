@@ -136,7 +136,7 @@ export function AddCandidateModal({ jobId }: Props) {
         className="inline-flex items-center gap-1.5 rounded-xl bg-wg-green px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-wg-green-bright"
       >
         <UserPlus className="h-4 w-4" />
-        Adicionar candidato
+        Novo Candidato
       </button>
 
       {open && createPortal(
@@ -146,7 +146,7 @@ export function AddCandidateModal({ jobId }: Props) {
           <div className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-gray-900">Adicionar candidato</h3>
+                <h3 className="text-base font-semibold text-gray-900">Novo Candidato</h3>
                 <p className="mt-0.5 text-xs text-gray-500">
                   Para currículos recebidos por fora do portal (WhatsApp, Catho, Indeed…).
                 </p>

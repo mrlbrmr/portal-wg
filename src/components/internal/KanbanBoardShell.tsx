@@ -218,12 +218,12 @@ export function KanbanBoardShell<T>({
             return (
               <KanbanColumn key={col.key} id={col.key}>
                 <div className={col.kind === "TEST" ? "rounded-t-2xl bg-[#F0EAFA]" : col.kind === "ADMISSION" ? "rounded-t-2xl bg-[#EEF1FF]" : ""}>
-                  <div className="flex items-center gap-2 px-3.5 py-3 min-w-0">
+                  <div className="flex items-start gap-2 px-3.5 py-3 min-w-0">
                     <span
-                      className={`w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10 ${col.dotColor ? "" : col.dot ?? ""}`}
+                      className={`w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10 mt-1 ${col.dotColor ? "" : col.dot ?? ""}`}
                       style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
                     />
-                    <span className="text-[13.5px] font-bold text-[#1A2213] truncate min-w-0">{col.label}</span>
+                    <span className="text-[13px] font-bold text-[#1A2213] leading-snug break-words flex-1 min-w-0">{col.label}</span>
                     {col.kind === "TEST" && (
                       <FlaskConical className="w-3.5 h-3.5 text-purple-500 shrink-0" aria-label="Etapa de teste" />
                     )}
@@ -235,7 +235,7 @@ export function KanbanBoardShell<T>({
                     </span>
                   </div>
                   {col.kind === "TEST" && col.subtitle && (
-                    <p className="px-4 pb-2 text-[11px] text-purple-600 truncate">{col.subtitle}</p>
+                    <p className="px-4 pb-2 text-[11px] text-purple-600 leading-snug">{col.subtitle}</p>
                   )}
                 </div>
 

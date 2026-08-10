@@ -119,7 +119,7 @@ export function IncluirTalentoModal({ jobId }: Props) {
         className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE8CC] bg-white px-4 py-2.5 text-sm font-semibold text-[#1A2213] transition-colors hover:bg-[#EEF4E3]"
       >
         <Users className="h-4 w-4 text-[#4F6930]" />
-        Incluir candidato
+        Incluir do Banco
       </button>
 
       {open && createPortal(

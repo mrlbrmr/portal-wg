@@ -1,27 +1,55 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { Search, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import {
+  Search, ChevronLeft, ChevronRight, Star,
+  MoreHorizontal, Eye, Download, Archive,
+} from "lucide-react";
 import type { TalentoListItem, TalentoTag, TalentoStatus } from "@/lib/talentos/types";
 
 const STATUS_LABELS: Record<TalentoStatus, string> = {
-  ATIVO:           "Ativo",
-  EM_PROCESSO:     "Em processo",
-  CONTRATADO:      "Contratado",
-  NAO_ADERENTE:    "Não aderente",
-  ARQUIVADO:       "Arquivado",
+  ATIVO:        "Ativo",
+  EM_PROCESSO:  "Em processo",
+  CONTRATADO:   "Contratado",
+  NAO_ADERENTE: "Não aderente",
+  ARQUIVADO:    "Arquivado",
 };
 
 const STATUS_COLORS: Record<TalentoStatus, string> = {
-  ATIVO:           "bg-green-100 text-green-800",
-  EM_PROCESSO:     "bg-blue-100 text-blue-800",
-  CONTRATADO:      "bg-wg-green/20 text-wg-green-dark",
-  NAO_ADERENTE:    "bg-orange-100 text-orange-800",
-  ARQUIVADO:       "bg-gray-100 text-gray-500",
+  ATIVO:        "bg-green-100 text-green-800",
+  EM_PROCESSO:  "bg-blue-100 text-blue-800",
+  CONTRATADO:   "bg-wg-green/20 text-wg-green-dark",
+  NAO_ADERENTE: "bg-orange-100 text-orange-800",
+  ARQUIVADO:    "bg-gray-100 text-gray-500",
 };
+
+// Paleta de avatares derivada dos tons verde/terra do WG — determinística por nome
+const AVATAR_PALETTE = [
+  { bg: "#DCF1CA", fg: "#2F4E1A" },
+  { bg: "#C9E2D8", fg: "#1D4A39" },
+  { bg: "#DDE6C5", fg: "#3A4E1E" },
+  { bg: "#F2E4C5", fg: "#5C440A" },
+  { bg: "#F0DDD0", fg: "#6B3A20" },
+  { bg: "#E4EDD8", fg: "#374C27" },
+  { bg: "#D4E5F0", fg: "#1A3A5C" },
+  { bg: "#EDE4F0", fg: "#4A2A5C" },
+];
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getAvatarStyle(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++)
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
 
 interface Props {
   talentos:      TalentoListItem[];
@@ -46,6 +74,10 @@ export default function TalentosList({
   const [status, setStatus] = useState(initialStatus);
   const [estado, setEstado] = useState(initialEstado);
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [openMenuId, setOpenMenuId]   = useState<string | null>(null);
+  const menuRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
   const debouncedQ = useDebouncedValue(q, 400);
 
   const pushParams = useCallback(
@@ -54,19 +86,47 @@ export default function TalentosList({
       Object.entries(overrides).forEach(([k, v]) => {
         if (v) params.set(k, v); else params.delete(k);
       });
-      params.delete("page"); // reset pagination on filter change
+      params.delete("page");
       router.push(`${pathname}?${params.toString()}`);
     },
     [router, pathname, sp],
   );
 
-  // Sync debounced search to URL
   const prevQ = sp.get("q") ?? "";
-  if (debouncedQ !== prevQ) {
-    pushParams({ q: debouncedQ });
+  if (debouncedQ !== prevQ) pushParams({ q: debouncedQ });
+
+  // Fecha o dropdown ao clicar fora do seu container
+  useEffect(() => {
+    if (!openMenuId) return;
+    function handler(e: MouseEvent) {
+      const el = menuRefs.current.get(openMenuId!);
+      if (el && !el.contains(e.target as Node)) setOpenMenuId(null);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openMenuId]);
+
+  const totalPages   = Math.ceil(total / pageSize);
+  const pageIds      = talentos.map((t) => t.id);
+  const allSelected  = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const someSelected = pageIds.some((id) => selectedIds.has(id)) && !allSelected;
+
+  function toggleAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pageIds.forEach((id) => next.delete(id));
+      else             pageIds.forEach((id) => next.add(id));
+      return next;
+    });
   }
 
-  const totalPages = Math.ceil(total / pageSize);
+  function toggleOne(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   function setPage(p: number) {
     const params = new URLSearchParams(sp.toString());
@@ -136,62 +196,174 @@ export default function TalentosList({
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
+                {/* Checkbox — selecionar todos / indeterminate */}
+                <th className="w-10 pl-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                    onChange={toggleAll}
+                    className="h-4 w-4 rounded border-gray-300 cursor-pointer accent-wg-green focus:ring-2 focus:ring-wg-green/40"
+                  />
+                </th>
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted">Nome</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted hidden md:table-cell">Cargo desejado</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted hidden lg:table-cell">Localização</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted">Status</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted hidden xl:table-cell">Tags</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted hidden lg:table-cell">Última atividade</th>
+                {/* Coluna de ações — sem título */}
+                <th className="w-12 py-3 pr-4" />
               </tr>
             </thead>
             <tbody>
-              {talentos.map((t, i) => (
-                <tr
-                  key={t.id}
-                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${i === talentos.length - 1 ? "border-b-0" : ""}`}
-                >
-                  <td className="px-5 py-3.5">
-                    <Link href={`/talentos/${t.id}`} className="group">
-                      <div className="font-semibold text-wg-ink group-hover:text-wg-green transition-colors">
-                        {t.nomeCompleto}
-                      </div>
-                      <div className="text-[12px] text-wg-ink-muted">{t.email}</div>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3.5 text-wg-ink-secondary hidden md:table-cell">
-                    {t.cargoDesejado ?? <span className="text-wg-ink-muted italic">—</span>}
-                  </td>
-                  <td className="px-4 py-3.5 text-wg-ink-secondary hidden lg:table-cell">
-                    {t.cidade && t.estado
-                      ? `${t.cidade} / ${t.estado}`
-                      : (t.estado ?? <span className="text-wg-ink-muted italic">—</span>)}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[t.statusBanco]}`}>
-                      {STATUS_LABELS[t.statusBanco]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5 hidden xl:table-cell">
-                    <div className="flex flex-wrap gap-1">
-                      {t.tags.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag.id}
-                          className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium"
-                          style={{ backgroundColor: `${tag.cor}22`, color: tag.cor }}
+              {talentos.map((t, i) => {
+                const isSelected  = selectedIds.has(t.id);
+                const avatarStyle = getAvatarStyle(t.nomeCompleto);
+                const isLast      = i === talentos.length - 1;
+
+                return (
+                  <tr
+                    key={t.id}
+                    onClick={() => { /* TODO: abrir side-drawer de perfil */ }}
+                    className={[
+                      "border-b border-gray-100 transition-colors cursor-pointer",
+                      isLast ? "border-b-0" : "",
+                      isSelected ? "bg-[#F3F9E9]" : "hover:bg-gray-50",
+                    ].join(" ")}
+                  >
+                    {/* Checkbox individual — stripe WG-green quando selecionado */}
+                    <td
+                      className={[
+                        "py-3.5",
+                        isSelected
+                          ? "pl-[13px] border-l-[3px] border-wg-green"
+                          : "pl-4",
+                      ].join(" ")}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleOne(t.id)}
+                        className="h-4 w-4 rounded border-gray-300 cursor-pointer accent-wg-green focus:ring-2 focus:ring-wg-green/40"
+                      />
+                    </td>
+
+                    {/* Nome + avatar */}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 select-none"
+                          style={{ background: avatarStyle.bg, color: avatarStyle.fg }}
                         >
-                          {tag.nome}
-                        </span>
-                      ))}
-                      {t.tags.length > 3 && (
-                        <span className="text-[11px] text-wg-ink-muted">+{t.tags.length - 3}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 text-[12px] text-wg-ink-muted hidden lg:table-cell">
-                    {new Date(t.ultimaAtividadeEm).toLocaleDateString("pt-BR")}
-                  </td>
-                </tr>
-              ))}
+                          {getInitials(t.nomeCompleto)}
+                        </div>
+                        <Link
+                          href={`/talentos/${t.id}`}
+                          className="group"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="font-semibold text-wg-ink group-hover:text-wg-green transition-colors">
+                            {t.nomeCompleto}
+                          </div>
+                          <div className="text-[12px] text-wg-ink-muted">{t.email}</div>
+                        </Link>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3.5 text-wg-ink-secondary hidden md:table-cell">
+                      {t.cargoDesejado ?? <span className="text-gray-300 font-light">—</span>}
+                    </td>
+
+                    <td className="px-4 py-3.5 text-wg-ink-secondary hidden lg:table-cell">
+                      {t.cidade && t.estado
+                        ? `${t.cidade} / ${t.estado}`
+                        : t.estado ?? <span className="text-gray-300 font-light">—</span>}
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[t.statusBanco]}`}>
+                        {STATUS_LABELS[t.statusBanco]}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3.5 hidden xl:table-cell">
+                      <div className="flex flex-wrap gap-1">
+                        {t.tags.slice(0, 3).map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium"
+                            style={{ backgroundColor: `${tag.cor}22`, color: tag.cor }}
+                          >
+                            {tag.nome}
+                          </span>
+                        ))}
+                        {t.tags.length > 3 && (
+                          <span className="text-[11px] text-wg-ink-muted">+{t.tags.length - 3}</span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3.5 text-[12px] text-wg-ink-muted hidden lg:table-cell">
+                      {new Date(t.ultimaAtividadeEm).toLocaleDateString("pt-BR")}
+                    </td>
+
+                    {/* Menu de ações */}
+                    <td
+                      className="pr-3 py-3.5 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        className="relative inline-block"
+                        ref={(el) => { if (el) menuRefs.current.set(t.id, el as HTMLDivElement); }}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === t.id ? null : t.id);
+                          }}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-wg-ink hover:bg-gray-100 transition-colors"
+                          aria-label="Ações"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+
+                        {openMenuId === t.id && (
+                          <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[152px]">
+                            <Link
+                              href={`/talentos/${t.id}`}
+                              onClick={() => setOpenMenuId(null)}
+                              className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] text-wg-ink hover:bg-gray-50 transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-wg-ink-muted shrink-0" />
+                              Ver Perfil
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => setOpenMenuId(null)}
+                              className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] text-wg-ink hover:bg-gray-50 transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5 text-wg-ink-muted shrink-0" />
+                              Baixar CV
+                            </button>
+                            <div className="h-px bg-gray-100 mx-2" />
+                            <button
+                              type="button"
+                              onClick={() => setOpenMenuId(null)}
+                              className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] text-red-500 hover:bg-red-50 transition-colors"
+                            >
+                              <Archive className="w-3.5 h-3.5 shrink-0" />
+                              Arquivar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

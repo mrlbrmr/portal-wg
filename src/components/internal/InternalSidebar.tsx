@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Briefcase,
@@ -12,16 +14,22 @@ import {
   History,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   FlaskConical,
   BookOpen,
   Star,
+  LogOut,
+  User,
+  ExternalLink,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 interface Props {
   role: string;
   name?: string | null;
+  email?: string | null;
   onNavClick?: () => void;
 }
 
@@ -39,7 +47,27 @@ function initials(name: string | null | undefined) {
 
 export default function InternalSidebar({ role, name, onNavClick }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const isAdmin = role === "ADMIN_RH";
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   const topLinks: NavLink[] = [
     { href: "/dashboard",      label: "Dashboard", icon: LayoutDashboard },
@@ -93,7 +121,19 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
   const roleLabel = role === "ADMIN_RH" ? "Admin RH" : "Visualizador";
 
   return (
-    <aside className="w-[232px] bg-wg-sidebar border-r border-wg-border-light h-full min-h-[calc(100vh-56px)] overflow-y-auto px-4 py-5 flex-shrink-0 flex flex-col">
+    <aside className="w-[232px] bg-wg-sidebar border-r border-wg-border-light h-full min-h-screen overflow-y-auto px-4 py-5 flex-shrink-0 flex flex-col">
+      {/* Logo WG */}
+      <div className="mb-5 px-1">
+        <Image
+          src="/logo-wg.png"
+          alt="Grupo WG"
+          width={96}
+          height={40}
+          className="h-7 w-auto"
+        />
+        <p className="text-wg-ink-muted text-[11px] mt-1">Painel RH</p>
+      </div>
+
       <nav className="flex flex-col gap-0.5 flex-1">
         <p className="text-wg-ink-muted text-[10.5px] tracking-[.08em] uppercase font-semibold px-2.5 pt-1 pb-2">
           Recrutamento
@@ -139,15 +179,60 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
         )}
       </nav>
 
-      {/* User info */}
-      <div className="mt-4 pt-4 border-t border-wg-border-light flex items-center gap-2.5 px-1">
-        <div className="w-[30px] h-[30px] rounded-full bg-wg-green-dark text-white flex items-center justify-center text-[12px] font-bold shrink-0">
-          {initials(name)}
-        </div>
-        <div className="min-w-0">
-          <div className="text-wg-ink text-[13px] font-semibold truncate">{name ?? "Usuário"}</div>
-          <div className="text-wg-ink-muted text-[11px]">{roleLabel}</div>
-        </div>
+      {/* User info + popover com ações */}
+      <div ref={userMenuRef} className="mt-4 pt-4 border-t border-wg-border-light relative">
+        {/* Popover acima */}
+        {userMenuOpen && (
+          <div className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden py-1 z-50">
+            <Link
+              href="/perfil"
+              onClick={() => { setUserMenuOpen(false); onNavClick?.(); }}
+              className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <User className="w-3.5 h-3.5 text-gray-400" />
+              Meu Perfil
+            </Link>
+            <Link
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setUserMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+              Portal público
+            </Link>
+            <div className="my-1 border-t border-gray-100" />
+            <button
+              type="button"
+              onClick={() => { setUserMenuOpen(false); void handleSignOut(); }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sair
+            </button>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setUserMenuOpen((o) => !o)}
+          className="w-full flex items-center gap-2.5 px-1.5 py-1.5 rounded-xl hover:bg-wg-hover-light transition-colors"
+        >
+          <div className="w-8 h-8 rounded-full bg-wg-green-dark text-white flex items-center justify-center text-[12px] font-bold shrink-0">
+            {initials(name)}
+          </div>
+          <div className="min-w-0 flex-1 text-left">
+            <div className="text-wg-ink text-[13px] font-semibold truncate">{name ?? "Usuário"}</div>
+            <div className="text-wg-ink-muted text-[11px]">{roleLabel}</div>
+          </div>
+          <ChevronUp
+            className={cn(
+              "w-3.5 h-3.5 text-gray-400 transition-transform duration-150 shrink-0",
+              userMenuOpen ? "" : "rotate-180"
+            )}
+          />
+        </button>
       </div>
     </aside>
   );

@@ -50,6 +50,8 @@ interface Props<T> {
   /** Quando informado, renderiza uma barra de busca acima das colunas que filtra cards na hora de exibir (sem redefinir o estado de drag-drop). */
   filterFn?: (item: T, query: string) => boolean;
   searchPlaceholder?: string;
+  /** Controles extras renderizados à direita da barra de pesquisa (ex.: toggle lista/kanban, botão Comparar). */
+  topControls?: ReactNode;
   // ── Exclusão opcional (usada só onde faz sentido, ex.: candidatos) ──────
   onDelete?: (id: string) => Promise<Response>;
   deleteSuccess?: (item: T) => string;
@@ -86,6 +88,7 @@ export function KanbanBoardShell<T>({
   cardClassName = "",
   filterFn,
   searchPlaceholder = "Pesquisar...",
+  topControls,
   onDelete,
   deleteSuccess,
   deleteError = "Erro ao excluir.",
@@ -203,13 +206,18 @@ export function KanbanBoardShell<T>({
 
   return (
     <>
-      {filterFn && (
-        <SearchBar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder={searchPlaceholder}
-          className="mb-4 max-w-xs"
-        />
+      {(filterFn || topControls) && (
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
+          {filterFn && (
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder={searchPlaceholder}
+              className="flex-1 min-w-[180px] max-w-xs"
+            />
+          )}
+          {topControls && <div className="ml-auto flex items-center gap-2">{topControls}</div>}
+        </div>
       )}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex gap-3.5 overflow-x-auto pb-4">
@@ -217,25 +225,25 @@ export function KanbanBoardShell<T>({
             const cards = visibleItems.filter((it) => getColumn(it) === col.key);
             return (
               <KanbanColumn key={col.key} id={col.key}>
-                <div className={col.kind === "TEST" ? "rounded-t-2xl bg-[#F0EAFA]" : col.kind === "ADMISSION" ? "rounded-t-2xl bg-[#EEF1FF]" : ""}>
-                  <div className="flex items-start gap-2 px-3.5 py-3 min-w-0">
+                <div>
+                  <div className="flex items-center gap-2 px-3.5 py-3 min-w-0">
                     <span
-                      className={`w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10 mt-1 ${col.dotColor ? "" : col.dot ?? ""}`}
+                      className={`w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10 ${col.dotColor ? "" : col.dot ?? ""}`}
                       style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
                     />
-                    <span className="text-[13px] font-bold text-[#1A2213] leading-snug break-words flex-1 min-w-0">{col.label}</span>
+                    <span className="text-[13px] font-semibold text-[#1A2213] leading-snug break-words flex-1 min-w-0">{col.label}</span>
                     {col.kind === "TEST" && (
-                      <FlaskConical className="w-3.5 h-3.5 text-purple-500 shrink-0" aria-label="Etapa de teste" />
+                      <FlaskConical className="w-3 h-3 text-purple-400 shrink-0" aria-label="Etapa de teste" />
                     )}
                     {col.kind === "ADMISSION" && (
-                      <UserCheck className="w-3.5 h-3.5 text-indigo-500 shrink-0" aria-label="Etapa de admissão" />
+                      <UserCheck className="w-3 h-3 text-indigo-400 shrink-0" aria-label="Etapa de admissão" />
                     )}
-                    <span className="text-[11px] font-bold text-white bg-[#1A2213] rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shrink-0 ml-auto">
+                    <span className="text-[10px] font-bold text-[#55614A] bg-[#E8EEE1] rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1.5 shrink-0 ml-auto tabular-nums">
                       {cards.length}
                     </span>
                   </div>
                   {col.kind === "TEST" && col.subtitle && (
-                    <p className="px-4 pb-2 text-[11px] text-purple-600 leading-snug">{col.subtitle}</p>
+                    <p className="px-3.5 pb-2 text-[11px] text-gray-400 leading-snug">{col.subtitle}</p>
                   )}
                 </div>
 

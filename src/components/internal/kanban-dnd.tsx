@@ -67,7 +67,7 @@ export function KanbanCard({ id, draggable, className = "", children }: CardProp
     <div
       ref={setNodeRef}
       className={`relative rounded-xl bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,.05)] transition-shadow ${
-        draggable ? "pr-7" : ""
+        draggable ? "pl-7" : ""
       } ${
         isDragging
           ? "opacity-40 ring-2 ring-wg-green/20"
@@ -82,7 +82,7 @@ export function KanbanCard({ id, draggable, className = "", children }: CardProp
           {...attributes}
           title="Arraste para mover"
           aria-label="Arraste para mover"
-          className="absolute right-1 top-1.5 cursor-grab touch-none rounded p-0.5 text-gray-300 transition-colors hover:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-wg-green active:cursor-grabbing"
+          className="absolute left-1 top-1.5 cursor-grab touch-none rounded p-0.5 text-gray-300 transition-colors hover:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-wg-green active:cursor-grabbing"
         >
           <GripVertical className="h-4 w-4" />
         </button>
@@ -101,11 +101,11 @@ export function KanbanCardOverlay({
   return (
     <div
       className={`relative rounded-xl bg-white p-3 shadow-[0_12px_32px_rgba(0,0,0,.15)] ring-2 ring-wg-green/40 ${
-        draggable ? "pr-7" : ""
+        draggable ? "pl-7" : ""
       } ${className}`}
     >
       {draggable && (
-        <span className="absolute right-1 top-1.5 rounded p-0.5 text-gray-400">
+        <span className="absolute left-1 top-1.5 rounded p-0.5 text-gray-400">
           <GripVertical className="h-4 w-4" />
         </span>
       )}

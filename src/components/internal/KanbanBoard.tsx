@@ -2,9 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Brain, Calendar, Check, ClipboardCheck, Code2, Download, FlaskConical, Loader2, Mail, Phone, Trash2 } from "lucide-react";
-import { formatDate, normalizeText } from "@/lib/utils";
-import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
+import { ArrowLeftRight, Brain, Calendar, Check, Code2, ExternalLink, FlaskConical, LayoutGrid, List, Loader2, Trash2, Users } from "lucide-react";
+import { normalizeText } from "@/lib/utils";
 import { useToast } from "@/components/ui/ToastProvider";
 import { InterviewModal } from "@/components/internal/InterviewModal";
 import {
@@ -155,6 +154,38 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
     ? applications.find((a) => a.id === pendingAdmission.candidateId) ?? null
     : null;
 
+  const topControls = (
+    <div className="flex items-center gap-2">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-[11px] font-semibold text-gray-500 tabular-nums">
+        <Users className="w-3 h-3" />
+        {applications.length}
+      </span>
+      <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+        <button
+          type="button"
+          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+          title="Visualização em lista"
+        >
+          <List className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          className="p-1.5 bg-[#EEF4E3] text-[#4F6930]"
+          title="Visualização em Kanban (ativo)"
+        >
+          <LayoutGrid className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-[11px] font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+      >
+        <ArrowLeftRight className="w-3 h-3" />
+        Comparar
+      </button>
+    </div>
+  );
+
   return (
     <>
     <KanbanBoardShell<KanbanApplication>
@@ -162,6 +193,7 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
       columns={columns}
       canManage={canManage}
       cardClassName="group"
+      topControls={topControls}
       filterFn={(a, q) => {
         const norm = normalizeText(q);
         return (
@@ -200,159 +232,94 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
       })}
       renderCard={(a, api) => {
         const score = aiScoreOverrides.get(a.id) ?? a.aiScore;
+        const stage = stageMap.get(a.stageId);
+        const isBigFiveDone = stage?.templateKind === 'PERSONALITY_BIG5' && a.testOutcome === 'PASS';
         return (
         <>
-          {/* Nome + badge de compatibilidade IA */}
-          <div className="flex items-start justify-between gap-1.5 min-w-0">
+          {/* Linha 1: Nome + Match% + Abrir perfil */}
+          <div className="flex items-center gap-1.5 min-w-0">
             <button
               type="button"
               onClick={() => setDetailId(a.id)}
-              className="flex-1 min-w-0 truncate text-left text-[13.5px] font-bold text-[#1A2213] transition-colors hover:text-[#4F6930]"
+              className="flex-1 min-w-0 truncate text-left text-[13px] font-semibold text-[#1A2213] hover:text-[#4F6930] transition-colors"
               title="Abrir ficha do candidato"
             >
               {a.fullName}
             </button>
             {score !== undefined && (
               <span
-                className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-                  score >= 80 ? "bg-emerald-100 text-emerald-700"
-                  : score >= 60 ? "bg-amber-100 text-amber-700"
-                  : "bg-gray-100 text-gray-500"
+                className={`shrink-0 text-[10.5px] font-bold whitespace-nowrap tabular-nums ${
+                  score >= 80 ? "text-emerald-600"
+                  : score >= 60 ? "text-amber-500"
+                  : "text-gray-400"
                 }`}
                 title={`Compatibilidade IA: ${score}%`}
               >
-                {score}% IA
+                {score}%
               </span>
             )}
-          </div>
-          <p className="mt-0.5 text-[11px] text-[#55614A]">{formatDate(a.createdAt)}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-1">
-              {a.source && a.source !== "PORTAL" && (
-                <span className="inline-flex rounded-md bg-[#E4F3DA] text-[#2F5D1E] text-[10px] font-bold px-1.5 py-0.5">
-                  {APPLICATION_SOURCE_LABELS[a.source] ?? a.source}
-                </span>
-              )}
-              {a.assessmentCount > 0 && (
-                <span
-                  className="inline-flex items-center gap-0.5 rounded-full bg-wg-green/15 px-1.5 py-0.5 text-[10px] font-medium text-wg-green-dark"
-                  title={`${a.assessmentCount} avaliação(ões)`}
-                >
-                  <ClipboardCheck className="h-2.5 w-2.5" />
-                  {a.assessmentCount}
-                </span>
-              )}
-              {a.testOutcome !== undefined && a.testOutcome !== null && (
-                <span
-                  className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                    a.testOutcome === "PASS"
-                      ? "bg-wg-green/15 text-wg-green-dark"
-                      : a.testOutcome === "FAIL"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-amber-100 text-amber-700"
-                  }`}
-                  title="Resultado do teste online"
-                >
-                  <FlaskConical className="h-2.5 w-2.5" />
-                  {a.testOutcome === "PASS" ? "Aprovado" : a.testOutcome === "FAIL" ? "Reprovado" : "Revisão"}
-                </span>
-              )}
-              {a.testOutcome === null && (
-                <span
-                  className="inline-flex items-center gap-0.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-600"
-                  title="Teste pendente de resposta"
-                >
-                  <FlaskConical className="h-2.5 w-2.5" />
-                  Teste pendente
-                </span>
-              )}
-              {(a.cvExtractionStatus === "FAILED" || a.cvExtractionStatus === "MANUAL_REVIEW") && (
-                <span
-                  className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700"
-                  title="A IA não conseguiu ler o CV — analise manualmente"
-                >
-                  ⚠ CV não lido
-                </span>
-              )}
-            </div>
-
-          {/* Ações rápidas (ícones) + exclusão */}
-          <div className="mt-2 flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1">
-              <a
-                href={`mailto:${a.email}`}
-                title={a.email}
-                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[#55614A] hover:bg-[#EEF4E3] hover:text-[#1A2213] transition-colors"
-              >
-                <Mail className="w-3 h-3" />
-              </a>
-              <a
-                href={`tel:${a.phone.replace(/\D/g, "")}`}
-                title={a.phone}
-                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[#55614A] hover:bg-[#EEF4E3] hover:text-[#1A2213] transition-colors"
-              >
-                <Phone className="w-3 h-3" />
-              </a>
-              {a.resumeName && (
-                <a
-                  href={`/api/applications/${a.id}/resume`}
-                  title="Baixar currículo"
-                  className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[#4F6930] hover:bg-[#EEF4E3] transition-colors"
-                >
-                  <Download className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-            {canManage && (
-              <button
-                onClick={() => api.requestDelete(a.id)}
-                title="Excluir candidatura"
-                className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setDetailId(a.id)}
+              title="Ver perfil"
+              className="shrink-0 text-gray-300 hover:text-[#4F6930] transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" />
+            </button>
           </div>
 
-          {/* Botão de envio de teste (etapas TEST) */}
-          {(() => {
-            const stage = stageMap.get(a.stageId)
-            const templateId = stage?.templateId
-            if (stage?.kind !== 'TEST' || !templateId || !canManage) return null
-            const busy = sendingTestFor === a.id
-            const copied = copiedTestFor === a.id
+          {/* Linha 2 (condicional): Big Five concluído */}
+          {isBigFiveDone && (
+            <p className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600">
+              <Check className="w-3 h-3 shrink-0" />
+              Big Five ok
+            </p>
+          )}
+
+          {/* Linha 3: Botão de ação da etapa (TEST) */}
+          {stage?.kind === 'TEST' && stage.templateId && canManage && (() => {
+            const busy = sendingTestFor === a.id;
+            const copied = copiedTestFor === a.id;
             return (
               <button
                 type="button"
-                onClick={() => handleSendTest(a.id, templateId)}
+                onClick={() => handleSendTest(a.id, stage.templateId!)}
                 disabled={busy}
-                className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2 py-1.5 text-[11px] font-semibold text-purple-700 hover:bg-purple-100 disabled:opacity-50 transition-colors"
+                className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] font-medium text-[#4F6930] hover:bg-[#EEF4E3] hover:border-[#DCE8CC] disabled:opacity-50 transition-colors"
               >
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> :
-                 copied ? <Check className="h-3 w-3 text-green-600" /> :
+                 copied ? <Check className="h-3 w-3 text-emerald-600" /> :
                  stage.templateKind === 'PERSONALITY_BIG5' ? <Brain className="h-3 w-3" /> :
                  stage.templateKind === 'TECHNICAL' ? <Code2 className="h-3 w-3" /> :
                  <FlaskConical className="h-3 w-3" />}
                 {copied ? 'Link copiado!' : busy ? 'Criando…' :
                  stage.templateName ? `Enviar ${stage.templateName}` : 'Enviar Teste'}
               </button>
-            )
+            );
           })()}
 
-          {/* Botão de entrevista (etapas com nome contendo "entrevista") */}
-          {(() => {
-            const stage = stageMap.get(a.stageId)
-            if (!stage || !/entrevista/i.test(stage.name) || !canManage) return null
-            return (
-              <button
-                type="button"
-                onClick={() => setInterviewTarget({ applicationId: a.id, candidateName: a.fullName })}
-                className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
-              >
-                <Calendar className="h-3 w-3" />
-                Registrar entrevista
-              </button>
-            )
-          })()}
+          {/* Linha 3: Botão de ação da etapa (Entrevista) */}
+          {stage && /entrevista/i.test(stage.name) && canManage && (
+            <button
+              type="button"
+              onClick={() => setInterviewTarget({ applicationId: a.id, candidateName: a.fullName })}
+              className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] font-medium text-[#4F6930] hover:bg-[#EEF4E3] hover:border-[#DCE8CC] transition-colors"
+            >
+              <Calendar className="h-3 w-3" />
+              Registrar entrevista
+            </button>
+          )}
+
+          {/* Excluir — visível só no hover */}
+          {canManage && (
+            <button
+              onClick={() => api.requestDelete(a.id)}
+              title="Excluir candidatura"
+              className="absolute top-1.5 right-1.5 p-0.5 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
         </>
         );
       }}

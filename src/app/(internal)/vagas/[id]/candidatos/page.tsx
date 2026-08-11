@@ -166,6 +166,22 @@ export default async function CandidatosPage({ params }: Props) {
 
   // Scores de compatibilidade por IA: pega o mais recente por candidato
   const allAppIds = appList.map((a) => a.id);
+
+  // Big Five concluído: identifica candidatos que submeteram esse teste em QUALQUER etapa passada
+  const bigFiveTemplateIds = [...templateKinds.entries()]
+    .filter(([, k]) => k === 'PERSONALITY_BIG5')
+    .map(([id]) => id);
+  const bigFiveDoneSet = new Set<string>();
+  if (bigFiveTemplateIds.length > 0 && allAppIds.length > 0) {
+    const { data: bfData } = await supabase
+      .from('assessment_sessions')
+      .select('applicationId')
+      .in('templateId', bigFiveTemplateIds)
+      .not('submittedAt', 'is', null)
+      .in('applicationId', allAppIds);
+    (bfData ?? []).forEach((s: { applicationId: string }) => bigFiveDoneSet.add(s.applicationId));
+  }
+
   const aiScoreByApp = new Map<string, number>();
   if (allAppIds.length > 0) {
     const { data: aiData } = await supabase
@@ -194,6 +210,7 @@ export default async function CandidatosPage({ params }: Props) {
     testOutcome: testOutcomeByApp.has(a.id) ? testOutcomeByApp.get(a.id) : undefined,
     aiScore: aiScoreByApp.get(a.id),
     cvExtractionStatus: a.cv_extraction_status ?? undefined,
+    bigFiveDone: bigFiveDoneSet.has(a.id),
   }));
 
   const canManage = session?.user.role === "ADMIN_RH";

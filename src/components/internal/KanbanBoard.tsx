@@ -29,6 +29,8 @@ export interface KanbanApplication {
   aiScore?: number;
   /** Status da extração de perfil do CV por IA. 'FAILED'/'MANUAL_REVIEW' exibem badge de alerta para o RH. */
   cvExtractionStatus?: string;
+  /** true se o candidato já concluiu alguma sessão de Big Five (independente da etapa atual). */
+  bigFiveDone?: boolean;
 }
 
 export interface KanbanStage {
@@ -233,8 +235,7 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
       renderCard={(a, api) => {
         const score = aiScoreOverrides.get(a.id) ?? a.aiScore;
         const stage = stageMap.get(a.stageId);
-        // Considera concluído qualquer resultado submetido (PASS, FAIL, PENDING_REVIEW)
-        const isBigFiveDone = stage?.templateKind === 'PERSONALITY_BIG5' && typeof a.testOutcome === 'string';
+        const isBigFiveDone = a.bigFiveDone === true;
         return (
         <>
           {/* Linha 1: Nome + Match% + Abrir perfil */}

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Megaphone, ListChecks, ClipboardList } from "lucide-react";
+import { Megaphone, ListChecks, ClipboardList, Tags, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CONFIG } from "@/lib/homepage-config";
 import HomepageConfigForm from "@/components/internal/HomepageConfigForm";
@@ -66,6 +66,50 @@ export default async function ConfiguracoesPage() {
           <h2 className="text-base font-semibold text-gray-900">Divulgação de vagas</h2>
           <p className="text-sm text-gray-500 mt-1">
             Conexões com canais externos (LinkedIn) para divulgar as vagas.
+          </p>
+        </Link>
+      </div>
+
+      <p className="mt-8 mb-3 text-[10.5px] tracking-[.08em] uppercase font-semibold text-gray-400">
+        Admissões
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
+        <Link
+          href="/configuracoes/categorias"
+          className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 hover:border-wg-green/50 hover:bg-wg-green/5 transition-colors"
+        >
+          <div className="h-9 w-9 rounded-lg bg-wg-green/15 text-wg-green-dark grid place-items-center mb-3">
+            <Tags className="w-4 h-4" />
+          </div>
+          <h2 className="text-base font-semibold text-gray-900">Categorias</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Empresas, filiais, cargos, etapas do kanban, tags e tipos de documento.
+          </p>
+        </Link>
+
+        <Link
+          href="/configuracoes/modelos"
+          className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 hover:border-wg-green/50 hover:bg-wg-green/5 transition-colors"
+        >
+          <div className="h-9 w-9 rounded-lg bg-wg-green/15 text-wg-green-dark grid place-items-center mb-3">
+            <ListChecks className="w-4 h-4" />
+          </div>
+          <h2 className="text-base font-semibold text-gray-900">Modelos de Checklist</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Templates de checklist por cargo, com grupos e itens padronizados.
+          </p>
+        </Link>
+
+        <Link
+          href="/configuracoes/formulario-admissao"
+          className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 hover:border-wg-green/50 hover:bg-wg-green/5 transition-colors"
+        >
+          <div className="h-9 w-9 rounded-lg bg-wg-green/15 text-wg-green-dark grid place-items-center mb-3">
+            <FileText className="w-4 h-4" />
+          </div>
+          <h2 className="text-base font-semibold text-gray-900">Formulário de Admissão Digital</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Edite textos, opções, perguntas e documentos do formulário enviado aos candidatos.
           </p>
         </Link>
       </div>

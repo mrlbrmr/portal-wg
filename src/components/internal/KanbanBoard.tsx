@@ -233,7 +233,8 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
       renderCard={(a, api) => {
         const score = aiScoreOverrides.get(a.id) ?? a.aiScore;
         const stage = stageMap.get(a.stageId);
-        const isBigFiveDone = stage?.templateKind === 'PERSONALITY_BIG5' && a.testOutcome === 'PASS';
+        // Considera concluído qualquer resultado submetido (PASS, FAIL, PENDING_REVIEW)
+        const isBigFiveDone = stage?.templateKind === 'PERSONALITY_BIG5' && typeof a.testOutcome === 'string';
         return (
         <>
           {/* Linha 1: Nome + Match% + Abrir perfil */}
@@ -267,6 +268,20 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
               <ExternalLink className="w-3 h-3" />
             </button>
           </div>
+
+          {/* Barra de progresso proporcional ao match% */}
+          {score !== undefined && (
+            <div className="mt-1.5 h-[3px] rounded-full bg-gray-100 overflow-hidden">
+              <div
+                className={`h-full rounded-full ${
+                  score >= 80 ? "bg-emerald-500"
+                  : score >= 60 ? "bg-amber-400"
+                  : "bg-red-400"
+                }`}
+                style={{ width: `${score}%` }}
+              />
+            </div>
+          )}
 
           {/* Linha 2 (condicional): Big Five concluído */}
           {isBigFiveDone && (

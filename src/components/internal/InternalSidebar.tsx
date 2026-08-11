@@ -52,13 +52,13 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
     { href: "/admissoes/calendario",   label: "Calendário",   icon: Calendar },
     { href: "/admissoes/relatorios",   label: "Relatórios",   icon: BarChart3 },
     { href: "/admissoes/historico",    label: "Histórico",    icon: History },
-    ...(isAdmin
-      ? [{ href: "/admissoes/configuracoes", label: "Configurações", icon: Settings }]
-      : []),
   ];
 
   const systemLinks: NavLink[] = isAdmin
-    ? [{ href: "/usuarios", label: "Usuários", icon: Users }]
+    ? [
+        { href: "/usuarios",       label: "Usuários",       icon: Users },
+        { href: "/configuracoes",  label: "Configurações",  icon: Settings },
+      ]
     : [];
 
   const avaliacoesActive = pathname.startsWith("/avaliacoes");

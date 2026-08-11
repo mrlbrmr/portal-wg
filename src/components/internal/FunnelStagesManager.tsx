@@ -8,7 +8,6 @@ import {
   createStage,
   deleteStage,
   moveStage,
-  recolorStage,
   renameStage,
   setStageKind,
   setStageTemplate,
@@ -97,19 +96,6 @@ export function FunnelStagesManager({ stages, templates }: Props) {
                   <ChevronDown className="h-4 w-4" />
                 </button>
               </div>
-
-              {/* cor */}
-              <input
-                type="color"
-                defaultValue={s.color}
-                disabled={pending}
-                onBlur={(e) => {
-                  if (e.target.value.toLowerCase() !== s.color.toLowerCase())
-                    run(() => recolorStage(s.id, e.target.value));
-                }}
-                className="h-7 w-7 shrink-0 cursor-pointer rounded border border-gray-200 bg-white p-0"
-                title="Cor da etapa"
-              />
 
               {/* nome */}
               <input

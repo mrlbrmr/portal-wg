@@ -31,7 +31,8 @@ export default async function TalentosPage({ searchParams }: Props) {
     .from("talentos")
     .select(
       `id, nomeCompleto, email, telefone, cidade, estado,
-       cargoDesejado, statusBanco, ultimaAtividadeEm, createdAt,
+       cargoDesejado, curriculoUrl, curriculoNome,
+       statusBanco, ultimaAtividadeEm, createdAt,
        assignments:talento_tag_assignments(tag:talento_tags(id, nome, cor))`,
       { count: "exact" },
     );
@@ -54,6 +55,8 @@ export default async function TalentosPage({ searchParams }: Props) {
     cidade:           t.cidade as string | null,
     estado:           t.estado as string | null,
     cargoDesejado:    t.cargoDesejado as string | null,
+    curriculoUrl:     t.curriculoUrl as string | null,
+    curriculoNome:    t.curriculoNome as string | null,
     statusBanco:      t.statusBanco as TalentoListItem["statusBanco"],
     ultimaAtividadeEm: t.ultimaAtividadeEm as string,
     createdAt:        t.createdAt as string,

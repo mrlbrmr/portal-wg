@@ -43,6 +43,7 @@ export interface Talento {
 export interface TalentoListItem extends Pick<Talento,
   | 'id' | 'nomeCompleto' | 'email' | 'telefone'
   | 'cidade' | 'estado' | 'cargoDesejado'
+  | 'curriculoUrl' | 'curriculoNome'
   | 'statusBanco' | 'ultimaAtividadeEm' | 'createdAt'
 > {
   tags: TalentoTag[];

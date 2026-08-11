@@ -189,14 +189,30 @@ export function TalentoPerfilModal({ talento, onClose }: Props) {
 
         {/* ── Rodapé ── */}
         <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-          <button
-            type="button"
-            className="flex items-center gap-2 px-4 py-2.5 bg-wg-green hover:bg-wg-green-bright
-                       text-black font-semibold text-sm rounded-xl transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Baixar CV
-          </button>
+          {talento.curriculoUrl ? (
+            <a
+              href={talento.curriculoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-wg-green
+                         hover:bg-wg-green-bright text-black font-semibold text-sm
+                         rounded-xl transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              {talento.curriculoNome ? `Baixar CV — ${talento.curriculoNome}` : "Baixar CV"}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="Este talento não possui currículo cadastrado"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100
+                         text-gray-400 font-semibold text-sm rounded-xl cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              CV não disponível
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

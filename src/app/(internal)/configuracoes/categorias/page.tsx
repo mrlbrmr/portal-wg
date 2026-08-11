@@ -57,9 +57,8 @@ export default async function CategoriasPage() {
         <CategoryManager
           entity="stage"
           title="Etapas do Kanban"
-          description="Colunas do quadro de admissões, com cor. Marque a etapa final para calcular admissões concluídas."
+          description="Colunas do quadro de admissões. Marque a etapa final para calcular admissões concluídas."
           items={stages}
-          hasColor
           hasIsFinal
           addPlaceholder="Ex.: Documentação"
         />

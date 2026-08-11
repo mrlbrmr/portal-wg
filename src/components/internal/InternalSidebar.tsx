@@ -5,8 +5,11 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Briefcase,
+  Settings,
   Users,
+  Calendar,
   BarChart3,
+  History,
   ChevronDown,
   ChevronRight,
   FlaskConical,
@@ -45,7 +48,13 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
   ];
 
   const admissaoLinks: NavLink[] = [
-    { href: "/admissoes", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/admissoes",              label: "Dashboard",    icon: LayoutDashboard },
+    { href: "/admissoes/calendario",   label: "Calendário",   icon: Calendar },
+    { href: "/admissoes/relatorios",   label: "Relatórios",   icon: BarChart3 },
+    { href: "/admissoes/historico",    label: "Histórico",    icon: History },
+    ...(isAdmin
+      ? [{ href: "/admissoes/configuracoes", label: "Configurações", icon: Settings }]
+      : []),
   ];
 
   const systemLinks: NavLink[] = isAdmin
@@ -117,7 +126,7 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
           Admissões
         </p>
 
-        {admissaoLinks.map((l) => renderLink(l, true))}
+        {admissaoLinks.map((l) => renderLink(l, l.href === "/admissoes"))}
 
         {/* ── Sistema ─────────────────────────────────── */}
         {systemLinks.length > 0 && (

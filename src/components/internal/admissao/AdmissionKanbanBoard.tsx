@@ -31,7 +31,7 @@ export function AdmissionKanbanBoard({ admissions, columns, canManage }: Props) 
   return (
     <KanbanBoardShell<KanbanAdmission>
       initialItems={admissions}
-      columns={columns}
+      columns={columns.map((c) => ({ ...c, dotColor: undefined, dot: undefined }))}
       canManage={canManage}
       cardClassName="group"
       getId={(a) => a.id}

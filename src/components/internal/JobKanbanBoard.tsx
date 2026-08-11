@@ -34,14 +34,14 @@ interface Props {
 }
 
 const STATUSES: KanbanColumnDef[] = [
-  { key: "DRAFT", label: "Rascunho", dot: "bg-blue-400" },
-  { key: "ACTIVE", label: "Ativa", dot: "bg-wg-green" },
-  { key: "SCREENING", label: "Triagem", dot: "bg-amber-400" },
-  { key: "INTERVIEW", label: "Entrevistas", dot: "bg-purple-400" },
-  { key: "ADMISSION", label: "Admissão", dot: "bg-cyan-400" },
-  { key: "PAUSED", label: "Pausada", dot: "bg-orange-400" },
-  { key: "CLOSED", label: "Cancelada", dot: "bg-wg-gray" },
-  { key: "FILLED", label: "Finalizada", dot: "bg-emerald-500" },
+  { key: "DRAFT",     label: "Rascunho"   },
+  { key: "ACTIVE",    label: "Ativa"      },
+  { key: "SCREENING", label: "Triagem"    },
+  { key: "INTERVIEW", label: "Entrevistas"},
+  { key: "ADMISSION", label: "Admissão"   },
+  { key: "PAUSED",    label: "Pausada"    },
+  { key: "CLOSED",    label: "Cancelada"  },
+  { key: "FILLED",    label: "Finalizada" },
 ];
 
 export function JobKanbanBoard({ jobs, canManage }: Props) {

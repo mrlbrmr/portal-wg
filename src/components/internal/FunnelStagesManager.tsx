@@ -161,8 +161,8 @@ export function FunnelStagesManager({ stages, templates }: Props) {
               </button>
             </div>
 
-            {/* Informação de integração — visível apenas quando kind = ADMISSION */}
-            {s.kind === "ADMISSION" && (
+            {/* Informação de integração — visível quando kind = ADMISSION ou WON */}
+            {(s.kind === "ADMISSION" || s.kind === "WON") && (
               <div className="mt-2 ml-[52px] flex items-center gap-1.5 text-xs text-indigo-600">
                 <UserCheck className="w-3.5 h-3.5 shrink-0" />
                 Ao mover um candidato aqui, o sistema cria automaticamente uma admissão.

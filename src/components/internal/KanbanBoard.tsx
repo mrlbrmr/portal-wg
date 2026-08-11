@@ -132,7 +132,7 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
   }));
 
   function handleBeforeMove(id: string, toStageId: string): boolean {
-    if (admissionMeta && stages.find((s) => s.id === toStageId)?.kind === "ADMISSION") {
+    if (admissionMeta && ["ADMISSION", "WON"].includes(stages.find((s) => s.id === toStageId)?.kind ?? "")) {
       setPendingAdmission({ candidateId: id, toStageId });
       return false;
     }

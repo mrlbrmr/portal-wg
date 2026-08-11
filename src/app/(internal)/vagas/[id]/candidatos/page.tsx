@@ -97,7 +97,7 @@ export default async function CandidatosPage({ params }: Props) {
   }>;
 
   // Meta de admissão: carrega só quando existe etapa ADMISSION no funil
-  const hasAdmissionStage = rawStages.some((s) => s.kind === "ADMISSION");
+  const hasAdmissionStage = rawStages.some((s) => s.kind === "ADMISSION" || s.kind === "WON");
   type MetaItem = { id: string; name: string };
   let admissionMeta: {
     positions: MetaItem[];

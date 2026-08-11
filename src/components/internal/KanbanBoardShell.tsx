@@ -2,7 +2,6 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { DndContext, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
-import { FlaskConical, UserCheck } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SearchBar } from "@/components/internal/SearchBar";
@@ -225,26 +224,11 @@ export function KanbanBoardShell<T>({
             const cards = visibleItems.filter((it) => getColumn(it) === col.key);
             return (
               <KanbanColumn key={col.key} id={col.key}>
-                <div>
-                  <div className="flex items-center gap-2 px-3.5 py-3 min-w-0">
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10 ${col.dotColor ? "" : col.dot ?? ""}`}
-                      style={col.dotColor ? { backgroundColor: col.dotColor } : undefined}
-                    />
-                    <span className="text-[13px] font-semibold text-[#1A2213] leading-snug break-words flex-1 min-w-0">{col.label}</span>
-                    {col.kind === "TEST" && (
-                      <FlaskConical className="w-3 h-3 text-purple-400 shrink-0" aria-label="Etapa de teste" />
-                    )}
-                    {col.kind === "ADMISSION" && (
-                      <UserCheck className="w-3 h-3 text-indigo-400 shrink-0" aria-label="Etapa de admissão" />
-                    )}
-                    <span className="text-[10px] font-bold text-[#55614A] bg-[#E8EEE1] rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1.5 shrink-0 ml-auto tabular-nums">
-                      {cards.length}
-                    </span>
-                  </div>
-                  {col.kind === "TEST" && col.subtitle && (
-                    <p className="px-3.5 pb-2 text-[11px] text-gray-400 leading-snug">{col.subtitle}</p>
-                  )}
+                <div className="flex items-center gap-2 px-3.5 py-3 min-w-0">
+                  <span className="text-[13px] font-semibold text-[#1A2213] leading-snug break-words flex-1 min-w-0">{col.label}</span>
+                  <span className="text-[10px] font-bold text-[#55614A] bg-[#E8EEE1] rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1.5 shrink-0 tabular-nums">
+                    {cards.length}
+                  </span>
                 </div>
 
                 <div className="p-2.5 flex flex-col gap-2 min-h-[120px] overflow-y-auto max-h-[calc(100vh-300px)]">

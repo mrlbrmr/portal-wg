@@ -2,25 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Star, Briefcase, FlaskConical, MessageSquare, History } from "lucide-react";
+import {
+  ChevronLeft, Star, Briefcase, FlaskConical, MessageSquare,
+  Download, Mail, Phone, User, MapPin, Link2, Calendar, Shield,
+} from "lucide-react";
 import type { TalentoProfile, TalentoStatus, TalentoTag } from "@/lib/talentos/types";
+import { STATUS_LABELS, STATUS_COLORS, getInitials, getAvatarStyle } from "./talentos-utils";
 import TalentoTestsTab from "./TalentoTestsTab";
 import TalentoNotesTab from "./TalentoNotesTab";
 import TalentoHistoryTab from "./TalentoHistoryTab";
 
-const STATUS_LABELS: Record<TalentoStatus, string> = {
-  ATIVO:        "Ativo",
-  EM_PROCESSO:  "Em processo",
-  CONTRATADO:   "Contratado",
-  NAO_ADERENTE: "Não aderente",
-  ARQUIVADO:    "Arquivado",
-};
-const STATUS_COLORS: Record<TalentoStatus, string> = {
-  ATIVO:        "bg-green-100 text-green-800",
-  EM_PROCESSO:  "bg-blue-100 text-blue-800",
-  CONTRATADO:   "bg-wg-green/20 text-wg-green-dark",
-  NAO_ADERENTE: "bg-orange-100 text-orange-800",
-  ARQUIVADO:    "bg-gray-100 text-gray-500",
+const ORIGEM_LABELS: Record<string, string> = {
+  CANDIDATURA_ESPONTANEA: "Candidatura espontânea",
+  VAGA_ESPECIFICA:        "Vaga específica",
+  INDICACAO:              "Indicação",
+  IMPORTACAO:             "Importação",
 };
 
 type Tab = "dados" | "testes" | "candidaturas" | "notas";
@@ -34,30 +30,72 @@ interface Props {
 export default function TalentoProfilePage({ talento, availableTags, isAdmin }: Props) {
   const [tab, setTab] = useState<Tab>("dados");
 
+  const avatarStyle = getAvatarStyle(talento.nomeCompleto);
+
   const tabs: { id: Tab; label: string; icon: React.ElementType; count?: number }[] = [
-    { id: "dados",         label: "Dados",        icon: Star },
-    { id: "testes",        label: "Testes",       icon: FlaskConical,  count: talento.testes.length },
-    { id: "candidaturas",  label: "Candidaturas", icon: Briefcase,     count: talento.candidaturas.length },
-    { id: "notas",         label: "Notas",        icon: MessageSquare, count: talento.notas.length },
+    { id: "dados",        label: "Dados",        icon: Star },
+    { id: "testes",       label: "Testes",       icon: FlaskConical,  count: talento.testes.length },
+    { id: "candidaturas", label: "Candidaturas", icon: Briefcase,     count: talento.candidaturas.length },
+    { id: "notas",        label: "Notas",        icon: MessageSquare, count: talento.notas.length },
   ];
 
   return (
     <div>
-      {/* Back + header */}
-      <div className="mb-4 flex items-center gap-3 flex-wrap">
-        <Link href="/talentos" className="flex items-center gap-1 text-sm text-wg-ink-muted hover:text-wg-ink transition-colors">
+      {/* Voltar */}
+      <div className="mb-4">
+        <Link
+          href="/talentos"
+          className="inline-flex items-center gap-1 text-sm text-wg-ink-muted hover:text-wg-ink transition-colors"
+        >
           <ChevronLeft className="w-4 h-4" />
           Talentos
         </Link>
-        <h1 className="text-xl font-bold text-wg-ink">{talento.nomeCompleto}</h1>
-        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_COLORS[talento.statusBanco]}`}>
-          {STATUS_LABELS[talento.statusBanco]}
-        </span>
+      </div>
+
+      {/* Header: avatar + identidade + botão CV */}
+      <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Avatar */}
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center
+                       text-[15px] font-bold shrink-0 select-none"
+            style={{ background: avatarStyle.bg, color: avatarStyle.fg }}
+          >
+            {getInitials(talento.nomeCompleto)}
+          </div>
+
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-wg-ink leading-snug truncate">
+              {talento.nomeCompleto}
+            </h1>
+            <span
+              className={`inline-flex mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold
+                          ${STATUS_COLORS[talento.statusBanco]}`}
+            >
+              {STATUS_LABELS[talento.statusBanco]}
+            </span>
+          </div>
+        </div>
+
+        {/* Botão Baixar CV — só aparece se houver URL */}
+        {talento.curriculoUrl && (
+          <a
+            href={talento.curriculoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-wg-green
+                       hover:bg-wg-green-bright text-black font-semibold text-sm
+                       rounded-xl transition-colors shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            {talento.curriculoNome ? `Baixar CV — ${talento.curriculoNome}` : "Baixar CV"}
+          </a>
+        )}
       </div>
 
       {/* Tags */}
       {talento.tags.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-1.5">
+        <div className="mb-5 flex flex-wrap gap-1.5">
           {talento.tags.map((tag) => (
             <span
               key={tag.id}
@@ -76,7 +114,8 @@ export default function TalentoProfilePage({ talento, availableTags, isAdmin }: 
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2
+                        transition-colors -mb-px ${
               tab === t.id
                 ? "border-wg-green text-wg-green-dark"
                 : "border-transparent text-wg-ink-secondary hover:text-wg-ink"
@@ -85,7 +124,8 @@ export default function TalentoProfilePage({ talento, availableTags, isAdmin }: 
             <t.icon className="w-4 h-4" />
             {t.label}
             {t.count !== undefined && t.count > 0 && (
-              <span className={`inline-flex items-center justify-center px-1.5 py-px rounded-full text-[10px] font-bold min-w-[18px] ${
+              <span className={`inline-flex items-center justify-center px-1.5 py-px
+                                rounded-full text-[10px] font-bold min-w-[18px] ${
                 tab === t.id ? "bg-wg-green/20 text-wg-green-dark" : "bg-gray-100 text-gray-500"
               }`}>
                 {t.count}
@@ -104,66 +144,169 @@ export default function TalentoProfilePage({ talento, availableTags, isAdmin }: 
   );
 }
 
-function DadosTab({ talento, availableTags, isAdmin }: { talento: TalentoProfile; availableTags: TalentoTag[]; isAdmin: boolean }) {
-  const fields: { label: string; value: string | null | undefined }[] = [
-    { label: "E-mail",              value: talento.email },
-    { label: "CPF",                 value: talento.cpf },
-    { label: "Telefone",            value: talento.telefone },
-    { label: "Cidade",              value: talento.cidade },
-    { label: "Estado",              value: talento.estado },
-    { label: "Cargo desejado",      value: talento.cargoDesejado },
-    { label: "Pretensão salarial",  value: talento.pretensaoSalarial != null
-        ? `R$ ${talento.pretensaoSalarial.toLocaleString("pt-BR")}` : null },
-    { label: "LinkedIn",            value: talento.linkedinUrl },
-    { label: "Origem",              value: talento.origem },
-    { label: "LGPD consentido em",  value: talento.consentimentoLgpdEm
-        ? new Date(talento.consentimentoLgpdEm).toLocaleDateString("pt-BR") : null },
-    { label: "Validade LGPD",       value: talento.consentimentoValidadeAte
-        ? new Date(talento.consentimentoValidadeAte).toLocaleDateString("pt-BR") : null },
-    { label: "No banco desde",      value: new Date(talento.createdAt).toLocaleDateString("pt-BR") },
-  ];
+// ── Componente auxiliar: valor de campo com empty state ──────────────────────
+function FieldValue({ value, link }: { value: string | null | undefined; link?: boolean }) {
+  if (!value) {
+    return <span className="text-gray-300 font-light">—</span>;
+  }
+  if (link) {
+    return (
+      <a
+        href={value.startsWith("http") ? value : `https://${value}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm font-medium text-wg-green-dark hover:underline truncate block"
+      >
+        {value}
+      </a>
+    );
+  }
+  return <span className="text-sm font-medium text-wg-ink">{value}</span>;
+}
+
+// ── Card de seção ────────────────────────────────────────────────────────────
+function SectionCard({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-5">
+      <h3 className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase
+                     tracking-wider text-wg-ink-muted mb-4">
+        <Icon className="w-3.5 h-3.5" />
+        {title}
+      </h3>
+      <dl className="space-y-4">
+        {children}
+      </dl>
+    </div>
+  );
+}
+
+// ── Linha de definição ───────────────────────────────────────────────────────
+function DefRow({
+  label,
+  icon: Icon,
+  value,
+  link,
+}: {
+  label: string;
+  icon: React.ElementType;
+  value: string | null | undefined;
+  link?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="flex items-center gap-1.5 text-[11px] text-wg-ink-muted mb-0.5">
+        <Icon className="w-3 h-3 shrink-0" />
+        {label}
+      </dt>
+      <dd className="pl-[18px]">
+        <FieldValue value={value} link={link} />
+      </dd>
+    </div>
+  );
+}
+
+// ── Aba de Dados ─────────────────────────────────────────────────────────────
+function DadosTab({
+  talento, availableTags, isAdmin,
+}: {
+  talento: TalentoProfile;
+  availableTags: TalentoTag[];
+  isAdmin: boolean;
+}) {
+  const localizacao = [talento.cidade, talento.estado].filter(Boolean).join(" / ") || null;
+
+  const pretensao = talento.pretensaoSalarial != null
+    ? `R$ ${talento.pretensaoSalarial.toLocaleString("pt-BR")}`
+    : null;
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {fields.map(({ label, value }) => (
-          <div key={label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="text-[10.5px] font-semibold uppercase tracking-wide text-wg-ink-muted mb-1">{label}</div>
-            <div className="text-sm font-medium text-wg-ink">
-              {value ?? <span className="italic text-wg-ink-muted">—</span>}
-            </div>
-          </div>
-        ))}
+    <div className="space-y-4">
+      {/* Grid de 3 cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        {/* Card 1 — Informações de Contato */}
+        <SectionCard title="Informações de Contato" icon={Mail}>
+          <DefRow label="E-mail"      icon={Mail}    value={talento.email} />
+          <DefRow label="Telefone"    icon={Phone}   value={talento.telefone} />
+          <DefRow label="CPF"         icon={User}    value={talento.cpf} />
+          <DefRow label="Localização" icon={MapPin}  value={localizacao} />
+          <DefRow label="LinkedIn"    icon={Link2}   value={talento.linkedinUrl} link />
+        </SectionCard>
+
+        {/* Card 2 — Perfil Profissional */}
+        <SectionCard title="Perfil Profissional" icon={Briefcase}>
+          <DefRow label="Cargo desejado"     icon={Briefcase} value={talento.cargoDesejado} />
+          <DefRow label="Pretensão salarial" icon={Star}      value={pretensao} />
+          <DefRow
+            label="Origem"
+            icon={User}
+            value={ORIGEM_LABELS[talento.origem] ?? talento.origem}
+          />
+          <DefRow
+            label="No banco desde"
+            icon={Calendar}
+            value={new Date(talento.createdAt).toLocaleDateString("pt-BR")}
+          />
+        </SectionCard>
+
+        {/* Card 3 — Privacidade (LGPD) */}
+        <SectionCard title="Privacidade (LGPD)" icon={Shield}>
+          <DefRow
+            label="LGPD consentido em"
+            icon={Shield}
+            value={talento.consentimentoLgpdEm
+              ? new Date(talento.consentimentoLgpdEm).toLocaleDateString("pt-BR")
+              : null}
+          />
+          <DefRow
+            label="Validade LGPD"
+            icon={Calendar}
+            value={talento.consentimentoValidadeAte
+              ? new Date(talento.consentimentoValidadeAte).toLocaleDateString("pt-BR")
+              : null}
+          />
+        </SectionCard>
       </div>
 
-      {talento.curriculoUrl && (
-        <a
-          href={talento.curriculoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-wg-border bg-white text-sm font-medium text-wg-ink hover:bg-gray-50 shadow-sm transition-colors"
-        >
-          <History className="w-4 h-4" />
-          Baixar currículo {talento.curriculoNome ? `— ${talento.curriculoNome}` : ""}
-        </a>
-      )}
-
+      {/* Resumo profissional */}
       {talento.resumoProfissional && (
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="text-[10.5px] font-semibold uppercase tracking-wide text-wg-ink-muted mb-2">Resumo profissional</div>
-          <p className="text-sm text-wg-ink-secondary whitespace-pre-wrap leading-relaxed">{talento.resumoProfissional}</p>
+          <div className="text-[10.5px] font-semibold uppercase tracking-wide text-wg-ink-muted mb-2">
+            Resumo profissional
+          </div>
+          <p className="text-sm text-wg-ink-secondary whitespace-pre-wrap leading-relaxed">
+            {talento.resumoProfissional}
+          </p>
         </div>
       )}
 
+      {/* Editor de tags (somente admin) */}
       {isAdmin && availableTags.length > 0 && (
-        <TagEditor talentoId={talento.id} currentTags={talento.tags} availableTags={availableTags} />
+        <TagEditor
+          talentoId={talento.id}
+          currentTags={talento.tags}
+          availableTags={availableTags}
+        />
       )}
     </div>
   );
 }
 
-function TagEditor({ talentoId, currentTags, availableTags }: {
-  talentoId: string; currentTags: TalentoTag[]; availableTags: TalentoTag[];
+// ── Editor de tags ───────────────────────────────────────────────────────────
+function TagEditor({
+  talentoId, currentTags, availableTags,
+}: {
+  talentoId: string;
+  currentTags: TalentoTag[];
+  availableTags: TalentoTag[];
 }) {
   const [selected, setSelected] = useState<string[]>(currentTags.map((t) => t.id));
   const [saving, setSaving]     = useState(false);
@@ -182,12 +325,16 @@ function TagEditor({ talentoId, currentTags, availableTags }: {
   }
 
   function toggle(id: string) {
-    setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="text-[10.5px] font-semibold uppercase tracking-wide text-wg-ink-muted mb-3">Editar tags</div>
+      <div className="text-[10.5px] font-semibold uppercase tracking-wide text-wg-ink-muted mb-3">
+        Editar tags
+      </div>
       <div className="flex flex-wrap gap-2 mb-4">
         {availableTags.map((tag) => {
           const active = selected.includes(tag.id);
@@ -198,7 +345,9 @@ function TagEditor({ talentoId, currentTags, availableTags }: {
               className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
                 active ? "border-transparent" : "border-gray-200 bg-white text-gray-500"
               }`}
-              style={active ? { backgroundColor: `${tag.cor}22`, color: tag.cor, borderColor: `${tag.cor}55` } : {}}
+              style={active
+                ? { backgroundColor: `${tag.cor}22`, color: tag.cor, borderColor: `${tag.cor}55` }
+                : {}}
             >
               {tag.nome}
             </button>
@@ -208,7 +357,8 @@ function TagEditor({ talentoId, currentTags, availableTags }: {
       <button
         onClick={save}
         disabled={saving}
-        className="px-4 py-1.5 text-sm font-medium rounded-lg bg-wg-green text-white hover:bg-wg-green-dark disabled:opacity-60 transition-colors"
+        className="px-4 py-1.5 text-sm font-medium rounded-lg bg-wg-green text-white
+                   hover:bg-wg-green-dark disabled:opacity-60 transition-colors"
       >
         {saved ? "Salvo!" : saving ? "Salvando…" : "Salvar tags"}
       </button>

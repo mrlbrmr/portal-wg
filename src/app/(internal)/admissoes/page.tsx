@@ -5,10 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdmissionConfig } from "@/lib/admissao/queries";
 import { PageHeader } from "@/components/internal/PageHeader";
 import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
+import { AdmissionDashboardClient } from "@/components/internal/admissao/AdmissionDashboardClient";
+import type { AdmissionRow } from "@/components/internal/admissao/AdmissionsExplorer";
 import {
-  AdmissionsExplorer,
-  type AdmissionRow,
-} from "@/components/internal/admissao/AdmissionsExplorer";
+  NO_STAGE,
+  type KanbanAdmission,
+} from "@/components/internal/admissao/AdmissionKanbanBoard";
+import type { KanbanColumnDef } from "@/components/internal/KanbanBoardShell";
 
 export const metadata: Metadata = { title: "Admissões — RH" };
 
@@ -24,7 +27,7 @@ export default async function AdmissoesPage() {
     supabase
       .from("admissions")
       .select(
-        `id, fullName, cpf, startDate, createdAt, companyId, responsibleId,
+        `id, fullName, cpf, stageId, startDate, createdAt, companyId, responsibleId,
          position:admission_positions(name),
          company:admission_companies(name),
          branch:admission_branches(name),
@@ -33,14 +36,18 @@ export default async function AdmissoesPage() {
       )
       .is("deletedAt", null)
       .order("createdAt", { ascending: false })
-      .limit(300),
-    supabase.from("admissions").select("startDate, stage:admission_stages(isFinal)").is("deletedAt", null),
+      .limit(500),
+    supabase
+      .from("admissions")
+      .select("startDate, stage:admission_stages(isFinal)")
+      .is("deletedAt", null),
   ]);
 
   const admissions = (admissionsRes.data ?? []) as unknown as Array<{
     id: string;
     fullName: string;
     cpf: string | null;
+    stageId: string | null;
     startDate: string | null;
     createdAt: string;
     companyId: string | null;
@@ -75,8 +82,8 @@ export default async function AdmissoesPage() {
   const userMap = new Map(config.users.map((u) => [u.id, u.name]));
   const inProgress = total - doneCount;
 
+  // Lista: apenas admissões em aberto
   const openAdmissions = admissions.filter((a) => !a.stage?.isFinal);
-
   const rows: AdmissionRow[] = openAdmissions.map((a) => {
     const allItems = (a.checklistGroups ?? [])
       .flatMap((g) => g.items ?? [])
@@ -106,11 +113,31 @@ export default async function AdmissoesPage() {
     };
   });
 
+  // Kanban: todas as admissões
+  const kanbanCards: KanbanAdmission[] = admissions.map((a) => ({
+    id: a.id,
+    fullName: a.fullName,
+    stageKey: a.stageId ?? NO_STAGE,
+    positionName: a.position?.name ?? null,
+    companyName: a.company?.name ?? null,
+    branchName: a.branch?.name ?? null,
+    responsibleName: a.responsibleId ? (userMap.get(a.responsibleId) ?? null) : null,
+    startDate: a.startDate
+      ? new Date(a.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+      : null,
+  }));
+
+  const hasUnstaged = kanbanCards.some((c) => c.stageKey === NO_STAGE);
+  const columns: KanbanColumnDef[] = [
+    ...(hasUnstaged ? [{ key: NO_STAGE, label: "Sem etapa", dotColor: "#94a3b8" }] : []),
+    ...config.stages.map((s) => ({ key: s.id, label: s.name, dotColor: s.color })),
+  ];
+
   const kpiCards = [
-    { emoji: "👤", iconBg: "#E9EDFA", value: inProgress, label: "Em andamento" },
-    { emoji: "✓",  iconBg: "#EAF4DC", value: doneCount,   label: "Concluídas" },
-    { emoji: "⚠",  iconBg: "#FBE6E1", value: lateCount,   label: "Atrasadas · início já passou" },
-    { emoji: "📅", iconBg: "#FCF1DD", value: upcomingCount, label: "Próximos 7 dias" },
+    { emoji: "👤", iconBg: "#E9EDFA", value: inProgress,     label: "Em andamento" },
+    { emoji: "✓",  iconBg: "#EAF4DC", value: doneCount,      label: "Concluídas" },
+    { emoji: "⚠",  iconBg: "#FBE6E1", value: lateCount,      label: "Atrasadas · início já passou" },
+    { emoji: "📅", iconBg: "#FCF1DD", value: upcomingCount,  label: "Próximos 7 dias" },
   ];
 
   return (
@@ -145,11 +172,14 @@ export default async function AdmissoesPage() {
         ))}
       </div>
 
-      <AdmissionsExplorer
+      <AdmissionDashboardClient
         rows={rows}
+        kanbanCards={kanbanCards}
+        columns={columns}
         stages={config.stages}
         companies={config.companies}
         positions={config.positions}
+        canManage={canWrite}
       />
     </div>
   );

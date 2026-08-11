@@ -5,13 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Briefcase,
-  Settings,
   Users,
-  List,
-  Kanban,
-  Calendar,
   BarChart3,
-  History,
   ChevronDown,
   ChevronRight,
   FlaskConical,
@@ -49,15 +44,8 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
     { href: "/talentos",       label: "Talentos",  icon: Star },
   ];
 
-  const admissaoSub: NavLink[] = [
-    { href: "/admissoes", label: "Lista", icon: List },
-    { href: "/admissoes/kanban", label: "Kanban", icon: Kanban },
-    { href: "/admissoes/calendario", label: "Calendário", icon: Calendar },
-    { href: "/admissoes/relatorios", label: "Relatórios", icon: BarChart3 },
-    { href: "/admissoes/historico", label: "Histórico", icon: History },
-    ...(isAdmin
-      ? [{ href: "/admissoes/configuracoes", label: "Configurações", icon: Settings }]
-      : []),
+  const admissaoLinks: NavLink[] = [
+    { href: "/admissoes", label: "Dashboard", icon: LayoutDashboard },
   ];
 
   const systemLinks: NavLink[] = isAdmin
@@ -129,7 +117,7 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
           Admissões
         </p>
 
-        {admissaoSub.map((l) => renderLink(l, l.href === "/admissoes"))}
+        {admissaoLinks.map((l) => renderLink(l, true))}
 
         {/* ── Sistema ─────────────────────────────────── */}
         {systemLinks.length > 0 && (

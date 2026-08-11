@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Search, ClipboardCheck } from "lucide-react";
+import { Search, ClipboardCheck, List, Kanban } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export interface AdmissionRow {
@@ -34,6 +34,8 @@ interface Props {
   stages: Option[];
   companies: Option[];
   positions: Option[];
+  view?: "list" | "kanban";
+  onViewChange?: (v: "list" | "kanban") => void;
 }
 
 type SortKey = "recent" | "oldest" | "nameAZ" | "nameZA" | "startAsc" | "startDesc" | "stage";
@@ -90,11 +92,11 @@ function FilterCheckbox({
   );
 }
 
-export function AdmissionsExplorer({ rows, stages, companies }: Props) {
+export function AdmissionsExplorer({ rows, stages, companies, view = "list", onViewChange }: Props) {
   const [query, setQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
-  const [sortKey, setSortKey] = useState<SortKey>("recent");
+  const [sortKey, setSortKey] = useState<SortKey>("startAsc");
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
 
@@ -155,7 +157,12 @@ export function AdmissionsExplorer({ rows, stages, companies }: Props) {
           case "oldest":    return a.createdAt.localeCompare(b.createdAt);
           case "nameAZ":    return a.fullName.localeCompare(b.fullName, "pt-BR");
           case "nameZA":    return b.fullName.localeCompare(a.fullName, "pt-BR");
-          case "startAsc":  return (a.startDateISO ?? "").localeCompare(b.startDateISO ?? "");
+          case "startAsc": {
+            if (!a.startDateISO && !b.startDateISO) return 0;
+            if (!a.startDateISO) return 1;
+            if (!b.startDateISO) return -1;
+            return a.startDateISO.localeCompare(b.startDateISO);
+          }
           case "startDesc": return (b.startDateISO ?? "").localeCompare(a.startDateISO ?? "");
           case "stage":     return (a.stageName ?? "").localeCompare(b.stageName ?? "", "pt-BR");
           default:          return 0;
@@ -318,17 +325,32 @@ export function AdmissionsExplorer({ rows, stages, companies }: Props) {
         </div>
 
         {/* Lista / Kanban toggle */}
-        <div className="bg-[#EEF4E3] rounded-[10px] p-1 flex gap-0.5 shrink-0 ml-auto">
-          <span className="px-3.5 py-1.5 rounded-lg text-[13px] font-bold bg-white text-[#1A2213] shadow-sm">
-            Lista
-          </span>
-          <Link
-            href="/admissoes/kanban"
-            className="px-3.5 py-1.5 rounded-lg text-[13px] font-bold text-[#55614A] hover:text-[#1A2213] transition-colors"
-          >
-            Kanban
-          </Link>
-        </div>
+        {onViewChange && (
+          <div className="bg-[#EEF4E3] rounded-[10px] p-1 flex gap-0.5 shrink-0 ml-auto">
+            <button
+              type="button"
+              onClick={() => onViewChange("list")}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
+                view === "list"
+                  ? "bg-white text-[#1A2213] shadow-sm"
+                  : "text-[#55614A] hover:text-[#1A2213]"
+              }`}
+            >
+              <List className="w-3.5 h-3.5" /> Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewChange("kanban")}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
+                view === "kanban"
+                  ? "bg-white text-[#1A2213] shadow-sm"
+                  : "text-[#55614A] hover:text-[#1A2213]"
+              }`}
+            >
+              <Kanban className="w-3.5 h-3.5" /> Kanban
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Quick filter chips */}

@@ -9,47 +9,8 @@ import {
   MoreHorizontal, Eye, Download, Archive,
 } from "lucide-react";
 import type { TalentoListItem, TalentoTag, TalentoStatus } from "@/lib/talentos/types";
-
-const STATUS_LABELS: Record<TalentoStatus, string> = {
-  ATIVO:        "Ativo",
-  EM_PROCESSO:  "Em processo",
-  CONTRATADO:   "Contratado",
-  NAO_ADERENTE: "Não aderente",
-  ARQUIVADO:    "Arquivado",
-};
-
-const STATUS_COLORS: Record<TalentoStatus, string> = {
-  ATIVO:        "bg-green-100 text-green-800",
-  EM_PROCESSO:  "bg-blue-100 text-blue-800",
-  CONTRATADO:   "bg-wg-green/20 text-wg-green-dark",
-  NAO_ADERENTE: "bg-orange-100 text-orange-800",
-  ARQUIVADO:    "bg-gray-100 text-gray-500",
-};
-
-// Paleta de avatares derivada dos tons verde/terra do WG — determinística por nome
-const AVATAR_PALETTE = [
-  { bg: "#DCF1CA", fg: "#2F4E1A" },
-  { bg: "#C9E2D8", fg: "#1D4A39" },
-  { bg: "#DDE6C5", fg: "#3A4E1E" },
-  { bg: "#F2E4C5", fg: "#5C440A" },
-  { bg: "#F0DDD0", fg: "#6B3A20" },
-  { bg: "#E4EDD8", fg: "#374C27" },
-  { bg: "#D4E5F0", fg: "#1A3A5C" },
-  { bg: "#EDE4F0", fg: "#4A2A5C" },
-];
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-function getAvatarStyle(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++)
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
-}
+import { STATUS_LABELS, STATUS_COLORS, getInitials, getAvatarStyle } from "./talentos-utils";
+import { TalentoPerfilModal } from "./TalentoPerfilModal";
 
 interface Props {
   talentos:      TalentoListItem[];
@@ -74,8 +35,9 @@ export default function TalentosList({
   const [status, setStatus] = useState(initialStatus);
   const [estado, setEstado] = useState(initialEstado);
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [openMenuId, setOpenMenuId]   = useState<string | null>(null);
+  const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set());
+  const [openMenuId, setOpenMenuId]     = useState<string | null>(null);
+  const [perfilAberto, setPerfilAberto] = useState<TalentoListItem | null>(null);
   const menuRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const debouncedQ = useDebouncedValue(q, 400);
@@ -225,7 +187,7 @@ export default function TalentosList({
                 return (
                   <tr
                     key={t.id}
-                    onClick={() => { /* TODO: abrir side-drawer de perfil */ }}
+                    onClick={() => setPerfilAberto(t)}
                     className={[
                       "border-b border-gray-100 transition-colors cursor-pointer",
                       isLast ? "border-b-0" : "",
@@ -332,14 +294,14 @@ export default function TalentosList({
 
                         {openMenuId === t.id && (
                           <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[152px]">
-                            <Link
-                              href={`/talentos/${t.id}`}
-                              onClick={() => setOpenMenuId(null)}
+                            <button
+                              type="button"
+                              onClick={() => { setOpenMenuId(null); setPerfilAberto(t); }}
                               className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[13px] text-wg-ink hover:bg-gray-50 transition-colors"
                             >
                               <Eye className="w-3.5 h-3.5 text-wg-ink-muted shrink-0" />
                               Ver Perfil
-                            </Link>
+                            </button>
                             <button
                               type="button"
                               onClick={() => setOpenMenuId(null)}
@@ -368,6 +330,14 @@ export default function TalentosList({
           </table>
         )}
       </div>
+
+      {/* Modal de perfil */}
+      {perfilAberto && (
+        <TalentoPerfilModal
+          talento={perfilAberto}
+          onClose={() => setPerfilAberto(null)}
+        />
+      )}
 
       {/* Paginação */}
       {totalPages > 1 && (

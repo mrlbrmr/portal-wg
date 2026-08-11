@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ArrowLeftRight, Brain, Calendar, Check, Code2, ExternalLink, FlaskConical, LayoutGrid, List, Loader2, Trash2, Users } from "lucide-react";
+import { ArrowLeftRight, Brain, Calendar, Check, Code2, ExternalLink, FlaskConical, LayoutGrid, List, Loader2, Send, Trash2, Users } from "lucide-react";
 import { normalizeText } from "@/lib/utils";
 import { useToast } from "@/components/ui/ToastProvider";
 import { InterviewModal } from "@/components/internal/InterviewModal";
@@ -292,8 +292,8 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
 
           {/* Linha 2 (condicional): Big Five concluído */}
           {isBigFiveDone && (
-            <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-              <Brain className="w-3.5 h-3.5 shrink-0" />
+            <span className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 border border-green-200 text-[10.5px] font-semibold text-green-700">
+              <Brain className="w-3 h-3 shrink-0" />
               Big Five ok
             </span>
           )}
@@ -311,10 +311,11 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
               >
                 {busy ? <Loader2 className="h-3 w-3 animate-spin" /> :
                  copied ? <Check className="h-3 w-3 text-emerald-600" /> :
-                 stage.templateKind === 'PERSONALITY_BIG5' ? <Brain className="h-3 w-3" /> :
+                 stage.templateKind === 'PERSONALITY_BIG5' ? <Send className="h-3 w-3" /> :
                  stage.templateKind === 'TECHNICAL' ? <Code2 className="h-3 w-3" /> :
                  <FlaskConical className="h-3 w-3" />}
                 {copied ? 'Link copiado!' : busy ? 'Criando…' :
+                 stage.templateKind === 'PERSONALITY_BIG5' ? 'Enviar Big Five' :
                  stage.templateName ? `Enviar ${stage.templateName}` : 'Enviar Teste'}
               </button>
             );

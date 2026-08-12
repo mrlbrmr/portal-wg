@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ExternalLink, X, Download, Loader2, Edit2, Upload } from "lucide-react";
+import { ExternalLink, X, Download, Loader2, Edit2, Upload, UserX } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -53,9 +53,24 @@ interface EditForm {
   salaryExpectation: string;
 }
 
+// ── Helpers de cor (WCAG AA: texto escuro sobre fundo levemente tintado) ──
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return null;
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+
+function darkenForText(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return "#1A2213";
+  // Multiplica por 0.45 para garantir contraste ≥ 4.5:1 sobre fundo quase-branco
+  return "#" + rgb.map((c) => Math.round(c * 0.45).toString(16).padStart(2, "0")).join("");
+}
+
 function stageStyle(color: string | undefined) {
   const c = color ?? "#94a3b8";
-  return { backgroundColor: `${c}1f`, color: c };
+  return { backgroundColor: `${c}26`, color: darkenForText(c) };
 }
 
 function formatPhoneMask(v: string): string {
@@ -84,10 +99,13 @@ export function CandidateDrawer({
 }: Props) {
   const router = useRouter();
   const { notify } = useToast();
+
   const [data, setData] = useState<CandidateDetail | null>(null);
   const [error, setError] = useState(false);
   const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [notesSaveState, setNotesSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [notesSavedAt, setNotesSavedAt] = useState<Date | null>(null);
+  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [linkedAdmission, setLinkedAdmission] = useState<{
@@ -118,34 +136,31 @@ export function CandidateDrawer({
     setError(false);
     setEditing(false);
     setLinkedAdmission(null);
+    setNotesSaveState("idle");
+    setNotesSavedAt(null);
 
     Promise.all([
       fetch(`/api/applications/${applicationId}`, { credentials: "same-origin" })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d: CandidateDetail) => {
-          if (active) {
-            setData(d);
-            setNotes(d.notes ?? "");
-            setEditForm({
-              fullName: d.fullName,
-              email: d.email,
-              phone: formatPhoneMask(d.phone),
-              country: d.country ?? "",
-              candidateCity: d.candidateCity ?? "",
-              availablePresential:
-                d.availablePresential === null
-                  ? ""
-                  : d.availablePresential
-                  ? "true"
-                  : "false",
-              salaryExpectation:
-                d.salaryExpectation !== null ? String(d.salaryExpectation) : "",
-            });
-          }
+          if (!active) return;
+          setData(d);
+          setNotes(d.notes ?? "");
+          setEditForm({
+            fullName: d.fullName,
+            email: d.email,
+            phone: formatPhoneMask(d.phone),
+            country: d.country ?? "",
+            candidateCity: d.candidateCity ?? "",
+            availablePresential:
+              d.availablePresential === null ? "" : d.availablePresential ? "true" : "false",
+            salaryExpectation:
+              d.salaryExpectation !== null ? String(d.salaryExpectation) : "",
+          });
         })
         .catch(() => { if (active) setError(true); }),
       fetch(`/api/applications/${applicationId}/admission`, { credentials: "same-origin" })
-        .then((r) => r.ok ? r.json() : null)
+        .then((r) => (r.ok ? r.json() : null))
         .then((d) => { if (active) setLinkedAdmission(d); })
         .catch(() => {}),
     ]);
@@ -155,9 +170,7 @@ export function CandidateDrawer({
 
   useEffect(() => {
     if (!applicationId) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [applicationId, onClose]);
@@ -169,58 +182,81 @@ export function CandidateDrawer({
     return () => { document.body.style.overflow = prev; };
   }, [applicationId]);
 
+  useEffect(() => {
+    return () => { if (notesTimerRef.current) clearTimeout(notesTimerRef.current); };
+  }, []);
+
   if (!applicationId) return null;
 
-  async function saveNotes() {
+  // ── Etapas de progressão (exclui LOST do funil linear) ──
+  const progressionStages = stages.filter((s) => s.kind !== "LOST");
+  const lostStage = stages.find((s) => s.kind === "LOST") ?? null;
+  const currentOpenIdx = data ? progressionStages.findIndex((s) => s.id === data.stageId) : -1;
+  const isInLostStage = data
+    ? stages.find((s) => s.id === data.stageId)?.kind === "LOST"
+    : false;
+  const nextOpenStage = currentOpenIdx >= 0 ? progressionStages[currentOpenIdx + 1] : null;
+  const nextIsAdmission = nextOpenStage?.kind === "ADMISSION";
+  const canAdvance =
+    canManage &&
+    currentOpenIdx >= 0 &&
+    currentOpenIdx < progressionStages.length - 1 &&
+    !nextIsAdmission &&
+    !isInLostStage;
+  const canReprove = canManage && !!lostStage && !isInLostStage && !!data;
+
+  // ── Funções ──
+
+  const persistNotes = async (value: string) => {
     if (!applicationId) return;
-    setSaving(true);
+    setNotesSaveState("saving");
     try {
       const res = await fetch(`/api/applications/${applicationId}`, {
         method: "PATCH",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: notes.trim() ? notes : null }),
+        body: JSON.stringify({ notes: value.trim() ? value : null }),
       });
       if (!res.ok) {
         notify("error", "Erro ao salvar as anotações.");
+        setNotesSaveState("idle");
         return;
       }
-      notify("success", "Anotações salvas.");
-      setData((d) => (d ? { ...d, notes } : d));
+      setData((d) => (d ? { ...d, notes: value } : d));
+      setNotesSavedAt(new Date());
+      setNotesSaveState("saved");
     } catch {
       notify("error", "Erro de conexão. Tente novamente.");
-    } finally {
-      setSaving(false);
+      setNotesSaveState("idle");
     }
-  }
+  };
 
-  async function advanceStage() {
+  const handleNotesChange = (value: string) => {
+    setNotes(value);
+    if (!canManage) return;
+    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    notesTimerRef.current = setTimeout(() => persistNotes(value), 1000);
+  };
+
+  const changeStage = async (stageId: string) => {
     if (!data || !applicationId) return;
-    const currentIdx = stages.findIndex((s) => s.id === data.stageId);
-    const nextStage = stages[currentIdx + 1];
-    if (!nextStage) return;
-
+    const target = stages.find((s) => s.id === stageId);
+    if (!target) return;
     setAdvancing(true);
     try {
       const res = await fetch(`/api/applications/${applicationId}`, {
         method: "PATCH",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stageId: nextStage.id }),
+        body: JSON.stringify({ stageId }),
       });
       if (!res.ok) {
-        notify("error", "Erro ao avançar etapa.");
+        notify("error", "Erro ao alterar etapa.");
         return;
       }
-      notify("success", `${data.fullName} movido para ${nextStage.name}.`);
+      notify("success", `${data.fullName} movido para ${target.name}.`);
       setData((d) =>
-        d
-          ? {
-              ...d,
-              stageId: nextStage.id,
-              stage: { name: nextStage.name, color: nextStage.color },
-            }
-          : d
+        d ? { ...d, stageId: target.id, stage: { name: target.name, color: target.color } } : d
       );
       router.refresh();
     } catch {
@@ -228,9 +264,16 @@ export function CandidateDrawer({
     } finally {
       setAdvancing(false);
     }
-  }
+  };
 
-  async function saveProfile() {
+  const advanceStage = async () => {
+    if (!data) return;
+    const next = progressionStages[currentOpenIdx + 1];
+    if (!next) return;
+    await changeStage(next.id);
+  };
+
+  const saveProfile = async () => {
     if (!applicationId) return;
     const phoneDigits = editForm.phone.replace(/\D/g, "");
     if (phoneDigits.length !== 11) {
@@ -290,9 +333,9 @@ export function CandidateDrawer({
     } finally {
       setSavingProfile(false);
     }
-  }
+  };
 
-  async function handleResumeReplace(file: File) {
+  const handleResumeReplace = async (file: File) => {
     if (!applicationId) return;
     setUploadingResume(true);
     try {
@@ -316,22 +359,28 @@ export function CandidateDrawer({
     } finally {
       setUploadingResume(false);
     }
-  }
+  };
 
-  function copyField(field: string, text: string) {
+  const copyField = (field: string, text: string) => {
     navigator.clipboard?.writeText(text).catch(() => {});
     setCopiedField(field);
     setTimeout(() => setCopiedField((f) => (f === field ? null : f)), 1500);
-  }
+  };
 
-  const dirty = data ? (data.notes ?? "") !== notes : false;
-  const currentStepIdx = data ? stages.findIndex((s) => s.id === data.stageId) : -1;
-  const nextStageKind = currentStepIdx >= 0 ? stages[currentStepIdx + 1]?.kind : undefined;
-  const nextIsAdmission = nextStageKind === "ADMISSION";
-  const canAdvance = canManage && currentStepIdx >= 0 && currentStepIdx < stages.length - 1 && !nextIsAdmission;
+  // ── Valores derivados de UI ──
   const phoneDigits = data ? data.phone.replace(/\D/g, "") : "";
   const whatsappUrl = phoneDigits ? `https://wa.me/55${phoneDigits}` : "#";
   const jobLabel = [jobTitle, jobLocation].filter(Boolean).join(" · ");
+
+  const notesSavedLabel =
+    notesSaveState === "saving"
+      ? "Salvando…"
+      : notesSaveState === "saved" && notesSavedAt
+      ? `Salvo às ${notesSavedAt.toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`
+      : null;
 
   const inputCls =
     "w-full bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2 text-[12.5px] text-[#1A2213] outline-none focus:border-[#90CB46] focus:ring-2 focus:ring-[#90CB46]/30 transition-colors placeholder:text-[#B5BEA8]";
@@ -341,7 +390,6 @@ export function CandidateDrawer({
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      {/* Input de arquivo oculto para substituição/anexo de CV */}
       <input
         ref={resumeFileRef}
         type="file"
@@ -360,7 +408,7 @@ export function CandidateDrawer({
       >
         {/* ── Sticky header ── */}
         <div className="sticky top-0 bg-white z-10 px-6 pt-5 pb-4 border-b border-[#EEF1E7] flex flex-col gap-3 shrink-0">
-          {/* Name + actions + close */}
+          {/* Nome + ações + fechar */}
           <div className="flex justify-between items-start gap-2.5">
             <div className="min-w-0 flex-1">
               {data ? (
@@ -398,7 +446,7 @@ export function CandidateDrawer({
             </div>
           </div>
 
-          {/* Badges */}
+          {/* Badges: fonte e etapa atual */}
           {data && (
             <div className="flex items-center gap-2 flex-wrap">
               {data.source && (
@@ -417,45 +465,37 @@ export function CandidateDrawer({
             </div>
           )}
 
-          {/* Stepper */}
-          {stages.length > 0 && (
-            <div className="relative px-1 pt-0.5">
-              <div className="absolute top-[14px] left-[20px] right-[20px] h-0.5 bg-[#E7EEDD] z-0" />
-              <div className="flex justify-between relative z-10">
-                {stages.map((s, i) => {
-                  const done = currentStepIdx >= 0 && i < currentStepIdx;
-                  const current = i === currentStepIdx;
-                  return (
-                    <div key={s.id} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0"
-                        style={{
-                          background: done
-                            ? "#4F6930"
-                            : current
-                            ? "#90CB46"
-                            : "#F1F3EC",
-                          color: done || current ? "#fff" : "#8A9678",
-                          border: `2px solid ${done ? "#4F6930" : current ? "#90CB46" : "#DCE8CC"}`,
-                        }}
-                      >
-                        {done ? "✓" : i + 1}
-                      </div>
-                      <div
-                        title={s.name}
-                        className="text-[9px] font-bold text-center leading-tight w-full line-clamp-1"
-                        style={{ color: current ? "#1A2213" : "#7B8869" }}
-                      >
-                        {s.name}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Seletor de etapa — substitui o stepper truncado */}
+          {progressionStages.length > 0 && data && (
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] font-medium text-[#7B8869] shrink-0 whitespace-nowrap">
+                {isInLostStage
+                  ? "Desfecho:"
+                  : `Etapa ${currentOpenIdx >= 0 ? currentOpenIdx + 1 : "—"} de ${progressionStages.length}:`}
+              </span>
+              <select
+                value={data.stageId}
+                onChange={(e) => { if (canManage && !advancing) changeStage(e.target.value); }}
+                disabled={!canManage || advancing}
+                aria-label="Selecionar etapa do candidato"
+                className="flex-1 min-w-0 rounded-lg border border-[#E7EEDD] bg-[#F6F8F3] px-2.5 py-1.5 text-[12px] font-bold text-[#1A2213] outline-none focus:border-[#90CB46] focus:ring-2 focus:ring-[#90CB46]/20 disabled:opacity-60 transition-colors cursor-pointer"
+              >
+                {progressionStages.map((s, i) => (
+                  <option key={s.id} value={s.id}>
+                    {i + 1}. {s.name}
+                  </option>
+                ))}
+                {lostStage && (
+                  <>
+                    <option disabled value="">──────────────</option>
+                    <option value={lostStage.id}>{lostStage.name}</option>
+                  </>
+                )}
+              </select>
             </div>
           )}
 
-          {/* Action buttons */}
+          {/* Botões de ação */}
           {data && (
             <div className="flex gap-2 items-center">
               {canAdvance && (
@@ -474,10 +514,32 @@ export function CandidateDrawer({
                   Mova pelo Kanban para iniciar a admissão
                 </div>
               )}
-              {!canAdvance && !nextIsAdmission && currentStepIdx >= 0 && currentStepIdx === stages.length - 1 && (
-                <div className="flex-1 text-center bg-[#EAF4DC] text-[#2F5D1E] px-3.5 py-2.5 rounded-[10px] text-[12.5px] font-bold">
-                  🏆 Última etapa
+              {!canAdvance &&
+                !nextIsAdmission &&
+                !isInLostStage &&
+                currentOpenIdx >= 0 &&
+                currentOpenIdx === progressionStages.length - 1 && (
+                  <div className="flex-1 text-center bg-[#EAF4DC] text-[#2F5D1E] px-3.5 py-2.5 rounded-[10px] text-[12.5px] font-bold">
+                    🏆 Última etapa
+                  </div>
+                )}
+              {isInLostStage && (
+                <div className="flex-1 text-center bg-red-50 text-red-700 px-3.5 py-2.5 rounded-[10px] text-[12.5px] font-bold">
+                  Candidato reprovado
                 </div>
+              )}
+              {/* Botão de reprovação rápida — separado do fluxo linear */}
+              {canReprove && (
+                <button
+                  type="button"
+                  onClick={() => lostStage && changeStage(lostStage.id)}
+                  disabled={advancing}
+                  title="Reprovar este candidato"
+                  className="px-3 py-2.5 rounded-[10px] border border-red-200 text-[12.5px] font-bold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-60 transition-colors inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <UserX className="h-4 w-4" />
+                  Reprovar
+                </button>
               )}
               <a
                 href={whatsappUrl}
@@ -492,7 +554,7 @@ export function CandidateDrawer({
           )}
         </div>
 
-        {/* ── Scrollable content ── */}
+        {/* ── Conteúdo com scroll ── */}
         <div className="flex-1 overflow-y-auto px-6 pt-5 pb-8 flex flex-col gap-6">
           {error ? (
             <p className="text-sm text-red-600">Não foi possível carregar a ficha.</p>
@@ -544,18 +606,21 @@ export function CandidateDrawer({
                 )}
               </div>
 
-              {/* Edição de dados ou exibição */}
+              {/* Edição ou exibição de dados */}
               {editing ? (
                 <div className="flex flex-col gap-4 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl p-4">
-                  <div className="text-[#1A2213] text-[13px] font-bold">Editar dados do candidato</div>
-
+                  <div className="text-[#1A2213] text-[13px] font-bold">
+                    Editar dados do candidato
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
                       <label className={labelCls}>Nome completo</label>
                       <input
                         type="text"
                         value={editForm.fullName}
-                        onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, fullName: e.target.value }))
+                        }
                         maxLength={120}
                         className={inputCls}
                         placeholder="Nome completo"
@@ -566,7 +631,9 @@ export function CandidateDrawer({
                       <input
                         type="email"
                         value={editForm.email}
-                        onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, email: e.target.value }))
+                        }
                         className={inputCls}
                         placeholder="email@exemplo.com"
                       />
@@ -578,7 +645,10 @@ export function CandidateDrawer({
                         inputMode="numeric"
                         value={editForm.phone}
                         onChange={(e) =>
-                          setEditForm((f) => ({ ...f, phone: formatPhoneMask(e.target.value) }))
+                          setEditForm((f) => ({
+                            ...f,
+                            phone: formatPhoneMask(e.target.value),
+                          }))
                         }
                         className={inputCls}
                         placeholder="(11) 99999-9999"
@@ -589,7 +659,9 @@ export function CandidateDrawer({
                       <input
                         type="text"
                         value={editForm.candidateCity}
-                        onChange={(e) => setEditForm((f) => ({ ...f, candidateCity: e.target.value }))}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, candidateCity: e.target.value }))
+                        }
                         maxLength={120}
                         className={inputCls}
                         placeholder="Ex: São Paulo"
@@ -600,7 +672,9 @@ export function CandidateDrawer({
                       <input
                         type="text"
                         value={editForm.country}
-                        onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, country: e.target.value }))
+                        }
                         maxLength={80}
                         className={inputCls}
                         placeholder="Ex: Brasil"
@@ -638,7 +712,6 @@ export function CandidateDrawer({
                       </select>
                     </div>
                   </div>
-
                   <div className="flex gap-2 pt-1">
                     <button
                       type="button"
@@ -693,7 +766,7 @@ export function CandidateDrawer({
                     )}
                   </div>
 
-                  {/* Ficha de inscrição */}
+                  {/* Ficha de inscrição — grid 2 colunas */}
                   {(data.country ||
                     data.candidateCity ||
                     data.availablePresential !== null ||
@@ -702,41 +775,37 @@ export function CandidateDrawer({
                       <div className="text-[#1A2213] text-[13px] font-bold mb-2">
                         Ficha de inscrição
                       </div>
-                      <div className="flex flex-col gap-1.5">
+                      <div className="grid grid-cols-2 gap-2">
                         {data.country && (
-                          <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
-                            <span className="text-base leading-none">🌍</span>
+                          <div className="flex items-center gap-2 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                            <span className="text-base leading-none shrink-0">🌍</span>
                             <div className="min-w-0">
-                              <span className="text-[11px] text-[#9AA68A] block">País de origem</span>
-                              <span className="text-[#1A2213] text-[13px] font-medium">
+                              <span className="text-[10.5px] text-[#9AA68A] block">País</span>
+                              <span className="text-[#1A2213] text-[12.5px] font-medium truncate block">
                                 {data.country}
                               </span>
                             </div>
                           </div>
                         )}
                         {data.candidateCity && (
-                          <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
-                            <span className="text-base leading-none">📍</span>
+                          <div className="flex items-center gap-2 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                            <span className="text-base leading-none shrink-0">📍</span>
                             <div className="min-w-0">
-                              <span className="text-[11px] text-[#9AA68A] block">Cidade</span>
-                              <span className="text-[#1A2213] text-[13px] font-medium">
+                              <span className="text-[10.5px] text-[#9AA68A] block">Cidade</span>
+                              <span className="text-[#1A2213] text-[12.5px] font-medium truncate block">
                                 {data.candidateCity}
                               </span>
                             </div>
                           </div>
                         )}
                         {data.availablePresential !== null && (
-                          <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
-                            <span className="text-base leading-none">🏢</span>
+                          <div className="flex items-center gap-2 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                            <span className="text-base leading-none shrink-0">🏢</span>
                             <div className="min-w-0">
-                              <span className="text-[11px] text-[#9AA68A] block">
-                                Disponibilidade presencial
-                              </span>
+                              <span className="text-[10.5px] text-[#9AA68A] block">Presencial</span>
                               <span
-                                className={`text-[13px] font-semibold ${
-                                  data.availablePresential
-                                    ? "text-[#2F6A1E]"
-                                    : "text-[#9B3B2E]"
+                                className={`text-[12.5px] font-semibold block ${
+                                  data.availablePresential ? "text-[#2F6A1E]" : "text-[#9B3B2E]"
                                 }`}
                               >
                                 {data.availablePresential ? "Sim" : "Não"}
@@ -745,13 +814,11 @@ export function CandidateDrawer({
                           </div>
                         )}
                         {data.salaryExpectation !== null && (
-                          <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
-                            <span className="text-base leading-none">💰</span>
+                          <div className="flex items-center gap-2 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                            <span className="text-base leading-none shrink-0">💰</span>
                             <div className="min-w-0">
-                              <span className="text-[11px] text-[#9AA68A] block">
-                                Pretensão salarial
-                              </span>
-                              <span className="text-[#1A2213] text-[13px] font-medium tabular-nums">
+                              <span className="text-[10.5px] text-[#9AA68A] block">Pretensão</span>
+                              <span className="text-[#1A2213] text-[12.5px] font-medium tabular-nums block">
                                 {new Intl.NumberFormat("pt-BR", {
                                   style: "currency",
                                   currency: "BRL",
@@ -766,14 +833,28 @@ export function CandidateDrawer({
                 </>
               )}
 
-              {/* Anotações */}
+              {/* Anotações com auto-save */}
               <div>
-                <label className="block text-[#1A2213] text-[13px] font-bold mb-2">
-                  Anotações da equipe
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label
+                    htmlFor="candidate-notes"
+                    className="text-[#1A2213] text-[13px] font-bold"
+                  >
+                    Anotações da equipe
+                  </label>
+                  {notesSavedLabel && (
+                    <span className="text-[10.5px] text-[#9AA68A] flex items-center gap-1">
+                      {notesSaveState === "saving" && (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      )}
+                      {notesSavedLabel}
+                    </span>
+                  )}
+                </div>
                 <textarea
+                  id="candidate-notes"
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => handleNotesChange(e.target.value)}
                   disabled={!canManage}
                   rows={4}
                   placeholder={
@@ -787,11 +868,16 @@ export function CandidateDrawer({
                   <div className="mt-2 flex justify-end">
                     <button
                       type="button"
-                      onClick={saveNotes}
-                      disabled={!dirty || saving}
+                      onClick={() => {
+                        if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+                        persistNotes(notes);
+                      }}
+                      disabled={notesSaveState === "saving"}
                       className="inline-flex items-center gap-1.5 bg-[#90CB46] text-[#0C0D0C] px-3.5 py-1.5 rounded-[9px] text-[12.5px] font-bold hover:bg-[#7FD400] disabled:opacity-50 transition-colors"
                     >
-                      {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {notesSaveState === "saving" && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      )}
                       Salvar anotações
                     </button>
                   </div>
@@ -810,7 +896,8 @@ export function CandidateDrawer({
                 applicationId={data.id}
                 canManage={canManage}
                 defaultTemplateId={
-                  stages.find((s) => s.id === data.stageId && s.kind === "TEST")?.templateId ?? null
+                  stages.find((s) => s.id === data.stageId && s.kind === "TEST")
+                    ?.templateId ?? null
                 }
               />
 
@@ -825,7 +912,7 @@ export function CandidateDrawer({
                           className="text-[11px] font-bold px-2 py-0.5 rounded-md inline-block w-fit"
                           style={{
                             backgroundColor: `${linkedAdmission.stage.color}20`,
-                            color: linkedAdmission.stage.color,
+                            color: darkenForText(linkedAdmission.stage.color),
                           }}
                         >
                           {linkedAdmission.stage.name}
@@ -859,8 +946,8 @@ export function CandidateDrawer({
                 </div>
               )}
 
-              {/* Histórico de etapas */}
-              {data.stageHistory.length > 0 && (
+              {/* Histórico de etapas — texto fluído */}
+              {data.stageHistory.length > 0 ? (
                 <div>
                   <div className="text-[#1A2213] text-[13px] font-bold mb-3">
                     Histórico de etapas
@@ -874,26 +961,26 @@ export function CandidateDrawer({
                             <span className="w-0.5 flex-1 bg-[#DCE8CC] mt-0.5" />
                           )}
                         </div>
-                        <div className="pb-4 min-w-0">
-                          <span
-                            className="text-[10.5px] font-bold px-2 py-0.5 rounded-md inline-block"
-                            style={stageStyle(h.stage?.color)}
-                          >
-                            {h.stage?.name ?? "—"}
-                          </span>
-                          <span className="text-[#55614A] text-[11.5px] ml-1.5">
-                            {formatDateTime(h.changedAt)}
-                          </span>
-                          <div className="text-[#3E4A34] text-[11.5px] mt-0.5">
-                            por {h.changedBy}
-                          </div>
+                        <div className="pb-4 min-w-0 flex-1">
+                          <p className="text-[11.5px] text-[#3E4A34] leading-relaxed">
+                            Movido para{" "}
+                            <span
+                              className="inline-block px-1.5 py-0.5 rounded text-[10.5px] font-bold align-middle"
+                              style={stageStyle(h.stage?.color)}
+                            >
+                              {h.stage?.name ?? "—"}
+                            </span>{" "}
+                            por <span className="font-semibold">{h.changedBy}</span>{" "}
+                            <span className="text-[#9AA68A]">
+                              em {formatDateTime(h.changedAt)}
+                            </span>
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-              )}
-              {data.stageHistory.length === 0 && (
+              ) : (
                 <p className="text-sm text-[#9AA68A]">Sem movimentações registradas ainda.</p>
               )}
             </>

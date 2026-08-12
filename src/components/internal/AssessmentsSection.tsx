@@ -169,6 +169,41 @@ export function AssessmentsSection({ applicationId, canManage, hasResume }: Prop
     }
   }
 
+  function renderSummary(text: string) {
+    return (
+      <div className="mt-1.5 space-y-0.5">
+        {text.split("\n").map((line, i) => {
+          const trimmed = line.trim();
+          if (!trimmed) return <div key={i} className="h-1" />;
+          const isBullet = trimmed.startsWith("- ") || trimmed.startsWith("• ");
+          const content = isBullet ? trimmed.slice(2) : trimmed;
+          const richContent = content.split(/(\*\*[^*]+\*\*)/).map((chunk, j) =>
+            chunk.startsWith("**") && chunk.endsWith("**") ? (
+              <strong key={j} className="font-semibold text-gray-800">
+                {chunk.slice(2, -2)}
+              </strong>
+            ) : (
+              chunk
+            )
+          );
+          if (isBullet) {
+            return (
+              <div key={i} className="flex gap-1.5 items-start text-xs text-gray-600">
+                <span className="text-wg-green font-bold mt-px shrink-0">•</span>
+                <span>{richContent}</span>
+              </div>
+            );
+          }
+          return (
+            <p key={i} className="text-xs text-gray-600">
+              {richContent}
+            </p>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-6">
       <div className="mb-2 flex items-center justify-between">
@@ -348,15 +383,23 @@ export function AssessmentsSection({ applicationId, canManage, hasResume }: Prop
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                 <span>{ASSESSMENT_KIND_LABELS[a.kind] ?? a.kind}</span>
                 {a.outcome && (
-                  <span className={`rounded-full px-1.5 py-0.5 font-medium ${ASSESSMENT_OUTCOME_BADGE[a.outcome] ?? "bg-gray-100 text-gray-600"}`}>
-                    {ASSESSMENT_OUTCOME_LABELS[a.outcome] ?? a.outcome}
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 font-medium ${
+                      a.source === "AI" && a.score !== null && a.outcome === "PENDING"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : (ASSESSMENT_OUTCOME_BADGE[a.outcome] ?? "bg-gray-100 text-gray-600")
+                    }`}
+                  >
+                    {a.source === "AI" && a.score !== null && a.outcome === "PENDING"
+                      ? "Analisada"
+                      : (ASSESSMENT_OUTCOME_LABELS[a.outcome] ?? a.outcome)}
                   </span>
                 )}
                 <span>· {formatDate(a.occurredAt ?? a.createdAt)}</span>
                 {a.evaluator && <span>· {a.evaluator}</span>}
               </div>
 
-              {a.summary && <p className="mt-1.5 whitespace-pre-wrap text-xs text-gray-600">{a.summary}</p>}
+              {a.summary && renderSummary(a.summary)}
 
               {a.attachmentName && (
                 <a

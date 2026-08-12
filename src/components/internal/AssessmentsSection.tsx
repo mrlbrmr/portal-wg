@@ -382,19 +382,28 @@ export function AssessmentsSection({ applicationId, canManage, hasResume }: Prop
 
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                 <span>{ASSESSMENT_KIND_LABELS[a.kind] ?? a.kind}</span>
-                {a.outcome && (
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 font-medium ${
-                      a.source === "AI" && a.score !== null && a.outcome === "PENDING"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : (ASSESSMENT_OUTCOME_BADGE[a.outcome] ?? "bg-gray-100 text-gray-600")
-                    }`}
-                  >
-                    {a.source === "AI" && a.score !== null && a.outcome === "PENDING"
-                      ? "Analisada"
-                      : (ASSESSMENT_OUTCOME_LABELS[a.outcome] ?? a.outcome)}
-                  </span>
-                )}
+                {a.outcome && (() => {
+                  // IA com score → "Analisada"
+                  const isAiDone = a.source === "AI" && a.score !== null && a.outcome === "PENDING";
+                  // Personalidade (auto-inserida pelo submit) com outcome PENDING → "Concluído"
+                  const isPersonalityDone =
+                    a.kind === "PERSONALITY_TEST" &&
+                    a.outcome === "PENDING" &&
+                    a.evaluator === "Automático";
+                  const label = isAiDone
+                    ? "Analisada"
+                    : isPersonalityDone
+                    ? "Concluído"
+                    : (ASSESSMENT_OUTCOME_LABELS[a.outcome] ?? a.outcome);
+                  const cls = isAiDone || isPersonalityDone
+                    ? "bg-blue-50 text-blue-700"
+                    : (ASSESSMENT_OUTCOME_BADGE[a.outcome] ?? "bg-gray-100 text-gray-600");
+                  return (
+                    <span className={`rounded-full px-1.5 py-0.5 font-medium ${cls}`}>
+                      {label}
+                    </span>
+                  );
+                })()}
                 <span>· {formatDate(a.occurredAt ?? a.createdAt)}</span>
                 {a.evaluator && <span>· {a.evaluator}</span>}
               </div>

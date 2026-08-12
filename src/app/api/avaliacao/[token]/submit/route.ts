@@ -15,11 +15,11 @@ const TEMPLATE_KIND_TO_ASSESSMENT_KIND: Record<string, string> = {
   PERSONALITY_BIG5: 'PERSONALITY_TEST',
 }
 
-// Mapeamento de outcome interno para assessment outcome
+// Mapeamento de outcome interno para assessment outcome.
+// PENDING_REVIEW omitido: testes de personalidade não têm aprovação/reprovação.
 const OUTCOME_MAP: Record<string, string> = {
   PASS: 'PASS',
   FAIL: 'FAIL',
-  PENDING_REVIEW: 'PENDING',
 }
 
 export async function POST(

@@ -1,5 +1,5 @@
 // Análise de currículo via Groq (llama-3.3-70b-versatile) — extração de texto do PDF + score de aderência à vaga.
-// Usa pdf-parse@1.x (Node.js puro, sem worker) para extrair texto antes de enviar ao modelo.
+// Usa pdfjs-dist diretamente (sem pdf-parse) para evitar o bug "Command token too long" do pdfjs antigo.
 // Import dinâmico evita problemas de inicialização no bundle do Next.js.
 
 export interface CvProfile {
@@ -42,6 +42,37 @@ export interface CvProfileExtraction extends CvProfile {
 }
 
 /**
+ * Extrai texto de um buffer PDF usando pdfjs-dist.
+ * Substitui pdf-parse que falha com "Command token too long" em alguns PDFs válidos.
+ */
+async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  const pdfjsLib = await import('pdfjs-dist')
+
+  // FakeWorker: roda inline no processo Node.js, sem web worker
+  pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(buffer),
+    useSystemFonts: true,
+    disableFontFace: true,
+  })
+
+  const pdf = await loadingTask.promise
+  const pageTexts: string[] = []
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const textContent = await page.getTextContent()
+    const text = textContent.items
+      .map((item) => ('str' in item ? (item as { str: string }).str : ''))
+      .join(' ')
+    pageTexts.push(text)
+  }
+
+  return pageTexts.join('\n').trim()
+}
+
+/**
  * Extrai perfil estruturado de um currículo PDF sem contexto de vaga.
  * Usado na inscrição pública (assíncrono, pós-resposta).
  */
@@ -49,16 +80,9 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
   const apiKey = (process.env.GROQ_API_KEY ?? '').replace(/^﻿/, '').trim()
   if (!apiKey) throw new Error('GROQ_API_KEY não configurado')
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParse = require('pdf-parse') as (
-    buffer: Buffer,
-    options?: object,
-  ) => Promise<{ text: string }>
-
   let pdfText: string
   try {
-    const data = await pdfParse(pdfBuffer, { max: 0 })
-    pdfText = (data.text ?? '').trim()
+    pdfText = await extractTextFromPdf(pdfBuffer)
   } catch (err) {
     throw new Error(
       `Falha ao ler o PDF: ${err instanceof Error ? err.message : 'arquivo inválido'}`,
@@ -139,17 +163,9 @@ export async function analyzeCv(
     throw new Error('GROQ_API_KEY não configurado')
   }
 
-  // Import dinâmico para não quebrar o bundle do Next.js durante o build.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParse = require('pdf-parse') as (
-    buffer: Buffer,
-    options?: object,
-  ) => Promise<{ text: string; numpages: number }>
-
   let pdfText: string
   try {
-    const data = await pdfParse(pdfBuffer, { max: 0 })
-    pdfText = (data.text ?? '').trim()
+    pdfText = await extractTextFromPdf(pdfBuffer)
   } catch (err) {
     throw new Error(
       `Falha ao ler o PDF: ${err instanceof Error ? err.message : 'arquivo inválido'}. ` +

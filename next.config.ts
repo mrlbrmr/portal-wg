@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV === "development";
 
 const nextConfig: NextConfig = {
-  // pdf-parse usa require() do Node.js e não pode ser bundlado pelo webpack
-  serverExternalPackages: ["pdf-parse"],
+  // pdfjs-dist e pdf-parse precisam rodar em Node.js puro (não bundlados pelo webpack)
+  serverExternalPackages: ["pdfjs-dist", "pdf-parse"],
   async headers() {
     return [
       {

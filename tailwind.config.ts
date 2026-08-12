@@ -61,14 +61,14 @@ const config: Config = {
         },
         "panel-in": {
           from: { opacity: "0", transform: "translateY(10px)" },
-          to:   { opacity: "1", transform: "none" },
+          to:   { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
         "fade-up":       "fade-up 0.55s cubic-bezier(0.16,1,0.3,1) both",
         "fade-in":       "fade-in 0.45s ease-out both",
         "float-subtle":  "float-subtle 5s ease-in-out infinite",
-        "panel-in":      "panel-in 0.24s cubic-bezier(0.16,1,0.3,1) both",
+        "panel-in":      "panel-in 0.24s cubic-bezier(0.16,1,0.3,1) backwards",
       },
       transitionTimingFunction: {
         "spring": "cubic-bezier(0.16,1,0.3,1)",

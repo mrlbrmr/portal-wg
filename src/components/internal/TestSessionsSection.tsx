@@ -125,7 +125,13 @@ export function TestSessionsSection({ applicationId, canManage, defaultTemplateI
 
   function sessionStatus(s: SessionItem) {
     if (s.submittedAt) {
-      if (s.outcome) return { label: OUTCOME_LABELS[s.outcome] ?? s.outcome, color: OUTCOME_COLORS[s.outcome] ?? "bg-gray-100 text-gray-600" }
+      if (s.outcome) {
+        // Big Five gera PENDING_REVIEW por design (sem nota de corte), mas o perfil está concluído
+        if (s.outcome === "PENDING_REVIEW" && s.template?.kind === "PERSONALITY_BIG5") {
+          return { label: "Concluído", color: "bg-blue-100 text-blue-700" }
+        }
+        return { label: OUTCOME_LABELS[s.outcome] ?? s.outcome, color: OUTCOME_COLORS[s.outcome] ?? "bg-gray-100 text-gray-600" }
+      }
       return { label: "Enviado", color: "bg-blue-100 text-blue-700" }
     }
     if (s.startedAt) return { label: "Em andamento", color: "bg-purple-100 text-purple-700" }
@@ -310,7 +316,7 @@ export function TestSessionsSection({ applicationId, canManage, defaultTemplateI
                           </div>
                         </div>
                       )}
-                      {s.outcome === "PENDING_REVIEW" && (
+                      {s.outcome === "PENDING_REVIEW" && s.template?.kind !== "PERSONALITY_BIG5" && (
                         <p className="text-xs text-amber-700 mt-2">Aguardando revisão manual.</p>
                       )}
                     </div>

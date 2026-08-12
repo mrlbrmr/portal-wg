@@ -43,6 +43,13 @@ export async function GET(
 const patchSchema = z.object({
   stageId: z.string().min(1).optional(),
   notes: z.string().max(5000).nullable().optional(),
+  fullName: z.string().min(2).max(120).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().regex(/^\d{11}$/, "Telefone inválido").optional(),
+  country: z.string().max(80).nullable().optional(),
+  candidateCity: z.string().max(120).nullable().optional(),
+  availablePresential: z.boolean().nullable().optional(),
+  salaryExpectation: z.number().min(0).max(9999999).nullable().optional(),
 });
 
 export async function PATCH(
@@ -89,13 +96,21 @@ export async function PATCH(
     }
   }
 
-  const data: { stageId?: string; notes?: string | null } = {};
-  if (parsed.data.stageId !== undefined) data.stageId = parsed.data.stageId;
-  if (parsed.data.notes !== undefined) data.notes = parsed.data.notes;
+  const update: Record<string, unknown> = {};
+  if (parsed.data.stageId !== undefined) update.stageId = parsed.data.stageId;
+  if (parsed.data.notes !== undefined) update.notes = parsed.data.notes;
+  if (parsed.data.fullName !== undefined) update.fullName = parsed.data.fullName.trim();
+  if (parsed.data.email !== undefined) update.email = parsed.data.email.trim().toLowerCase();
+  if (parsed.data.phone !== undefined) update.phone = parsed.data.phone;
+  if (parsed.data.country !== undefined) update.country = parsed.data.country;
+  if (parsed.data.candidateCity !== undefined) update.candidateCity = parsed.data.candidateCity;
+  if (parsed.data.availablePresential !== undefined) update.availablePresential = parsed.data.availablePresential;
+  if (parsed.data.salaryExpectation !== undefined) update.salaryExpectation = parsed.data.salaryExpectation;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: application, error: updateError } = await supabase
     .from("applications")
-    .update(data)
+    .update(update as any)
     .eq("id", id)
     .select("id, stageId, jobId, notes")
     .single();

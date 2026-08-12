@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ExternalLink, X, Download, Loader2 } from "lucide-react";
+import { ExternalLink, X, Download, Loader2, Edit2, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -43,9 +43,26 @@ interface CandidateDetail {
   stageHistory: StageHistoryEntry[];
 }
 
+interface EditForm {
+  fullName: string;
+  email: string;
+  phone: string;
+  country: string;
+  candidateCity: string;
+  availablePresential: "" | "true" | "false";
+  salaryExpectation: string;
+}
+
 function stageStyle(color: string | undefined) {
   const c = color ?? "#94a3b8";
   return { backgroundColor: `${c}1f`, color: c };
+}
+
+function formatPhoneMask(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
 interface Props {
@@ -80,17 +97,52 @@ export function CandidateDrawer({
     stage: { name: string; color: string } | null;
   } | null>(null);
 
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm>({
+    fullName: "",
+    email: "",
+    phone: "",
+    country: "",
+    candidateCity: "",
+    availablePresential: "",
+    salaryExpectation: "",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const resumeFileRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (!applicationId) return;
     let active = true;
     setData(null);
     setError(false);
+    setEditing(false);
     setLinkedAdmission(null);
 
     Promise.all([
       fetch(`/api/applications/${applicationId}`, { credentials: "same-origin" })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((d: CandidateDetail) => { if (active) { setData(d); setNotes(d.notes ?? ""); } })
+        .then((d: CandidateDetail) => {
+          if (active) {
+            setData(d);
+            setNotes(d.notes ?? "");
+            setEditForm({
+              fullName: d.fullName,
+              email: d.email,
+              phone: formatPhoneMask(d.phone),
+              country: d.country ?? "",
+              candidateCity: d.candidateCity ?? "",
+              availablePresential:
+                d.availablePresential === null
+                  ? ""
+                  : d.availablePresential
+                  ? "true"
+                  : "false",
+              salaryExpectation:
+                d.salaryExpectation !== null ? String(d.salaryExpectation) : "",
+            });
+          }
+        })
         .catch(() => { if (active) setError(true); }),
       fetch(`/api/applications/${applicationId}/admission`, { credentials: "same-origin" })
         .then((r) => r.ok ? r.json() : null)
@@ -178,6 +230,94 @@ export function CandidateDrawer({
     }
   }
 
+  async function saveProfile() {
+    if (!applicationId) return;
+    const phoneDigits = editForm.phone.replace(/\D/g, "");
+    if (phoneDigits.length !== 11) {
+      notify("error", "Telefone inválido. Informe 11 dígitos (DDD + número).");
+      return;
+    }
+    if (editForm.fullName.trim().length < 2) {
+      notify("error", "Nome completo inválido.");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const salary = editForm.salaryExpectation
+        ? parseFloat(editForm.salaryExpectation.replace(",", "."))
+        : null;
+      const body: Record<string, unknown> = {
+        fullName: editForm.fullName.trim(),
+        email: editForm.email.trim(),
+        phone: phoneDigits,
+        country: editForm.country.trim() || null,
+        candidateCity: editForm.candidateCity.trim() || null,
+        availablePresential:
+          editForm.availablePresential === ""
+            ? null
+            : editForm.availablePresential === "true",
+        salaryExpectation: salary !== null && !isNaN(salary) ? salary : null,
+      };
+      const res = await fetch(`/api/applications/${applicationId}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        notify("error", "Erro ao salvar os dados.");
+        return;
+      }
+      notify("success", "Dados do candidato atualizados.");
+      setData((d) =>
+        d
+          ? {
+              ...d,
+              fullName: body.fullName as string,
+              email: body.email as string,
+              phone: phoneDigits,
+              country: body.country as string | null,
+              candidateCity: body.candidateCity as string | null,
+              availablePresential: body.availablePresential as boolean | null,
+              salaryExpectation: body.salaryExpectation as number | null,
+            }
+          : d
+      );
+      setEditing(false);
+      router.refresh();
+    } catch {
+      notify("error", "Erro de conexão. Tente novamente.");
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function handleResumeReplace(file: File) {
+    if (!applicationId) return;
+    setUploadingResume(true);
+    try {
+      const form = new FormData();
+      form.append("resume", file);
+      const res = await fetch(`/api/applications/${applicationId}/resume`, {
+        method: "PUT",
+        credentials: "same-origin",
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        notify("error", (err as { error?: string }).error ?? "Erro ao substituir o currículo.");
+        return;
+      }
+      const { resumeName } = (await res.json()) as { resumeName: string };
+      notify("success", "Currículo atualizado.");
+      setData((d) => (d ? { ...d, resumeName } : d));
+    } catch {
+      notify("error", "Erro de conexão. Tente novamente.");
+    } finally {
+      setUploadingResume(false);
+    }
+  }
+
   function copyField(field: string, text: string) {
     navigator.clipboard?.writeText(text).catch(() => {});
     setCopiedField(field);
@@ -185,7 +325,6 @@ export function CandidateDrawer({
   }
 
   const dirty = data ? (data.notes ?? "") !== notes : false;
-
   const currentStepIdx = data ? stages.findIndex((s) => s.id === data.stageId) : -1;
   const nextStageKind = currentStepIdx >= 0 ? stages[currentStepIdx + 1]?.kind : undefined;
   const nextIsAdmission = nextStageKind === "ADMISSION";
@@ -194,9 +333,26 @@ export function CandidateDrawer({
   const whatsappUrl = phoneDigits ? `https://wa.me/55${phoneDigits}` : "#";
   const jobLabel = [jobTitle, jobLocation].filter(Boolean).join(" · ");
 
+  const inputCls =
+    "w-full bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2 text-[12.5px] text-[#1A2213] outline-none focus:border-[#90CB46] focus:ring-2 focus:ring-[#90CB46]/30 transition-colors placeholder:text-[#B5BEA8]";
+  const labelCls = "block text-[10.5px] font-bold text-[#55614A] mb-1";
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+
+      {/* Input de arquivo oculto para substituição/anexo de CV */}
+      <input
+        ref={resumeFileRef}
+        type="file"
+        accept=".pdf,.doc,.docx"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleResumeReplace(file);
+          e.target.value = "";
+        }}
+      />
 
       <div
         className="relative flex h-full w-full max-w-[620px] flex-col bg-white shadow-[-10px_0_34px_rgba(0,0,0,.16)] animate-in slide-in-from-right duration-200"
@@ -204,7 +360,7 @@ export function CandidateDrawer({
       >
         {/* ── Sticky header ── */}
         <div className="sticky top-0 bg-white z-10 px-6 pt-5 pb-4 border-b border-[#EEF1E7] flex flex-col gap-3 shrink-0">
-          {/* Name + close */}
+          {/* Name + actions + close */}
           <div className="flex justify-between items-start gap-2.5">
             <div className="min-w-0 flex-1">
               {data ? (
@@ -220,14 +376,26 @@ export function CandidateDrawer({
                 <Skeleton className="h-6 w-48" />
               )}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Fechar"
-              className="shrink-0 rounded-lg p-1 text-[#55614A] transition-colors hover:bg-[#EEF1E7] hover:text-[#1A2213]"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {canManage && data && !editing && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  title="Editar dados do candidato"
+                  className="rounded-lg p-1.5 text-[#55614A] transition-colors hover:bg-[#EEF1E7] hover:text-[#1A2213]"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Fechar"
+                className="rounded-lg p-1 text-[#55614A] transition-colors hover:bg-[#EEF1E7] hover:text-[#1A2213]"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Badges */}
@@ -337,113 +505,265 @@ export function CandidateDrawer({
           ) : (
             <>
               {/* Currículo */}
-              {data.resumeName ? (
-                <a
-                  href={`/api/applications/${data.id}/resume`}
-                  className="flex items-center gap-3 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl px-3.5 py-3 cursor-pointer hover:bg-[#EEF4E3] transition-colors group"
-                >
-                  <span className="text-xl">📄</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[#1A2213] text-[13.5px] font-bold">
-                      Visualizar / Baixar currículo
+              <div className="flex items-stretch gap-2">
+                {data.resumeName ? (
+                  <a
+                    href={`/api/applications/${data.id}/resume`}
+                    className="flex-1 flex items-center gap-3 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl px-3.5 py-3 cursor-pointer hover:bg-[#EEF4E3] transition-colors"
+                  >
+                    <span className="text-xl">📄</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[#1A2213] text-[13.5px] font-bold truncate">
+                        {data.resumeName}
+                      </div>
+                      <div className="text-[#55614A] text-[11.5px]">Visualizar / Baixar</div>
                     </div>
-                    <div className="text-[#55614A] text-[11.5px]">
-                      PDF · enviado em {formatDate(data.createdAt)}
-                    </div>
+                    <Download className="w-4 h-4 text-[#4F6930] shrink-0" />
+                  </a>
+                ) : (
+                  <div className="flex-1 flex items-center gap-3 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl px-3.5 py-3 opacity-60">
+                    <span className="text-xl">📄</span>
+                    <span className="text-[#55614A] text-[13.5px]">Sem currículo anexado</span>
                   </div>
-                  <Download className="w-4 h-4 text-[#4F6930] shrink-0" />
-                </a>
-              ) : (
-                <div className="flex items-center gap-3 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl px-3.5 py-3 opacity-60">
-                  <span className="text-xl">📄</span>
-                  <span className="text-[#55614A] text-[13.5px]">Sem currículo anexado</span>
-                </div>
-              )}
-
-              {/* Contato */}
-              <div>
-                <div className="text-[#1A2213] text-[13px] font-bold mb-2">Contato</div>
-                <div className="flex flex-col gap-1.5">
-                  {[
-                    { field: "email", icon: "✉", value: data.email },
-                    { field: "telefone", icon: "☎", value: data.phone },
-                  ].map((row) => (
-                    <div
-                      key={row.field}
-                      className="flex items-center gap-2 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2"
-                    >
-                      <span className="text-[#3E4A34] text-[12.5px] flex-1 min-w-0 truncate">
-                        {row.icon} {row.value}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-[#4F6930] text-[11px] font-bold shrink-0 hover:opacity-70 transition-opacity"
-                        onClick={() => copyField(row.field, row.value)}
-                      >
-                        {copiedField === row.field ? "Copiado ✓" : "copiar"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                {data.addedBy && (
-                  <p className="mt-2 text-[11px] text-[#9AA68A]">
-                    Cadastrado por {data.addedBy} em {formatDate(data.createdAt)}
-                  </p>
+                )}
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => resumeFileRef.current?.click()}
+                    disabled={uploadingResume}
+                    title={data.resumeName ? "Substituir currículo" : "Anexar currículo"}
+                    className="flex items-center gap-1.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl px-3 py-2.5 text-[11.5px] font-bold text-[#4F6930] hover:bg-[#EEF4E3] disabled:opacity-50 transition-colors shrink-0"
+                  >
+                    {uploadingResume ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    {uploadingResume ? "Enviando…" : data.resumeName ? "Substituir" : "Anexar"}
+                  </button>
                 )}
               </div>
 
-              {/* Ficha de inscrição */}
-              {(data.country || data.candidateCity || data.availablePresential !== null || data.salaryExpectation !== null) && (
-                <div>
-                  <div className="text-[#1A2213] text-[13px] font-bold mb-2">Ficha de inscrição</div>
-                  <div className="flex flex-col gap-1.5">
-                    {data.country && (
-                      <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
-                        <span className="text-base leading-none">🌍</span>
-                        <div className="min-w-0">
-                          <span className="text-[11px] text-[#9AA68A] block">País de origem</span>
-                          <span className="text-[#1A2213] text-[13px] font-medium">{data.country}</span>
-                        </div>
-                      </div>
-                    )}
-                    {data.candidateCity && (
-                      <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
-                        <span className="text-base leading-none">📍</span>
-                        <div className="min-w-0">
-                          <span className="text-[11px] text-[#9AA68A] block">Cidade</span>
-                          <span className="text-[#1A2213] text-[13px] font-medium">{data.candidateCity}</span>
-                        </div>
-                      </div>
-                    )}
-                    {data.availablePresential !== null && (
-                      <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
-                        <span className="text-base leading-none">🏢</span>
-                        <div className="min-w-0">
-                          <span className="text-[11px] text-[#9AA68A] block">Disponibilidade presencial</span>
-                          <span
-                            className={`text-[13px] font-semibold ${data.availablePresential ? "text-[#2F6A1E]" : "text-[#9B3B2E]"}`}
-                          >
-                            {data.availablePresential ? "Sim" : "Não"}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {data.salaryExpectation !== null && (
-                      <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
-                        <span className="text-base leading-none">💰</span>
-                        <div className="min-w-0">
-                          <span className="text-[11px] text-[#9AA68A] block">Pretensão salarial</span>
-                          <span className="text-[#1A2213] text-[13px] font-medium tabular-nums">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(data.salaryExpectation)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+              {/* Edição de dados ou exibição */}
+              {editing ? (
+                <div className="flex flex-col gap-4 bg-[#F6F8F3] border border-[#E7EEDD] rounded-xl p-4">
+                  <div className="text-[#1A2213] text-[13px] font-bold">Editar dados do candidato</div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className={labelCls}>Nome completo</label>
+                      <input
+                        type="text"
+                        value={editForm.fullName}
+                        onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+                        maxLength={120}
+                        className={inputCls}
+                        placeholder="Nome completo"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>E-mail</label>
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                        className={inputCls}
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Telefone (com DDD)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={editForm.phone}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, phone: formatPhoneMask(e.target.value) }))
+                        }
+                        className={inputCls}
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Cidade</label>
+                      <input
+                        type="text"
+                        value={editForm.candidateCity}
+                        onChange={(e) => setEditForm((f) => ({ ...f, candidateCity: e.target.value }))}
+                        maxLength={120}
+                        className={inputCls}
+                        placeholder="Ex: São Paulo"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>País de origem</label>
+                      <input
+                        type="text"
+                        value={editForm.country}
+                        onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))}
+                        maxLength={80}
+                        className={inputCls}
+                        placeholder="Ex: Brasil"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Pretensão salarial (R$)</label>
+                      <input
+                        type="number"
+                        value={editForm.salaryExpectation}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, salaryExpectation: e.target.value }))
+                        }
+                        min={0}
+                        step={100}
+                        className={inputCls}
+                        placeholder="Ex: 3500"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Disponibilidade presencial</label>
+                      <select
+                        value={editForm.availablePresential}
+                        onChange={(e) =>
+                          setEditForm((f) => ({
+                            ...f,
+                            availablePresential: e.target.value as "" | "true" | "false",
+                          }))
+                        }
+                        className={inputCls}
+                      >
+                        <option value="">Não informado</option>
+                        <option value="true">Sim</option>
+                        <option value="false">Não</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={saveProfile}
+                      disabled={savingProfile}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 bg-[#90CB46] text-[#0C0D0C] px-3.5 py-2 rounded-[9px] text-[12.5px] font-bold hover:bg-[#7FD400] disabled:opacity-50 transition-colors"
+                    >
+                      {savingProfile && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {savingProfile ? "Salvando…" : "Salvar alterações"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      disabled={savingProfile}
+                      className="px-3.5 py-2 rounded-[9px] text-[12.5px] font-bold text-[#55614A] bg-[#EEF1E7] hover:bg-[#DCE8CC] disabled:opacity-50 transition-colors"
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <>
+                  {/* Contato */}
+                  <div>
+                    <div className="text-[#1A2213] text-[13px] font-bold mb-2">Contato</div>
+                    <div className="flex flex-col gap-1.5">
+                      {[
+                        { field: "email", icon: "✉", value: data.email },
+                        { field: "telefone", icon: "☎", value: data.phone },
+                      ].map((row) => (
+                        <div
+                          key={row.field}
+                          className="flex items-center gap-2 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2"
+                        >
+                          <span className="text-[#3E4A34] text-[12.5px] flex-1 min-w-0 truncate">
+                            {row.icon} {row.value}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-[#4F6930] text-[11px] font-bold shrink-0 hover:opacity-70 transition-opacity"
+                            onClick={() => copyField(row.field, row.value)}
+                          >
+                            {copiedField === row.field ? "Copiado ✓" : "copiar"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {data.addedBy && (
+                      <p className="mt-2 text-[11px] text-[#9AA68A]">
+                        Cadastrado por {data.addedBy} em {formatDate(data.createdAt)}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Ficha de inscrição */}
+                  {(data.country ||
+                    data.candidateCity ||
+                    data.availablePresential !== null ||
+                    data.salaryExpectation !== null) && (
+                    <div>
+                      <div className="text-[#1A2213] text-[13px] font-bold mb-2">
+                        Ficha de inscrição
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {data.country && (
+                          <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                            <span className="text-base leading-none">🌍</span>
+                            <div className="min-w-0">
+                              <span className="text-[11px] text-[#9AA68A] block">País de origem</span>
+                              <span className="text-[#1A2213] text-[13px] font-medium">
+                                {data.country}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {data.candidateCity && (
+                          <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                            <span className="text-base leading-none">📍</span>
+                            <div className="min-w-0">
+                              <span className="text-[11px] text-[#9AA68A] block">Cidade</span>
+                              <span className="text-[#1A2213] text-[13px] font-medium">
+                                {data.candidateCity}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {data.availablePresential !== null && (
+                          <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                            <span className="text-base leading-none">🏢</span>
+                            <div className="min-w-0">
+                              <span className="text-[11px] text-[#9AA68A] block">
+                                Disponibilidade presencial
+                              </span>
+                              <span
+                                className={`text-[13px] font-semibold ${
+                                  data.availablePresential
+                                    ? "text-[#2F6A1E]"
+                                    : "text-[#9B3B2E]"
+                                }`}
+                              >
+                                {data.availablePresential ? "Sim" : "Não"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {data.salaryExpectation !== null && (
+                          <div className="flex items-center gap-2.5 bg-[#F6F8F3] border border-[#E7EEDD] rounded-[9px] px-3 py-2">
+                            <span className="text-base leading-none">💰</span>
+                            <div className="min-w-0">
+                              <span className="text-[11px] text-[#9AA68A] block">
+                                Pretensão salarial
+                              </span>
+                              <span className="text-[#1A2213] text-[13px] font-medium tabular-nums">
+                                {new Intl.NumberFormat("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL",
+                                }).format(data.salaryExpectation)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Anotações */}
@@ -503,7 +823,10 @@ export function CandidateDrawer({
                       {linkedAdmission.stage && (
                         <span
                           className="text-[11px] font-bold px-2 py-0.5 rounded-md inline-block w-fit"
-                          style={{ backgroundColor: `${linkedAdmission.stage.color}20`, color: linkedAdmission.stage.color }}
+                          style={{
+                            backgroundColor: `${linkedAdmission.stage.color}20`,
+                            color: linkedAdmission.stage.color,
+                          }}
                         >
                           {linkedAdmission.stage.name}
                         </span>
@@ -514,9 +837,13 @@ export function CandidateDrawer({
                         </p>
                       )}
                       {linkedAdmission.digitalFormSubmittedAt ? (
-                        <p className="text-[11.5px] text-green-700 font-medium">✓ Formulário preenchido</p>
+                        <p className="text-[11.5px] text-green-700 font-medium">
+                          ✓ Formulário preenchido
+                        </p>
                       ) : (
-                        <p className="text-[11.5px] text-amber-700">Formulário pendente de preenchimento</p>
+                        <p className="text-[11.5px] text-amber-700">
+                          Formulário pendente de preenchimento
+                        </p>
                       )}
                     </div>
                     <a

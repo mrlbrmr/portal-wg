@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { uploadResume, validateResumeFile } from "@/lib/storage";
 import {
@@ -106,6 +107,48 @@ export async function POST(
     applicationId: application.id,
     stageId: "NEW",
     changedBy: "RH (cadastro manual)",
+  });
+
+  // Sincroniza candidato no Banco de Talentos (silent — não bloqueia a resposta).
+  const applicationId = application.id;
+  after(async () => {
+    try {
+      const admin = createAdminClient();
+
+      const { data: newTalento, error: talentoError } = await admin
+        .from("talentos")
+        .insert({
+          nomeCompleto: fullName,
+          email,
+          telefone: phone || null,
+          curriculoUrl: resume?.url ?? null,
+          curriculoNome: resume?.name ?? null,
+          origem: "VAGA_ESPECIFICA",
+        })
+        .select("id")
+        .single();
+
+      let syncedId = newTalento?.id;
+
+      // Talento já existe (e-mail duplicado) — reutiliza registro existente.
+      if (!syncedId && talentoError?.code === "23505") {
+        const { data: byEmail } = await admin
+          .from("talentos")
+          .select("id")
+          .ilike("email", email.trim())
+          .maybeSingle();
+        syncedId = byEmail?.id;
+      }
+
+      if (syncedId) {
+        await admin
+          .from("applications")
+          .update({ talentoId: syncedId })
+          .eq("id", applicationId);
+      }
+    } catch {
+      // Falha silenciosa — candidatura já registrada com sucesso
+    }
   });
 
   revalidatePath(`/vagas/${job.id}/candidatos`);

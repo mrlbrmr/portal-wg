@@ -3,11 +3,11 @@
 import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardList, ExternalLink } from "lucide-react";
 import { setBatchItemsDone } from "@/lib/admissao/actions";
 import { AdmissaoPreviewDrawer } from "./AdmissaoPreviewDrawer";
 
-// ─── Types (espelham o server; duplicados para evitar import de módulo server) ─
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type WidgetAdmission = {
   id: string;
@@ -33,11 +33,6 @@ export type Activity = {
   admission: WidgetAdmission;
 };
 
-type AdmissionGroup = {
-  admission: WidgetAdmission;
-  sections: Array<{ sectionName: string; items: WidgetItem[] }>;
-};
-
 export type WidgetData = {
   overdue: Activity[];
   today: Activity[];
@@ -50,7 +45,27 @@ export type WidgetData = {
 
 type FilterKey = "all" | "today" | "upcoming";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+type UrgencyBucket = "overdue" | "today" | "upcoming";
+
+type BucketData = {
+  urgency: UrgencyBucket;
+  sections: Array<{ sectionName: string; items: WidgetItem[] }>;
+};
+
+type MasterGroup = {
+  admission: WidgetAdmission;
+  buckets: BucketData[];
+};
+
+// ─── Visual config por urgência ───────────────────────────────────────────────
+
+const URGENCY_CFG = {
+  overdue:  { label: "Atrasadas",       color: "#C0392B", bgColor: "#FDECEA", dotColor: "#C0392B" },
+  today:    { label: "Hoje",            color: "#A0721E", bgColor: "#FCF1DD", dotColor: "#D97706" },
+  upcoming: { label: "Próximos 3 dias", color: "#3C56A8", bgColor: "#E9EDFA", dotColor: "#3B82F6" },
+} as const;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function addDaysToStr(dateStr: string, days: number): string {
   const d = new Date(dateStr + "T00:00:00Z");
@@ -70,19 +85,39 @@ function daysFromToday(dateStr: string | null, todayStr: string): number | null 
   return Math.round((a - b) / 86400000);
 }
 
-function groupByAdmission(activities: Activity[]): AdmissionGroup[] {
-  const map = new Map<string, AdmissionGroup>();
-  for (const act of activities) {
-    const aid = act.admission.id;
-    if (!map.has(aid)) map.set(aid, { admission: act.admission, sections: [] });
-    const group = map.get(aid)!;
-    let sec = group.sections.find((s) => s.sectionName === act.item.groupName);
-    if (!sec) {
-      sec = { sectionName: act.item.groupName, items: [] };
-      group.sections.push(sec);
+// Agrupa todas as atividades em um único Card Mestre por colaborador.
+// A ordem de inserção respeita overdue → today → upcoming para que as
+// admissões mais urgentes apareçam primeiro.
+function groupByAdmissionMaster(
+  overdue: Activity[],
+  today: Activity[],
+  upcoming: Activity[]
+): MasterGroup[] {
+  const map = new Map<string, MasterGroup>();
+
+  function addActivities(activities: Activity[], urgency: UrgencyBucket) {
+    for (const act of activities) {
+      const aid = act.admission.id;
+      if (!map.has(aid)) map.set(aid, { admission: act.admission, buckets: [] });
+      const group = map.get(aid)!;
+      let bucket = group.buckets.find((b) => b.urgency === urgency);
+      if (!bucket) {
+        bucket = { urgency, sections: [] };
+        group.buckets.push(bucket);
+      }
+      let sec = bucket.sections.find((s) => s.sectionName === act.item.groupName);
+      if (!sec) {
+        sec = { sectionName: act.item.groupName, items: [] };
+        bucket.sections.push(sec);
+      }
+      sec.items.push(act.item);
     }
-    sec.items.push(act.item);
   }
+
+  addActivities(overdue, "overdue");
+  addActivities(today, "today");
+  addActivities(upcoming, "upcoming");
+
   return Array.from(map.values());
 }
 
@@ -97,16 +132,16 @@ function waLink(fullName: string): string {
   return `https://wa.me/?text=${msg}`;
 }
 
-// ─── ProgressBar ─────────────────────────────────────────────────────────────
+// ─── ProgressBar ──────────────────────────────────────────────────────────────
 
 function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
     <div className="flex items-center gap-2.5 min-w-0 flex-1">
-      <div className="flex-1 h-2.5 bg-[#E8EDE2] rounded-full overflow-hidden min-w-[56px]">
+      <div className="flex-1 h-2 bg-[#E8EDE2] rounded-full overflow-hidden min-w-[56px]">
         <div
-          className="h-full bg-[#90CB46] rounded-full transition-all"
-          style={{ width: `${pct}%` }}
+          className="h-full bg-[#90CB46] rounded-full"
+          style={{ width: `${pct}%`, transition: "width 0.3s ease-in-out" }}
         />
       </div>
       <span className="text-[12px] font-bold text-wg-ink-muted tabular-nums shrink-0">
@@ -148,7 +183,7 @@ function OverdueBadge({ dueDate, todayStr }: { dueDate: string; todayStr: string
   );
 }
 
-// ─── WhatsApp icon SVG ────────────────────────────────────────────────────────
+// ─── WhatsAppIcon ─────────────────────────────────────────────────────────────
 
 function WhatsAppIcon() {
   return (
@@ -158,19 +193,27 @@ function WhatsAppIcon() {
   );
 }
 
-// ─── CheckIcon ───────────────────────────────────────────────────────────────
+// ─── CheckIcon ────────────────────────────────────────────────────────────────
 
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 14 14" className="w-3.5 h-3.5 fill-none stroke-white stroke-2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 14 14"
+      className="w-3.5 h-3.5 fill-none stroke-white stroke-2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="2,7 5.5,10.5 12,3" />
     </svg>
   );
 }
 
-// ─── ActivityRowCheckbox ──────────────────────────────────────────────────────
+// ─── ActivityRow ──────────────────────────────────────────────────────────────
+// Linha clicável inteira via <label>; checkbox + texto + badges em linha.
+// Estado "selecionado" mostra riscado + cinza; "concluindo" mostra animação.
 
-function ActivityRowCheckbox({
+function ActivityRow({
   item,
   todayStr,
   urgency,
@@ -181,18 +224,21 @@ function ActivityRowCheckbox({
 }: {
   item: WidgetItem;
   todayStr: string;
-  urgency: "overdue" | "today" | "upcoming";
+  urgency: UrgencyBucket;
   fullName: string;
   checked: boolean;
   completing: boolean;
   onToggle: (id: string) => void;
 }) {
+  const isDone = completing || checked;
+
   return (
-    <div
-      className="flex items-center gap-2.5 py-2 pl-2 pr-2 border-t border-[#F0F3EC] transition-all duration-300"
+    <label
+      className="flex items-center gap-2.5 py-2.5 px-3 rounded-lg hover:bg-[#F5F7F3] cursor-pointer transition-colors"
       style={{
         opacity: completing ? 0.45 : 1,
         transform: completing ? "translateX(6px)" : "none",
+        transition: "opacity 0.3s ease, transform 0.3s ease",
       }}
     >
       {completing ? (
@@ -206,30 +252,39 @@ function ActivityRowCheckbox({
           onChange={() => onToggle(item.id)}
           aria-label={`Selecionar: ${item.name}`}
           className="w-3.5 h-3.5 shrink-0 cursor-pointer accent-[#90CB46]"
+          onClick={(e) => e.stopPropagation()}
         />
       )}
+
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            className={`text-[13px] font-medium leading-snug transition-colors ${
-              completing ? "text-wg-ink-muted line-through" : "text-wg-ink"
-            }`}
+            className="text-[13px] font-medium leading-snug"
+            style={{
+              color: isDone ? "#9CA3AF" : undefined,
+              textDecoration: isDone ? "line-through" : "none",
+              transition: "color 0.2s, text-decoration 0.2s",
+            }}
           >
             {item.name}
           </span>
-          {!completing && urgency === "overdue" && (
+
+          {!isDone && urgency === "overdue" && (
             <OverdueBadge dueDate={item.dueDate} todayStr={todayStr} />
           )}
-          {!completing && urgency === "upcoming" && (
+          {!isDone && urgency === "upcoming" && (
             <span className="text-[10.5px] text-wg-ink-muted shrink-0">
               {ptBRDate(item.dueDate)}
             </span>
           )}
           {completing && (
-            <span className="text-[10.5px] text-[#90CB46] font-semibold shrink-0">✓ Concluído</span>
+            <span className="text-[10.5px] text-[#90CB46] font-semibold shrink-0">
+              ✓ Concluído
+            </span>
           )}
         </div>
       </div>
+
       {!completing && isWhatsApp(item.name) && (
         <a
           href={waLink(fullName)}
@@ -242,108 +297,131 @@ function ActivityRowCheckbox({
           <WhatsAppIcon />
         </a>
       )}
-    </div>
+    </label>
   );
 }
 
-// ─── SectionBatch ─────────────────────────────────────────────────────────────
+// ─── BucketSection ────────────────────────────────────────────────────────────
+// Renderiza um bloco de urgência (Atrasadas / Hoje / Próximos 3 dias) com seus
+// grupos de checklist. "Concluir todas" virou link de texto discreto abaixo.
 
-function SectionBatch({
-  sectionName,
-  items,
+function BucketSection({
+  bucket,
+  todayStr,
+  fullName,
   selected,
+  completing,
   isPending,
-  onToggleSection,
+  onToggle,
   onBatch,
 }: {
-  sectionName: string;
-  items: WidgetItem[];
+  bucket: BucketData;
+  todayStr: string;
+  fullName: string;
   selected: Set<string>;
+  completing: Set<string>;
   isPending: boolean;
-  onToggleSection: (ids: string[]) => void;
+  onToggle: (id: string) => void;
   onBatch: (ids: string[]) => void;
 }) {
-  const sectionIds = items.map((i) => i.id);
-  const selectedInSection = sectionIds.filter((id) => selected.has(id));
-  const allSectionSelected =
-    sectionIds.length > 0 && sectionIds.every((id) => selected.has(id));
+  const cfg = URGENCY_CFG[bucket.urgency];
+  const allIds = bucket.sections.flatMap((s) => s.items.map((i) => i.id));
+  const selectedInBucket = allIds.filter((id) => selected.has(id));
 
   return (
-    <div className="px-3 pt-2.5 pb-1.5 flex items-center justify-between gap-2 flex-wrap">
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={allSectionSelected}
-          onChange={() => onToggleSection(sectionIds)}
-          aria-label={`Selecionar todos de ${sectionName}`}
-          className="w-3.5 h-3.5 accent-[#90CB46] cursor-pointer shrink-0"
-        />
-        <span className="text-[10.5px] font-semibold text-wg-ink-muted uppercase tracking-wide">
-          {sectionName}
+    <div className="px-4 pt-3 pb-2">
+      {/* Rótulo de urgência */}
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cfg.dotColor }} />
+        <span
+          className="text-[10.5px] font-bold uppercase tracking-wider"
+          style={{ color: cfg.color }}
+        >
+          {cfg.label}
         </span>
-        <span className="text-[10px] text-wg-ink-muted">({items.length})</span>
+        <span
+          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+          style={{ background: cfg.bgColor, color: cfg.color }}
+        >
+          {allIds.length}
+        </span>
       </div>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {selectedInSection.length > 0 && (
+
+      {/* Grupos de checklist */}
+      {bucket.sections.map((sec) => (
+        <div key={sec.sectionName} className="mb-1">
+          <div className="px-3 mb-0.5">
+            <span className="text-[10px] font-semibold text-wg-ink-muted uppercase tracking-wide">
+              {sec.sectionName}
+            </span>
+          </div>
+          <div className="flex flex-col">
+            {sec.items.map((item) => (
+              <ActivityRow
+                key={item.id}
+                item={item}
+                todayStr={todayStr}
+                urgency={bucket.urgency}
+                fullName={fullName}
+                checked={selected.has(item.id)}
+                completing={completing.has(item.id)}
+                onToggle={onToggle}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Ações em lote — "Concluir todas" como link discreto */}
+      <div className="flex items-center gap-3 px-3 pt-1.5">
+        {selectedInBucket.length > 0 && (
           <button
-            onClick={() => onBatch(selectedInSection)}
+            onClick={() => onBatch(selectedInBucket)}
             disabled={isPending}
             className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#EAF4DC] text-[#3E5A2A] hover:bg-[#D7ECC4] transition-colors disabled:opacity-50"
           >
-            {isPending ? "…" : `Concluir selecionadas (${selectedInSection.length})`}
+            {isPending ? "…" : `Concluir selecionadas (${selectedInBucket.length})`}
           </button>
         )}
         <button
-          onClick={() => onBatch(sectionIds)}
+          onClick={() => onBatch(allIds)}
           disabled={isPending}
-          className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-[#E5EAE0] text-wg-ink-muted hover:bg-[#F5F7F3] transition-colors disabled:opacity-50"
+          className="text-[11px] text-wg-ink-muted hover:text-wg-ink underline-offset-2 hover:underline transition-colors disabled:opacity-50"
         >
-          {isPending ? "…" : "Concluir todas"}
+          {isPending ? "Concluindo…" : "Concluir todas"}
         </button>
       </div>
     </div>
   );
 }
 
-// ─── AdmissionAccordionCard ───────────────────────────────────────────────────
+// ─── MasterAdmissionCard ──────────────────────────────────────────────────────
+// Card único por colaborador com todos os buckets de urgência agrupados dentro.
+// Sem borda rígida — usa shadow sutil + fundo branco para elevação.
 
-function AdmissionAccordionCard({
+function MasterAdmissionCard({
   group,
   todayStr,
-  urgency,
   onOpenDrawer,
 }: {
-  group: AdmissionGroup;
+  group: MasterGroup;
   todayStr: string;
-  urgency: "overdue" | "today" | "upcoming";
   onOpenDrawer: (admissionId: string) => void;
 }) {
-  const { admission, sections } = group;
+  const { admission, buckets } = group;
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [completing, setCompleting] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
-  const companyInfo = [admission.companyName, admission.branchName]
-    .filter(Boolean)
-    .join(" · ");
+  const companyInfo = [admission.companyName, admission.branchName].filter(Boolean).join(" · ");
 
   function toggleItem(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleSection(ids: string[]) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      const allSelected = ids.every((id) => next.has(id));
-      if (allSelected) ids.forEach((id) => next.delete(id));
-      else ids.forEach((id) => next.add(id));
       return next;
     });
   }
@@ -360,13 +438,18 @@ function AdmissionAccordionCard({
   }
 
   return (
-    <div className="bg-[#FAFBF8] border border-[#E8EDE2] rounded-xl overflow-hidden">
-      {/* Card header */}
-      <div className="px-4 py-3 flex items-start gap-3">
+    <div
+      className="bg-white rounded-2xl overflow-hidden"
+      style={{
+        boxShadow: "0 4px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.04)",
+      }}
+    >
+      {/* Header do card */}
+      <div className="px-4 py-4 flex items-start gap-3">
         <button
           onClick={() => setIsOpen((o) => !o)}
           aria-label={isOpen ? "Recolher tarefas" : "Expandir tarefas"}
-          className="shrink-0 mt-1 p-0.5 text-wg-ink-muted hover:text-wg-ink transition-colors"
+          className="shrink-0 mt-0.5 p-0.5 text-wg-ink-muted hover:text-wg-ink transition-colors"
         >
           {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
@@ -393,119 +476,50 @@ function AdmissionAccordionCard({
           )}
         </div>
 
+        {/* Botões ghost/outline com ícones */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => onOpenDrawer(admission.id)}
-            className="px-2.5 py-1.5 rounded-lg border border-[#E5EAE0] text-[11.5px] font-medium text-wg-ink-muted hover:bg-[#F5F7F3] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E5EAE0] text-[11.5px] font-medium text-wg-ink-muted hover:border-[#C8D5B8] hover:text-wg-ink hover:bg-[#F9FBF6] transition-all"
           >
-            📋 Checklist
+            <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+            Checklist
           </button>
           <Link
             href={`/admissoes/${admission.id}`}
-            className="px-2.5 py-1.5 rounded-lg border border-[#E5EAE0] text-[11.5px] font-medium text-wg-ink-muted hover:bg-[#F5F7F3] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E5EAE0] text-[11.5px] font-medium text-wg-ink-muted hover:border-[#C8D5B8] hover:text-wg-ink hover:bg-[#F9FBF6] transition-all"
           >
-            Ficha ↗
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+            Ficha
           </Link>
         </div>
       </div>
 
-      {/* Accordion body — grid-template-rows para animação suave */}
+      {/* Accordion com animação suave via grid-template-rows */}
       <div
         style={{
           display: "grid",
           gridTemplateRows: isOpen ? "1fr" : "0fr",
-          transition: "grid-template-rows 200ms ease-in-out",
+          transition: "grid-template-rows 220ms ease-in-out",
         }}
       >
         <div style={{ overflow: "hidden" }}>
-          <div className="border-t border-[#E8EDE2]">
-            {sections.map((sec, idx) => (
-              <div
-                key={sec.sectionName}
-                className={idx < sections.length - 1 ? "border-b border-[#E8EDE2]" : ""}
-              >
-                <SectionBatch
-                  sectionName={sec.sectionName}
-                  items={sec.items}
-                  selected={selected}
-                  isPending={isPending}
-                  onToggleSection={toggleSection}
-                  onBatch={handleBatch}
-                />
-                <div className="px-4 pb-2">
-                  {sec.items.map((item) => (
-                    <ActivityRowCheckbox
-                      key={item.id}
-                      item={item}
-                      todayStr={todayStr}
-                      urgency={urgency}
-                      fullName={admission.fullName}
-                      checked={selected.has(item.id)}
-                      completing={completing.has(item.id)}
-                      onToggle={toggleItem}
-                    />
-                  ))}
-                </div>
-              </div>
+          <div className="border-t border-[#F0F4EC] divide-y divide-[#F0F4EC]">
+            {buckets.map((bucket) => (
+              <BucketSection
+                key={bucket.urgency}
+                bucket={bucket}
+                todayStr={todayStr}
+                fullName={admission.fullName}
+                selected={selected}
+                completing={completing}
+                isPending={isPending}
+                onToggle={toggleItem}
+                onBatch={handleBatch}
+              />
             ))}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── UrgencySection ───────────────────────────────────────────────────────────
-
-function UrgencySection({
-  label,
-  color,
-  bgColor,
-  dotColor,
-  groups,
-  todayStr,
-  urgency,
-  onOpenDrawer,
-}: {
-  label: string;
-  color: string;
-  bgColor: string;
-  dotColor: string;
-  groups: AdmissionGroup[];
-  todayStr: string;
-  urgency: "overdue" | "today" | "upcoming";
-  onOpenDrawer: (admissionId: string) => void;
-}) {
-  if (groups.length === 0) return null;
-  const count = groups.reduce(
-    (acc, g) => acc + g.sections.flatMap((s) => s.items).length,
-    0
-  );
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor }} />
-        <span className="text-[13px] font-bold" style={{ color }}>
-          {label}
-        </span>
-        <span
-          className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-          style={{ background: bgColor, color }}
-        >
-          {count}
-        </span>
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {groups.map((g) => (
-          <AdmissionAccordionCard
-            key={g.admission.id}
-            group={g}
-            todayStr={todayStr}
-            urgency={urgency}
-            onOpenDrawer={onOpenDrawer}
-          />
-        ))}
       </div>
     </div>
   );
@@ -532,9 +546,9 @@ function FilterChips({
         <button
           key={f.key}
           onClick={() => onChange(f.key)}
-          className={`px-3 py-1 rounded-full text-[12px] font-semibold transition-colors ${
+          className={`px-3 py-1 rounded-full text-[12px] font-semibold transition-all ${
             active === f.key
-              ? "bg-[#3E4A34] text-white"
+              ? "bg-[#90CB46] text-[#2A3D1C] shadow-sm"
               : "bg-[#F0F3EC] text-[#6B7860] hover:bg-[#E5EAE0]"
           }`}
         >
@@ -553,27 +567,35 @@ export function AdmissaoAtividadesWidgetClient({ data }: { data: WidgetData }) {
 
   const { overdue, today, upcoming, overdueCount, todayCount, todayDone, todayStr } = data;
 
-  const overdueGroups = useMemo(() => groupByAdmission(overdue), [overdue]);
-  const todayGroups = useMemo(() => groupByAdmission(today), [today]);
-  const upcomingGroups = useMemo(() => groupByAdmission(upcoming), [upcoming]);
+  const { filteredOverdue, filteredToday, filteredUpcoming } = useMemo(() => {
+    const cut5 = addDaysToStr(todayStr, 5);
+    const byStartDate = (activities: Activity[]) =>
+      activities.filter(
+        (a) =>
+          a.admission.startDate &&
+          a.admission.startDate >= todayStr &&
+          a.admission.startDate <= cut5
+      );
 
-  const cut5 = addDaysToStr(todayStr, 5);
-  const byStartDate = (groups: AdmissionGroup[]) =>
-    groups.filter(
-      (g) =>
-        g.admission.startDate &&
-        g.admission.startDate >= todayStr &&
-        g.admission.startDate <= cut5
-    );
+    if (filter === "today")
+      return {
+        filteredOverdue: [] as Activity[],
+        filteredToday: today,
+        filteredUpcoming: [] as Activity[],
+      };
+    if (filter === "upcoming")
+      return {
+        filteredOverdue: byStartDate(overdue),
+        filteredToday: byStartDate(today),
+        filteredUpcoming: byStartDate(upcoming),
+      };
+    return { filteredOverdue: overdue, filteredToday: today, filteredUpcoming: upcoming };
+  }, [filter, overdue, today, upcoming, todayStr]);
 
-  const filteredOverdue = filter === "upcoming" ? byStartDate(overdueGroups) : overdueGroups;
-  const filteredToday = filter === "upcoming" ? byStartDate(todayGroups) : todayGroups;
-  const filteredUpcoming =
-    filter === "today"
-      ? []
-      : filter === "upcoming"
-      ? byStartDate(upcomingGroups)
-      : upcomingGroups;
+  const masterGroups = useMemo(
+    () => groupByAdmissionMaster(filteredOverdue, filteredToday, filteredUpcoming),
+    [filteredOverdue, filteredToday, filteredUpcoming]
+  );
 
   const totalPending = overdueCount + todayCount + upcoming.length;
   const isEmpty = totalPending === 0 && todayDone === 0;
@@ -583,9 +605,7 @@ export function AdmissaoAtividadesWidgetClient({ data }: { data: WidgetData }) {
     ? (allActivities.find((a) => a.admission.id === drawerAdmissionId)?.admission ?? null)
     : null;
   const drawerItems = drawerAdmissionId
-    ? allActivities
-        .filter((a) => a.admission.id === drawerAdmissionId)
-        .map((a) => a.item)
+    ? allActivities.filter((a) => a.admission.id === drawerAdmissionId).map((a) => a.item)
     : [];
 
   return (
@@ -614,7 +634,9 @@ export function AdmissaoAtividadesWidgetClient({ data }: { data: WidgetData }) {
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#FCF1DD]">
             <span className="w-2 h-2 rounded-full bg-[#A0721E] shrink-0" />
-            <span className="text-[12.5px] font-semibold text-[#A0721E]">{todayCount} hoje</span>
+            <span className="text-[12.5px] font-semibold text-[#A0721E]">
+              {todayCount} hoje
+            </span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#EAF4DC]">
             <span className="w-2 h-2 rounded-full bg-[#4F6930] shrink-0" />
@@ -632,38 +654,20 @@ export function AdmissaoAtividadesWidgetClient({ data }: { data: WidgetData }) {
           <p className="text-wg-ink-muted text-sm py-8 text-center">
             Nenhuma atividade pendente nos próximos 3 dias. 🎉
           </p>
+        ) : masterGroups.length === 0 ? (
+          <p className="text-wg-ink-muted text-sm py-6 text-center">
+            Nenhum resultado para o filtro selecionado.
+          </p>
         ) : (
-          <div className="flex flex-col gap-5">
-            <UrgencySection
-              label="Atrasadas"
-              color="#C0392B"
-              bgColor="#FDECEA"
-              dotColor="#C0392B"
-              groups={filteredOverdue}
-              todayStr={todayStr}
-              urgency="overdue"
-              onOpenDrawer={setDrawerAdmissionId}
-            />
-            <UrgencySection
-              label="Hoje"
-              color="#A0721E"
-              bgColor="#FCF1DD"
-              dotColor="#D97706"
-              groups={filteredToday}
-              todayStr={todayStr}
-              urgency="today"
-              onOpenDrawer={setDrawerAdmissionId}
-            />
-            <UrgencySection
-              label="Próximos 3 dias"
-              color="#3C56A8"
-              bgColor="#E9EDFA"
-              dotColor="#3B82F6"
-              groups={filteredUpcoming}
-              todayStr={todayStr}
-              urgency="upcoming"
-              onOpenDrawer={setDrawerAdmissionId}
-            />
+          <div className="flex flex-col gap-3">
+            {masterGroups.map((group) => (
+              <MasterAdmissionCard
+                key={group.admission.id}
+                group={group}
+                todayStr={todayStr}
+                onOpenDrawer={setDrawerAdmissionId}
+              />
+            ))}
           </div>
         )}
       </div>

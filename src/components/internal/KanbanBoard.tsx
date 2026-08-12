@@ -38,6 +38,7 @@ export interface KanbanStage {
   name: string;
   color: string;
   kind?: string;
+  hideFromBoard?: boolean;
   templateId?: string | null;
   templateName?: string | null;
   templateKind?: string | null;
@@ -123,13 +124,15 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
     }
   }
 
-  const columns: KanbanColumnDef[] = stages.map((s) => ({
-    key: s.id,
-    label: s.name,
-    dotColor: s.color,
-    kind: s.kind,
-    subtitle: s.kind === "TEST" && s.templateName ? s.templateName : undefined,
-  }));
+  const columns: KanbanColumnDef[] = stages
+    .filter((s) => !s.hideFromBoard)
+    .map((s) => ({
+      key: s.id,
+      label: s.name,
+      dotColor: s.color,
+      kind: s.kind,
+      subtitle: s.kind === "TEST" && s.templateName ? s.templateName : undefined,
+    }));
 
   function handleBeforeMove(id: string, toStageId: string): boolean {
     if (admissionMeta && ["ADMISSION", "WON"].includes(stages.find((s) => s.id === toStageId)?.kind ?? "")) {

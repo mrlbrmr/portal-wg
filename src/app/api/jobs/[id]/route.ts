@@ -28,6 +28,7 @@ const updateJobSchema = z.object({
   benefits: z.string().optional().nullable(),
   workSchedule: z.string().optional().nullable(),
   salaryRange: z.string().optional().nullable(),
+  salary: z.number().positive().optional().nullable(),
   openings: z.number().int().positive().optional().nullable(),
   highlightBenefit: z.string().optional().nullable(),
   responsible: z.string().optional().nullable(),

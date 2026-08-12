@@ -109,6 +109,7 @@ export interface Job {
   benefits: string | null;
   workSchedule: string | null;
   salaryRange: string | null;
+  salary: number | null;
   openings: number | null;
   highlightBenefit: string | null;
   responsible: string | null;

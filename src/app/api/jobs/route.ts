@@ -31,6 +31,7 @@ const jobSchema = z
   benefits: z.string().optional().nullable(),
   workSchedule: z.string().optional(),
   salaryRange: z.string().optional(),
+  salary: z.number().positive().optional().nullable(),
   openings: z.number().int().positive().optional(),
   highlightBenefit: z.string().optional(),
   responsible: z.string().optional(),

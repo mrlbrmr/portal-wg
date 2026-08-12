@@ -41,13 +41,13 @@ export default async function CandidatosPage({ params }: Props) {
       .order("createdAt", { ascending: false }),
     supabase
       .from("application_stages")
-      .select("id, name, color, kind, templateId")
+      .select("id, name, color, kind, templateId, hideFromBoard")
       .eq("active", true)
       .order("sortOrder", { ascending: true }),
   ]);
 
   const rawStages = (stagesData ?? []) as Array<{
-    id: string; name: string; color: string; kind: string; templateId: string | null;
+    id: string; name: string; color: string; kind: string; templateId: string | null; hideFromBoard: boolean;
   }>;
   const testTemplateIds = rawStages
     .filter((s) => s.kind === "TEST" && s.templateId)
@@ -68,6 +68,7 @@ export default async function CandidatosPage({ params }: Props) {
 
   const allStages = rawStages.map((s) => ({
     ...s,
+    hideFromBoard: s.hideFromBoard ?? false,
     templateName: s.templateId ? (templateNames.get(s.templateId) ?? null) : null,
     templateKind: s.templateId ? (templateKinds.get(s.templateId) ?? null) : null,
   }));

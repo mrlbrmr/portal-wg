@@ -1,25 +1,99 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
-import { RichTextErrorBoundary } from "@/components/internal/RichTextErrorBoundary";
 import { useRouter } from "next/navigation";
 import { BRAZIL_STATES, isPublicJobStatus } from "@/lib/utils";
-import { Loader2, Check, ExternalLink } from "lucide-react";
+import { Check, ExternalLink, Eye, Loader2, Pencil } from "lucide-react";
 import type { Job } from "@/types/domain";
 
-// O editor rico carrega o Tiptap (pesado); só é baixado quando o formulário
-// é aberto, mantendo o restante dos campos rápido para renderizar.
-const RichTextEditor = dynamic(
-  () =>
-    import("@/components/internal/RichTextEditor").then((m) => m.RichTextEditor),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-[120px] animate-pulse rounded-lg border border-gray-300 bg-gray-50" />
-    ),
+const MARKDOWN_BOILERPLATE = [
+  "### Responsabilidades",
+  "",
+  "",
+  "### Requisitos Obrigatórios",
+  "",
+  "",
+  "### Requisitos Desejáveis",
+  "",
+  "",
+  "### Benefícios",
+  "",
+].join("\n");
+
+function inline(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code>$1</code>");
+}
+
+function markdownToHtml(md: string): string {
+  if (!md.trim()) {
+    return '<p style="color:#9ca3af;font-style:italic">Nenhum conteúdo ainda.</p>';
   }
-);
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let inList = false;
+
+  for (const line of lines) {
+    if (line.startsWith("### ")) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push(`<h3>${inline(line.slice(4))}</h3>`);
+    } else if (line.startsWith("## ")) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push(`<h2>${inline(line.slice(3))}</h2>`);
+    } else if (line.startsWith("# ")) {
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push(`<h1>${inline(line.slice(2))}</h1>`);
+    } else if (/^[-*] /.test(line)) {
+      if (!inList) { out.push("<ul>"); inList = true; }
+      out.push(`<li>${inline(line.slice(2))}</li>`);
+    } else if (line.trim() === "") {
+      if (inList) { out.push("</ul>"); inList = false; }
+    } else {
+      if (inList) { out.push("</ul>"); inList = false; }
+      out.push(`<p>${inline(line)}</p>`);
+    }
+  }
+  if (inList) out.push("</ul>");
+  return out.join("");
+}
+
+function maskBRL(digits: string): string {
+  const d = digits.replace(/\D/g, "").slice(0, 12);
+  if (!d) return "";
+  const cents = parseInt(d, 10);
+  const reais = Math.floor(cents / 100);
+  const centavos = cents % 100;
+  const reaisStr = reais.toLocaleString("pt-BR");
+  return `R$ ${reaisStr},${String(centavos).padStart(2, "0")}`;
+}
+
+function initialSalaryDigits(job?: Job): string {
+  if (!job?.salary) return "";
+  return String(Math.round(job.salary * 100));
+}
+
+// Ao editar vaga com campos legados, consolida tudo num único bloco markdown.
+function buildInitialContent(job?: Job): string {
+  if (!job) return MARKDOWN_BOILERPLATE;
+  const hasLegacy =
+    job.responsibilities ||
+    job.requiredRequirements ||
+    job.desiredRequirements ||
+    job.benefits;
+  if (!hasLegacy) return job.description ?? MARKDOWN_BOILERPLATE;
+  const parts: string[] = [];
+  if (job.description) parts.push(job.description);
+  if (job.responsibilities) parts.push(`## Responsabilidades\n${job.responsibilities}`);
+  if (job.requiredRequirements) parts.push(`## Requisitos Obrigatórios\n${job.requiredRequirements}`);
+  if (job.desiredRequirements) parts.push(`## Requisitos Desejáveis\n${job.desiredRequirements}`);
+  if (job.benefits) parts.push(`## Benefícios\n${job.benefits}`);
+  return parts.join("\n\n");
+}
 
 interface Props {
   job?: Job;
@@ -30,39 +104,21 @@ const inputClass =
 
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
-// Ao editar vaga com campos legados (5 seções separadas), consolida tudo num
-// único bloco para o RH editar livremente sem perder conteúdo.
-function buildInitialDescription(job?: Job): string {
-  if (!job) return "";
-  const hasLegacy = job.responsibilities || job.requiredRequirements || job.desiredRequirements || job.benefits;
-  if (!hasLegacy) return job.description ?? "";
-  const parts: string[] = [];
-  if (job.description) parts.push(job.description);
-  if (job.responsibilities) parts.push(`<h2>Responsabilidades</h2>${job.responsibilities}`);
-  if (job.requiredRequirements) parts.push(`<h2>Requisitos Obrigatórios</h2>${job.requiredRequirements}`);
-  if (job.desiredRequirements) parts.push(`<h2>Requisitos Desejáveis</h2>${job.desiredRequirements}`);
-  if (job.benefits) parts.push(`<h2>Benefícios</h2>${job.benefits}`);
-  return parts.join("");
-}
-
 export default function JobForm({ job }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [description, setDescription] = useState(() => buildInitialDescription(job));
-
+  const [editorTab, setEditorTab] = useState<"write" | "preview">("write");
+  const [mdContent, setMdContent] = useState(() => buildInitialContent(job));
   const [isTalentPool, setIsTalentPool] = useState(job?.isTalentPool ?? false);
-  const [salaryRange, setSalaryRange] = useState(job?.salaryRange ?? "");
-  const [highlightBenefit, setHighlightBenefit] = useState(
-    job?.highlightBenefit ?? ""
-  );
+  const [salaryDigits, setSalaryDigits] = useState(() => initialSalaryDigits(job));
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    if (description.replace(/<[^>]*>/g, "").trim().length < 10) {
+    if (mdContent.trim().length < 10) {
       setError('O campo "Conteúdo da vaga" é obrigatório (mínimo 10 caracteres).');
       return;
     }
@@ -71,6 +127,7 @@ export default function JobForm({ job }: Props) {
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const salaryValue = salaryDigits ? parseInt(salaryDigits, 10) / 100 : undefined;
 
     const body = {
       title: formData.get("title"),
@@ -81,18 +138,16 @@ export default function JobForm({ job }: Props) {
       state: isTalentPool ? null : formData.get("state"),
       modality: formData.get("modality"),
       contractType: formData.get("contractType"),
-      description,
-      // Nulifica campos legados para que a página pública exiba apenas description.
+      description: markdownToHtml(mdContent),
       responsibilities: null,
       requiredRequirements: null,
       desiredRequirements: null,
       benefits: null,
       workSchedule: formData.get("workSchedule") || undefined,
-      salaryRange: salaryRange || undefined,
+      salary: salaryValue,
       openings: formData.get("openings")
         ? Number(formData.get("openings"))
         : undefined,
-      highlightBenefit: highlightBenefit || undefined,
       closingDate: formData.get("closingDate") || null,
       hiringDeadline: formData.get("hiringDeadline") || null,
       responsible: formData.get("responsible") || undefined,
@@ -132,7 +187,9 @@ export default function JobForm({ job }: Props) {
       setSaved(true);
       setTimeout(() => router.push("/vagas/gerenciar"), 800);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro de conexão. Tente novamente.");
+      setError(
+        err instanceof Error ? err.message : "Erro de conexão. Tente novamente."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -176,12 +233,13 @@ export default function JobForm({ job }: Props) {
         </div>
 
         <div>
-          <label className={labelClass}>Faixa Salarial</label>
+          <label className={labelClass}>Salário Fixo</label>
           <input
             type="text"
-            value={salaryRange}
-            onChange={(e) => setSalaryRange(e.target.value)}
-            placeholder="Ex: R$ 2.500 – R$ 3.000"
+            inputMode="numeric"
+            value={maskBRL(salaryDigits)}
+            onChange={(e) => setSalaryDigits(e.target.value.replace(/\D/g, ""))}
+            placeholder="R$ 0,00"
             className={inputClass}
           />
         </div>
@@ -194,17 +252,6 @@ export default function JobForm({ job }: Props) {
             defaultValue={job?.openings ?? ""}
             min={1}
             placeholder="Ex: 2"
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className={labelClass}>Benefício em Destaque</label>
-          <input
-            type="text"
-            value={highlightBenefit}
-            onChange={(e) => setHighlightBenefit(e.target.value)}
-            placeholder="Ex: Plano de Saúde"
             className={inputClass}
           />
         </div>
@@ -364,7 +411,9 @@ export default function JobForm({ job }: Props) {
         </div>
 
         <div className="col-span-2 border-t border-gray-200 pt-4">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Informações internas (não aparecem no portal)</p>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+            Informações internas (não aparecem no portal)
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Responsável pelo processo</label>
@@ -394,24 +443,60 @@ export default function JobForm({ job }: Props) {
         </div>
       </div>
 
+      {/* Editor de Markdown com abas Escrever / Visualizar */}
       <div>
-        <label className={labelClass}>
-          Conteúdo da vaga <span className="text-red-500">*</span>
-        </label>
-        <RichTextErrorBoundary
-          fallback={
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full min-h-[120px] rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y"
-              placeholder="O editor não pôde carregar. Digite o conteúdo aqui."
-            />
-          }
-        >
-          <RichTextEditor content={description} onChange={setDescription} />
-        </RichTextErrorBoundary>
+        <div className="flex items-center justify-between mb-1">
+          <label className={labelClass}>
+            Conteúdo da vaga <span className="text-red-500">*</span>
+          </label>
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setEditorTab("write")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                editorTab === "write"
+                  ? "bg-wg-green/10 text-wg-green-dark"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Pencil className="w-3 h-3" />
+              Escrever
+            </button>
+            <div className="w-px bg-gray-200 self-stretch" />
+            <button
+              type="button"
+              onClick={() => setEditorTab("preview")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                editorTab === "preview"
+                  ? "bg-wg-green/10 text-wg-green-dark"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Eye className="w-3 h-3" />
+              Visualizar
+            </button>
+          </div>
+        </div>
+
+        {editorTab === "write" ? (
+          <textarea
+            value={mdContent}
+            onChange={(e) => setMdContent(e.target.value)}
+            rows={14}
+            placeholder="Use Markdown para estruturar a vaga..."
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors font-mono resize-y"
+          />
+        ) : (
+          <div
+            className="min-h-[200px] rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-gray-800 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_li]:mb-1 [&_strong]:font-semibold [&_em]:italic [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:rounded [&_code]:text-xs"
+            dangerouslySetInnerHTML={{ __html: markdownToHtml(mdContent) }}
+          />
+        )}
         <p className="text-xs text-gray-500 mt-1">
-          Escreva livremente — use os títulos do editor para organizar seções como Responsabilidades, Requisitos e Benefícios.
+          Use Markdown:{" "}
+          <code className="text-xs bg-gray-100 px-1 rounded">### Título</code>,{" "}
+          <code className="text-xs bg-gray-100 px-1 rounded">- item</code>,{" "}
+          <code className="text-xs bg-gray-100 px-1 rounded">**negrito**</code>
         </p>
       </div>
 

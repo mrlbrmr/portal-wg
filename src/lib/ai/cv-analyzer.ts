@@ -1,6 +1,6 @@
 // Análise de currículo via Groq (llama-3.3-70b-versatile) — extração de texto do PDF + score de aderência à vaga.
-// Usa pdfjs-dist diretamente (sem pdf-parse) para evitar o bug "Command token too long" do pdfjs antigo.
-// Import dinâmico evita problemas de inicialização no bundle do Next.js.
+// Usa unpdf (wrapper Node.js/edge-compatível sobre pdfjs-dist) para evitar problemas de APIs de browser
+// como DOMMatrix ausente no Node.js e o bug "Command token too long" do pdf-parse antigo.
 
 export interface CvProfile {
   experienceYears: number | null
@@ -42,34 +42,13 @@ export interface CvProfileExtraction extends CvProfile {
 }
 
 /**
- * Extrai texto de um buffer PDF usando pdfjs-dist.
- * Substitui pdf-parse que falha com "Command token too long" em alguns PDFs válidos.
+ * Extrai texto de um buffer PDF usando unpdf (wrapper serverless-compatível do pdfjs-dist).
+ * Evita os bugs do pdf-parse (token too long) e do pdfjs-dist cru (DOMMatrix not defined).
  */
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  const pdfjsLib = await import('pdfjs-dist')
-
-  // FakeWorker: roda inline no processo Node.js, sem web worker
-  pdfjsLib.GlobalWorkerOptions.workerSrc = ''
-
-  const loadingTask = pdfjsLib.getDocument({
-    data: new Uint8Array(buffer),
-    useSystemFonts: true,
-    disableFontFace: true,
-  })
-
-  const pdf = await loadingTask.promise
-  const pageTexts: string[] = []
-
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
-    const textContent = await page.getTextContent()
-    const text = textContent.items
-      .map((item) => ('str' in item ? (item as { str: string }).str : ''))
-      .join(' ')
-    pageTexts.push(text)
-  }
-
-  return pageTexts.join('\n').trim()
+  const { extractText } = await import('unpdf')
+  const { text } = await extractText(new Uint8Array(buffer))
+  return (Array.isArray(text) ? text.join('\n') : String(text)).trim()
 }
 
 /**

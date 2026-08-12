@@ -107,9 +107,22 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
 
 // ─── Análise de aderência à vaga (com contexto) ───────────────────────────────
 
-const SYSTEM_PROMPT = `Você é um especialista em recrutamento e seleção. Analise o currículo fornecido em relação à vaga descrita e retorne APENAS um JSON válido, sem markdown, sem texto fora do JSON.
+const SYSTEM_PROMPT = `Você é um recrutador sênior experiente. Analise o currículo em relação à vaga e retorne APENAS JSON válido, sem markdown, sem texto fora do JSON.
 
-Formato obrigatório:
+COMO CALCULAR O fitScore:
+Avalie os 4 critérios abaixo de 0 a 100 e aplique os pesos para obter o score final:
+  A. Experiência relevante (peso 35%): anos/meses de experiência diretamente relacionada à função
+  B. Competências técnicas (peso 30%): habilidades exigidas que o candidato demonstra no currículo
+  C. Histórico de cargo (peso 20%): proximidade dos cargos anteriores com o cargo ofertado
+  D. Formação acadêmica (peso 15%): compatibilidade da formação com os requisitos da vaga
+
+fitScore = round(A*0.35 + B*0.30 + C*0.20 + D*0.15)
+
+REGRA CRÍTICA DO fitScore: o resultado NUNCA deve ser múltiplo exato de 5 ou 10.
+Se o cálculo resultar em múltiplo de 5 (ex: 70, 75, 80), ajuste ±1 ou ±2 pontos com base
+nos detalhes do currículo. Use números como 67, 73, 78, 82, 91 — nunca 70, 75, 80, 85.
+
+Formato JSON obrigatório:
 {
   "profile": {
     "experienceYears": number | null,
@@ -117,18 +130,23 @@ Formato obrigatório:
     "lastPosition": string | null,
     "skills": [string]
   },
-  "fitScore": number entre 0 e 100,
-  "fitReason": "2 a 3 frases explicando o score de aderência",
-  "strengths": ["ponto forte 1", "ponto forte 2", "ponto forte 3"],
-  "gaps": ["lacuna 1", "lacuna 2", "lacuna 3"]
+  "fitScore": number inteiro entre 0 e 100,
+  "fitReason": "3 a 4 frases citando dados concretos do currículo (cargo, tempo, empresa) e comparando com requisitos específicos da vaga. Exemplo: 'O candidato atuou X anos como Y na empresa Z, atendendo ao requisito de experiência em W. Sua formação em... alinha-se com...'",
+  "strengths": [
+    "Cite a evidência específica do currículo (cargo, empresa, tempo, habilidade) e explique como ela atende a um requisito concreto da vaga",
+    "...",
+    "..."
+  ],
+  "gaps": [
+    "Cite o que a vaga exige explicitamente e o que está ausente ou insuficiente no currículo do candidato",
+    "...",
+    "..."
+  ]
 }
 
-Regras:
-- fitScore 80-100: candidato muito alinhado à vaga
-- fitScore 60-79: candidato com bom potencial, alguns gaps
-- fitScore 40-59: perfil parcial, gaps relevantes
-- fitScore 0-39: perfil com pouca aderência à vaga
-- Seja objetivo e específico nos strengths/gaps, referenciando a vaga
+Regras adicionais:
+- Em strengths e gaps, sempre nomeie evidências reais: empresa, cargo, período, habilidade ou formação
+- Se a vaga exige algo que o currículo não menciona, sinalize como lacuna com clareza
 - Responda em português brasileiro`
 
 export async function analyzeCv(
@@ -170,7 +188,7 @@ export async function analyzeCv(
 
   const response = await client.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: userPrompt },

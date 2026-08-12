@@ -67,7 +67,7 @@ export default function InternalShell({ user, children }: Props) {
           <div
             className={[
               "fixed top-11 left-0 bottom-0 z-40",
-              "md:relative md:top-auto md:bottom-auto md:z-auto",
+              "md:sticky md:top-0 md:h-screen md:z-auto",
               "transition-all duration-200 ease-in-out overflow-hidden",
               sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
               hydrated && collapsed ? "md:w-0" : "md:w-[232px]",

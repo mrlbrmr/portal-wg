@@ -80,8 +80,12 @@ export async function POST(req: NextRequest) {
   const horario: string = formData["horario"] ?? "";
   const local: string = formData["local"] ?? "";
   const motivo: string = formData["motivo"] ?? "";
-  const requisitosObrigatorios: string = formData["requisitosObrigatorios"] ?? "";
-  const requisitosDesejaveis: string = formData["requisitosDesejaveis"] ?? "";
+  // Retrocompatibilidade: aceita campo unificado "perfil" ou os legados separados
+  const perfil: string =
+    formData["perfil"] ??
+    [formData["requisitosObrigatorios"], formData["requisitosDesejaveis"]]
+      .filter(Boolean)
+      .join("\n\n");
   const observacoes: string = formData["observacoes"] ?? "";
 
   // Gerar slug único
@@ -97,14 +101,11 @@ export async function POST(req: NextRequest) {
   // Constrói description em Markdown: o JobForm lê este campo diretamente
   // (campos legados responsibilities/requiredRequirements ficam null).
   const descriptionSections: string[] = [];
-  if (requisitosObrigatorios) {
-    descriptionSections.push(`### Requisitos Obrigatórios\n\n${requisitosObrigatorios}`);
-  }
-  if (requisitosDesejaveis) {
-    descriptionSections.push(`### Requisitos Desejáveis\n\n${requisitosDesejaveis}`);
+  if (perfil) {
+    descriptionSections.push(`### Perfil do candidato\n\n${perfil}`);
   }
   if (observacoes) {
-    descriptionSections.push(`### Observações\n\n${observacoes}`);
+    descriptionSections.push(`### Outras informações\n\n${observacoes}`);
   }
   const metaParts: string[] = [];
   if (gestor) metaParts.push(`Solicitante: **${gestor}**`);

@@ -381,10 +381,10 @@ export function CandidateDrawer({
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  title="Editar dados do candidato"
-                  className="rounded-lg p-1.5 text-[#55614A] transition-colors hover:bg-[#EEF1E7] hover:text-[#1A2213]"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11.5px] font-bold text-[#4F6930] bg-[#EEF1E7] hover:bg-[#DCE8CC] transition-colors"
                 >
-                  <Edit2 className="h-4 w-4" />
+                  <Edit2 className="h-3.5 w-3.5" />
+                  Editar
                 </button>
               )}
               <button

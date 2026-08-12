@@ -210,28 +210,25 @@ function CheckIcon() {
 }
 
 // ─── ActivityRow ──────────────────────────────────────────────────────────────
-// Linha clicável inteira via <label>; checkbox + texto + badges em linha.
-// Estado "selecionado" mostra riscado + cinza; "concluindo" mostra animação.
+// Clicar no checkbox salva imediatamente (sem segundo passo "Concluir todas").
+// O estado `completing` é definido de forma síncrona antes do startTransition,
+// por isso a resposta visual é imediata (< 16 ms).
 
 function ActivityRow({
   item,
   todayStr,
   urgency,
   fullName,
-  checked,
   completing,
-  onToggle,
+  onComplete,
 }: {
   item: WidgetItem;
   todayStr: string;
   urgency: UrgencyBucket;
   fullName: string;
-  checked: boolean;
   completing: boolean;
-  onToggle: (id: string) => void;
+  onComplete: (id: string) => void;
 }) {
-  const isDone = completing || checked;
-
   return (
     <label
       className="flex items-center gap-2.5 py-2.5 px-3 rounded-lg hover:bg-[#F5F7F3] cursor-pointer transition-colors"
@@ -248,9 +245,9 @@ function ActivityRow({
       ) : (
         <input
           type="checkbox"
-          checked={checked}
-          onChange={() => onToggle(item.id)}
-          aria-label={`Selecionar: ${item.name}`}
+          checked={false}
+          onChange={() => onComplete(item.id)}
+          aria-label={`Concluir: ${item.name}`}
           className="w-3.5 h-3.5 shrink-0 cursor-pointer accent-[#90CB46]"
           onClick={(e) => e.stopPropagation()}
         />
@@ -261,18 +258,18 @@ function ActivityRow({
           <span
             className="text-[13px] font-medium leading-snug"
             style={{
-              color: isDone ? "#9CA3AF" : undefined,
-              textDecoration: isDone ? "line-through" : "none",
+              color: completing ? "#9CA3AF" : undefined,
+              textDecoration: completing ? "line-through" : "none",
               transition: "color 0.2s, text-decoration 0.2s",
             }}
           >
             {item.name}
           </span>
 
-          {!isDone && urgency === "overdue" && (
+          {!completing && urgency === "overdue" && (
             <OverdueBadge dueDate={item.dueDate} todayStr={todayStr} />
           )}
-          {!isDone && urgency === "upcoming" && (
+          {!completing && urgency === "upcoming" && (
             <span className="text-[10.5px] text-wg-ink-muted shrink-0">
               {ptBRDate(item.dueDate)}
             </span>
@@ -303,30 +300,29 @@ function ActivityRow({
 
 // ─── BucketSection ────────────────────────────────────────────────────────────
 // Renderiza um bloco de urgência (Atrasadas / Hoje / Próximos 3 dias) com seus
-// grupos de checklist. "Concluir todas" virou link de texto discreto abaixo.
+// grupos de checklist. Checkbox individual salva na hora; "Concluir todas" é
+// um link de texto discreto para marcar tudo de uma vez.
 
 function BucketSection({
   bucket,
   todayStr,
   fullName,
-  selected,
   completing,
   isPending,
-  onToggle,
+  onComplete,
   onBatch,
 }: {
   bucket: BucketData;
   todayStr: string;
   fullName: string;
-  selected: Set<string>;
   completing: Set<string>;
   isPending: boolean;
-  onToggle: (id: string) => void;
+  onComplete: (id: string) => void;
   onBatch: (ids: string[]) => void;
 }) {
   const cfg = URGENCY_CFG[bucket.urgency];
   const allIds = bucket.sections.flatMap((s) => s.items.map((i) => i.id));
-  const selectedInBucket = allIds.filter((id) => selected.has(id));
+  const pendingCount = allIds.filter((id) => !completing.has(id)).length;
 
   return (
     <div className="px-4 pt-3 pb-2">
@@ -363,34 +359,26 @@ function BucketSection({
                 todayStr={todayStr}
                 urgency={bucket.urgency}
                 fullName={fullName}
-                checked={selected.has(item.id)}
                 completing={completing.has(item.id)}
-                onToggle={onToggle}
+                onComplete={onComplete}
               />
             ))}
           </div>
         </div>
       ))}
 
-      {/* Ações em lote — "Concluir todas" como link discreto */}
-      <div className="flex items-center gap-3 px-3 pt-1.5">
-        {selectedInBucket.length > 0 && (
+      {/* "Concluir todas" — link discreto; só aparece se há pendentes */}
+      {pendingCount > 0 && (
+        <div className="px-3 pt-1.5">
           <button
-            onClick={() => onBatch(selectedInBucket)}
+            onClick={() => onBatch(allIds.filter((id) => !completing.has(id)))}
             disabled={isPending}
-            className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#EAF4DC] text-[#3E5A2A] hover:bg-[#D7ECC4] transition-colors disabled:opacity-50"
+            className="text-[11px] text-wg-ink-muted hover:text-wg-ink underline-offset-2 hover:underline transition-colors disabled:opacity-50"
           >
-            {isPending ? "…" : `Concluir selecionadas (${selectedInBucket.length})`}
+            {isPending ? "Concluindo…" : `Concluir todas (${pendingCount})`}
           </button>
-        )}
-        <button
-          onClick={() => onBatch(allIds)}
-          disabled={isPending}
-          className="text-[11px] text-wg-ink-muted hover:text-wg-ink underline-offset-2 hover:underline transition-colors disabled:opacity-50"
-        >
-          {isPending ? "Concluindo…" : "Concluir todas"}
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -411,18 +399,24 @@ function MasterAdmissionCard({
   const { admission, buckets } = group;
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(true);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [completing, setCompleting] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   const companyInfo = [admission.companyName, admission.branchName].filter(Boolean).join(" · ");
 
-  function toggleItem(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  // Clique individual: o estado `completing` é atualizado de forma síncrona
+  // (fora do startTransition) → feedback visual imediato antes do round-trip.
+  function handleComplete(itemId: string) {
+    if (completing.has(itemId)) return;
+    setCompleting((prev) => new Set([...prev, itemId]));
+    startTransition(async () => {
+      await setBatchItemsDone(admission.id, [itemId]);
+      setCompleting((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+      router.refresh();
     });
   }
 
@@ -431,7 +425,6 @@ function MasterAdmissionCard({
     setCompleting((prev) => new Set([...prev, ...itemIds]));
     startTransition(async () => {
       await setBatchItemsDone(admission.id, itemIds);
-      setSelected(new Set());
       setCompleting(new Set());
       router.refresh();
     });
@@ -511,10 +504,9 @@ function MasterAdmissionCard({
                 bucket={bucket}
                 todayStr={todayStr}
                 fullName={admission.fullName}
-                selected={selected}
                 completing={completing}
                 isPending={isPending}
-                onToggle={toggleItem}
+                onComplete={handleComplete}
                 onBatch={handleBatch}
               />
             ))}

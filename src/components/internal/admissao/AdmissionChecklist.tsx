@@ -148,12 +148,14 @@ export function AdmissionChecklist({ admissionId, canManage, groups, templates }
     });
   }
 
-  function runCheck(itemId: string, currentChecked: boolean, setOptimistic: (v: boolean) => void) {
+  function runCheck(itemId: string, currentChecked: boolean, onError?: () => void) {
     const nextValue = !currentChecked;
     startTransition(async () => {
-      setOptimistic(nextValue);
       const res = await setChecklistItemDone(admissionId, itemId, nextValue);
-      if (!res.ok) notify("error", res.error);
+      if (!res.ok) {
+        onError?.();
+        notify("error", res.error);
+      }
     });
   }
 
@@ -547,7 +549,7 @@ interface RowContext {
   toggleItemCollapse: (id: string) => void;
   hideDone: boolean;
   run: (fn: () => Promise<ActionResult>) => void;
-  runCheck: (itemId: string, currentChecked: boolean, setOptimistic: (v: boolean) => void) => void;
+  runCheck: (itemId: string, currentChecked: boolean, onError?: () => void) => void;
   dragId: string | null;
   dragScope: string | null;
   dragOverId: string | null;
@@ -646,7 +648,9 @@ function ItemRow({
             }}
             onClick={() => {
               if (!canManage) return;
-              ctx.runCheck(item.id, checked, setOptimisticChecked);
+              // Atualiza visualmente de forma síncrona — antes do startTransition
+              setOptimisticChecked(!checked);
+              ctx.runCheck(item.id, checked, () => setOptimisticChecked(checked));
             }}
           >
             {optimisticChecked ? "✓" : ""}

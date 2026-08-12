@@ -117,9 +117,8 @@ export async function PATCH(
     ...(title !== undefined ? { title } : {}),
     ...(city !== undefined ? { city } : {}),
     ...slugUpdate,
-    // Colunas NOT NULL no banco: null do form (limpar legado) vira string vazia.
-    ...(rest.responsibilities === null ? { responsibilities: "" } : {}),
-    ...(rest.requiredRequirements === null ? { requiredRequirements: "" } : {}),
+    // responsibilities e requiredRequirements são nullable desde 20260811000000.
+    // null passa direto; sem override necessário.
     ...(closingDate !== undefined
       ? { closingDate: closingDate ? new Date(closingDate).toISOString() : null }
       : {}),

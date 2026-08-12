@@ -94,11 +94,28 @@ export async function POST(req: NextRequest) {
     slug = `${baseSlug}-${++counter}`;
   }
 
-  const descriptionParts = [
-    `Solicitação de abertura de vaga enviada por ${gestor || "gestor não informado"}.`,
-    motivo ? `Motivo: ${motivo}.` : "",
-    observacoes ? `Observações: ${observacoes}` : "",
-  ].filter(Boolean);
+  // Constrói description em Markdown: o JobForm lê este campo diretamente
+  // (campos legados responsibilities/requiredRequirements ficam null).
+  const descriptionSections: string[] = [];
+  if (requisitosObrigatorios) {
+    descriptionSections.push(`### Requisitos Obrigatórios\n\n${requisitosObrigatorios}`);
+  }
+  if (requisitosDesejaveis) {
+    descriptionSections.push(`### Requisitos Desejáveis\n\n${requisitosDesejaveis}`);
+  }
+  if (observacoes) {
+    descriptionSections.push(`### Observações\n\n${observacoes}`);
+  }
+  const metaParts: string[] = [];
+  if (gestor) metaParts.push(`Solicitante: **${gestor}**`);
+  if (motivo) metaParts.push(`Motivo: **${motivo}**`);
+  if (metaParts.length > 0) {
+    descriptionSections.push(`---\n\n${metaParts.join(" · ")}`);
+  }
+  const description =
+    descriptionSections.length > 0
+      ? descriptionSections.join("\n\n")
+      : "Vaga a definir pelo time de Gente & Gestão.";
 
   // Criar vaga DRAFT
   const { data: job, error: jobError } = await supabase
@@ -109,10 +126,10 @@ export async function POST(req: NextRequest) {
       workSchedule: horario || null,
       company: local || null,
       department: motivo || null,
-      requiredRequirements: requisitosObrigatorios || "A definir.",
-      desiredRequirements: requisitosDesejaveis || null,
-      description: descriptionParts.join(" "),
-      responsibilities: "A definir pelo time de Gente & Gestão.",
+      description,
+      responsibilities: null,
+      requiredRequirements: null,
+      desiredRequirements: null,
       modality: "PRESENTIAL",
       contractType: "CLT",
       status: "DRAFT",

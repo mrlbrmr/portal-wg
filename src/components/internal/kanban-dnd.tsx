@@ -9,6 +9,8 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
 /**
@@ -82,6 +84,48 @@ export function KanbanCard({ id, draggable, className = "", children }: CardProp
           {...attributes}
           title="Arraste para mover"
           aria-label="Arraste para mover"
+          className="absolute left-1 top-1.5 cursor-grab touch-none rounded p-0.5 text-gray-300 transition-colors hover:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-wg-green active:cursor-grabbing"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** Card sortável: draggable + droppable via useSortable (para reordenar dentro da coluna). */
+export function KanbanSortableCard({ id, draggable, className = "", children }: CardProps) {
+  const {
+    setNodeRef,
+    setActivatorNodeRef,
+    listeners,
+    attributes,
+    isDragging,
+    transform,
+    transition,
+  } = useSortable({ id, disabled: !draggable });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`relative rounded-xl bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,.05)] ${
+        draggable ? "pl-7" : ""
+      } ${
+        isDragging
+          ? "opacity-40 ring-2 ring-wg-green/20"
+          : "hover:shadow-[0_8px_22px_rgba(0,0,0,.08)]"
+      } ${className}`}
+    >
+      {draggable && (
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...listeners}
+          {...attributes}
+          title="Arraste para reordenar"
+          aria-label="Arraste para reordenar"
           className="absolute left-1 top-1.5 cursor-grab touch-none rounded p-0.5 text-gray-300 transition-colors hover:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-wg-green active:cursor-grabbing"
         >
           <GripVertical className="h-4 w-4" />

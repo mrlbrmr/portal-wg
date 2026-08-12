@@ -36,8 +36,9 @@ export default async function CandidatosPage({ params }: Props) {
   const [{ data: applications }, { data: stagesData }] = await Promise.all([
     supabase
       .from("applications")
-      .select("id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, assessments:application_assessments(id)")
+      .select("id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, assessments:application_assessments(id)")
       .eq("jobId", id)
+      .order("sort_order", { ascending: true, nullsFirst: false })
       .order("createdAt", { ascending: false }),
     supabase
       .from("application_stages")
@@ -94,6 +95,7 @@ export default async function CandidatosPage({ params }: Props) {
     source: string;
     createdAt: string;
     cv_extraction_status: string;
+    sort_order: number | null;
     assessments: Array<{ id: string }>;
   }>;
 
@@ -212,7 +214,17 @@ export default async function CandidatosPage({ params }: Props) {
     aiScore: aiScoreByApp.get(a.id),
     cvExtractionStatus: a.cv_extraction_status ?? undefined,
     bigFiveDone: bigFiveDoneSet.has(a.id),
+    sortOrder: a.sort_order ?? undefined,
   }));
+
+  // Ordena: sort_order explícito primeiro, depois por aiScore desc (padrão).
+  // A filtragem por coluna no Kanban preserva esta ordem relativa.
+  cards.sort((a, b) => {
+    if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder;
+    if (a.sortOrder != null) return -1;
+    if (b.sortOrder != null) return 1;
+    return (b.aiScore ?? -1) - (a.aiScore ?? -1);
+  });
 
   const canManage = session?.user.role === "ADMIN_RH";
 

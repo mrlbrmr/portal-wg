@@ -31,6 +31,8 @@ export interface KanbanApplication {
   cvExtractionStatus?: string;
   /** true se o candidato já concluiu alguma sessão de Big Five (independente da etapa atual). */
   bigFiveDone?: boolean;
+  /** Posição de ordenação manual (null = sem ordem definida → usa aiScore). */
+  sortOrder?: number;
 }
 
 export interface KanbanStage {
@@ -224,6 +226,17 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
           body: JSON.stringify({ stageId }),
         })
       }
+      onReorder={async (ids) => {
+        const res = await fetch("/api/applications/reorder", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orders: ids.map((id, index) => ({ id, sortOrder: index })),
+          }),
+        });
+        if (!res.ok) throw new Error("Erro ao salvar ordem");
+      }}
       onBeforeMove={handleBeforeMove}
       moveSuccess={(a, label) => `${a.fullName} movido para ${label}.`}
       moveError="Erro ao mover candidatura."

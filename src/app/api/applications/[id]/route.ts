@@ -98,6 +98,10 @@ export async function PATCH(
 
   const update: Record<string, unknown> = {};
   if (parsed.data.stageId !== undefined) update.stageId = parsed.data.stageId;
+  // Ao mudar de etapa, reseta sort_order → o card entra no fim da nova coluna por aiScore.
+  if (parsed.data.stageId !== undefined && parsed.data.stageId !== current.stageId) {
+    update.sort_order = null;
+  }
   if (parsed.data.notes !== undefined) update.notes = parsed.data.notes;
   if (parsed.data.fullName !== undefined) update.fullName = parsed.data.fullName.trim();
   if (parsed.data.email !== undefined) update.email = parsed.data.email.trim().toLowerCase();

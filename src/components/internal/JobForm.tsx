@@ -66,10 +66,9 @@ function maskBRL(digits: string): string {
   const d = digits.replace(/\D/g, "").slice(0, 12);
   if (!d) return "";
   const cents = parseInt(d, 10);
-  const reais = Math.floor(cents / 100);
-  const centavos = cents % 100;
-  const reaisStr = reais.toLocaleString("pt-BR");
-  return `R$ ${reaisStr},${String(centavos).padStart(2, "0")}`;
+  const reaisStr = Math.floor(cents / 100).toLocaleString("pt-BR");
+  const centavos = String(cents % 100).padStart(2, "0");
+  return `R$ ${reaisStr},${centavos}`;
 }
 
 function initialSalaryDigits(job?: Job): string {
@@ -77,7 +76,6 @@ function initialSalaryDigits(job?: Job): string {
   return String(Math.round(job.salary * 100));
 }
 
-// Ao editar vaga com campos legados, consolida tudo num único bloco markdown.
 function buildInitialContent(job?: Job): string {
   if (!job) return MARKDOWN_BOILERPLATE;
   const hasLegacy =
@@ -104,6 +102,8 @@ const inputClass =
 
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
+const sectionTitle = "text-xs font-semibold text-gray-400 uppercase tracking-wider";
+
 export default function JobForm({ job }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -113,6 +113,7 @@ export default function JobForm({ job }: Props) {
   const [mdContent, setMdContent] = useState(() => buildInitialContent(job));
   const [isTalentPool, setIsTalentPool] = useState(job?.isTalentPool ?? false);
   const [salaryDigits, setSalaryDigits] = useState(() => initialSalaryDigits(job));
+  const [salaryHidden, setSalaryHidden] = useState(() => job?.salaryRange === "A combinar");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -144,7 +145,8 @@ export default function JobForm({ job }: Props) {
       desiredRequirements: null,
       benefits: null,
       workSchedule: formData.get("workSchedule") || undefined,
-      salary: salaryValue,
+      salary: salaryHidden ? null : (salaryValue ?? undefined),
+      salaryRange: salaryHidden ? "A combinar" : undefined,
       openings: formData.get("openings")
         ? Number(formData.get("openings"))
         : undefined,
@@ -197,254 +199,279 @@ export default function JobForm({ job }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <label className={labelClass}>
-            Título da vaga <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="title"
-            required
-            defaultValue={job?.title}
-            className={inputClass}
-          />
-        </div>
 
-        <div>
-          <label className={labelClass}>Área / Departamento</label>
-          <input
-            type="text"
-            name="department"
-            defaultValue={job?.department ?? ""}
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className={labelClass}>Empresa / Unidade</label>
-          <input
-            type="text"
-            name="company"
-            defaultValue={job?.company ?? ""}
-            placeholder="Ex: WG Baterias SP"
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className={labelClass}>Salário Fixo</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={maskBRL(salaryDigits)}
-            onChange={(e) => setSalaryDigits(e.target.value.replace(/\D/g, ""))}
-            placeholder="R$ 0,00"
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className={labelClass}>Quantidade de Vagas</label>
-          <input
-            type="number"
-            name="openings"
-            defaultValue={job?.openings ?? ""}
-            min={1}
-            placeholder="Ex: 2"
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className={labelClass}>
-            Status <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="status"
-            defaultValue={job?.status || "ACTIVE"}
-            className={inputClass}
-          >
-            <option value="DRAFT" className="bg-white">Rascunho — só no painel</option>
-            <option value="ACTIVE" className="bg-white">Ativa — publicada no portal</option>
-            <option value="SCREENING" className="bg-white">Triagem — no portal (etapa interna)</option>
-            <option value="INTERVIEW" className="bg-white">Entrevistas — no portal (etapa interna)</option>
-            <option value="ADMISSION" className="bg-white">Admissão — no portal (etapa interna)</option>
-            <option value="PAUSED" className="bg-white">Pausada — fora do portal</option>
-            <option value="CLOSED" className="bg-white">Cancelada — fora do portal</option>
-            <option value="FILLED" className="bg-white">Finalizada — fora do portal</option>
-          </select>
-        </div>
-
-        <div>
-          <label className={labelClass}>
-            Prioridade <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="priority"
-            defaultValue={job?.priority || "MEDIUM"}
-            className={inputClass}
-          >
-            <option value="LOW" className="bg-white">Baixa</option>
-            <option value="MEDIUM" className="bg-white">Média</option>
-            <option value="HIGH" className="bg-white">Alta</option>
-            <option value="URGENT" className="bg-white">Urgente</option>
-          </select>
-        </div>
-
-        <div className="col-span-2">
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+      {/* ── Dados Principais ────────────────────────────────── */}
+      <div>
+        <p className={sectionTitle}>Dados Principais</p>
+        <div className="mt-3 grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className={labelClass}>
+              Título da vaga <span className="text-red-500">*</span>
+            </label>
             <input
-              type="checkbox"
-              checked={isTalentPool}
-              onChange={(e) => setIsTalentPool(e.target.checked)}
-              className="w-4 h-4 accent-wg-green"
+              type="text"
+              name="title"
+              required
+              defaultValue={job?.title}
+              className={inputClass}
             />
-            <span className="text-sm font-medium text-gray-700">
-              Banco de Talentos
-            </span>
-            <span className="text-xs text-gray-500">
-              — coleta de currículos, sem cidade específica (múltiplas filiais)
-            </span>
-          </label>
-        </div>
+          </div>
 
-        {!isTalentPool && (
-          <>
-            <div>
-              <label className={labelClass}>
-                Cidade <span className="text-red-500">*</span>
-              </label>
+          <div>
+            <label className={labelClass}>Área / Departamento</label>
+            <input
+              type="text"
+              name="department"
+              defaultValue={job?.department ?? ""}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Empresa / Unidade</label>
+            <input
+              type="text"
+              name="company"
+              defaultValue={job?.company ?? ""}
+              placeholder="Ex: WG Baterias SP"
+              className={inputClass}
+            />
+          </div>
+
+          {/* Salário Fixo com toggle A combinar */}
+          <div>
+            <label className={labelClass}>Salário Fixo</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={salaryHidden ? "" : maskBRL(salaryDigits)}
+              onChange={(e) => setSalaryDigits(e.target.value.replace(/\D/g, ""))}
+              placeholder={salaryHidden ? "A combinar" : "R$ 0,00"}
+              disabled={salaryHidden}
+              className={`${inputClass} ${salaryHidden ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
+            />
+            <label className="mt-1.5 flex items-center gap-2 cursor-pointer select-none">
               <input
-                type="text"
-                name="city"
-                required
-                defaultValue={job?.city ?? ""}
-                className={inputClass}
+                type="checkbox"
+                checked={salaryHidden}
+                onChange={(e) => setSalaryHidden(e.target.checked)}
+                className="w-3.5 h-3.5 accent-wg-green"
               />
-            </div>
+              <span className="text-xs text-gray-500">Ocultar salário / A combinar</span>
+            </label>
+          </div>
 
-            <div>
-              <label className={labelClass}>
-                UF <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="state"
-                required
-                defaultValue={job?.state ?? "SP"}
-                className={inputClass}
-              >
-                {BRAZIL_STATES.map((uf) => (
-                  <option key={uf} value={uf} className="bg-white">
-                    {uf}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
+          <div>
+            <label className={labelClass}>Quantidade de Vagas</label>
+            <input
+              type="number"
+              name="openings"
+              defaultValue={job?.openings ?? ""}
+              min={1}
+              placeholder="Ex: 2"
+              className={inputClass}
+            />
+          </div>
+        </div>
+      </div>
 
-        <div>
-          <label className={labelClass}>
-            Modalidade <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="modality"
-            defaultValue={job?.modality || "PRESENTIAL"}
-            className={inputClass}
-          >
-            <option value="PRESENTIAL" className="bg-white">Presencial</option>
-            <option value="REMOTE" className="bg-white">Remoto</option>
-            <option value="HYBRID" className="bg-white">Híbrido</option>
-          </select>
+      {/* ── Localização e Formato ────────────────────────────── */}
+      <div className="border-t border-gray-100 pt-5">
+        <p className={sectionTitle}>Localização e Formato</p>
+        <div className="mt-3 grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isTalentPool}
+                onChange={(e) => setIsTalentPool(e.target.checked)}
+                className="w-4 h-4 accent-wg-green"
+              />
+              <span className="text-sm font-medium text-gray-700">Banco de Talentos</span>
+              <span className="text-xs text-gray-500">
+                — coleta de currículos, sem cidade específica (múltiplas filiais)
+              </span>
+            </label>
+          </div>
+
+          {!isTalentPool && (
+            <>
+              <div>
+                <label className={labelClass}>
+                  Cidade <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  required
+                  defaultValue={job?.city ?? ""}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  UF <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="state"
+                  required
+                  defaultValue={job?.state ?? "SP"}
+                  className={inputClass}
+                >
+                  {BRAZIL_STATES.map((uf) => (
+                    <option key={uf} value={uf} className="bg-white">
+                      {uf}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className={labelClass}>
+              Modalidade <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="modality"
+              defaultValue={job?.modality || "PRESENTIAL"}
+              className={inputClass}
+            >
+              <option value="PRESENTIAL" className="bg-white">Presencial</option>
+              <option value="REMOTE" className="bg-white">Remoto</option>
+              <option value="HYBRID" className="bg-white">Híbrido</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              Tipo de contratação <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="contractType"
+              defaultValue={job?.contractType || "CLT"}
+              className={inputClass}
+            >
+              <option value="CLT" className="bg-white">CLT</option>
+              <option value="PJ" className="bg-white">PJ</option>
+              <option value="INTERNSHIP" className="bg-white">Estágio</option>
+              <option value="APPRENTICE" className="bg-white">Jovem Aprendiz</option>
+              <option value="TEMPORARY" className="bg-white">Temporário</option>
+              <option value="OTHER" className="bg-white">Outro</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>Horário de trabalho</label>
+            <input
+              type="text"
+              name="workSchedule"
+              defaultValue={job?.workSchedule ?? ""}
+              placeholder="Ex: Seg a Sex, 08h-17h"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Data de encerramento</label>
+            <input
+              type="date"
+              name="closingDate"
+              defaultValue={
+                job?.closingDate
+                  ? new Date(job.closingDate).toISOString().split("T")[0]
+                  : ""
+              }
+              className={inputClass}
+            />
+          </div>
         </div>
 
-        <div>
-          <label className={labelClass}>
-            Tipo de contratação <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="contractType"
-            defaultValue={job?.contractType || "CLT"}
-            className={inputClass}
-          >
-            <option value="CLT" className="bg-white">CLT</option>
-            <option value="PJ" className="bg-white">PJ</option>
-            <option value="INTERNSHIP" className="bg-white">Estágio</option>
-            <option value="APPRENTICE" className="bg-white">Jovem Aprendiz</option>
-            <option value="TEMPORARY" className="bg-white">Temporário</option>
-            <option value="OTHER" className="bg-white">Outro</option>
-          </select>
-        </div>
-
-        <div>
-          <label className={labelClass}>Horário de trabalho</label>
-          <input
-            type="text"
-            name="workSchedule"
-            defaultValue={job?.workSchedule ?? ""}
-            placeholder="Ex: Seg a Sex, 08h-17h"
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className={labelClass}>Data de encerramento</label>
-          <input
-            type="date"
-            name="closingDate"
-            defaultValue={
-              job?.closingDate
-                ? new Date(job.closingDate).toISOString().split("T")[0]
-                : ""
-            }
-            className={inputClass}
-          />
-        </div>
-
-        <div className="col-span-2 rounded-lg border border-wg-green/30 bg-wg-green/5 px-3 py-2.5">
+        <div className="mt-4 rounded-lg border border-wg-green/30 bg-wg-green/5 px-3 py-2.5">
           <p className="text-xs text-gray-600">
             <span className="font-medium text-wg-green-dark">Inscrição pelo portal.</span>{" "}
             O candidato preenche nome, e-mail, celular e anexa o currículo direto na
             página da vaga. As candidaturas aparecem no painel, no Kanban de candidatos.
           </p>
         </div>
+      </div>
 
-        <div className="col-span-2 border-t border-gray-200 pt-4">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-            Informações internas (não aparecem no portal)
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Responsável pelo processo</label>
-              <input
-                type="text"
-                name="responsible"
-                defaultValue={job?.responsible ?? ""}
-                placeholder="Ex: Maria Fernanda"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Prazo de contratação</label>
-              <input
-                type="date"
-                name="hiringDeadline"
-                defaultValue={
-                  job?.hiringDeadline
-                    ? new Date(job.hiringDeadline).toISOString().split("T")[0]
-                    : ""
-                }
-                className={inputClass}
-              />
-              <p className="text-xs text-gray-500 mt-1">Data-alvo para fechar a seleção.</p>
-            </div>
+      {/* ── Informações Internas ─────────────────────────────── */}
+      <div className="border-t border-gray-200 pt-5">
+        <p className={`${sectionTitle} mb-3`}>
+          Informações internas{" "}
+          <span className="font-normal normal-case tracking-normal text-gray-400">
+            (não aparecem no portal)
+          </span>
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>
+              Status <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="status"
+              defaultValue={job?.status || "ACTIVE"}
+              className={inputClass}
+            >
+              <option value="DRAFT" className="bg-white">Rascunho — só no painel</option>
+              <option value="ACTIVE" className="bg-white">Ativa — publicada no portal</option>
+              <option value="SCREENING" className="bg-white">Triagem — no portal (etapa interna)</option>
+              <option value="INTERVIEW" className="bg-white">Entrevistas — no portal (etapa interna)</option>
+              <option value="ADMISSION" className="bg-white">Admissão — no portal (etapa interna)</option>
+              <option value="PAUSED" className="bg-white">Pausada — fora do portal</option>
+              <option value="CLOSED" className="bg-white">Cancelada — fora do portal</option>
+              <option value="FILLED" className="bg-white">Finalizada — fora do portal</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              Prioridade <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="priority"
+              defaultValue={job?.priority || "MEDIUM"}
+              className={inputClass}
+            >
+              <option value="LOW" className="bg-white">Baixa</option>
+              <option value="MEDIUM" className="bg-white">Média</option>
+              <option value="HIGH" className="bg-white">Alta</option>
+              <option value="URGENT" className="bg-white">Urgente</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>Responsável pelo processo</label>
+            <input
+              type="text"
+              name="responsible"
+              defaultValue={job?.responsible ?? ""}
+              placeholder="Ex: Maria Fernanda"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Prazo de contratação</label>
+            <input
+              type="date"
+              name="hiringDeadline"
+              defaultValue={
+                job?.hiringDeadline
+                  ? new Date(job.hiringDeadline).toISOString().split("T")[0]
+                  : ""
+              }
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-500 mt-1">Data-alvo para fechar a seleção.</p>
           </div>
         </div>
       </div>
 
-      {/* Editor de Markdown com abas Escrever / Visualizar */}
-      <div>
+      {/* ── Editor de Markdown ───────────────────────────────── */}
+      <div className="border-t border-gray-100 pt-5">
         <div className="flex items-center justify-between mb-1">
           <label className={labelClass}>
             Conteúdo da vaga <span className="text-red-500">*</span>

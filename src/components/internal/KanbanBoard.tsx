@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ArrowLeftRight, Brain, Calendar, Check, Code2, ExternalLink, FlaskConical, LayoutGrid, List, Loader2, Send, Trash2, Users } from "lucide-react";
+import { ArrowLeftRight, Brain, Calendar, Check, Code2, ExternalLink, FlaskConical, Loader2, Send, Trash2, Users } from "lucide-react";
 import { formatAge, normalizeText } from "@/lib/utils";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -11,6 +11,7 @@ import { SearchBar } from "@/components/internal/SearchBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { ViewToggle, type BoardView } from "@/components/internal/ViewToggle";
 import {
   KanbanBoardShell,
   type KanbanColumnDef,
@@ -18,7 +19,6 @@ import {
 import { CandidateDrawer } from "@/components/internal/CandidateDrawer";
 import { AdmissionLinkModal, type AdmissionMeta } from "@/components/internal/AdmissionLinkModal";
 
-type BoardView = "kanban" | "list";
 type ListSortKey = "recent" | "oldest" | "nameAZ" | "nameZA" | "score";
 
 const LIST_SORT_OPTIONS: { value: ListSortKey; label: string }[] = [
@@ -233,36 +233,6 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
     }
   }, [applications, listQuery, listStageFilter, listSort, deletedListIds, aiScoreOverrides]);
 
-  const viewToggle = (
-    <div className="flex rounded-full border border-[#DCE8CC] overflow-hidden bg-white">
-      <button
-        type="button"
-        onClick={() => setView("list")}
-        className={`px-2.5 py-1.5 transition-colors ${
-          view === "list"
-            ? "bg-[#C6E09A] text-[#2E5018]"
-            : "text-gray-400 hover:text-[#4F6930] hover:bg-[#F4F8EE]"
-        }`}
-        title="Visualização em lista"
-      >
-        <List className="w-3.5 h-3.5" />
-      </button>
-      <div className="w-px bg-[#DCE8CC] self-stretch" />
-      <button
-        type="button"
-        onClick={() => setView("kanban")}
-        className={`px-2.5 py-1.5 transition-colors ${
-          view === "kanban"
-            ? "bg-[#C6E09A] text-[#2E5018]"
-            : "text-gray-400 hover:text-[#4F6930] hover:bg-[#F4F8EE]"
-        }`}
-        title="Visualização em Kanban"
-      >
-        <LayoutGrid className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  );
-
   const topControls = (
     <div className="flex items-center gap-2">
       {/* Contador total — pílula neutra */}
@@ -271,7 +241,7 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
         {applications.length}
       </span>
 
-      {viewToggle}
+      <ViewToggle view={view} onChange={setView} />
 
       {/* Botão Comparar — pílula outline */}
       <button
@@ -322,7 +292,7 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
               <Users className="w-3 h-3" />
               {filteredListApps.length}
             </span>
-            {viewToggle}
+            <ViewToggle view={view} onChange={setView} />
           </div>
         </div>
 

@@ -12,6 +12,7 @@ import {
   normalizeText,
 } from "@/lib/utils";
 import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
+import { ViewToggle } from "@/components/internal/ViewToggle";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { type JobRow } from "@/types/jobs";
@@ -408,30 +409,7 @@ export function JobsExplorer({
           </div>
 
           {/* Lista / Kanban toggle */}
-          <div className="bg-[#EEF4E3] rounded-[10px] p-1 flex gap-0.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setView("list")}
-              className={`px-3.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
-                view === "list"
-                  ? "bg-wg-green text-[#0C0D0C]"
-                  : "text-wg-ink-secondary hover:text-wg-ink"
-              }`}
-            >
-              Lista
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("kanban")}
-              className={`px-3.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
-                view === "kanban"
-                  ? "bg-wg-green text-[#0C0D0C]"
-                  : "text-wg-ink-secondary hover:text-wg-ink"
-              }`}
-            >
-              Kanban
-            </button>
-          </div>
+          <ViewToggle view={view} onChange={setView} />
         </div>
 
         {/* Row 2: quick-filter chips */}

@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Search, ClipboardCheck, List, Kanban } from "lucide-react";
+import { Search, ClipboardCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ViewToggle } from "@/components/internal/ViewToggle";
 
 export interface AdmissionRow {
   id: string;
@@ -329,30 +330,7 @@ export function AdmissionsExplorer({ rows, stages, companies, view = "list", onV
 
         {/* Lista / Kanban toggle */}
         {onViewChange && (
-          <div className="bg-[#EEF4E3] rounded-[10px] p-1 flex gap-0.5 shrink-0 ml-auto">
-            <button
-              type="button"
-              onClick={() => onViewChange("list")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
-                view === "list"
-                  ? "bg-white text-[#1A2213] shadow-sm"
-                  : "text-[#55614A] hover:text-[#1A2213]"
-              }`}
-            >
-              <List className="w-3.5 h-3.5" /> Lista
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewChange("kanban")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
-                view === "kanban"
-                  ? "bg-white text-[#1A2213] shadow-sm"
-                  : "text-[#55614A] hover:text-[#1A2213]"
-              }`}
-            >
-              <Kanban className="w-3.5 h-3.5" /> Kanban
-            </button>
-          </div>
+          <ViewToggle view={view} onChange={onViewChange} className="ml-auto" />
         )}
       </div>
 

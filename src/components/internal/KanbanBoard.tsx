@@ -3,15 +3,31 @@
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { ArrowLeftRight, Brain, Calendar, Check, Code2, ExternalLink, FlaskConical, LayoutGrid, List, Loader2, Send, Trash2, Users } from "lucide-react";
-import { normalizeText } from "@/lib/utils";
+import { formatAge, normalizeText } from "@/lib/utils";
+import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import { useToast } from "@/components/ui/ToastProvider";
 import { InterviewModal } from "@/components/internal/InterviewModal";
+import { SearchBar } from "@/components/internal/SearchBar";
+import { SortDropdown } from "@/components/internal/SortDropdown";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import {
   KanbanBoardShell,
   type KanbanColumnDef,
 } from "@/components/internal/KanbanBoardShell";
 import { CandidateDrawer } from "@/components/internal/CandidateDrawer";
 import { AdmissionLinkModal, type AdmissionMeta } from "@/components/internal/AdmissionLinkModal";
+
+type BoardView = "kanban" | "list";
+type ListSortKey = "recent" | "oldest" | "nameAZ" | "nameZA" | "score";
+
+const LIST_SORT_OPTIONS: { value: ListSortKey; label: string }[] = [
+  { value: "recent", label: "Mais recentes" },
+  { value: "oldest", label: "Mais antigas" },
+  { value: "nameAZ", label: "Nome A→Z" },
+  { value: "nameZA", label: "Nome Z→A" },
+  { value: "score", label: "Maior compatibilidade" },
+];
 
 export interface KanbanApplication {
   id: string;
@@ -66,6 +82,13 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
   const [copiedTestFor, setCopiedTestFor] = useState<string | null>(null)
   const [interviewTarget, setInterviewTarget] = useState<{ applicationId: string; candidateName: string } | null>(null)
   const analyzedRef = useRef(new Set<string>())
+
+  const [view, setView] = useState<BoardView>("kanban")
+  const [listQuery, setListQuery] = useState("")
+  const [listSort, setListSort] = useState<ListSortKey>("recent")
+  const [listStageFilter, setListStageFilter] = useState("")
+  const [deletedListIds, setDeletedListIds] = useState<Set<string>>(new Set())
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const stageMap = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages])
 
@@ -161,6 +184,85 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
     ? applications.find((a) => a.id === pendingAdmission.candidateId) ?? null
     : null;
 
+  const deletingCandidate = deletingId ? applications.find((a) => a.id === deletingId) ?? null : null;
+
+  async function handleListDelete(id: string) {
+    try {
+      const res = await fetch(`/api/applications/${id}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        notify("error", typeof data.error === "string" ? data.error : "Erro ao excluir candidatura.");
+        return;
+      }
+      setDeletedListIds((s) => new Set(s).add(id));
+      notify("success", "Candidatura excluída.");
+      router.refresh();
+    } catch {
+      notify("error", "Erro de conexão. Tente novamente.");
+    }
+  }
+
+  const filteredListApps = useMemo(() => {
+    const q = normalizeText(listQuery);
+    let result = applications.filter((a) => !deletedListIds.has(a.id));
+    if (listStageFilter) result = result.filter((a) => a.stageId === listStageFilter);
+    if (q) {
+      result = result.filter(
+        (a) => normalizeText(a.fullName).includes(q) || normalizeText(a.email).includes(q)
+      );
+    }
+    const copy = [...result];
+    switch (listSort) {
+      case "oldest":
+        return copy.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      case "nameAZ":
+        return copy.sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
+      case "nameZA":
+        return copy.sort((a, b) => b.fullName.localeCompare(a.fullName, "pt-BR"));
+      case "score":
+        return copy.sort(
+          (a, b) =>
+            (aiScoreOverrides.get(b.id) ?? b.aiScore ?? -1) -
+            (aiScoreOverrides.get(a.id) ?? a.aiScore ?? -1)
+        );
+      default:
+        return copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+  }, [applications, listQuery, listStageFilter, listSort, deletedListIds, aiScoreOverrides]);
+
+  const viewToggle = (
+    <div className="flex rounded-full border border-[#DCE8CC] overflow-hidden bg-white">
+      <button
+        type="button"
+        onClick={() => setView("list")}
+        className={`px-2.5 py-1.5 transition-colors ${
+          view === "list"
+            ? "bg-[#C6E09A] text-[#2E5018]"
+            : "text-gray-400 hover:text-[#4F6930] hover:bg-[#F4F8EE]"
+        }`}
+        title="Visualização em lista"
+      >
+        <List className="w-3.5 h-3.5" />
+      </button>
+      <div className="w-px bg-[#DCE8CC] self-stretch" />
+      <button
+        type="button"
+        onClick={() => setView("kanban")}
+        className={`px-2.5 py-1.5 transition-colors ${
+          view === "kanban"
+            ? "bg-[#C6E09A] text-[#2E5018]"
+            : "text-gray-400 hover:text-[#4F6930] hover:bg-[#F4F8EE]"
+        }`}
+        title="Visualização em Kanban"
+      >
+        <LayoutGrid className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+
   const topControls = (
     <div className="flex items-center gap-2">
       {/* Contador total — pílula neutra */}
@@ -169,24 +271,7 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
         {applications.length}
       </span>
 
-      {/* Toggle Lista / Kanban — container pill com divisor */}
-      <div className="flex rounded-full border border-[#DCE8CC] overflow-hidden bg-white">
-        <button
-          type="button"
-          className="px-2.5 py-1.5 text-gray-400 hover:text-[#4F6930] hover:bg-[#F4F8EE] transition-colors"
-          title="Visualização em lista"
-        >
-          <List className="w-3.5 h-3.5" />
-        </button>
-        <div className="w-px bg-[#DCE8CC] self-stretch" />
-        <button
-          type="button"
-          className="px-2.5 py-1.5 bg-[#C6E09A] text-[#2E5018] transition-colors"
-          title="Visualização em Kanban (ativo)"
-        >
-          <LayoutGrid className="w-3.5 h-3.5" />
-        </button>
-      </div>
+      {viewToggle}
 
       {/* Botão Comparar — pílula outline */}
       <button
@@ -201,6 +286,170 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
 
   return (
     <>
+    {view === "list" ? (
+      <div>
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
+          <SearchBar
+            value={listQuery}
+            onChange={setListQuery}
+            placeholder="Pesquisar candidato..."
+            className="flex-1 min-w-[180px] max-w-xs"
+          />
+          <select
+            value={listStageFilter}
+            onChange={(e) => setListStageFilter(e.target.value)}
+            aria-label="Filtrar por etapa"
+            className={`rounded-lg border px-2.5 py-2 text-sm cursor-pointer transition-colors focus:border-wg-green focus:outline-none focus:ring-2 focus:ring-wg-green/40 ${
+              listStageFilter
+                ? "border-wg-green/60 bg-wg-green/5 text-gray-900"
+                : "border-gray-300 bg-white text-gray-700"
+            }`}
+          >
+            <option value="">Todas as etapas</option>
+            {stages.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <SortDropdown
+            value={listSort}
+            onChange={(v) => setListSort(v as ListSortKey)}
+            options={LIST_SORT_OPTIONS}
+          />
+          <div className="ml-auto flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-[11px] font-semibold text-gray-500 tabular-nums">
+              <Users className="w-3 h-3" />
+              {filteredListApps.length}
+            </span>
+            {viewToggle}
+          </div>
+        </div>
+
+        {filteredListApps.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="Nenhum candidato encontrado"
+            description="Nenhuma candidatura corresponde à pesquisa e aos filtros atuais."
+          />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {filteredListApps.map((a) => {
+              const score = aiScoreOverrides.get(a.id) ?? a.aiScore;
+              const stage = stageMap.get(a.stageId);
+              const stripeColor = stage?.color ?? "#B9C2AA";
+              const isBigFiveDone = a.bigFiveDone === true;
+              const meta = [
+                a.email,
+                a.phone,
+                APPLICATION_SOURCE_LABELS[a.source] ?? a.source,
+                `Recebido ${formatAge(a.createdAt)}`,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              const busy = sendingTestFor === a.id;
+              const copied = copiedTestFor === a.id;
+
+              return (
+                <div
+                  key={a.id}
+                  className="group bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,.05)] flex overflow-hidden hover:shadow-[0_8px_22px_rgba(0,0,0,.08)] transition-shadow"
+                >
+                  <div className="w-[5px] shrink-0" style={{ background: stripeColor }} />
+                  <div className="flex-1 px-5 py-4 flex justify-between items-start gap-4 min-w-0">
+                    {/* Left */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setDetailId(a.id)}
+                          className="text-[#1A2213] font-bold text-base hover:text-[#4F6930] transition-colors text-left"
+                        >
+                          {a.fullName}
+                        </button>
+                        {stage && (
+                          <span
+                            className="text-[11px] font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap"
+                            style={{ background: stripeColor + "1f", color: stripeColor }}
+                          >
+                            {stage.name.toUpperCase()}
+                          </span>
+                        )}
+                        {score !== undefined && (
+                          <span
+                            className={`text-[11px] font-bold whitespace-nowrap tabular-nums ${
+                              score >= 80 ? "text-emerald-600" : score >= 60 ? "text-amber-500" : "text-gray-400"
+                            }`}
+                            title={`Compatibilidade IA: ${score}%`}
+                          >
+                            {score}% match
+                          </span>
+                        )}
+                        {isBigFiveDone && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 border border-green-200 text-[10.5px] font-semibold text-green-700">
+                            <Brain className="w-3 h-3 shrink-0" />
+                            Big Five ok
+                          </span>
+                        )}
+                      </div>
+                      {meta && <div className="text-[#55614A] text-[12.5px] mt-1 truncate">{meta}</div>}
+                    </div>
+
+                    {/* Right: hover actions */}
+                    <div className="flex items-center gap-1.5 shrink-0 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
+                      {stage?.kind === "TEST" && stage.templateId && canManage && (
+                        <button
+                          type="button"
+                          onClick={() => handleSendTest(a.id, stage.templateId!)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1.5 bg-[#F0F5E8] text-[#3E5A2A] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#E4EED6] disabled:opacity-50 transition-colors"
+                        >
+                          {busy ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : copied ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <FlaskConical className="h-3 w-3" />
+                          )}
+                          {copied ? "Copiado!" : busy ? "Criando…" : "Enviar teste"}
+                        </button>
+                      )}
+                      {stage && /entrevista/i.test(stage.name) && canManage && (
+                        <button
+                          type="button"
+                          onClick={() => setInterviewTarget({ applicationId: a.id, candidateName: a.fullName })}
+                          className="inline-flex items-center gap-1.5 bg-white text-[#3E4A34] border border-[#E7EEDD] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#EEF2E9] transition-colors"
+                        >
+                          <Calendar className="h-3 w-3" />
+                          Entrevista
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setDetailId(a.id)}
+                        className="bg-white text-[#3E4A34] border border-[#E7EEDD] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#EEF2E9] transition-colors"
+                      >
+                        Ver perfil
+                      </button>
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() => setDeletingId(a.id)}
+                          title="Excluir candidatura"
+                          className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    ) : (
     <KanbanBoardShell<KanbanApplication>
       initialItems={applications}
       columns={columns}
@@ -362,6 +611,20 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
         </>
         );
       }}
+    />
+    )}
+
+    <ConfirmModal
+      isOpen={deletingId !== null}
+      title="Excluir candidatura?"
+      message={`A candidatura de "${deletingCandidate?.fullName ?? ""}" e o currículo serão removidos permanentemente (LGPD). Esta ação não pode ser desfeita.`}
+      confirmLabel="Sim, excluir"
+      variant="danger"
+      onConfirm={() => {
+        if (deletingId) handleListDelete(deletingId);
+        setDeletingId(null);
+      }}
+      onCancel={() => setDeletingId(null)}
     />
 
     <CandidateDrawer

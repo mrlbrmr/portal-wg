@@ -72,7 +72,10 @@ function FilterCheckbox({
   label: string;
 }) {
   return (
-    <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-[#F3F7EC] cursor-pointer select-none">
+    <label
+      className="flex items-center gap-2.5 px-3 py-2 hover:bg-[#F3F7EC] cursor-pointer select-none"
+      onClick={() => onChange(!checked)}
+    >
       <div
         className="w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-colors"
         style={

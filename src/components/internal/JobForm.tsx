@@ -62,6 +62,59 @@ function markdownToHtml(md: string): string {
   return out.join("");
 }
 
+function decodeEntities(s: string): string {
+  return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+
+function unescapeInline(s: string): string {
+  return decodeEntities(s)
+    .replace(/<(?:strong|b)>([\s\S]*?)<\/(?:strong|b)>/g, "**$1**")
+    .replace(/<(?:em|i)>([\s\S]*?)<\/(?:em|i)>/g, "*$1*")
+    .replace(/<code>([\s\S]*?)<\/code>/g, "`$1`")
+    .replace(/<br\s*\/?>/g, "\n")
+    .trim();
+}
+
+// Remove um <p>...</p> externo redundante que embrulha outro bloco (sintoma
+// de uma vaga que já foi salva 2x pelo fluxo antigo: tudo virou uma única
+// linha "escapada" dentro de um <p>).
+function stripRedundantWrapper(html: string): string {
+  const m = /^<p>([\s\S]*)<\/p>$/.exec(html.trim());
+  if (m && /^<(?:p|h1|h2|h3|ul)[ >]/.test(m[1])) {
+    return m[1];
+  }
+  return html;
+}
+
+// Reverte o HTML gerado por markdownToHtml de volta para Markdown-fonte.
+// Necessário porque `description` pode conter Markdown puro (vaga recém-criada
+// via solicitação, ainda não editada no JobForm) ou HTML já convertido (vaga
+// salva ao menos uma vez pelo JobForm) — sem isso, reabrir uma vaga já
+// convertida faz o Markdown-fonte virar o próprio HTML, e salvar de novo
+// escapa as tags (double-encoding) em vez de reconvertê-las.
+function htmlToMarkdown(raw: string): string {
+  const html = stripRedundantWrapper(decodeEntities(raw));
+  const blocks: string[] = [];
+  const blockRegex =
+    /<h1>([\s\S]*?)<\/h1>|<h2>([\s\S]*?)<\/h2>|<h3>([\s\S]*?)<\/h3>|<ul>([\s\S]*?)<\/ul>|<p>([\s\S]*?)<\/p>/g;
+  let match: RegExpExecArray | null;
+  while ((match = blockRegex.exec(html))) {
+    const [, h1, h2, h3, ul, p] = match;
+    if (h1 !== undefined) blocks.push(`# ${unescapeInline(h1)}`);
+    else if (h2 !== undefined) blocks.push(`## ${unescapeInline(h2)}`);
+    else if (h3 !== undefined) blocks.push(`### ${unescapeInline(h3)}`);
+    else if (ul !== undefined) {
+      const items = [...ul.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(
+        (m) => `- ${unescapeInline(m[1])}`
+      );
+      blocks.push(items.join("\n"));
+    } else if (p !== undefined) {
+      blocks.push(unescapeInline(p));
+    }
+  }
+  return blocks.length > 0 ? blocks.join("\n\n") : unescapeInline(html);
+}
+
 function maskBRL(digits: string): string {
   const d = digits.replace(/\D/g, "").slice(0, 12);
   if (!d) return "";
@@ -83,13 +136,13 @@ function buildInitialContent(job?: Job): string {
     job.requiredRequirements ||
     job.desiredRequirements ||
     job.benefits;
-  if (!hasLegacy) return job.description ?? MARKDOWN_BOILERPLATE;
+  if (!hasLegacy) return job.description ? htmlToMarkdown(job.description) : MARKDOWN_BOILERPLATE;
   const parts: string[] = [];
-  if (job.description) parts.push(job.description);
-  if (job.responsibilities) parts.push(`## Responsabilidades\n${job.responsibilities}`);
-  if (job.requiredRequirements) parts.push(`## Requisitos Obrigatórios\n${job.requiredRequirements}`);
-  if (job.desiredRequirements) parts.push(`## Requisitos Desejáveis\n${job.desiredRequirements}`);
-  if (job.benefits) parts.push(`## Benefícios\n${job.benefits}`);
+  if (job.description) parts.push(htmlToMarkdown(job.description));
+  if (job.responsibilities) parts.push(`## Responsabilidades\n${htmlToMarkdown(job.responsibilities)}`);
+  if (job.requiredRequirements) parts.push(`## Requisitos Obrigatórios\n${htmlToMarkdown(job.requiredRequirements)}`);
+  if (job.desiredRequirements) parts.push(`## Requisitos Desejáveis\n${htmlToMarkdown(job.desiredRequirements)}`);
+  if (job.benefits) parts.push(`## Benefícios\n${htmlToMarkdown(job.benefits)}`);
   return parts.join("\n\n");
 }
 

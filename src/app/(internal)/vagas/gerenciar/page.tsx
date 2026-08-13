@@ -32,7 +32,7 @@ export default async function GerenciarVagasPage({
       )
       .order("createdAt", { ascending: false })
       .limit(200),
-    supabase.from("applications").select("jobId, stageId"),
+    supabase.from("applications").select("jobId, stageId, updatedAt"),
     supabase.from("application_stages").select("id").eq("kind", "LOST"),
   ]);
 
@@ -57,9 +57,21 @@ export default async function GerenciarVagasPage({
     ((lostStagesRes.data ?? []) as Array<{ id: string }>).map((s) => s.id)
   );
   const countByJob = new Map<string, number>();
-  for (const a of (appRowsRes.data ?? []) as Array<{ jobId: string; stageId: string }>) {
-    if (lostStageIds.has(a.stageId)) continue;
-    countByJob.set(a.jobId, (countByJob.get(a.jobId) ?? 0) + 1);
+  // Última mudança em qualquer candidatura da vaga (inclui as descartadas —
+  // marcar alguém como perdido também conta como atividade na vaga).
+  const lastActivityByJob = new Map<string, string>();
+  for (const a of (appRowsRes.data ?? []) as Array<{
+    jobId: string;
+    stageId: string;
+    updatedAt: string;
+  }>) {
+    if (!lostStageIds.has(a.stageId)) {
+      countByJob.set(a.jobId, (countByJob.get(a.jobId) ?? 0) + 1);
+    }
+    const prevActivity = lastActivityByJob.get(a.jobId);
+    if (!prevActivity || a.updatedAt > prevActivity) {
+      lastActivityByJob.set(a.jobId, a.updatedAt);
+    }
   }
 
   // KPI counts from the loaded jobs array
@@ -75,23 +87,31 @@ export default async function GerenciarVagasPage({
     (j) => j.createdAt >= startOfLastMonth && j.createdAt < startOfMonth
   ).length;
 
-  const rows = jobs.map((job) => ({
-    id: job.id,
-    title: job.title,
-    city: job.city,
-    state: job.state,
-    isTalentPool: job.isTalentPool,
-    modality: job.modality,
-    contractType: job.contractType,
-    department: job.department,
-    responsible: job.responsible,
-    status: job.status,
-    priority: job.priority,
-    slug: job.slug,
-    createdAt: new Date(job.createdAt).toISOString(),
-    updatedAt: new Date(job.updatedAt).toISOString(),
-    candidateCount: countByJob.get(job.id) ?? 0,
-  })) as JobRow[];
+  const rows = jobs.map((job) => {
+    const lastApplicationActivity = lastActivityByJob.get(job.id);
+    const lastActivityAt =
+      lastApplicationActivity && lastApplicationActivity > job.updatedAt
+        ? lastApplicationActivity
+        : job.updatedAt;
+    return {
+      id: job.id,
+      title: job.title,
+      city: job.city,
+      state: job.state,
+      isTalentPool: job.isTalentPool,
+      modality: job.modality,
+      contractType: job.contractType,
+      department: job.department,
+      responsible: job.responsible,
+      status: job.status,
+      priority: job.priority,
+      slug: job.slug,
+      createdAt: new Date(job.createdAt).toISOString(),
+      updatedAt: new Date(job.updatedAt).toISOString(),
+      lastActivityAt: new Date(lastActivityAt).toISOString(),
+      candidateCount: countByJob.get(job.id) ?? 0,
+    };
+  }) as JobRow[];
 
   const initialView = params.view === "kanban" ? "kanban" : "list";
 

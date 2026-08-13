@@ -20,6 +20,7 @@ export interface JobRow {
   slug: string | null;
   createdAt: string; // ISO
   updatedAt: string; // ISO
+  lastActivityAt: string; // ISO — max(updatedAt da vaga, updatedAt das candidaturas)
   candidateCount: number;
 }
 

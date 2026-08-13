@@ -9,6 +9,7 @@ import {
   JOB_PRIORITY_ORDER,
   formatAge,
   isTerminalJobStatus,
+  isKanbanDefaultHiddenStatus,
   normalizeText,
 } from "@/lib/utils";
 import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
@@ -221,17 +222,19 @@ export function JobsExplorer({
       });
     }
 
-    // Status filter (list view only; kanban shows all statuses as columns)
-    if (view === "list") {
-      const statusFilters = selectedFilters.filter((k) =>
-        STATUS_FILTER_OPTIONS.some((o) => o.value === k)
-      );
-      if (statusFilters.length === 0) {
-        // Default: hide terminal jobs (CLOSED / FILLED)
-        result = result.filter((j) => !isTerminalJobStatus(j.status));
-      } else {
-        result = result.filter((j) => statusFilters.includes(j.status));
-      }
+    // Status filter. Sem seleção manual: lista esconde vagas terminais
+    // (Cancelada/Finalizada); Kanban esconde Pausada/Cancelada (Finalizada
+    // continua visível lá). Com seleção manual, mostra só o que foi marcado —
+    // vale para as duas views.
+    const statusFilters = selectedFilters.filter((k) =>
+      STATUS_FILTER_OPTIONS.some((o) => o.value === k)
+    );
+    if (statusFilters.length > 0) {
+      result = result.filter((j) => statusFilters.includes(j.status));
+    } else if (view === "list") {
+      result = result.filter((j) => !isTerminalJobStatus(j.status));
+    } else {
+      result = result.filter((j) => !isKanbanDefaultHiddenStatus(j.status));
     }
 
     // Priority filter
@@ -265,6 +268,18 @@ export function JobsExplorer({
 
     return sortJobs(result, sort);
   }, [jobs, query, selectedFilters, quickFilter, sort, view, currentUserName]);
+
+  // Colunas exibidas no Kanban: por padrão, todas menos Pausada/Cancelada;
+  // ao selecionar status no filtro "Etapa", mostra só as colunas marcadas.
+  const kanbanVisibleStatuses = useMemo(() => {
+    const statusFilters = selectedFilters.filter((k) =>
+      STATUS_FILTER_OPTIONS.some((o) => o.value === k)
+    );
+    const allKeys = STATUS_FILTER_OPTIONS.map((o) => o.value);
+    return statusFilters.length > 0
+      ? allKeys.filter((s) => statusFilters.includes(s))
+      : allKeys.filter((s) => !isKanbanDefaultHiddenStatus(s));
+  }, [selectedFilters]);
 
   const activeFilterCount = selectedFilters.length;
   const currentSortLabel =
@@ -458,8 +473,10 @@ export function JobsExplorer({
             status: j.status,
             priority: j.priority,
             createdAt: j.createdAt,
+            lastActivityAt: j.lastActivityAt,
             candidateCount: j.candidateCount,
           }))}
+          visibleStatuses={kanbanVisibleStatuses}
           canManage={canManage}
         />
       ) : filtered.length === 0 ? (

@@ -24,7 +24,7 @@ export default async function GerenciarVagasPage({
 
   const supabase = await createClient();
 
-  const [jobsRes, appRowsRes] = await Promise.all([
+  const [jobsRes, appRowsRes, lostStagesRes] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -32,7 +32,8 @@ export default async function GerenciarVagasPage({
       )
       .order("createdAt", { ascending: false })
       .limit(200),
-    supabase.from("applications").select("jobId"),
+    supabase.from("applications").select("jobId, stageId"),
+    supabase.from("application_stages").select("id").eq("kind", "LOST"),
   ]);
 
   const jobs = (jobsRes.data ?? []) as Array<{
@@ -52,8 +53,12 @@ export default async function GerenciarVagasPage({
     updatedAt: string;
   }>;
 
+  const lostStageIds = new Set(
+    ((lostStagesRes.data ?? []) as Array<{ id: string }>).map((s) => s.id)
+  );
   const countByJob = new Map<string, number>();
-  for (const a of (appRowsRes.data ?? []) as Array<{ jobId: string }>) {
+  for (const a of (appRowsRes.data ?? []) as Array<{ jobId: string; stageId: string }>) {
+    if (lostStageIds.has(a.stageId)) continue;
     countByJob.set(a.jobId, (countByJob.get(a.jobId) ?? 0) + 1);
   }
 

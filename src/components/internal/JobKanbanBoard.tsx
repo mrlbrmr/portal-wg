@@ -25,11 +25,14 @@ export interface KanbanJob {
   status: string;
   priority: string;
   createdAt: string; // ISO
+  lastActivityAt: string; // ISO — usado para o indicador "· parada"
   candidateCount: number;
 }
 
 interface Props {
   jobs: KanbanJob[];
+  /** Status a exibir como colunas. Sem informar, mostra todas. */
+  visibleStatuses?: string[];
   canManage: boolean;
 }
 
@@ -52,13 +55,16 @@ const STATUSES: KanbanColumnDef[] = [
   { key: "FILLED",    label: "Finalizada"  },
 ];
 
-export function JobKanbanBoard({ jobs, canManage }: Props) {
+export function JobKanbanBoard({ jobs, visibleStatuses, canManage }: Props) {
+  const columns = visibleStatuses
+    ? STATUSES.filter((s) => visibleStatuses.includes(s.key))
+    : STATUSES;
   return (
     // mt-5 cria o respiro entre as pílulas de filtro/toolbar e o board
     <div className="mt-5">
       <KanbanBoardShell<KanbanJob>
         initialItems={jobs}
-        columns={STATUSES}
+        columns={columns}
         canManage={canManage}
         getId={(j) => j.id}
         getColumn={(j) => j.status}
@@ -106,8 +112,13 @@ export function JobKanbanBoard({ jobs, canManage }: Props) {
               <p className="text-[11px] text-gray-500 mt-0.5">
                 Criada {formatAge(j.createdAt)}
                 {isPublicJobStatus(j.status) &&
-                  daysSince(j.createdAt) >= STALE_JOB_DAYS && (
-                    <span className="ml-1 font-medium text-amber-700">· parada</span>
+                  daysSince(j.lastActivityAt) >= STALE_JOB_DAYS && (
+                    <span
+                      className="ml-1 font-medium text-amber-700"
+                      title={`Sem atividade há ${daysSince(j.lastActivityAt)} dias`}
+                    >
+                      · parada
+                    </span>
                   )}
               </p>
 

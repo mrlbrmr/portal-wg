@@ -92,6 +92,15 @@ export function isTerminalJobStatus(status: string): boolean {
   return (TERMINAL_JOB_STATUSES as readonly string[]).includes(status);
 }
 
+// Status ocultados por padrão no Kanban de vagas: Pausada e Cancelada.
+// Diferente da lista (que também esconde Finalizada), aqui Finalizada
+// continua visível. O filtro "Etapa" permite reexibir esses status.
+export const KANBAN_DEFAULT_HIDDEN_STATUSES = ["PAUSED", "CLOSED"] as const;
+
+export function isKanbanDefaultHiddenStatus(status: string): boolean {
+  return (KANBAN_DEFAULT_HIDDEN_STATUSES as readonly string[]).includes(status);
+}
+
 // Valor sentinela do filtro de status que representa "todas as ativas" (as 5
 // etapas de ACTIVE_JOB_STATUSES). Não colide com os valores reais do enum.
 export const ACTIVE_STATUS_FILTER = "ATIVAS";
@@ -169,7 +178,8 @@ export function formatAge(date: Date | string): string {
   return months === 1 ? "há 1 mês" : `há ${months} meses`;
 }
 
-// A partir de quantos dias uma vaga aberta é considerada "parada" (destaque).
+// A partir de quantos dias sem atividade (candidatura/edição) uma vaga aberta
+// é considerada "parada" (destaque no Kanban).
 export const STALE_JOB_DAYS = 30;
 
 export function generateSlug(title: string, city: string | null): string {

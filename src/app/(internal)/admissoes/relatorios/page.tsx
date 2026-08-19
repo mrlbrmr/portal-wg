@@ -56,7 +56,8 @@ export default async function RelatoriosPage() {
     .select(
       "createdAt, stage:admission_stages(name, color, isFinal), company:admission_companies(name), branch:admission_branches(name)"
     )
-    .is("deletedAt", null);
+    .is("deletedAt", null)
+    .limit(2000);
   const admissions = (data ?? []) as unknown as Array<{
     createdAt: string;
     stage: { name: string; color: string; isFinal: boolean } | null;

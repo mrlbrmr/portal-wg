@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getResumeBlob, validateResumeFile, uploadResume, deleteResume } from "@/lib/storage";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { validateResumeFile, uploadResume, deleteResume, RESUMES_BUCKET } from "@/lib/storage";
 import { rateLimit } from "@/lib/rate-limit";
 
 // Download do currículo — SOMENTE para RH autenticado.
@@ -37,28 +38,18 @@ export async function GET(
     return NextResponse.json({ error: "Currículo não encontrado" }, { status: 404 });
   }
 
-  let blob: Blob | null;
-  try {
-    blob = await getResumeBlob(application.resumeUrl);
-  } catch {
+  // Signed URL de 60s: browser baixa direto do Supabase Storage (sem proxy server-side).
+  // URL expira rapidamente — não expõe o path permanente nem viola LGPD.
+  const admin = createAdminClient();
+  const { data: signed, error: signErr } = await admin.storage
+    .from(RESUMES_BUCKET)
+    .createSignedUrl(application.resumeUrl, 60);
+
+  if (signErr || !signed?.signedUrl) {
     return NextResponse.json({ error: "Falha ao acessar o currículo" }, { status: 502 });
   }
 
-  if (!blob) {
-    return NextResponse.json({ error: "Currículo indisponível" }, { status: 404 });
-  }
-
-  const fileName = (application.resumeName ?? "curriculo").replace(/["\r\n]/g, "");
-  const contentType = blob.type || "application/octet-stream";
-
-  return new NextResponse(blob.stream(), {
-    status: 200,
-    headers: {
-      "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename="${fileName}"`,
-      "Cache-Control": "private, no-store",
-    },
-  });
+  return NextResponse.redirect(signed.signedUrl, { status: 302 });
 }
 
 // Substituição de currículo — ADMIN_RH only.

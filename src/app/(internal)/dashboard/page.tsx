@@ -64,7 +64,7 @@ export default async function DashboardPage() {
   const queryResults = await Promise.race([
     Promise.all([
       // Uma query para todos os metadados de vagas (substitui 8 queries COUNT)
-      supabase.from("jobs").select("status, createdAt, closingDate"),
+      supabase.from("jobs").select("status, createdAt, closingDate").limit(500),
       supabase.from("applications").select("*", { count: "exact", head: true }).eq("stageId", "NEW"),
       supabase.from("applications").select("*", { count: "exact", head: true }),
       supabase.from("applications")
@@ -76,7 +76,8 @@ export default async function DashboardPage() {
         .in("status", [...publicStatuses, "DRAFT"])
         .order("createdAt", { ascending: false })
         .limit(8),
-      supabase.from("applications").select("jobId").eq("stageId", "NEW"),
+      // Limit protege contra full table scan enquanto o índice stageId_only não estiver aplicado.
+      supabase.from("applications").select("jobId").eq("stageId", "NEW").limit(2000),
     ]),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error("dashboard timeout")), 8_000)),
   ]).catch(() => null);

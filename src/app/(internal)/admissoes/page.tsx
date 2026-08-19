@@ -31,12 +31,11 @@ export default async function AdmissoesPage() {
          position:admission_positions(name),
          company:admission_companies(name),
          branch:admission_branches(name),
-         stage:admission_stages(id, name, color, isFinal),
-         checklistGroups:admission_checklist_groups(items:admission_checklist_items(id, status, parentId))`
+         stage:admission_stages(id, name, color, isFinal)`
       )
       .is("deletedAt", null)
       .order("createdAt", { ascending: false })
-      .limit(500),
+      .limit(300),
     supabase
       .from("admissions")
       .select("startDate, stage:admission_stages(isFinal)")
@@ -56,9 +55,6 @@ export default async function AdmissoesPage() {
     company: { name: string } | null;
     branch: { name: string } | null;
     stage: { id: string; name: string; color: string; isFinal: boolean } | null;
-    checklistGroups: Array<{
-      items: Array<{ id: string; status: string; parentId: string | null }>;
-    }> | null;
   }>;
 
   const metricRows = (metricsRes.data ?? []) as unknown as Array<{
@@ -84,12 +80,29 @@ export default async function AdmissoesPage() {
 
   // Lista: apenas admissões em aberto
   const openAdmissions = admissions.filter((a) => !a.stage?.isFinal);
+
+  // Query flat de contagem de checklist — muito mais leve que o join aninhado anterior.
+  // Busca apenas admissionId + status para as admissões em aberto (sem groups, sem parentId join).
+  const checklistByAdmission = new Map<string, { done: number; total: number }>();
+  if (openAdmissions.length > 0) {
+    const openIds = openAdmissions.map((a) => a.id);
+    const { data: itemsData } = await supabase
+      .from("admission_checklist_items")
+      .select("admissionId, status")
+      .is("parentId", null)
+      .in("admissionId", openIds);
+    for (const item of (itemsData ?? []) as Array<{ admissionId: string; status: string }>) {
+      const cur = checklistByAdmission.get(item.admissionId) ?? { done: 0, total: 0 };
+      cur.total += 1;
+      if (item.status === "DONE") cur.done += 1;
+      checklistByAdmission.set(item.admissionId, cur);
+    }
+  }
+
   const rows: AdmissionRow[] = openAdmissions.map((a) => {
-    const allItems = (a.checklistGroups ?? [])
-      .flatMap((g) => g.items ?? [])
-      .filter((i) => !i.parentId);
-    const checklistDone = allItems.filter((i) => i.status === "DONE").length;
-    const checklistTotal = allItems.length;
+    const checklist = checklistByAdmission.get(a.id) ?? { done: 0, total: 0 };
+    const checklistDone = checklist.done;
+    const checklistTotal = checklist.total;
 
     return {
       id: a.id,

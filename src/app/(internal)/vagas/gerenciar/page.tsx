@@ -32,7 +32,7 @@ export default async function GerenciarVagasPage({
       )
       .order("createdAt", { ascending: false })
       .limit(200),
-    supabase.from("applications").select("jobId, stageId, updatedAt"),
+    supabase.from("applications").select("jobId, stageId, updatedAt").limit(5000),
     supabase.from("application_stages").select("id").eq("kind", "LOST"),
   ]);
 

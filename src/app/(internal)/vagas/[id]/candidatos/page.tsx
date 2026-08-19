@@ -47,44 +47,16 @@ export default async function CandidatosPage({ params }: Props) {
       .order("sortOrder", { ascending: true }),
   ]);
 
+  // Valores derivados da wave 1
   const rawStages = (stagesData ?? []) as Array<{
     id: string; name: string; color: string; kind: string; templateId: string | null; hideFromBoard: boolean;
   }>;
   const testTemplateIds = rawStages
     .filter((s) => s.kind === "TEST" && s.templateId)
     .map((s) => s.templateId as string);
+  const hasAdmissionStage = rawStages.some((s) => s.kind === "ADMISSION" || s.kind === "WON");
+  const testStageIds = new Set(rawStages.filter((s) => s.kind === "TEST").map((s) => s.id));
 
-  const templateNames = new Map<string, string>();
-  const templateKinds = new Map<string, string>();
-  if (testTemplateIds.length > 0) {
-    const { data: tmplData } = await supabase
-      .from("assessment_templates")
-      .select("id, name, kind")
-      .in("id", testTemplateIds);
-    (tmplData ?? []).forEach((t: { id: string; name: string; kind: string }) => {
-      templateNames.set(t.id, t.name);
-      templateKinds.set(t.id, t.kind);
-    });
-  }
-
-  const allStages = rawStages.map((s) => ({
-    ...s,
-    hideFromBoard: s.hideFromBoard ?? false,
-    templateName: s.templateId ? (templateNames.get(s.templateId) ?? null) : null,
-    templateKind: s.templateId ? (templateKinds.get(s.templateId) ?? null) : null,
-  }));
-
-  // Etapas configuradas para esta vaga (vazio = usa todas as globais)
-  const { data: stageConfigData } = await supabase
-    .from("job_stage_config")
-    .select("stageId")
-    .eq("jobId", id);
-
-  const activeStageIds = (stageConfigData ?? []).map((r: { stageId: string }) => r.stageId);
-  const stages =
-    activeStageIds.length > 0
-      ? allStages.filter((s) => activeStageIds.includes(s.id))
-      : allStages;
   const appList = (applications ?? []) as Array<{
     id: string;
     fullName: string;
@@ -99,78 +71,88 @@ export default async function CandidatosPage({ params }: Props) {
     assessments: Array<{ id: string }>;
   }>;
 
-  // Meta de admissão: carrega só quando existe etapa ADMISSION no funil
-  const hasAdmissionStage = rawStages.some((s) => s.kind === "ADMISSION" || s.kind === "WON");
-  type MetaItem = { id: string; name: string };
-  let admissionMeta: {
-    positions: MetaItem[];
-    companies: MetaItem[];
-    branches: MetaItem[];
-    templates: MetaItem[];
-    intakeStageId: string | null;
-  } | null = null;
-
-  if (hasAdmissionStage) {
-    const [
-      { data: positions },
-      { data: companies },
-      { data: branches },
-      { data: templates },
-      { data: intakeStage },
-    ] = await Promise.all([
-      supabase.from("admission_positions").select("id, name").order("sortOrder", { ascending: true }),
-      supabase.from("admission_companies").select("id, name").order("sortOrder", { ascending: true }),
-      supabase.from("admission_branches").select("id, name").order("sortOrder", { ascending: true }),
-      supabase.from("admission_checklist_templates").select("id, name").order("name", { ascending: true }),
-      supabase
-        .from("admission_stages")
-        .select("id")
-        .eq("name", "Envio do formulário admissional")
-        .eq("active", true)
-        .limit(1)
-        .maybeSingle(),
-    ]);
-    admissionMeta = {
-      positions: (positions ?? []) as MetaItem[],
-      companies: (companies ?? []) as MetaItem[],
-      branches: (branches ?? []) as MetaItem[],
-      templates: (templates ?? []) as MetaItem[],
-      intakeStageId: (intakeStage as { id: string } | null)?.id ?? null,
-    };
-  }
-
-  // Sessões de teste: carrega só para apps em etapas TEST
-  const testStageIds = new Set(rawStages.filter((s) => s.kind === "TEST").map((s) => s.id));
   const testAppIds = appList.filter((a) => testStageIds.has(a.stageId)).map((a) => a.id);
-  // outcome: null = sessão ainda não submetida ou nenhuma sessão criada; string = resultado
-  const testOutcomeByApp = new Map<string, "PASS" | "FAIL" | "PENDING_REVIEW" | null>();
-
-  if (testAppIds.length > 0) {
-    const { data: sessData } = await supabase
-      .from("assessment_sessions")
-      .select("applicationId, outcome, submittedAt")
-      .in("applicationId", testAppIds)
-      .order("createdAt", { ascending: false });
-
-    // Mantém apenas a sessão mais recente por candidato
-    for (const s of (sessData ?? []) as Array<{ applicationId: string; outcome: string | null; submittedAt: string | null }>) {
-      if (!testOutcomeByApp.has(s.applicationId)) {
-        testOutcomeByApp.set(
-          s.applicationId,
-          s.submittedAt ? ((s.outcome as "PASS" | "FAIL" | "PENDING_REVIEW") ?? null) : null,
-        );
-      }
-    }
-    // Apps em TEST sem nenhuma sessão: outcome = null (badge "Teste pendente")
-    for (const appId of testAppIds) {
-      if (!testOutcomeByApp.has(appId)) testOutcomeByApp.set(appId, null);
-    }
-  }
-
-  // Scores de compatibilidade por IA: pega o mais recente por candidato
   const allAppIds = appList.map((a) => a.id);
 
-  // Big Five concluído: identifica candidatos que submeteram esse teste em QUALQUER etapa passada
+  // Wave 2: todas as queries restantes em paralelo (dependem apenas da wave 1)
+  type TemplateRow = { id: string; name: string; kind: string };
+  type MetaItem = { id: string; name: string };
+  type SessRow = { applicationId: string; outcome: string | null; submittedAt: string | null };
+  type AiRow = { applicationId: string; score: number };
+
+  const [tmplData, stageConfigData, sessData, aiData, admissionMeta] = await Promise.all([
+    testTemplateIds.length > 0
+      ? supabase.from("assessment_templates").select("id, name, kind").in("id", testTemplateIds)
+          .then((r) => r.data as TemplateRow[] | null)
+      : null,
+    supabase.from("job_stage_config").select("stageId").eq("jobId", id)
+      .then((r) => r.data as Array<{ stageId: string }> | null),
+    testAppIds.length > 0
+      ? supabase.from("assessment_sessions").select("applicationId, outcome, submittedAt")
+          .in("applicationId", testAppIds).order("createdAt", { ascending: false })
+          .then((r) => r.data as SessRow[] | null)
+      : null,
+    allAppIds.length > 0
+      ? supabase.from("application_assessments")
+          .select("applicationId, score, createdAt")
+          .eq("kind", "AI_FIT").in("applicationId", allAppIds)
+          .not("score", "is", null).order("createdAt", { ascending: false })
+          .then((r) => r.data as AiRow[] | null)
+      : null,
+    hasAdmissionStage
+      ? Promise.all([
+          supabase.from("admission_positions").select("id, name").order("sortOrder", { ascending: true }),
+          supabase.from("admission_companies").select("id, name").order("sortOrder", { ascending: true }),
+          supabase.from("admission_branches").select("id, name").order("sortOrder", { ascending: true }),
+          supabase.from("admission_checklist_templates").select("id, name").order("name", { ascending: true }),
+          supabase.from("admission_stages").select("id")
+            .eq("name", "Envio do formulário admissional").eq("active", true).limit(1).maybeSingle(),
+        ]).then(([posR, coR, brR, tmplR, intakeR]) => ({
+          positions: (posR.data ?? []) as MetaItem[],
+          companies: (coR.data ?? []) as MetaItem[],
+          branches: (brR.data ?? []) as MetaItem[],
+          templates: (tmplR.data ?? []) as MetaItem[],
+          intakeStageId: intakeR.data?.id ?? null,
+        }))
+      : null,
+  ]);
+
+  // templateNames / templateKinds
+  const templateNames = new Map<string, string>();
+  const templateKinds = new Map<string, string>();
+  (tmplData ?? []).forEach((t) => {
+    templateNames.set(t.id, t.name);
+    templateKinds.set(t.id, t.kind);
+  });
+
+  const allStages = rawStages.map((s) => ({
+    ...s,
+    hideFromBoard: s.hideFromBoard ?? false,
+    templateName: s.templateId ? (templateNames.get(s.templateId) ?? null) : null,
+    templateKind: s.templateId ? (templateKinds.get(s.templateId) ?? null) : null,
+  }));
+
+  const activeStageIds = (stageConfigData ?? []).map((r) => r.stageId);
+  const stages =
+    activeStageIds.length > 0
+      ? allStages.filter((s) => activeStageIds.includes(s.id))
+      : allStages;
+
+  // testOutcomeByApp
+  const testOutcomeByApp = new Map<string, "PASS" | "FAIL" | "PENDING_REVIEW" | null>();
+  for (const s of (sessData ?? [])) {
+    if (!testOutcomeByApp.has(s.applicationId)) {
+      testOutcomeByApp.set(
+        s.applicationId,
+        s.submittedAt ? ((s.outcome as "PASS" | "FAIL" | "PENDING_REVIEW") ?? null) : null,
+      );
+    }
+  }
+  for (const appId of testAppIds) {
+    if (!testOutcomeByApp.has(appId)) testOutcomeByApp.set(appId, null);
+  }
+
+  // Wave 3: Big Five (depende de templateKinds da wave 2)
   const bigFiveTemplateIds = [...templateKinds.entries()]
     .filter(([, k]) => k === 'PERSONALITY_BIG5')
     .map(([id]) => id);
@@ -185,18 +167,10 @@ export default async function CandidatosPage({ params }: Props) {
     (bfData ?? []).forEach((s: { applicationId: string }) => bigFiveDoneSet.add(s.applicationId));
   }
 
+  // aiScoreByApp
   const aiScoreByApp = new Map<string, number>();
-  if (allAppIds.length > 0) {
-    const { data: aiData } = await supabase
-      .from("application_assessments")
-      .select("applicationId, score, createdAt")
-      .eq("kind", "AI_FIT")
-      .in("applicationId", allAppIds)
-      .not("score", "is", null)
-      .order("createdAt", { ascending: false });
-    for (const row of (aiData ?? []) as Array<{ applicationId: string; score: number }>) {
-      if (!aiScoreByApp.has(row.applicationId)) aiScoreByApp.set(row.applicationId, row.score);
-    }
+  for (const row of (aiData ?? [])) {
+    if (!aiScoreByApp.has(row.applicationId)) aiScoreByApp.set(row.applicationId, row.score);
   }
 
   const cards: KanbanApplication[] = appList.map((a) => ({

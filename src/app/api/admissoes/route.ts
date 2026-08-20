@@ -5,8 +5,6 @@ import { rateLimit } from "@/lib/rate-limit";
 import { admissionSchema } from "@/lib/admissao/validation";
 import { admissionInputToData } from "@/lib/admissao/data";
 import { requireAdmissionWrite } from "@/lib/admissao/permissions";
-import { instantiateChecklistFromTemplate } from "@/lib/admissao/checklist";
-
 // POST /api/admissoes — cria uma admissão. Escrita = ADMIN_RH (ver permissions).
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -47,19 +45,10 @@ export async function POST(req: NextRequest) {
       createdById: access.userId,
       updatedById: access.userId,
     })
-    .select("id, templateId")
+    .select("id")
     .single();
   if (error || !admission) {
     return NextResponse.json({ error: "Erro ao criar admissão" }, { status: 500 });
-  }
-
-  // Se um modelo de checklist foi escolhido, já instancia grupos/itens.
-  if (admission.templateId) {
-    try {
-      await instantiateChecklistFromTemplate(admission.id, admission.templateId);
-    } catch {
-      // Não falha a criação da admissão se a aplicação do modelo falhar.
-    }
   }
 
   revalidatePath("/admissoes");

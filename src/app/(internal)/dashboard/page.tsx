@@ -1,9 +1,7 @@
-import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
-import AdmissaoAtividadesWidget from "@/components/internal/admissao/AdmissaoAtividadesWidget";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Dashboard — RH" };
@@ -318,15 +316,6 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
-
-      {/* Atividades de Admissão */}
-      <Suspense
-        fallback={
-          <div className="bg-white border border-wg-border-lighter rounded-2xl p-5 h-40 animate-pulse" />
-        }
-      >
-        <AdmissaoAtividadesWidget />
-      </Suspense>
 
       {/* CTAs */}
       {isAdmin && (

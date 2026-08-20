@@ -64,14 +64,6 @@ export const ApplicationStage = {
 } as const;
 export type ApplicationStage = (typeof ApplicationStage)[keyof typeof ApplicationStage];
 
-export const ChecklistItemStatus = {
-  PENDING: "PENDING",
-  IN_PROGRESS: "IN_PROGRESS",
-  DONE: "DONE",
-  NOT_APPLICABLE: "NOT_APPLICABLE",
-} as const;
-export type ChecklistItemStatus = (typeof ChecklistItemStatus)[keyof typeof ChecklistItemStatus];
-
 export const DistributionChannel = {
   MANUAL: "MANUAL",
   GOOGLE_JOBS: "GOOGLE_JOBS",

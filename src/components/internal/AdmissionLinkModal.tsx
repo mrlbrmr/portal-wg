@@ -11,7 +11,6 @@ export interface AdmissionMeta {
   positions: MetaOption[];
   companies: MetaOption[];
   branches: MetaOption[];
-  templates: MetaOption[];
   intakeStageId: string | null;
 }
 
@@ -51,7 +50,6 @@ export function AdmissionLinkModal({ open, candidate, meta, onClose, onSuccess }
   const [positionId, setPositionId] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [branchId, setBranchId] = useState("");
-  const [templateId, setTemplateId] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -63,7 +61,6 @@ export function AdmissionLinkModal({ open, candidate, meta, onClose, onSuccess }
       setPositionId("");
       setCompanyId("");
       setBranchId("");
-      setTemplateId("");
     }
   }, [open]);
 
@@ -105,7 +102,6 @@ export function AdmissionLinkModal({ open, candidate, meta, onClose, onSuccess }
           positionId: positionId || null,
           companyId: companyId || null,
           branchId: branchId || null,
-          templateId: templateId || null,
           stageId: meta!.intakeStageId,
           sourceApplicationId: candidate!.id,
           sourceJobId: candidate!.jobId,
@@ -216,13 +212,6 @@ export function AdmissionLinkModal({ open, candidate, meta, onClose, onSuccess }
                   <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-[#1A2213] focus:border-wg-green focus:outline-none">
                     <option value="">— Selecione —</option>
                     {meta.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[12px] font-medium text-[#55614A] mb-1">Modelo de checklist</label>
-                  <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm text-[#1A2213] focus:border-wg-green focus:outline-none">
-                    <option value="">— Nenhum —</option>
-                    {meta.templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
               </div>

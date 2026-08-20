@@ -4,14 +4,13 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 
 interface Props {
-  checklist: ReactNode;
   attachments: ReactNode;
   pendingDocsCount: number;
   formViewer?: ReactNode;
 }
 
-export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount, formViewer }: Props) {
-  const [tab, setTab] = useState<"checklist" | "docs" | "form">("checklist");
+export function AdmissionDetailTabs({ attachments, pendingDocsCount, formViewer }: Props) {
+  const [tab, setTab] = useState<"docs" | "form">("docs");
 
   const btnClass = (active: boolean) =>
     `px-4 py-2 rounded-[8px] text-[13.5px] font-bold transition-colors ${
@@ -21,9 +20,6 @@ export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount, 
   return (
     <div className="flex flex-col gap-4 min-w-0">
       <div className="bg-[#EEF4E3] rounded-[10px] p-1 flex gap-0.5 w-fit">
-        <button type="button" onClick={() => setTab("checklist")} className={btnClass(tab === "checklist")}>
-          Checklist
-        </button>
         <button
           type="button"
           onClick={() => setTab("docs")}
@@ -44,7 +40,6 @@ export function AdmissionDetailTabs({ checklist, attachments, pendingDocsCount, 
       </div>
 
       <div key={tab} className="tab-content min-w-0">
-        {tab === "checklist" && checklist}
         {tab === "docs" && attachments}
         {tab === "form" && formViewer}
       </div>

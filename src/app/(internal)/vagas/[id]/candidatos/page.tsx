@@ -104,14 +104,12 @@ export default async function CandidatosPage({ params }: Props) {
           supabase.from("admission_positions").select("id, name").order("sortOrder", { ascending: true }),
           supabase.from("admission_companies").select("id, name").order("sortOrder", { ascending: true }),
           supabase.from("admission_branches").select("id, name").order("sortOrder", { ascending: true }),
-          supabase.from("admission_checklist_templates").select("id, name").order("name", { ascending: true }),
           supabase.from("admission_stages").select("id")
             .eq("name", "Envio do formulário admissional").eq("active", true).limit(1).maybeSingle(),
-        ]).then(([posR, coR, brR, tmplR, intakeR]) => ({
+        ]).then(([posR, coR, brR, intakeR]) => ({
           positions: (posR.data ?? []) as MetaItem[],
           companies: (coR.data ?? []) as MetaItem[],
           branches: (brR.data ?? []) as MetaItem[],
-          templates: (tmplR.data ?? []) as MetaItem[],
           intakeStageId: intakeR.data?.id ?? null,
         }))
       : null,

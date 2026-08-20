@@ -25,7 +25,6 @@ export async function GET() {
          company:admission_companies(name),
          branch:admission_branches(name),
          stage:admission_stages(name),
-         checklistItems:admission_checklist_items(id, parentId, status),
          attachments:admission_attachments(documentTypeId)`
       )
       .is("deletedAt", null)
@@ -54,7 +53,6 @@ export async function GET() {
     company: { name: string } | null;
     branch: { name: string } | null;
     stage: { name: string } | null;
-    checklistItems: Array<{ id: string; parentId: string | null; status: string }>;
     attachments: Array<{ documentTypeId: string | null }>;
   }>;
   const users = (usersRes.data ?? []) as Array<{ id: string; name: string }>;
@@ -86,7 +84,6 @@ export async function GET() {
     { header: "Uniforme (camiseta)", key: "uniformShirt", width: 18 },
     { header: "Uniforme (calça)", key: "uniformPants", width: 16 },
     { header: "Uniforme (sapato)", key: "uniformShoe", width: 16 },
-    { header: "Checklist %", key: "checklistPct", width: 12 },
     { header: "Docs obrigatórios %", key: "docsPct", width: 18 },
     { header: "Criado em", key: "createdAt", width: 14 },
   ];
@@ -95,13 +92,6 @@ export async function GET() {
     d ? new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "";
 
   for (const a of admissions) {
-    // Conta só as folhas (itens sem subtarefas), igual à ficha.
-    const items = a.checklistItems;
-    const parentIds = new Set(items.map((i) => i.parentId).filter((x): x is string => !!x));
-    const leaves = items.filter((i) => !parentIds.has(i.id));
-    const doneItems = leaves.filter((i) => i.status === "DONE").length;
-    const checklistPct = leaves.length > 0 ? Math.round((doneItems / leaves.length) * 100) : null;
-
     const attachedTypeIds = new Set(
       a.attachments.map((x) => x.documentTypeId).filter((x): x is string => !!x)
     );
@@ -128,7 +118,6 @@ export async function GET() {
       uniformShirt: a.uniformShirt ?? "",
       uniformPants: a.uniformPants ?? "",
       uniformShoe: a.uniformShoe ?? "",
-      checklistPct: checklistPct != null ? checklistPct / 100 : "",
       docsPct: docsPct != null ? docsPct / 100 : "",
       createdAt: fmtDate(a.createdAt),
     });
@@ -137,7 +126,6 @@ export async function GET() {
   // Formatação: cabeçalho em negrito, moeda e porcentagem.
   ws.getRow(1).font = { bold: true };
   ws.getColumn("salary").numFmt = 'R$ #,##0.00';
-  ws.getColumn("checklistPct").numFmt = "0%";
   ws.getColumn("docsPct").numFmt = "0%";
   ws.views = [{ state: "frozen", ySplit: 1 }];
 

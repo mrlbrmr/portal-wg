@@ -5,10 +5,6 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
-  AdmissionChecklist,
-  type ChecklistGroupView,
-} from "@/components/internal/admissao/AdmissionChecklist";
-import {
   AdmissionAttachments,
   type AttachmentView,
 } from "@/components/internal/admissao/AdmissionAttachments";
@@ -75,19 +71,6 @@ interface AdmissionDetail {
   company: { name: string } | null;
   branch: { name: string } | null;
   stage: { name: string; color: string } | null;
-  checklistGroups: Array<{
-    id: string;
-    name: string;
-    sortOrder: number;
-    items: Array<{
-      id: string;
-      name: string;
-      status: ChecklistGroupView["items"][number]["status"];
-      parentId: string | null;
-      dueDate: string | null;
-      sortOrder: number;
-    }>;
-  }>;
   attachments: Array<{
     id: string;
     fileName: string;
@@ -105,7 +88,7 @@ export default async function AdmissaoDetalhePage({
   const { id } = await params;
 
   const supabase = await createClient();
-  const [session, admissionRes, documentTypesRes, templatesRes, usersRes, formConfig] =
+  const [session, admissionRes, documentTypesRes, usersRes, formConfig] =
     await Promise.all([
       auth(),
       supabase
@@ -116,7 +99,6 @@ export default async function AdmissaoDetalhePage({
            company:admission_companies(name),
            branch:admission_branches(name),
            stage:admission_stages(name, color),
-           checklistGroups:admission_checklist_groups(id, name, sortOrder, items:admission_checklist_items(id, name, status, parentId, dueDate, sortOrder)),
            attachments:admission_attachments(id, fileName, sizeBytes, createdAt, documentTypeId)`
         )
         .eq("id", id)
@@ -126,11 +108,6 @@ export default async function AdmissaoDetalhePage({
         .from("admission_document_types")
         .select("id, name, required")
         .order("sortOrder", { ascending: true }),
-      supabase
-        .from("admission_checklist_templates")
-        .select("id, name")
-        .eq("active", true)
-        .order("name", { ascending: true }),
       supabase.from("users").select("id, name").eq("active", true),
       loadFormConfig(),
     ]);
@@ -143,7 +120,6 @@ export default async function AdmissaoDetalhePage({
     name: string;
     required: boolean;
   }>;
-  const templates = (templatesRes.data ?? []) as Array<{ id: string; name: string }>;
   const users = (usersRes.data ?? []) as Array<{ id: string; name: string }>;
 
   const canManage = session?.user.role === "ADMIN_RH";
@@ -157,34 +133,6 @@ export default async function AdmissaoDetalhePage({
         .map(([k, v]) => ({ label: extraFieldDefs.find((f) => f.key === k)?.label ?? k, value: v }))
         .filter((r) => r.value)
     : [];
-
-  const sortedGroups = [...(admission.checklistGroups ?? [])].sort(
-    (a, b) => a.sortOrder - b.sortOrder
-  );
-  const groups: ChecklistGroupView[] = sortedGroups.map((g) => {
-    const gItems = [...(g.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
-    const children = gItems.filter((it) => it.parentId);
-    const topLevel = gItems.filter((it) => !it.parentId);
-    return {
-      id: g.id,
-      name: g.name,
-      items: topLevel.map((it) => ({
-        id: it.id,
-        name: it.name,
-        status: it.status,
-        dueDate: dateInput(it.dueDate),
-        subtasks: children
-          .filter((c) => c.parentId === it.id)
-          .map((c) => ({
-            id: c.id,
-            name: c.name,
-            status: c.status,
-            dueDate: dateInput(c.dueDate),
-            subtasks: [],
-          })),
-      })),
-    };
-  });
 
   const attachments: AttachmentView[] = [...(admission.attachments ?? [])]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -383,18 +331,10 @@ export default async function AdmissaoDetalhePage({
           )}
         </div>
 
-        {/* Right: tabbed checklist / docs / form */}
+        {/* Right: docs / form */}
         <AdmissionDetailTabs
           pendingDocsCount={pendingDocsCount}
           formViewer={formViewerNode}
-          checklist={
-            <AdmissionChecklist
-              admissionId={id}
-              canManage={canManage}
-              groups={groups}
-              templates={templates}
-            />
-          }
           attachments={
             <AdmissionAttachments
               admissionId={id}

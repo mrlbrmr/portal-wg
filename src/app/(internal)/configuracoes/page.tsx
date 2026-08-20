@@ -115,12 +115,6 @@ export default async function ConfiguracoesPage() {
               description="Empresas, filiais, cargos, etapas, tags e tipos de documento."
             />
             <NavCard
-              href="/configuracoes/modelos"
-              icon={ListChecks}
-              title="Modelos de Checklist"
-              description="Templates de checklist por cargo com grupos e itens padronizados."
-            />
-            <NavCard
               href="/configuracoes/formulario-admissao"
               icon={FileText}
               title="Formulário de Admissão Digital"

@@ -45,7 +45,6 @@ export const admissionSchema = z.object({
   companyId: optId,
   branchId: optId,
   stageId: optId,
-  templateId: optId,
   responsibleId: optId,
   managerName: optStr(120),
   startDate: optDate,

@@ -42,7 +42,6 @@ export default async function EditarAdmissaoPage({
     companyId: string | null;
     branchId: string | null;
     stageId: string | null;
-    templateId: string | null;
     responsibleId: string | null;
     managerName: string | null;
     startDate: string | null;
@@ -67,7 +66,6 @@ export default async function EditarAdmissaoPage({
     companyId: admission.companyId ?? "",
     branchId: admission.branchId ?? "",
     stageId: admission.stageId ?? "",
-    templateId: admission.templateId ?? "",
     responsibleId: admission.responsibleId ?? "",
     managerName: admission.managerName ?? "",
     startDate: toDateInput(admission.startDate),

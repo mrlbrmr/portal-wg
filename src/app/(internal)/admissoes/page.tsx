@@ -81,50 +81,24 @@ export default async function AdmissoesPage() {
   // Lista: apenas admissões em aberto
   const openAdmissions = admissions.filter((a) => !a.stage?.isFinal);
 
-  // Query flat de contagem de checklist — muito mais leve que o join aninhado anterior.
-  // Busca apenas admissionId + status para as admissões em aberto (sem groups, sem parentId join).
-  const checklistByAdmission = new Map<string, { done: number; total: number }>();
-  if (openAdmissions.length > 0) {
-    const openIds = openAdmissions.map((a) => a.id);
-    const { data: itemsData } = await supabase
-      .from("admission_checklist_items")
-      .select("admissionId, status")
-      .is("parentId", null)
-      .in("admissionId", openIds);
-    for (const item of (itemsData ?? []) as Array<{ admissionId: string; status: string }>) {
-      const cur = checklistByAdmission.get(item.admissionId) ?? { done: 0, total: 0 };
-      cur.total += 1;
-      if (item.status === "DONE") cur.done += 1;
-      checklistByAdmission.set(item.admissionId, cur);
-    }
-  }
-
-  const rows: AdmissionRow[] = openAdmissions.map((a) => {
-    const checklist = checklistByAdmission.get(a.id) ?? { done: 0, total: 0 };
-    const checklistDone = checklist.done;
-    const checklistTotal = checklist.total;
-
-    return {
-      id: a.id,
-      fullName: a.fullName,
-      cpf: a.cpf,
-      positionName: a.position?.name ?? null,
-      companyId: a.companyId ?? null,
-      companyName: a.company?.name ?? null,
-      branchName: a.branch?.name ?? null,
-      stageId: a.stage?.id ?? null,
-      stageName: a.stage?.name ?? null,
-      stageColor: a.stage?.color ?? null,
-      responsibleName: a.responsibleId ? (userMap.get(a.responsibleId) ?? null) : null,
-      startDate: a.startDate
-        ? new Date(a.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
-        : null,
-      startDateISO: a.startDate ? new Date(a.startDate).toISOString().slice(0, 10) : null,
-      createdAt: new Date(a.createdAt).toISOString(),
-      checklistDone,
-      checklistTotal,
-    };
-  });
+  const rows: AdmissionRow[] = openAdmissions.map((a) => ({
+    id: a.id,
+    fullName: a.fullName,
+    cpf: a.cpf,
+    positionName: a.position?.name ?? null,
+    companyId: a.companyId ?? null,
+    companyName: a.company?.name ?? null,
+    branchName: a.branch?.name ?? null,
+    stageId: a.stage?.id ?? null,
+    stageName: a.stage?.name ?? null,
+    stageColor: a.stage?.color ?? null,
+    responsibleName: a.responsibleId ? (userMap.get(a.responsibleId) ?? null) : null,
+    startDate: a.startDate
+      ? new Date(a.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+      : null,
+    startDateISO: a.startDate ? new Date(a.startDate).toISOString().slice(0, 10) : null,
+    createdAt: new Date(a.createdAt).toISOString(),
+  }));
 
   // Kanban: todas as admissões
   const kanbanCards: KanbanAdmission[] = admissions.map((a) => ({

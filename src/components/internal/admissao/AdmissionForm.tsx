@@ -14,7 +14,6 @@ export interface AdmissionFormValues {
   companyId: string;
   branchId: string;
   stageId: string;
-  templateId: string;
   responsibleId: string;
   managerName: string;
   startDate: string;
@@ -38,7 +37,6 @@ interface Props {
     companies: Option[];
     branches: Option[];
     positions: Option[];
-    templates: Option[];
     users: Option[];
   };
   admission?: AdmissionFormValues & { id: string };
@@ -255,10 +253,9 @@ export default function AdmissionForm({ options, admission, canDelete }: Props) 
       {/* Processo */}
       <fieldset className="space-y-4">
         <legend className="text-sm font-semibold text-gray-900 mb-1">Processo de admissão</legend>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SelectField name="stageId" label="Etapa" options={options.stages} defaultValue={v?.stageId} />
           <SelectField name="responsibleId" label="Responsável" options={options.users} defaultValue={v?.responsibleId} />
-          <SelectField name="templateId" label="Modelo de checklist" options={options.templates} defaultValue={v?.templateId} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

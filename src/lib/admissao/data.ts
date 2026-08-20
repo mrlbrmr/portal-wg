@@ -18,7 +18,6 @@ export interface AdmissionWriteData {
   companyId: string | null;
   branchId: string | null;
   stageId: string | null;
-  templateId: string | null;
   responsibleId: string | null;
   managerName: string | null;
   startDate: Date | null;
@@ -48,7 +47,6 @@ export function admissionInputToData(input: AdmissionInput): AdmissionWriteData 
     companyId: input.companyId ?? null,
     branchId: input.branchId ?? null,
     stageId: input.stageId ?? null,
-    templateId: input.templateId ?? null,
     responsibleId: input.responsibleId ?? null,
     managerName: input.managerName ?? null,
     startDate: toDate(input.startDate),

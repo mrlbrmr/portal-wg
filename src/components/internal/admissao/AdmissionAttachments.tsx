@@ -70,8 +70,6 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
   const [pendingCategory, setPendingCategory] = useState(UNCATEGORIZED);
 
   const [previewItem, setPreviewItem] = useState<AttachmentView | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (!previewItem) return;
@@ -80,27 +78,12 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
     return () => document.removeEventListener("keydown", onKey);
   }, [previewItem]);
 
-  async function openPreview(f: AttachmentView) {
+  function openPreview(f: AttachmentView) {
     setPreviewItem(f);
-    setPreviewUrl(null);
-    setPreviewLoading(true);
-    try {
-      const res = await fetch(
-        `/api/admissoes/${admissionId}/attachments/${f.id}?preview=true`,
-        { credentials: "same-origin" }
-      );
-      if (res.ok) {
-        const { url } = await res.json() as { url: string };
-        setPreviewUrl(url);
-      }
-    } finally {
-      setPreviewLoading(false);
-    }
   }
 
   function closePreview() {
     setPreviewItem(null);
-    setPreviewUrl(null);
   }
 
   function run(fn: () => Promise<ActionResult>) {
@@ -365,26 +348,22 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
 
           {/* Conteúdo */}
           <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 min-h-[300px]">
-            {previewLoading && (
-              <p className="text-sm text-gray-400">Carregando…</p>
-            )}
-            {!previewLoading && previewUrl && isImage(previewItem.mimeType) && (
+            {isImage(previewItem.mimeType) && (
               <img
-                src={previewUrl}
+                src={`/api/admissoes/${admissionId}/attachments/${previewItem.id}?inline=true`}
                 alt={previewItem.fileName}
                 className="max-w-full max-h-[75vh] object-contain p-4"
               />
             )}
-            {!previewLoading && previewUrl && isPdf(previewItem.mimeType) && (
+            {isPdf(previewItem.mimeType) && (
               <iframe
-                src={previewUrl}
+                src={`/api/admissoes/${admissionId}/attachments/${previewItem.id}?inline=true`}
                 title={previewItem.fileName}
                 className="w-full"
                 style={{ height: "75vh" }}
               />
             )}
-            {!previewLoading && previewUrl &&
-              !isImage(previewItem.mimeType) && !isPdf(previewItem.mimeType) && (
+            {!isImage(previewItem.mimeType) && !isPdf(previewItem.mimeType) && (
               <div className="text-center p-10">
                 <FileText className="w-14 h-14 text-gray-200 mx-auto mb-3" />
                 <p className="text-sm text-gray-500 mb-4">

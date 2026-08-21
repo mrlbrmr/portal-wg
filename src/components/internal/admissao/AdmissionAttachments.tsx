@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Paperclip,
@@ -70,6 +70,9 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
   const [pendingCategory, setPendingCategory] = useState(UNCATEGORIZED);
 
   const [previewItem, setPreviewItem] = useState<AttachmentView | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!previewItem) return;
@@ -78,12 +81,36 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
     return () => document.removeEventListener("keydown", onKey);
   }, [previewItem]);
 
-  function openPreview(f: AttachmentView) {
+  // Busca o arquivo e cria um blob URL local — contorna X-Frame-Options/CSP do servidor.
+  const openPreview = useCallback(async (f: AttachmentView) => {
     setPreviewItem(f);
-  }
+    setPreviewBlobUrl(null);
+    if (!isImage(f.mimeType) && !isPdf(f.mimeType)) return;
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admissoes/${admissionId}/attachments/${f.id}?inline=true`,
+        { credentials: "same-origin" }
+      );
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = url;
+        setPreviewBlobUrl(url);
+      }
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [admissionId]);
 
   function closePreview() {
     setPreviewItem(null);
+    setPreviewBlobUrl(null);
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
   }
 
   function run(fn: () => Promise<ActionResult>) {
@@ -348,22 +375,26 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
 
           {/* Conteúdo */}
           <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 min-h-[300px]">
-            {isImage(previewItem.mimeType) && (
+            {previewLoading && (
+              <p className="text-sm text-gray-400">Carregando…</p>
+            )}
+            {!previewLoading && previewBlobUrl && isImage(previewItem.mimeType) && (
               <img
-                src={`/api/admissoes/${admissionId}/attachments/${previewItem.id}?inline=true`}
+                src={previewBlobUrl}
                 alt={previewItem.fileName}
                 className="max-w-full max-h-[75vh] object-contain p-4"
               />
             )}
-            {isPdf(previewItem.mimeType) && (
+            {!previewLoading && previewBlobUrl && isPdf(previewItem.mimeType) && (
               <iframe
-                src={`/api/admissoes/${admissionId}/attachments/${previewItem.id}?inline=true`}
+                src={previewBlobUrl}
                 title={previewItem.fileName}
                 className="w-full"
                 style={{ height: "75vh" }}
               />
             )}
-            {!isImage(previewItem.mimeType) && !isPdf(previewItem.mimeType) && (
+            {!previewLoading && !previewBlobUrl &&
+              !isImage(previewItem.mimeType) && !isPdf(previewItem.mimeType) && (
               <div className="text-center p-10">
                 <FileText className="w-14 h-14 text-gray-200 mx-auto mb-3" />
                 <p className="text-sm text-gray-500 mb-4">

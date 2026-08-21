@@ -4,13 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ATTACHMENTS_BUCKET } from "@/lib/admissao/storage";
 
-// Download de anexo de admissão — SOMENTE para interno autenticado (leitura).
-// O arquivo fica em Blob privado; entregue server-side, sem expor a URL bruta.
+// Download/preview de anexo de admissão — SOMENTE para interno autenticado.
+// ?preview=true → retorna { url } como JSON para uso em modal de prévia.
+// Sem parâmetro → redireciona (302) para a signed URL (download direto).
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; attachmentId: string }> }
 ) {
   const { id, attachmentId } = await params;
+  const isPreview = _req.nextUrl.searchParams.get("preview") === "true";
 
   const session = await auth();
   if (!session) {
@@ -38,5 +40,8 @@ export async function GET(
     return NextResponse.json({ error: "Falha ao acessar o anexo" }, { status: 502 });
   }
 
+  if (isPreview) {
+    return NextResponse.json({ url: signed.signedUrl });
+  }
   return NextResponse.redirect(signed.signedUrl, { status: 302 });
 }

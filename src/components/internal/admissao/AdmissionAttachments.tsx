@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Paperclip,
@@ -11,6 +11,8 @@ import {
   FolderOpen,
   CheckCircle2,
   AlertCircle,
+  Eye,
+  X,
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ActionResult } from "@/lib/admissao/actions";
@@ -21,6 +23,7 @@ const UNCATEGORIZED = "__uncategorized__";
 export interface AttachmentView {
   id: string;
   fileName: string;
+  mimeType: string | null;
   sizeBytes: number | null;
   createdAt: string; // ISO
   documentTypeId: string | null;
@@ -49,6 +52,9 @@ interface Section {
 const smallSelect =
   "h-8 rounded-md border border-gray-300 px-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green";
 
+function isImage(mime: string | null) { return !!mime && mime.startsWith("image/"); }
+function isPdf(mime: string | null) { return mime === "application/pdf"; }
+
 function formatSize(n: number | null): string {
   if (!n) return "—";
   if (n < 1024) return `${n} B`;
@@ -62,6 +68,40 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [pendingCategory, setPendingCategory] = useState(UNCATEGORIZED);
+
+  const [previewItem, setPreviewItem] = useState<AttachmentView | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (!previewItem) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closePreview(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [previewItem]);
+
+  async function openPreview(f: AttachmentView) {
+    setPreviewItem(f);
+    setPreviewUrl(null);
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admissoes/${admissionId}/attachments/${f.id}?preview=true`,
+        { credentials: "same-origin" }
+      );
+      if (res.ok) {
+        const { url } = await res.json() as { url: string };
+        setPreviewUrl(url);
+      }
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  function closePreview() {
+    setPreviewItem(null);
+    setPreviewUrl(null);
+  }
 
   function run(fn: () => Promise<ActionResult>) {
     startTransition(async () => {
@@ -110,6 +150,7 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
   const reqPct = reqTotal > 0 ? Math.round((requiredDone / reqTotal) * 100) : 0;
 
   return (
+    <>
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-200">
         <div>
@@ -251,6 +292,14 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
                           ))}
                         </select>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => openPreview(f)}
+                        className="p-1 text-gray-400 hover:text-wg-green-dark rounded"
+                        title="Pré-visualizar"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                       <a
                         href={`/api/admissoes/${admissionId}/attachments/${f.id}`}
                         className="p-1 text-gray-400 hover:text-wg-green-dark rounded"
@@ -280,6 +329,80 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
         })}
       </div>
     </div>
+
+    {/* Modal de pré-visualização */}
+    {previewItem && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+        onClick={closePreview}
+      >
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden"
+          style={{ maxHeight: "90vh" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Cabeçalho */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0">
+            <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+            <span className="flex-1 text-sm font-medium text-gray-800 truncate min-w-0">
+              {previewItem.fileName}
+            </span>
+            <a
+              href={`/api/admissoes/${admissionId}/attachments/${previewItem.id}`}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-wg-green-dark shrink-0"
+              title="Baixar"
+            >
+              <Download className="w-3.5 h-3.5" /> Baixar
+            </a>
+            <button
+              onClick={closePreview}
+              className="p-1 text-gray-400 hover:text-gray-700 rounded shrink-0"
+              title="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Conteúdo */}
+          <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 min-h-[300px]">
+            {previewLoading && (
+              <p className="text-sm text-gray-400">Carregando…</p>
+            )}
+            {!previewLoading && previewUrl && isImage(previewItem.mimeType) && (
+              <img
+                src={previewUrl}
+                alt={previewItem.fileName}
+                className="max-w-full max-h-[75vh] object-contain p-4"
+              />
+            )}
+            {!previewLoading && previewUrl && isPdf(previewItem.mimeType) && (
+              <iframe
+                src={previewUrl}
+                title={previewItem.fileName}
+                className="w-full"
+                style={{ height: "75vh" }}
+              />
+            )}
+            {!previewLoading && previewUrl &&
+              !isImage(previewItem.mimeType) && !isPdf(previewItem.mimeType) && (
+              <div className="text-center p-10">
+                <FileText className="w-14 h-14 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-500 mb-4">
+                  Este formato não suporta pré-visualização.
+                </p>
+                <a
+                  href={`/api/admissoes/${admissionId}/attachments/${previewItem.id}`}
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-wg-green-dark hover:underline"
+                >
+                  <Download className="w-4 h-4" /> Baixar arquivo
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

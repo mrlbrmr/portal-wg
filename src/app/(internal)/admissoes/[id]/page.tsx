@@ -74,6 +74,7 @@ interface AdmissionDetail {
   attachments: Array<{
     id: string;
     fileName: string;
+    mimeType: string | null;
     sizeBytes: number | string | null;
     createdAt: string;
     documentTypeId: string | null;
@@ -99,7 +100,7 @@ export default async function AdmissaoDetalhePage({
            company:admission_companies(name),
            branch:admission_branches(name),
            stage:admission_stages(name, color),
-           attachments:admission_attachments(id, fileName, sizeBytes, createdAt, documentTypeId)`
+           attachments:admission_attachments(id, fileName, mimeType, sizeBytes, createdAt, documentTypeId)`
         )
         .eq("id", id)
         .is("deletedAt", null)
@@ -139,6 +140,7 @@ export default async function AdmissaoDetalhePage({
     .map((a) => ({
       id: a.id,
       fileName: a.fileName,
+      mimeType: a.mimeType ?? null,
       sizeBytes: a.sizeBytes != null ? Number(a.sizeBytes) : null,
       createdAt: new Date(a.createdAt).toISOString(),
       documentTypeId: a.documentTypeId,

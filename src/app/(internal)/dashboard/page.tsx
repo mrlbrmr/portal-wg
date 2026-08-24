@@ -63,8 +63,8 @@ export default async function DashboardPage() {
     Promise.all([
       // Uma query para todos os metadados de vagas (substitui 8 queries COUNT)
       supabase.from("jobs").select("status, createdAt, closingDate").limit(500),
-      supabase.from("applications").select("*, jobs!inner(isTalentPool)", { count: "exact", head: true }).eq("stageId", "NEW").eq("jobs.isTalentPool", false),
-      supabase.from("applications").select("*, jobs!inner(isTalentPool)", { count: "exact", head: true }).eq("jobs.isTalentPool", false),
+      supabase.from("applications").select("*, jobs!inner(isTalentPool, status)", { count: "exact", head: true }).eq("stageId", "NEW").eq("jobs.isTalentPool", false).neq("jobs.status", "FILLED"),
+      supabase.from("applications").select("*, jobs!inner(isTalentPool, status)", { count: "exact", head: true }).eq("jobs.isTalentPool", false).neq("jobs.status", "FILLED"),
       supabase.from("applications")
         .select("id, fullName, createdAt, jobId, job:jobs(title), stage:application_stages(name, color)")
         .order("createdAt", { ascending: false })
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
         .order("createdAt", { ascending: false })
         .limit(8),
       // Limit protege contra full table scan enquanto o índice stageId_only não estiver aplicado.
-      supabase.from("applications").select("jobId, jobs!inner(isTalentPool)").eq("stageId", "NEW").eq("jobs.isTalentPool", false).limit(2000),
+      supabase.from("applications").select("jobId, jobs!inner(isTalentPool, status)").eq("stageId", "NEW").eq("jobs.isTalentPool", false).neq("jobs.status", "FILLED").limit(2000),
     ]),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error("dashboard timeout")), 8_000)),
   ]).catch(() => null);

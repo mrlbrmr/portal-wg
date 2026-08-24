@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { isValidCpf } from "@/lib/cpf";
 
 // Normaliza strings vazias vindas de <input>/<select> para null.
 const emptyToNull = (v: unknown) =>
@@ -31,10 +30,7 @@ const optSalary = z.preprocess(
 // exceto o nome. IDs de configuração e datas chegam como string do formulário.
 export const admissionSchema = z.object({
   fullName: z.string().trim().min(3, "Informe o nome completo").max(120),
-  cpf: z.preprocess(
-    emptyToNull,
-    z.string().max(14).refine(isValidCpf, "CPF inválido").nullable().optional()
-  ),
+  cpf: optStr(14),
   email: z.preprocess(
     emptyToNull,
     z.string().email("E-mail inválido").max(150).nullable().optional()

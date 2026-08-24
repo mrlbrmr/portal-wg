@@ -20,6 +20,10 @@ const schema = z.object({
   bankAccount:            z.string().max(30).nullable().optional(),
   colorDeclaration:       z.string().min(1),
   isDriverOperator:       z.boolean(),
+  uniformShirt:           z.string().min(1).max(20),
+  noOperationalUniform:   z.boolean(),
+  uniformPants:           z.string().max(20).nullable().optional(),
+  uniformShoe:            z.string().max(20).nullable().optional(),
   formExtras:             z.record(z.string(), z.string().max(200)).nullable().optional(),
   abandonedAttachmentIds: z.array(z.string().uuid()).max(50).nullable().optional(),
 })
@@ -70,6 +74,10 @@ export async function POST(
     bankAccount:            d.bankAccount ?? null,
     colorDeclaration:       d.colorDeclaration,
     isDriverOperator:       d.isDriverOperator,
+    uniformShirt:           d.uniformShirt,
+    noOperationalUniform:   d.noOperationalUniform,
+    uniformPants:           d.uniformPants ?? null,
+    uniformShoe:            d.uniformShoe ?? null,
     formExtras:             d.formExtras ?? null,
     digitalFormSubmittedAt: new Date().toISOString(),
   }).eq('id', admission.id)

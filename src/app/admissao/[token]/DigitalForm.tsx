@@ -31,6 +31,10 @@ interface AdditionalData {
   bankAccount: string
   colorDeclaration: string
   isDriverOperator: boolean | null
+  shirtSize: string
+  noOperationalUniform: boolean
+  pantsSize: string
+  bootSize: string
 }
 
 interface UploadState {
@@ -331,6 +335,7 @@ export function DigitalForm({
     maritalStatus: '', hasChildren: null, needsTransportVoucher: null,
     transportVoucherDetails: '', hasItauAccount: null,
     bankAgency: '', bankAccount: '', colorDeclaration: '', isDriverOperator: null,
+    shirtSize: '', noOperationalUniform: false, pantsSize: '', bootSize: '',
   })
 
   const [uploads, setUploads]     = useState<Record<string, UploadState[]>>({})
@@ -393,6 +398,11 @@ export function DigitalForm({
     }
     if (!additional.colorDeclaration) e.colorDeclaration = 'Selecione a autodeclaração de cor.'
     if (additional.isDriverOperator === null) e.isDriverOperator = 'Responda sobre o cargo.'
+    if (!additional.shirtSize) e.shirtSize = 'Selecione o tamanho da camiseta.'
+    if (!additional.noOperationalUniform) {
+      if (!additional.pantsSize) e.pantsSize = 'Selecione o tamanho da calça.'
+      if (!additional.bootSize) e.bootSize = 'Selecione o número da bota.'
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -471,6 +481,10 @@ export function DigitalForm({
           bankAccount:            additional.bankAccount || null,
           colorDeclaration:       additional.colorDeclaration,
           isDriverOperator:       additional.isDriverOperator ?? false,
+          uniformShirt:           additional.shirtSize,
+          noOperationalUniform:   additional.noOperationalUniform,
+          uniformPants:           additional.noOperationalUniform ? null : additional.pantsSize,
+          uniformShoe:            additional.noOperationalUniform ? null : additional.bootSize,
           formExtras:             Object.keys(formExtras).length ? formExtras : null,
           abandonedAttachmentIds: abandoned.length ? abandoned : null,
         }),
@@ -634,6 +648,69 @@ export function DigitalForm({
               {config.messages.driverInfo}
             </p>
           )}
+
+          <div className="border-t border-gray-100 pt-4 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-800">Tamanho de uniformes</h3>
+
+            <RadioGroup
+              label="Tamanho da camiseta"
+              options={['PP', 'P', 'M', 'G', 'GG', 'EXG', 'EXGG']}
+              value={additional.shirtSize}
+              onChange={v => setAdditional(a => ({ ...a, shirtSize: v }))}
+              required
+            />
+            {errors.shirtSize && <p className="text-xs text-red-500">{errors.shirtSize}</p>}
+
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={additional.noOperationalUniform}
+                onChange={e => setAdditional(a => ({
+                  ...a,
+                  noOperationalUniform: e.target.checked,
+                  pantsSize: '',
+                  bootSize: '',
+                }))}
+                className="mt-0.5 w-4 h-4 accent-wg-green shrink-0"
+              />
+              <span className="text-sm text-gray-700">
+                Não utilizarei calça e bota <span className="text-gray-400">(cargo administrativo)</span>
+              </span>
+            </label>
+
+            {!additional.noOperationalUniform && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls(true)}>Tamanho da calça</label>
+                  <select
+                    className={inputCls}
+                    value={additional.pantsSize}
+                    onChange={e => setAdditional(a => ({ ...a, pantsSize: e.target.value }))}
+                  >
+                    <option value="">Selecione</option>
+                    {['34','36','38','40','42','44','46','48','50','52','54','56','58','60'].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  {errors.pantsSize && <p className="text-xs text-red-500 mt-1">{errors.pantsSize}</p>}
+                </div>
+                <div>
+                  <label className={labelCls(true)}>Número da bota</label>
+                  <select
+                    className={inputCls}
+                    value={additional.bootSize}
+                    onChange={e => setAdditional(a => ({ ...a, bootSize: e.target.value }))}
+                  >
+                    <option value="">Selecione</option>
+                    {['33','34','35','36','37','38','39','40','41','42','43','44','45','46'].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  {errors.bootSize && <p className="text-xs text-red-500 mt-1">{errors.bootSize}</p>}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -702,6 +779,14 @@ export function DigitalForm({
             </>}
             <Row label="Cor"        value={additional.colorDeclaration} />
             <Row label="Motorista/Op." value={additional.isDriverOperator ? 'Sim' : 'Não'} />
+            <Row label="Camiseta"   value={additional.shirtSize} />
+            {additional.noOperationalUniform
+              ? <Row label="Calça / Bota" value="Não utiliza (adm.)" />
+              : <>
+                  <Row label="Calça" value={additional.pantsSize} />
+                  <Row label="Bota"  value={additional.bootSize} />
+                </>
+            }
             {visibleDocs.flatMap(doc =>
               (doc.extraFields ?? [])
                 .filter(f => (extras[f.key] ?? '').trim())

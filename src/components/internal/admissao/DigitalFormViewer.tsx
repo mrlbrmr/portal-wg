@@ -16,6 +16,10 @@ export interface DigitalFormData {
   bankAccount: string | null;
   colorDeclaration: string | null;
   isDriverOperator: boolean | null;
+  uniformShirt: string | null;
+  noOperationalUniform: boolean | null;
+  uniformPants: string | null;
+  uniformShoe: string | null;
   formExtras: Record<string, string> | null;
   submittedAt: string;
 }
@@ -130,6 +134,19 @@ export function DigitalFormViewer({ data, formConfig }: Props) {
         <Row label={formConfig.labels.colorDeclaration} value={data.colorDeclaration} />
         <Row label={formConfig.labels.isDriverOperator} value={bool(data.isDriverOperator)} />
       </Section>
+
+      {data.uniformShirt && (
+        <Section title="Uniformes">
+          <Row label="Camiseta" value={data.uniformShirt} />
+          {data.noOperationalUniform
+            ? <Row label="Calça / Bota" value="Não utiliza (cargo adm.)" />
+            : <>
+                <Row label="Calça" value={data.uniformPants} />
+                <Row label="Bota"  value={data.uniformShoe} />
+              </>
+          }
+        </Section>
+      )}
 
       {extraRows.length > 0 && (
         <Section title="Dados do Documento">

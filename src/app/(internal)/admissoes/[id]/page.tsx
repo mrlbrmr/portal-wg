@@ -67,6 +67,7 @@ interface AdmissionDetail {
   bankAccount: string | null;
   colorDeclaration: string | null;
   isDriverOperator: boolean | null;
+  noOperationalUniform: boolean | null;
   position: { name: string } | null;
   company: { name: string } | null;
   branch: { name: string } | null;
@@ -196,6 +197,10 @@ export default async function AdmissaoDetalhePage({
         bankAccount: admission.bankAccount,
         colorDeclaration: admission.colorDeclaration,
         isDriverOperator: admission.isDriverOperator,
+        uniformShirt: admission.uniformShirt,
+        noOperationalUniform: admission.noOperationalUniform,
+        uniformPants: admission.uniformPants,
+        uniformShoe: admission.uniformShoe,
         formExtras: (admissionRaw.formExtras as Record<string, string> | null) ?? null,
         submittedAt: digitalFormSubmittedAt,
       }}

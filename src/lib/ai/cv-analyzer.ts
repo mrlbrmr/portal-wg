@@ -81,7 +81,7 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
     contents: `CURRÍCULO:\n${pdfText.slice(0, 8000)}\n\nExtraia as informações e retorne o JSON.`,
     config: {
       systemInstruction: EXTRACT_PROFILE_PROMPT,
-      maxOutputTokens: 512,
+      maxOutputTokens: 1024,
     },
   })
 
@@ -184,7 +184,7 @@ export async function analyzeCv(
     contents: userPrompt,
     config: {
       systemInstruction: SYSTEM_PROMPT,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 8192,
     },
   })
 

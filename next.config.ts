@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://www.gstatic.com",
               // reCAPTCHA faz requisições a google.com; Supabase (auth/rest/storage/
               // realtime) roda em *.supabase.co (https + wss p/ realtime futuro).
-              "connect-src 'self' https://www.google.com https://*.supabase.co wss://*.supabase.co",
+              `connect-src 'self' https://www.google.com https://*.supabase.co wss://*.supabase.co${isDev ? " ws://localhost:* wss://localhost:*" : ""}`,
               "frame-src 'self' blob: https://www.google.com",
               "frame-ancestors 'none'",
             ].join("; "),

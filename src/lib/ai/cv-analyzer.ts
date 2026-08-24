@@ -77,7 +77,7 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
   const ai = getGeminiClient()
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3.6-flash',
     contents: `CURRÍCULO:\n${pdfText.slice(0, 8000)}\n\nExtraia as informações e retorne o JSON.`,
     config: {
       systemInstruction: EXTRACT_PROFILE_PROMPT,
@@ -101,7 +101,7 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
     lastPosition: parsed.lastPosition ?? null,
     skills: Array.isArray(parsed.skills) ? parsed.skills.slice(0, 8) : [],
     extractedAt: new Date().toISOString(),
-    modelUsed: 'google/gemini-2.0-flash',
+    modelUsed: 'google/gemini-3.6-flash',
   }
 }
 
@@ -180,7 +180,7 @@ export async function analyzeCv(
   const ai = getGeminiClient()
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3.6-flash',
     contents: userPrompt,
     config: {
       systemInstruction: SYSTEM_PROMPT,

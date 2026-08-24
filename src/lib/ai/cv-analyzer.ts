@@ -1,4 +1,4 @@
-// Análise de currículo via Groq (llama-3.3-70b-versatile) — extração de texto do PDF + score de aderência à vaga.
+// Análise de currículo via Google Gemini — extração de texto do PDF + score de aderência à vaga.
 // Usa unpdf (wrapper Node.js/edge-compatível sobre pdfjs-dist) para evitar problemas de APIs de browser
 // como DOMMatrix ausente no Node.js e o bug "Command token too long" do pdf-parse antigo.
 
@@ -51,14 +51,18 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   return (Array.isArray(text) ? text.join('\n') : String(text)).trim()
 }
 
+function getGeminiClient() {
+  const { GoogleGenAI } = require('@google/genai') as typeof import('@google/genai')
+  const apiKey = (process.env.GEMINI_API_KEY ?? '').replace(/^﻿/, '').trim()
+  if (!apiKey) throw new Error('GEMINI_API_KEY não configurado')
+  return new GoogleGenAI({ apiKey })
+}
+
 /**
  * Extrai perfil estruturado de um currículo PDF sem contexto de vaga.
  * Usado na inscrição pública (assíncrono, pós-resposta).
  */
 export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtraction> {
-  const apiKey = (process.env.GROQ_API_KEY ?? '').replace(/^﻿/, '').trim()
-  if (!apiKey) throw new Error('GROQ_API_KEY não configurado')
-
   let pdfText: string
   try {
     pdfText = await extractTextFromPdf(pdfBuffer)
@@ -70,22 +74,18 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
 
   if (!pdfText) throw new Error('PDF sem texto extraível (pode ser scan/imagem).')
 
-  const { default: Groq } = await import('groq-sdk')
-  const client = new Groq({ apiKey })
+  const ai = getGeminiClient()
 
-  const response = await client.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    max_tokens: 512,
-    messages: [
-      { role: 'system', content: EXTRACT_PROFILE_PROMPT },
-      {
-        role: 'user',
-        content: `CURRÍCULO:\n${pdfText.slice(0, 8000)}\n\nExtraia as informações e retorne o JSON.`,
-      },
-    ],
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: `CURRÍCULO:\n${pdfText.slice(0, 8000)}\n\nExtraia as informações e retorne o JSON.`,
+    config: {
+      systemInstruction: EXTRACT_PROFILE_PROMPT,
+      maxOutputTokens: 512,
+    },
   })
 
-  const raw = response.choices[0]?.message?.content ?? ''
+  const raw = response.text ?? ''
   const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
 
   let parsed: Partial<CvProfile>
@@ -101,7 +101,7 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
     lastPosition: parsed.lastPosition ?? null,
     skills: Array.isArray(parsed.skills) ? parsed.skills.slice(0, 8) : [],
     extractedAt: new Date().toISOString(),
-    modelUsed: 'groq/llama-3.3-70b-versatile',
+    modelUsed: 'google/gemini-2.0-flash',
   }
 }
 
@@ -154,12 +154,6 @@ export async function analyzeCv(
   jobTitle: string,
   jobDescription: string,
 ): Promise<CvAnalysisResult> {
-  // Strip BOM (U+FEFF) que editores Windows às vezes gravam no início de variáveis de ambiente
-  const apiKey = (process.env.GROQ_API_KEY ?? '').replace(/^﻿/, '').trim()
-  if (!apiKey) {
-    throw new Error('GROQ_API_KEY não configurado')
-  }
-
   let pdfText: string
   try {
     pdfText = await extractTextFromPdf(pdfBuffer)
@@ -183,19 +177,18 @@ export async function analyzeCv(
     `DESCRIÇÃO DA VAGA:\n${jobDescription.slice(0, 3000)}\n\n` +
     `Analise o currículo acima em relação à vaga e retorne o JSON de análise.`
 
-  const { default: Groq } = await import('groq-sdk')
-  const client = new Groq({ apiKey })
+  const ai = getGeminiClient()
 
-  const response = await client.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    max_tokens: 2048,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ],
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: userPrompt,
+    config: {
+      systemInstruction: SYSTEM_PROMPT,
+      maxOutputTokens: 2048,
+    },
   })
 
-  const raw = response.choices[0]?.message?.content ?? ''
+  const raw = response.text ?? ''
   const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
 
   let parsed: CvAnalysisResult

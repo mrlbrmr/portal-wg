@@ -322,13 +322,13 @@ export default async function DashboardPage() {
         <div className="flex gap-3">
           <Link
             href="/vagas/nova"
-            className="flex-1 bg-wg-green text-wg-dark py-4 rounded-xl text-[15px] font-bold text-center hover:bg-wg-green-vivid transition-colors"
+            className="flex-1 bg-wg-green text-wg-dark py-2.5 px-4 rounded-lg shadow-sm font-semibold text-center transition-opacity hover:opacity-90"
           >
             + Nova Vaga
           </Link>
           <Link
             href="/vagas/gerenciar"
-            className="flex-1 bg-white text-wg-ink-secondary border border-wg-border-light py-4 rounded-xl text-[15px] font-bold text-center hover:bg-wg-bg transition-colors"
+            className="flex-1 bg-white border border-slate-300 text-slate-700 font-semibold py-2.5 px-4 rounded-lg text-center hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
           >
             💼 Gerenciar Vagas
           </Link>

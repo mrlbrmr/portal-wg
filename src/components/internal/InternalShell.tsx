@@ -87,7 +87,7 @@ export default function InternalShell({ user, children }: Props) {
               type="button"
               onClick={toggleCollapsed}
               title={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-              className="hidden md:flex items-center justify-center absolute left-0 top-5 z-10 w-5 h-8 rounded-r-md bg-[#1A1D27] border border-l-0 border-gray-800 text-gray-500 hover:text-white hover:bg-gray-800 transition-colors"
+              className="hidden md:flex items-center justify-center absolute left-0 top-5 z-10 w-5 h-8 rounded-md bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-colors"
             >
               {collapsed
                 ? <PanelLeftOpen  className="w-3 h-3" />

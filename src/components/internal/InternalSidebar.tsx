@@ -121,7 +121,7 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
   const roleLabel = role === "ADMIN_RH" ? "Admin RH" : "Visualizador";
 
   return (
-    <aside className="w-[232px] bg-[#1A1D27] border-r border-gray-800 h-full min-h-screen overflow-y-auto scrollbar-dark px-4 py-5 flex-shrink-0 flex flex-col">
+    <aside className="w-[232px] bg-[#1A1D27] border-r border-slate-800 h-full min-h-screen overflow-y-auto scrollbar-dark px-4 py-5 flex-shrink-0 flex flex-col">
       {/* Logo WG */}
       <div className="mb-5 px-1">
         <Image

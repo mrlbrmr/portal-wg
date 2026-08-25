@@ -167,7 +167,7 @@ export default async function DashboardPage() {
           <Link
             key={k.label}
             href={k.href}
-            className="block bg-white border border-wg-border-lighter rounded-2xl p-4 hover:shadow-[0_6px_16px_rgba(0,0,0,.06)] hover:-translate-y-0.5 transition"
+            className="block bg-white border border-wg-border-lighter rounded-2xl p-4 hover:shadow-md hover:-translate-y-0.5 transition duration-200 cursor-pointer"
           >
             <div
               className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[15px] mb-2.5"

@@ -129,7 +129,7 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
           alt="Grupo WG"
           width={96}
           height={40}
-          className="h-7 w-auto"
+          className="h-7 w-auto invert mix-blend-screen"
         />
         <p className="text-gray-500 text-[11px] mt-1">Painel RH</p>
       </div>

@@ -149,16 +149,34 @@ export default async function DashboardPage() {
     <div className="px-8 py-8 md:px-11 md:py-9 flex flex-col gap-6">
 
       {/* Header */}
-      <div>
-        <h1 className="text-wg-ink text-[28px] font-extrabold tracking-tight font-sora">
-          Olá, {firstName} 👋
-        </h1>
-        <p className="text-wg-ink-secondary text-[14.5px] mt-1.5">
-          Você tem <strong>{newApps} novas candidaturas</strong> aguardando triagem
-          {expiringSoon > 0 && (
-            <> e <strong>{expiringSoon} {expiringSoon === 1 ? "vaga encerrando" : "vagas encerrando"}</strong> nos próximos 7 dias</>
-          )}.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-wg-ink text-[28px] font-extrabold tracking-tight font-sora">
+            Olá, {firstName} 👋
+          </h1>
+          <p className="text-wg-ink-secondary text-[14.5px] mt-1.5">
+            Você tem <strong>{newApps} novas candidaturas</strong> aguardando triagem
+            {expiringSoon > 0 && (
+              <> e <strong>{expiringSoon} {expiringSoon === 1 ? "vaga encerrando" : "vagas encerrando"}</strong> nos próximos 7 dias</>
+            )}.
+          </p>
+        </div>
+        {isAdmin && (
+          <div className="flex gap-2 shrink-0 pt-1">
+            <Link
+              href="/vagas/nova"
+              className="bg-wg-green text-wg-dark py-2 px-3.5 rounded-lg shadow-sm text-sm font-semibold transition-opacity hover:opacity-90"
+            >
+              + Nova Vaga
+            </Link>
+            <Link
+              href="/vagas/gerenciar"
+              className="bg-white border border-slate-300 text-slate-700 text-sm font-semibold py-2 px-3.5 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
+            >
+              💼 Gerenciar Vagas
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* KPI grid */}
@@ -317,23 +335,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* CTAs */}
-      {isAdmin && (
-        <div className="flex gap-3">
-          <Link
-            href="/vagas/nova"
-            className="flex-1 bg-wg-green text-wg-dark py-2.5 px-4 rounded-lg shadow-sm font-semibold text-center transition-opacity hover:opacity-90"
-          >
-            + Nova Vaga
-          </Link>
-          <Link
-            href="/vagas/gerenciar"
-            className="flex-1 bg-white border border-slate-300 text-slate-700 font-semibold py-2.5 px-4 rounded-lg text-center hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
-          >
-            💼 Gerenciar Vagas
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useId } from "react";
 import { Loader2, CheckCircle2, Upload, Paperclip } from "lucide-react";
 import { maskPhone, maskCpf, BRAZIL_STATES } from "@/lib/utils";
 import { COUNTRIES } from "@/lib/data/countries";
@@ -89,6 +89,8 @@ interface LookupResult {
 }
 
 export function ApplicationForm({ jobId, jobTitle }: Props) {
+  const uid = useId();
+  const resumeInputId = `resume-input-${uid}`;
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
   const [country, setCountry] = useState("");
@@ -405,10 +407,10 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
             accept={ACCEPT}
             onChange={onFileChange}
             className="sr-only"
-            id="resume-input"
+            id={resumeInputId}
           />
           <label
-            htmlFor="resume-input"
+            htmlFor={resumeInputId}
             className="flex items-center gap-2.5 cursor-pointer border border-dashed border-gray-300 hover:border-wg-green rounded-lg px-4 py-3.5 text-[14px] text-gray-500 transition-colors"
           >
             {fileName ? (

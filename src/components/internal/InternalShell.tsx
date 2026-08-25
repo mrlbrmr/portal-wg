@@ -34,9 +34,9 @@ export default function InternalShell({ user, children }: Props) {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-wg-bg">
+      <div className="min-h-screen bg-slate-50">
         {/* Barra mínima apenas no mobile — desktop não tem header */}
-        <header className="md:hidden fixed top-0 left-0 right-0 z-50 h-11 bg-wg-sidebar border-b border-wg-border-light flex items-center gap-3 px-3">
+        <header className="md:hidden fixed top-0 left-0 right-0 z-50 h-11 bg-[#1A1D27] border-b border-gray-800 flex items-center gap-3 px-3">
           <button
             type="button"
             onClick={() => setSidebarOpen((o) => !o)}
@@ -87,7 +87,7 @@ export default function InternalShell({ user, children }: Props) {
               type="button"
               onClick={toggleCollapsed}
               title={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
-              className="hidden md:flex items-center justify-center absolute left-0 top-5 z-10 w-5 h-8 rounded-r-md bg-wg-sidebar border border-l-0 border-wg-border-light text-wg-ink-muted hover:text-wg-ink hover:bg-wg-hover-light transition-colors"
+              className="hidden md:flex items-center justify-center absolute left-0 top-5 z-10 w-5 h-8 rounded-r-md bg-[#1A1D27] border border-l-0 border-gray-800 text-gray-500 hover:text-white hover:bg-gray-800 transition-colors"
             >
               {collapsed
                 ? <PanelLeftOpen  className="w-3 h-3" />

@@ -146,7 +146,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="px-8 py-8 md:px-11 md:py-9 flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -180,7 +180,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-6 gap-3.5 page-stagger">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 page-stagger">
         {KPIS.map((k) => (
           <Link
             key={k.label}

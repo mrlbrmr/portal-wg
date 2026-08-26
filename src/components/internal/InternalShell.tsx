@@ -68,8 +68,8 @@ export default function InternalShell({ user, children }: Props) {
             className={[
               "fixed top-11 left-0 bottom-0 z-40",
               "md:sticky md:top-0 md:h-screen md:z-auto",
-              "transition-all duration-200 ease-in-out overflow-hidden",
-              sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+              "overflow-hidden",
+              sidebarOpen ? "flex flex-col" : "hidden md:flex md:flex-col",
               hydrated && collapsed ? "md:w-0" : "md:w-[232px]",
             ].join(" ")}
           >
@@ -82,7 +82,7 @@ export default function InternalShell({ user, children }: Props) {
           </div>
 
           {/* Conteúdo principal + botão toggle (desktop) */}
-          <main className="flex-1 p-4 md:p-5 min-w-0 relative">
+          <main className="flex-1 p-4 md:p-8 min-w-0 relative">
             <button
               type="button"
               onClick={toggleCollapsed}

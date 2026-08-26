@@ -140,7 +140,7 @@ export default async function GerenciarVagasPage({
       />
 
       {/* KPI Grid */}
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {kpiCards.map((k) => (
           <div
             key={k.label}

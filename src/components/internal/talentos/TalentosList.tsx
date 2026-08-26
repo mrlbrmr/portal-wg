@@ -149,7 +149,7 @@ export default function TalentosList({
       </div>
 
       {/* Tabela */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         {talentos.length === 0 ? (
           <div className="py-16 text-center text-wg-ink-muted text-sm">
             Nenhum talento encontrado com os filtros aplicados.

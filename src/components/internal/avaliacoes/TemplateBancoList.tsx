@@ -141,8 +141,8 @@ export function TemplateBancoList({ templates: initial, canManage }: Props) {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/50">
                 <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Nome</th>

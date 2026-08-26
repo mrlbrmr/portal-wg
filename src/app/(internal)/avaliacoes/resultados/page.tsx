@@ -55,7 +55,7 @@ export default async function ResultadosPage() {
   const isAdmin = session?.user.role === 'ADMIN_RH'
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-6xl bg-slate-50">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Resultados de Avaliações</h1>
         <p className="text-sm text-gray-500 mt-0.5">

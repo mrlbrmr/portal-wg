@@ -124,7 +124,7 @@ export default async function GerenciarVagasPage({
   ];
 
   return (
-    <div>
+    <div className="bg-slate-50">
       <PageHeader
         title="Vagas"
         action={

@@ -16,9 +16,11 @@ export default async function BancoPage() {
   const isAdmin = session?.user.role === 'ADMIN_RH'
 
   return (
-    <TemplateBancoList
-      templates={(data ?? []) as Parameters<typeof TemplateBancoList>[0]['templates']}
-      canManage={isAdmin}
-    />
+    <div className="bg-slate-50">
+      <TemplateBancoList
+        templates={(data ?? []) as Parameters<typeof TemplateBancoList>[0]['templates']}
+        canManage={isAdmin}
+      />
+    </div>
   )
 }

@@ -288,7 +288,7 @@ export function JobsExplorer({
   return (
     <div className={view === "kanban" ? "" : "max-w-4xl"}>
       {/* Toolbar */}
-      <div className="sticky top-14 z-30 mb-3 border-b border-wg-border-lighter bg-wg-bg pt-2 pb-3">
+      <div className="sticky top-14 z-30 mb-3 border-b border-wg-border-lighter bg-slate-50 pt-2 pb-3">
         {/* Row 1: search + filters + sort + toggle */}
         <div className="flex gap-3 items-center flex-wrap">
           {/* Search */}

@@ -71,16 +71,18 @@ export default async function TalentosPage({ searchParams }: Props) {
     .order("nome");
 
   return (
-    <TalentosList
-      talentos={talentos}
-      total={count ?? 0}
-      page={page}
-      pageSize={PAGE_SIZE}
-      isAdmin={session?.user.role === "ADMIN_RH"}
-      availableTags={(allTags ?? []) as TalentoTag[]}
-      initialQ={q}
-      initialStatus={status}
-      initialEstado={estado}
-    />
+    <div className="bg-slate-50">
+      <TalentosList
+        talentos={talentos}
+        total={count ?? 0}
+        page={page}
+        pageSize={PAGE_SIZE}
+        isAdmin={session?.user.role === "ADMIN_RH"}
+        availableTags={(allTags ?? []) as TalentoTag[]}
+        initialQ={q}
+        initialStatus={status}
+        initialEstado={estado}
+      />
+    </div>
   );
 }

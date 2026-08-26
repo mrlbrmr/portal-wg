@@ -39,7 +39,7 @@ export function ExportCsvButton({ status }: Props) {
       onClick={handleExport}
       disabled={loading}
       title="Exportar lista de vagas como CSV"
-      className="flex items-center gap-1.5 text-sm border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+      className="flex items-center gap-1.5 text-sm bg-white border border-slate-300 text-slate-700 font-semibold py-2.5 px-4 rounded-lg hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
     >
       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
       <span className="hidden sm:inline">Exportar CSV</span>

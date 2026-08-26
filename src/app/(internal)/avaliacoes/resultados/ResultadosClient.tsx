@@ -284,7 +284,7 @@ export function ResultadosClient({ sessions }: Props) {
       {filtered.length > 0 && (
         <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
           {/* Table header — desktop only */}
-          <div className="hidden md:grid grid-cols-[1fr_1fr_160px_110px_32px] gap-4 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+          <div className="hidden md:grid grid-cols-[1fr_1fr_160px_110px_32px] gap-4 px-4 py-2.5 bg-slate-50/50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
             <span>Candidato</span>
             <span>Vaga / Teste</span>
             <span>Resultado</span>
@@ -292,7 +292,7 @@ export function ResultadosClient({ sessions }: Props) {
             <span />
           </div>
 
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-slate-100">
             {filtered.map((s) => {
               const kind = s.template?.kind ?? ''
               const bf = bigFiveScores(s.scoreBreakdown)
@@ -302,7 +302,7 @@ export function ResultadosClient({ sessions }: Props) {
                   <button
                     type="button"
                     onClick={() => setSelected(s)}
-                    className="w-full text-left px-4 py-3.5 hover:bg-purple-50/50 transition-colors group"
+                    className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors group"
                   >
                     <div className="md:grid md:grid-cols-[1fr_1fr_160px_110px_32px] md:gap-4 md:items-center">
                       {/* Candidato */}
@@ -346,7 +346,7 @@ export function ResultadosClient({ sessions }: Props) {
 
                       {/* Arrow */}
                       <div className="hidden md:flex justify-end">
-                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-purple-500 transition-colors" />
+                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-slate-500 transition-colors" />
                       </div>
                     </div>
                   </button>

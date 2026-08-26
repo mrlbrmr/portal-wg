@@ -81,13 +81,13 @@ export function TemplateBancoList({ templates: initial, canManage }: Props) {
             <>
               <button
                 onClick={() => setShowRepo(true)}
-                className="inline-flex items-center gap-2 text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 py-2.5 px-4 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
               >
                 <Database className="w-4 h-4" /> Importar do repositório
               </button>
               <Link
                 href="/avaliacoes/banco/novo"
-                className="inline-flex items-center gap-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-lg shadow-sm transition-opacity hover:opacity-90"
               >
                 <Plus className="w-4 h-4" /> Novo teste
               </Link>
@@ -144,56 +144,56 @@ export function TemplateBancoList({ templates: initial, canManage }: Props) {
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Nome</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Tipo</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Questões</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Tempo</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Mín. %</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Status</th>
+              <tr className="border-b border-slate-200 bg-slate-50/50">
+                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Nome</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Tipo</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Questões</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Tempo</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Mín. %</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {filtered.map((t) => {
                 const kind  = t.kind as TemplateKind
                 const Icon  = KIND_ICONS[kind] ?? FlaskConical
                 const color = COLOR_CLASSES[KIND_COLORS[kind] ?? 'blue']
                 return (
-                  <tr key={t.id} className={cn('hover:bg-gray-50 transition-colors', !t.isActive && 'opacity-50')}>
-                    <td className="px-5 py-3.5">
+                  <tr key={t.id} className={cn('border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors', !t.isActive && 'opacity-50')}>
+                    <td className="px-4 py-3">
                       <div className="font-medium text-gray-900 truncate max-w-xs">{t.name}</div>
                       {t.description && (
                         <div className="text-xs text-gray-400 truncate max-w-xs mt-0.5">{t.description}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3">
                       <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', color.bg, color.text)}>
                         <Icon className="w-3 h-3" />
                         {KIND_LABELS[kind]}
                         {t.subtype && <span className="opacity-70">· {t.subtype}</span>}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-center text-gray-600">
+                    <td className="px-4 py-3 text-center text-gray-600">
                       {Array.isArray(t.questions) ? t.questions.length : '—'}
                     </td>
-                    <td className="px-4 py-3.5 text-center">
+                    <td className="px-4 py-3 text-center">
                       {t.estimatedMin ? (
                         <span className="inline-flex items-center gap-1 text-gray-600">
                           <Clock className="w-3.5 h-3.5" /> {t.estimatedMin} min
                         </span>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-3.5 text-center text-gray-600">
+                    <td className="px-4 py-3 text-center text-gray-600">
                       {t.passingScore != null ? `${t.passingScore}%` : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-3.5 text-center">
+                    <td className="px-4 py-3 text-center">
                       {t.isActive
                         ? <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 rounded-full px-2 py-0.5"><CheckCircle2 className="w-3 h-3" /> Ativo</span>
                         : <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5"><XCircle className="w-3 h-3" /> Inativo</span>
                       }
                     </td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           href={`/avaliacoes/banco/${t.id}`}

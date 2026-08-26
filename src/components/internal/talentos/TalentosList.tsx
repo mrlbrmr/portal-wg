@@ -157,7 +157,7 @@ export default function TalentosList({
         ) : (
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
+              <tr className="border-b border-slate-200 bg-slate-50/50">
                 {/* Checkbox — selecionar todos / indeterminate */}
                 <th className="w-10 pl-4 py-3 text-left">
                   <input
@@ -168,12 +168,12 @@ export default function TalentosList({
                     className="h-4 w-4 rounded border-gray-300 cursor-pointer accent-wg-green focus:ring-2 focus:ring-wg-green/40"
                   />
                 </th>
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted">Nome</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted hidden md:table-cell">Cargo desejado</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted hidden lg:table-cell">Localização</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted">Status</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted hidden xl:table-cell">Tags</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-wg-ink-muted hidden lg:table-cell">Última atividade</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Nome</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hidden md:table-cell">Cargo desejado</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hidden lg:table-cell">Localização</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hidden xl:table-cell">Tags</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hidden lg:table-cell">Última atividade</th>
                 {/* Coluna de ações — sem título */}
                 <th className="w-12 py-3 pr-4" />
               </tr>
@@ -189,15 +189,15 @@ export default function TalentosList({
                     key={t.id}
                     onClick={() => setPerfilAberto(t)}
                     className={[
-                      "border-b border-gray-100 transition-colors cursor-pointer",
+                      "border-b border-slate-100 transition-colors cursor-pointer",
                       isLast ? "border-b-0" : "",
-                      isSelected ? "bg-[#F3F9E9]" : "hover:bg-gray-50",
+                      isSelected ? "bg-[#F3F9E9]" : "hover:bg-slate-50",
                     ].join(" ")}
                   >
                     {/* Checkbox individual — stripe WG-green quando selecionado */}
                     <td
                       className={[
-                        "py-3.5",
+                        "py-3",
                         isSelected
                           ? "pl-[13px] border-l-[3px] border-wg-green"
                           : "pl-4",
@@ -213,7 +213,7 @@ export default function TalentosList({
                     </td>
 
                     {/* Nome + avatar */}
-                    <td className="px-5 py-3.5">
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 select-none"
@@ -234,23 +234,23 @@ export default function TalentosList({
                       </div>
                     </td>
 
-                    <td className="px-4 py-3.5 text-wg-ink-secondary hidden md:table-cell">
+                    <td className="px-4 py-3 text-wg-ink-secondary hidden md:table-cell">
                       {t.cargoDesejado ?? <span className="text-gray-300 font-light">—</span>}
                     </td>
 
-                    <td className="px-4 py-3.5 text-wg-ink-secondary hidden lg:table-cell">
+                    <td className="px-4 py-3 text-wg-ink-secondary hidden lg:table-cell">
                       {t.cidade && t.estado
                         ? `${t.cidade} / ${t.estado}`
                         : t.estado ?? <span className="text-gray-300 font-light">—</span>}
                     </td>
 
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[t.statusBanco]}`}>
                         {STATUS_LABELS[t.statusBanco]}
                       </span>
                     </td>
 
-                    <td className="px-4 py-3.5 hidden xl:table-cell">
+                    <td className="px-4 py-3 hidden xl:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {t.tags.slice(0, 3).map((tag) => (
                           <span
@@ -267,13 +267,13 @@ export default function TalentosList({
                       </div>
                     </td>
 
-                    <td className="px-4 py-3.5 text-[12px] text-wg-ink-muted hidden lg:table-cell">
+                    <td className="px-4 py-3 text-[12px] text-wg-ink-muted hidden lg:table-cell">
                       {new Date(t.ultimaAtividadeEm).toLocaleDateString("pt-BR")}
                     </td>
 
                     {/* Menu de ações */}
                     <td
-                      className="pr-3 py-3.5 text-right"
+                      className="pr-3 py-3 text-right"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div

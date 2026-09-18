@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, JobPriority } from "@/types/domain";
+import { Modality, ContractType, JobStatus } from "@/types/domain";
 import { generateSlug, isPublicJobStatus } from "@/lib/utils";
 
 function richText(minChars: number, message: string) {
@@ -35,7 +35,6 @@ const updateJobSchema = z.object({
   hiringManager: z.string().optional().nullable(),
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
-  priority: z.nativeEnum(JobPriority).optional(),
   status: z.nativeEnum(JobStatus).optional(),
 });
 

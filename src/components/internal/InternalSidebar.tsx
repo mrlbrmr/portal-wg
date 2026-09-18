@@ -77,7 +77,7 @@ export default function InternalSidebar({ role, name, pendingRequests = 0, onNav
   const topLinks: NavLink[] = [
     { href: "/dashboard",      label: "Dashboard", icon: LayoutDashboard },
     { href: "/vagas/gerenciar", label: "Vagas",     icon: Briefcase },
-    { href: "/vagas/solicitacoes", label: "Solicitações", icon: Inbox, badge: pendingRequests },
+    { href: "/solicitacoes",       label: "Solicitações", icon: Inbox, badge: pendingRequests },
     { href: "/talentos",       label: "Talentos",  icon: Star },
   ];
 

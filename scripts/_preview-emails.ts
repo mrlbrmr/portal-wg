@@ -31,7 +31,7 @@ const amostra: Array<[string, string]> = [
 ];
 
 const arquivos: Array<[string, { subject: string; html: string }]> = [
-  ["01-rh-nova-requisicao.html", jobRequestReceivedEmail({ requesterName: "Daniel Marchioti", rows: amostra })],
+  ["01-rh-nova-requisicao.html", jobRequestReceivedEmail({ requesterName: "Daniel Marchioti", jobTitle: "Assistente Comercial", requestCode: "REQ-2026-0042", rows: amostra })],
   [
     "02-gestor-aprovada.html",
     jobRequestDecisionEmail({

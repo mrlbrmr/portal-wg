@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Users, Briefcase, SearchX, Plus, Search } from "lucide-react";
 import {
   JOB_STATUS_LABELS,
-  JOB_PRIORITY_ORDER,
   formatAge,
   isTerminalJobStatus,
   isKanbanDefaultHiddenStatus,
@@ -35,7 +34,7 @@ const JobKanbanBoard = dynamic(
 );
 
 type View = "list" | "kanban";
-type QuickFilter = null | "minhas" | "urgentes" | "comCandidatos";
+type QuickFilter = null | "minhas" | "comCandidatos";
 
 interface Props {
   jobs: JobRow[];
@@ -52,7 +51,6 @@ const SORT_OPTIONS = [
   { value: "updated_desc", label: "Última atualização" },
   { value: "candidates_desc", label: "Mais candidatos" },
   { value: "candidates_asc", label: "Menos candidatos" },
-  { value: "priority_desc", label: "Maior prioridade" },
   { value: "city_asc", label: "Cidade (A-Z)" },
   { value: "state_asc", label: "Estado (A-Z)" },
   { value: "title_asc", label: "Título (A-Z)" },
@@ -80,16 +78,17 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   FILLED:    { bg: "#EAF4DC", color: "#4F6930" },
 };
 
-const PRIORITY_STRIPE: Record<string, string> = {
-  URGENT: "#D1503C",
-  HIGH:   "#D9873C",
-  MEDIUM: "#B9C2AA",
-  LOW:    "#B9C2AA",
-};
-
-const PRIORITY_BADGE_INFO: Record<string, { label: string; color: string } | undefined> = {
-  HIGH:   { label: "ALTA PRIORIDADE", color: "#D9873C" },
-  URGENT: { label: "URGENTE", color: "#D1503C" },
+// A faixa lateral do card agora acompanha a ETAPA da vaga — a prioridade saiu do sistema
+// (a priorização de R&S é feita fora dele).
+const STATUS_STRIPE: Record<string, string> = {
+  ADMISSION: "#D1503C",
+  INTERVIEW: "#D9873C",
+  SCREENING: "#D9873C",
+  ACTIVE:    "#4F6930",
+  DRAFT:     "#B9C2AA",
+  PAUSED:    "#B9C2AA",
+  CLOSED:    "#B9C2AA",
+  FILLED:    "#4F6930",
 };
 
 function byNewest(a: JobRow, b: JobRow): number {
@@ -107,12 +106,6 @@ function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
       return copy.sort((a, b) => b.candidateCount - a.candidateCount || byNewest(a, b));
     case "candidates_asc":
       return copy.sort((a, b) => a.candidateCount - b.candidateCount || byNewest(a, b));
-    case "priority_desc":
-      return copy.sort(
-        (a, b) =>
-          (JOB_PRIORITY_ORDER[b.priority] ?? 0) - (JOB_PRIORITY_ORDER[a.priority] ?? 0) ||
-          byNewest(a, b)
-      );
     case "city_asc":
       return copy.sort((a, b) => (a.city ?? "").localeCompare(b.city ?? "", "pt-BR"));
     case "state_asc":
@@ -237,12 +230,6 @@ export function JobsExplorer({
       result = result.filter((j) => !isKanbanDefaultHiddenStatus(j.status));
     }
 
-    // Priority filter
-    const priorityFilters = selectedFilters.filter((k) => k.startsWith("PRIORITY:"));
-    if (priorityFilters.length > 0) {
-      result = result.filter((j) => priorityFilters.includes(`PRIORITY:${j.priority}`));
-    }
-
     // City filter
     const cityFilters = selectedFilters.filter((k) => k.startsWith("CITY:"));
     if (cityFilters.length > 0) {
@@ -260,8 +247,6 @@ export function JobsExplorer({
     // Quick filter
     if (quickFilter === "minhas" && currentUserName) {
       result = result.filter((j) => j.responsible === currentUserName);
-    } else if (quickFilter === "urgentes") {
-      result = result.filter((j) => j.priority === "HIGH" || j.priority === "URGENT");
     } else if (quickFilter === "comCandidatos") {
       result = result.filter((j) => j.candidateCount > 0);
     }
@@ -328,20 +313,6 @@ export function JobsExplorer({
                     onClick={() => toggleFilter(opt.value)}
                   />
                 ))}
-
-                <div className="text-[#6B7860] text-[11px] tracking-[.06em] uppercase px-2.5 pt-2.5 pb-1">
-                  Prioridade
-                </div>
-                <FilterCheckbox
-                  label="Alta prioridade"
-                  active={selectedFilters.includes("PRIORITY:HIGH")}
-                  onClick={() => toggleFilter("PRIORITY:HIGH")}
-                />
-                <FilterCheckbox
-                  label="Urgente"
-                  active={selectedFilters.includes("PRIORITY:URGENT")}
-                  onClick={() => toggleFilter("PRIORITY:URGENT")}
-                />
 
                 {options.cities.length > 0 && (
                   <>
@@ -433,7 +404,6 @@ export function JobsExplorer({
             [
               { key: null, label: "Todas" },
               { key: "minhas", label: "Minhas Vagas" },
-              { key: "urgentes", label: "Urgentes" },
               { key: "comCandidatos", label: "Com Candidatos" },
             ] as const
           ).map((c) => {
@@ -471,7 +441,6 @@ export function JobsExplorer({
             isTalentPool: j.isTalentPool,
             modality: j.modality,
             status: j.status,
-            priority: j.priority,
             createdAt: j.createdAt,
             lastActivityAt: j.lastActivityAt,
             candidateCount: j.candidateCount,
@@ -520,9 +489,8 @@ export function JobsExplorer({
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((job) => {
-            const stripeColor = PRIORITY_STRIPE[job.priority] ?? "#B9C2AA";
+            const stripeColor = STATUS_STRIPE[job.status] ?? "#B9C2AA";
             const statusStyle = STATUS_STYLE[job.status] ?? { bg: "#EFEFEF", color: "#6B7860" };
-            const priorityInfo = PRIORITY_BADGE_INFO[job.priority];
             const location = job.isTalentPool
               ? "Todas as praças"
               : [job.city, job.state].filter(Boolean).join("/") || "—";
@@ -535,7 +503,7 @@ export function JobsExplorer({
                 key={job.id}
                 className="group bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,.05)] flex hover:shadow-[0_8px_22px_rgba(0,0,0,.08)] transition-shadow"
               >
-                {/* Priority stripe — arredondada para não precisar de overflow-hidden no card */}
+                {/* Faixa da etapa — arredondada para não precisar de overflow-hidden no card */}
                 <div className="w-[5px] shrink-0 rounded-l-2xl" style={{ background: stripeColor }} />
 
                 <div className="flex-1 px-5 py-4 flex justify-between items-center gap-4 min-w-0">
@@ -549,17 +517,6 @@ export function JobsExplorer({
                       >
                         {JOB_STATUS_LABELS[job.status] ?? job.status}
                       </span>
-                      {priorityInfo && (
-                        <span
-                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"
-                          style={{
-                            border: `1.5px solid ${priorityInfo.color}`,
-                            color: priorityInfo.color,
-                          }}
-                        >
-                          ⚠ {priorityInfo.label}
-                        </span>
-                      )}
                     </div>
                     <div className="text-wg-ink-muted text-[13px] mt-1.5">{meta}</div>
                   </div>

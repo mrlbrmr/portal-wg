@@ -23,7 +23,7 @@ export default async function EditarUsuarioPage({ params }: Props) {
   const supabase = createAdminClient();
   const { data: user } = await supabase
     .from("users")
-    .select("id, name, email, role, active")
+    .select("id, name, email, role, isApprover, active")
     .eq("id", id)
     .maybeSingle();
   if (!user) notFound();

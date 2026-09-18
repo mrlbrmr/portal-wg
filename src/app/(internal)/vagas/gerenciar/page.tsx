@@ -28,7 +28,7 @@ export default async function GerenciarVagasPage({
     supabase
       .from("jobs")
       .select(
-        "id, title, city, state, isTalentPool, modality, contractType, department, responsible, status, priority, slug, createdAt, updatedAt"
+        "id, title, city, state, isTalentPool, modality, contractType, department, responsible, status, slug, createdAt, updatedAt"
       )
       .order("createdAt", { ascending: false })
       .limit(200),
@@ -46,8 +46,7 @@ export default async function GerenciarVagasPage({
     contractType: string;
     department: string | null;
     responsible: string | null;
-    status: string;
-    priority: string;
+    status: string;
     slug: string | null;
     createdAt: string;
     updatedAt: string;
@@ -103,8 +102,7 @@ export default async function GerenciarVagasPage({
       contractType: job.contractType,
       department: job.department,
       responsible: job.responsible,
-      status: job.status,
-      priority: job.priority,
+      status: job.status,
       slug: job.slug,
       createdAt: new Date(job.createdAt).toISOString(),
       updatedAt: new Date(job.updatedAt).toISOString(),

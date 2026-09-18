@@ -28,7 +28,7 @@ export default async function CandidatosPage({ params }: Props) {
   // auth + job em paralelo (independentes entre si)
   const [session, { data: job }] = await Promise.all([
     auth(),
-    supabase.from("jobs").select("id, title, city, state, isTalentPool").eq("id", id).maybeSingle(),
+    supabase.from("jobs").select("id, code, title, city, state, isTalentPool, requestId").eq("id", id).maybeSingle(),
   ]);
   if (!job) notFound();
 
@@ -200,6 +200,17 @@ export default async function CandidatosPage({ params }: Props) {
 
   const canManage = session?.user.role === "ADMIN_RH";
 
+  // Rastro da autorização: de qual solicitação veio esta vaga. Vagas legadas não têm.
+  let originRequest: { id: string; code: string | null } | null = null;
+  if (job.requestId) {
+    const { data: req } = await supabase
+      .from("job_requests")
+      .select("id, code")
+      .eq("id", job.requestId)
+      .maybeSingle();
+    if (req) originRequest = req as { id: string; code: string | null };
+  }
+
   return (
     <div>
       <Link
@@ -214,6 +225,7 @@ export default async function CandidatosPage({ params }: Props) {
         <div>
           <h1 className="text-[26px] font-extrabold text-[#1A2213] leading-tight">{job.title}</h1>
           <p className="text-[13px] text-[#55614A] mt-1">
+            {job.code ? `${job.code} · ` : ""}
             {job.isTalentPool
             ? "Banco de Talentos"
             : job.city
@@ -221,6 +233,17 @@ export default async function CandidatosPage({ params }: Props) {
             : "Múltiplas cidades"}{" "}
           · Candidatos por etapa
           </p>
+          {originRequest && (
+            <p className="text-[13px] text-[#55614A] mt-1">
+              Originada da solicitação{" "}
+              <Link
+                href={`/solicitacoes/${originRequest.id}`}
+                className="font-semibold text-[#4F6930] hover:underline"
+              >
+                {originRequest.code ?? "sem número"}
+              </Link>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-[#EEF4E3] border border-[#DCE8CC] rounded-xl px-4 py-2">

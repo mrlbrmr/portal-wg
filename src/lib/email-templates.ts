@@ -235,36 +235,49 @@ function spacer(height = 10): string {
 /** E-mail para o RH quando um gestor envia uma nova requisição. */
 export function jobRequestReceivedEmail(input: {
   requesterName: string;
+  jobTitle: string;
+  requestCode?: string | null;
+  requestId?: string | null;
   rows: Array<[string, string]>;
 }): { subject: string; html: string } {
-  const url = `${getAppBaseUrl()}/vagas/solicitacoes`;
-  const funcao =
-    input.rows.find(([label]) => /fun[çc][ãa]o|cargo/i.test(label))?.[1] ?? "sem título";
+  const url = input.requestId
+    ? `${getAppBaseUrl()}/solicitacoes/${input.requestId}`
+    : `${getAppBaseUrl()}/solicitacoes`;
+  const funcao = input.jobTitle || "sem título";
   const gestor = input.requesterName || "gestor não informado";
+  const codigo = input.requestCode ? `${input.requestCode} · ` : "";
 
   return {
-    subject: `Nova requisição de vaga: ${funcao} — ${gestor}`,
+    subject: `Nova solicitação de vaga: ${codigo}${funcao} — ${gestor}`,
     html: layout({
-      preview: `${gestor} solicitou a abertura de ${funcao}. Aguardando análise.`,
-      chip: { label: "Aguardando análise", bg: "#FCF1DD", color: "#8A5B10" },
-      title: "Nova requisição de pessoal",
+      preview: `${gestor} solicitou a abertura de ${funcao}. Aguardando validação do RH.`,
+      chip: { label: "Aguardando validação do RH", bg: "#E9EDFA", color: "#3C56A8" },
+      title: "Nova solicitação de vaga",
       body: [
         paragraph(
           `<strong style="color:${INK}">${escapeHtml(
             gestor
           )}</strong> solicitou a abertura de <strong style="color:${INK}">${escapeHtml(
             funcao
-          )}</strong>. A requisição entrou na fila e aguarda a análise do time de Gente &amp; Gestão.`
+          )}</strong>${
+            input.requestCode ? ` (${escapeHtml(input.requestCode)})` : ""
+          }. A solicitação entrou na fila e aguarda a validação do time de Gente &amp; Gestão.`
         ),
         dataTable(input.rows),
-        button(url, "Analisar requisição"),
+        button(url, "Analisar solicitação"),
         spacer(8),
       ].join(""),
     }),
   };
 }
 
-export type DecisionKind = "IN_REVIEW" | "RETURNED" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type DecisionKind =
+  | "IN_REVIEW"
+  | "RETURNED"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED"
+  | "RECRUITING";
 
 const DECISION_COPY: Record<
   DecisionKind,
@@ -277,12 +290,20 @@ const DECISION_COPY: Record<
   }
 > = {
   IN_REVIEW: {
-    title: "Sua requisição está em análise",
-    chip: { label: "Em análise", bg: "#E9EDFA", color: "#3C56A8" },
-    accent: "#3C56A8",
+    title: "Sua solicitação seguiu para aprovação",
+    chip: { label: "Aguardando aprovação", bg: "#FCF1DD", color: "#8A5B10" },
+    accent: "#B4791C",
     lead: (t) =>
-      `Recebemos sua requisição para <strong style="color:${INK}">${t}</strong> e ela já está em análise pelo time de Gente &amp; Gestão. Avisaremos assim que houver uma decisão.`,
-    preview: (t) => `A requisição para ${t} está em análise pelo RH.`,
+      `O time de Gente &amp; Gestão validou sua solicitação para <strong style="color:${INK}">${t}</strong> e a encaminhou para aprovação. Avisaremos assim que houver uma decisão.`,
+    preview: (t) => `A solicitação para ${t} foi validada e seguiu para aprovação.`,
+  },
+  RECRUITING: {
+    title: "Processo seletivo iniciado",
+    chip: { label: "Em recrutamento", bg: "#E2F0E4", color: "#2F6B4F" },
+    accent: GREEN_DARK,
+    lead: (t) =>
+      `O processo seletivo de <strong style="color:${INK}">${t}</strong> foi aberto a partir da sua solicitação. A partir daqui o time de Gente &amp; Gestão conduz a divulgação, a triagem e as entrevistas.`,
+    preview: (t) => `O processo seletivo de ${t} foi iniciado.`,
   },
   RETURNED: {
     title: "Requisição devolvida para ajustes",
@@ -322,12 +343,15 @@ const DECISION_COPY: Record<
 export function jobRequestDecisionEmail(input: {
   kind: DecisionKind;
   jobTitle: string;
+  /** Número humano da solicitação (REQ-2026-0042), quando houver. */
+  requestCode?: string | null;
   requesterName: string | null;
   note?: string | null;
   decidedBy?: string | null;
 }): { subject: string; html: string } {
   const copy = DECISION_COPY[input.kind];
   const titulo = escapeHtml(input.jobTitle || "vaga sem título");
+  const codigo = input.requestCode ? `${input.requestCode} · ` : "";
   const saudacao = input.requesterName
     ? `Olá, ${escapeHtml(input.requesterName.split(" ")[0])}!`
     : "Olá!";
@@ -348,7 +372,7 @@ export function jobRequestDecisionEmail(input: {
   }
 
   if (input.kind === "RETURNED") {
-    blocks.push(button(`${getAppBaseUrl()}/solicitar-vaga`, "Reenviar requisição", "#B4791C"));
+    blocks.push(button(`${getAppBaseUrl()}/solicitar-vaga`, "Enviar nova solicitação", "#B4791C"));
   }
 
   if (input.decidedBy) {
@@ -364,7 +388,7 @@ export function jobRequestDecisionEmail(input: {
   blocks.push(spacer(10));
 
   return {
-    subject: `${copy.title}: ${input.jobTitle || "vaga sem título"}`,
+    subject: `${copy.title}: ${codigo}${input.jobTitle || "vaga sem título"}`,
     html: layout({
       preview: copy.preview(input.jobTitle || "a vaga solicitada"),
       chip: copy.chip,

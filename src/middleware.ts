@@ -37,6 +37,8 @@ export async function middleware(req: NextRequest) {
 
   const isInternalRoute =
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/solicitacoes") ||
+    pathname.startsWith("/vagas/solicitacoes") ||
     pathname.startsWith("/vagas/gerenciar") ||
     pathname.startsWith("/vagas/nova") ||
     (pathname.startsWith("/vagas/") && pathname.endsWith("/editar")) ||

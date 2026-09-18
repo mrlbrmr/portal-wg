@@ -29,15 +29,47 @@ export const JobStatus = {
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
 
+// Ciclo de vida da SOLICITAÇÃO (pedido de autorização para contratar) — não confundir
+// com JobStatus, que é o ciclo da VAGA/processo seletivo que nasce depois da aprovação.
 export const JobRequestStatus = {
-  SUBMITTED: "SUBMITTED",
-  IN_REVIEW: "IN_REVIEW",
-  RETURNED: "RETURNED",
-  APPROVED: "APPROVED",
-  REJECTED: "REJECTED",
-  CANCELLED: "CANCELLED",
+  DRAFT: "DRAFT",                       // Rascunho — ainda com o solicitante
+  PENDING_HR: "PENDING_HR",             // Aguardando validação do RH
+  PENDING_APPROVAL: "PENDING_APPROVAL", // Aguardando aprovação
+  APPROVED: "APPROVED",                 // Aprovada — libera o processo seletivo
+  RETURNED: "RETURNED",                 // Devolvida para ajuste
+  REJECTED: "REJECTED",                 // Reprovada
+  CANCELLED: "CANCELLED",               // Cancelada
+  RECRUITING: "RECRUITING",             // Recrutamento iniciado (já existe vaga)
 } as const;
 export type JobRequestStatus = (typeof JobRequestStatus)[keyof typeof JobRequestStatus];
+
+/** Motivo da abertura. "Substituição" mora aqui — nunca em Área/Departamento. */
+export const JobRequestReason = {
+  REPLACEMENT: "REPLACEMENT",
+  HEADCOUNT_INCREASE: "HEADCOUNT_INCREASE",
+  NEW_POSITION: "NEW_POSITION",
+  TEMPORARY: "TEMPORARY",
+  OTHER: "OTHER",
+} as const;
+export type JobRequestReason = (typeof JobRequestReason)[keyof typeof JobRequestReason];
+
+/** A contratação está prevista no orçamento/headcount? */
+export const BudgetStatus = {
+  YES: "YES",
+  NO: "NO",
+  NOT_APPLICABLE: "NOT_APPLICABLE",
+} as const;
+export type BudgetStatus = (typeof BudgetStatus)[keyof typeof BudgetStatus];
+
+/** Situação de um passo da cadeia de aprovação. */
+export const ApprovalStepStatus = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  RETURNED: "RETURNED",
+  SKIPPED: "SKIPPED",
+} as const;
+export type ApprovalStepStatus = (typeof ApprovalStepStatus)[keyof typeof ApprovalStepStatus];
 
 export const Modality = {
   PRESENTIAL: "PRESENTIAL",
@@ -56,6 +88,8 @@ export const ContractType = {
 } as const;
 export type ContractType = (typeof ContractType)[keyof typeof ContractType];
 
+/** @deprecated A priorização passou a ser feita fora do sistema. Mantido só por causa das
+ *  colunas `jobs.priority` / `job_requests.priority`, que continuam no banco. */
 export const JobPriority = {
   LOW: "LOW",
   MEDIUM: "MEDIUM",
@@ -96,6 +130,8 @@ export type PublicationStatus = (typeof PublicationStatus)[keyof typeof Publicat
 
 export interface Job {
   id: string;
+  /** Identificador humano da vaga (VAG-2026-0031), gerado por trigger no banco. */
+  code: string | null;
   title: string;
   department: string | null;
   company: string | null;
@@ -120,7 +156,6 @@ export interface Job {
   slug: string | null;
   closingDate: Date | null;
   hiringDeadline: Date | null;
-  priority: JobPriority;
   status: JobStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -132,6 +167,8 @@ export interface User {
   email: string;
   passwordHash: string;
   role: UserRole;
+  /** Pode decidir solicitações destinadas a si, independente do UserRole. */
+  isApprover: boolean;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;

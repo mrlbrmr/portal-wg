@@ -26,6 +26,8 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - Dev: `npm run dev`
 - **Type-check** (gate principal de validação): `node_modules/.bin/tsc --noEmit -p tsconfig.json`
 - Lint: `npm run lint` — ⚠️ abre setup interativo de ESLint se não configurado; prefira o type-check.
+- **Testes:** `npm test` — runner `node:test` nativo via `tsx` (sem dependência extra).
+  Hoje cobre a máquina de estados da solicitação de vaga (`src/lib/job-requests/workflow.test.ts`).
 
 ## Deploy
 - **Push em `master` → deploy de produção automático na Vercel** (integração GitHub; não há `vercel.json` nem `.vercel/`).
@@ -43,10 +45,24 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Admissões:** `src/app/(internal)/admissoes/**`, `src/lib/admissao/**`, `src/components/internal/admissao/**`
 - **Modelos de checklist:** `.../admissoes/configuracoes/modelos`, `src/lib/admissao/template-actions.ts`, `checklist.ts`
 - **ATS / Vagas:** `src/app/(internal)/vagas/**` (kanban de candidatos, funil configurável)
-- **Requisição de vaga (RP):** gestor pede em `/solicitar-vaga` → fila em `/vagas/solicitacoes`.
-  A solicitação **NÃO cria vaga**: só vira `Job` (Rascunho) quando o RH aprova e completa o
-  `JobForm` pré-preenchido (`/vagas/nova?request=<id>`). `jobs.responsible` = recrutador;
-  `jobs.hiringManager` = gestor solicitante. Código: `src/lib/job-requests/**`.
+- **Solicitação de vaga:** módulo próprio em `/solicitacoes` (`src/app/(internal)/solicitacoes/**`).
+  **Solicitação ≠ Vaga.** A solicitação é o pedido de AUTORIZAÇÃO para contratar; a vaga é o
+  processo seletivo que nasce depois. Gestor pede em `/solicitar-vaga` (público, campos
+  estruturados) → `DRAFT → PENDING_HR → PENDING_APPROVAL → APPROVED → RECRUITING`
+  (+ `RETURNED/REJECTED/CANCELLED`). Números humanos: `REQ-AAAA-NNNN` / `VAG-AAAA-NNNN`.
+  - **Onde está a regra:** `src/lib/job-requests/workflow.ts` — módulo PURO (transições,
+    permissões, comentário obrigatório, campos críticos). A UI e o service consultam o mesmo
+    módulo, então o botão que aparece é o que o servidor aceita. Testes: `npm test`.
+  - **Use cases:** `src/lib/job-requests/service.ts`; server actions são casca fina
+    (`actions.ts`). Todo UPDATE leva guard de status no WHERE (compare-and-swap).
+  - **A vaga só nasce em** `create_job_from_request()` (função plpgsql, transacional, com
+    `for update`) — nunca no `JobForm`. Clicar duas vezes não cria duas vagas.
+  - Campo crítico alterado depois de aprovado ⇒ volta para `PENDING_APPROVAL`.
+  - `jobs.responsible` = recrutador; `jobs.hiringManager` = gestor solicitante;
+    `jobs.requestId` = solicitação de origem (**null em vagas legadas — é esperado**).
+  - **Prioridade foi removida da aplicação.** `jobs.priority` / `job_requests.priority`
+    continuam no banco (deprecated, default `MEDIUM`); nenhuma tela ou API lê ou escreve.
+  - `job_request_form_config` agora guarda só **perguntas complementares** (→ `extra_data`).
 - **E-mail transacional:** `src/lib/email.ts` (Resend) — sem `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
   nada é enviado (só loga). Templates em `src/lib/email-templates.ts`.
 - **Avaliações / Testes:** `src/app/(internal)/avaliacoes/banco`, `src/lib/avaliacoes/**`

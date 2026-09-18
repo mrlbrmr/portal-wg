@@ -9,7 +9,6 @@ import {
   daysSince,
   isPublicJobStatus,
 } from "@/lib/utils";
-import { PriorityBadge } from "@/components/internal/PriorityBadge";
 import {
   KanbanBoardShell,
   type KanbanColumnDef,
@@ -23,7 +22,6 @@ export interface KanbanJob {
   isTalentPool?: boolean;
   modality: string;
   status: string;
-  priority: string;
   createdAt: string; // ISO
   lastActivityAt: string; // ISO — usado para o indicador "· parada"
   candidateCount: number;
@@ -37,13 +35,6 @@ interface Props {
 }
 
 // Faixa inferior colorida do card — mesma semântica visual do Kanban de candidatos
-const PRIORITY_ACCENT: Record<string, string> = {
-  LOW:    "#D1D5DB", // cinza-300 — baixa prioridade, quase invisível
-  MEDIUM: "#D1D5DB", // idem — não distrai do conteúdo
-  HIGH:   "#F59E0B", // âmbar-400 — sinaliza atenção
-  URGENT: "#EF4444", // red-500 — ação imediata
-};
-
 const STATUSES: KanbanColumnDef[] = [
   { key: "DRAFT",     label: "Rascunho"    },
   { key: "ACTIVE",    label: "Ativa"       },
@@ -81,24 +72,9 @@ export function JobKanbanBoard({ jobs, visibleStatuses, canManage }: Props) {
         moveError="Erro ao mudar o status da vaga."
         emptyLabel="Nenhuma vaga"
         renderCard={(j) => {
-          const accentColor = PRIORITY_ACCENT[j.priority] ?? "#D1D5DB";
           return (
             <>
-              {/*
-                Faixa de cor na base do card — mesma ideia do KanbanBoard de
-                candidatos (score bar). rounded-b-xl garante que os cantos
-                inferiores sigam o rounded-xl do KanbanCard sem precisar de
-                overflow-hidden (que quebraria o ring de drag).
-              */}
-              <div
-                className="absolute bottom-0 left-0 right-0 h-[3px] rounded-b-xl"
-                style={{ backgroundColor: accentColor }}
-              />
-
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-medium text-gray-900 leading-snug">{j.title}</p>
-                <PriorityBadge priority={j.priority} className="shrink-0" />
-              </div>
+              <p className="text-sm font-medium text-gray-900 leading-snug">{j.title}</p>
 
               <p className="text-[11px] text-gray-500 mt-1">
                 {j.isTalentPool

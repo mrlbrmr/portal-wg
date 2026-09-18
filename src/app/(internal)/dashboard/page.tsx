@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { OPEN_JOB_REQUEST_STATUSES } from "@/lib/job-requests/constants";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Dashboard — RH" };
@@ -76,8 +77,8 @@ export default async function DashboardPage() {
         .limit(8),
       // Limit protege contra full table scan enquanto o índice stageId_only não estiver aplicado.
       supabase.from("applications").select("jobId, jobs!inner(isTalentPool, status)").eq("stageId", "NEW").eq("jobs.isTalentPool", false).neq("jobs.status", "FILLED").limit(2000),
-      // Requisições de vaga aguardando decisão do RH
-      supabase.from("job_requests").select("id", { count: "exact", head: true }).in("status", ["SUBMITTED", "IN_REVIEW"]),
+      // Solicitações de vaga aguardando ação (validação do RH ou aprovação)
+      supabase.from("job_requests").select("id", { count: "exact", head: true }).in("status", OPEN_JOB_REQUEST_STATUSES),
     ]),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error("dashboard timeout")), 8_000)),
   ]).catch(() => null);
@@ -149,7 +150,7 @@ export default async function DashboardPage() {
       ? [{
           icon: "📥", iconBg: "#FCF1DD", value: pendingRequests,
           label: pendingRequests === 1 ? "Solicitação a analisar" : "Solicitações a analisar",
-          href: "/vagas/solicitacoes",
+          href: "/solicitacoes",
         }]
       : []),
     { icon: "💼", iconBg: "#EAF4DC", value: activeJobs,  label: "Vagas Ativas",    href: "/vagas/gerenciar" },

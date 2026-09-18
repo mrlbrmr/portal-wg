@@ -24,6 +24,7 @@ model User {
   email        String   @unique
   passwordHash String
   role         UserRole @default(VIEWER_RH)
+  isApprover   Boolean  @default(false) @map("isApprover") // pode decidir solicitações destinadas a si
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -70,7 +71,9 @@ enum ContractType {
   OTHER
 }
 
-// Prioridade da vaga no processo de R&S (usada em filtros, ordenação e badges)
+// DEPRECATED — a priorização de R&S passou a ser feita fora do sistema. As colunas
+// jobs.priority / job_requests.priority continuam no banco (default MEDIUM), mas
+// nenhuma tela ou API da aplicação lê ou escreve nelas.
 enum JobPriority {
   LOW // Baixa
   MEDIUM // Média (padrão)
@@ -90,6 +93,7 @@ enum ApplicationStage {
 
 model Job {
   id                   String       @id @default(cuid())
+  code                 String?      @unique // VAG-2026-0031 (trigger set_job_code)
   title                String
   department           String?
   company              String? // Empresa / unidade (ex: "WG Baterias SP")
@@ -109,11 +113,11 @@ model Job {
   highlightBenefit     String? // Benefício em destaque (ex: "Plano de Saúde")
   responsible          String? // Recrutador responsável pelo processo (RH)
   hiringManager        String? // Gestor solicitante (quem pediu a vaga)
-  requestId            String? // Requisição de Pessoal que originou a vaga
+  requestId            String? // Solicitação que autorizou a vaga (null em vagas legadas)
   slug                 String?      @unique
   closingDate          DateTime?
   hiringDeadline       DateTime? // Prazo interno alvo de contratação
-  priority             JobPriority  @default(MEDIUM) // Prioridade no processo de R&S
+  priority             JobPriority  @default(MEDIUM) // DEPRECATED — priorização é externa ao sistema
   status               JobStatus    @default(ACTIVE)
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
@@ -126,43 +130,158 @@ model Job {
   @@map("jobs")
 }
 
-// ─── Requisição de Pessoal (RP) ───────────────────────────────────────────────
-// O pedido do gestor em /solicitar-vaga. NÃO é uma vaga: passa por aprovação do
-// RH e só então vira Job (Rascunho) pelo JobForm pré-preenchido.
-// Regras e ações: src/lib/job-requests/actions.ts
+// ─── Solicitação de Vaga ──────────────────────────────────────────────────────
+// O pedido de AUTORIZAÇÃO para contratar (/solicitar-vaga). NÃO é uma vaga: passa
+// pela validação do RH e pela aprovação, e só então o RH cria o processo seletivo.
+// Regra: src/lib/job-requests/workflow.ts · Use cases: .../service.ts
+// A vaga nasce APENAS em create_job_from_request() (transacional, no banco).
 
 enum JobRequestStatus {
-  SUBMITTED // Solicitada — na fila do RH
-  IN_REVIEW // Em análise pelo RH
-  RETURNED // Devolvida ao gestor para ajustes
-  APPROVED // Aprovada — libera a abertura da vaga
-  REJECTED // Reprovada com justificativa
-  CANCELLED // Cancelada (desistência)
+  DRAFT // Rascunho — ainda com o solicitante
+  PENDING_HR // Aguardando validação do RH
+  PENDING_APPROVAL // Aguardando aprovação
+  APPROVED // Aprovada — libera "Criar processo seletivo"
+  RETURNED // Devolvida para ajuste
+  REJECTED // Reprovada
+  CANCELLED // Cancelada
+  RECRUITING // Recrutamento iniciado (já existe vaga)
+}
+
+enum JobRequestReason {
+  REPLACEMENT // Substituição (exige replacedEmployee)
+  HEADCOUNT_INCREASE // Aumento de quadro
+  NEW_POSITION // Nova posição
+  TEMPORARY // Temporária
+  OTHER
+}
+
+enum BudgetStatus {
+  YES
+  NO
+  NOT_APPLICABLE
+}
+
+enum ApprovalStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  SKIPPED
 }
 
 model JobRequest {
-  id               String           @id @default(uuid())
-  formData         Json             @map("form_data") // respostas do formulário configurável
-  status           JobRequestStatus @default(SUBMITTED)
-  title            String? // função pedida
-  requesterName    String?          @map("requester_name")
-  requesterEmail   String?          @map("requester_email")
-  reason           String? // motivo da abertura
-  location         String? // unidade / praça
-  openings         Int?
-  priority         JobPriority      @default(MEDIUM)
-  desiredStartDate DateTime?        @map("desired_start_date") @db.Date
-  decisionNote     String?          @map("decision_note") @db.Text
-  decidedBy        String?          @map("decided_by")
-  decidedAt        DateTime?        @map("decided_at")
-  jobId            String?          @map("job_id") // vaga gerada após a aprovação
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
+  id   String           @id @default(uuid())
+  code String?          @unique // REQ-2026-0042 (trigger set_job_request_code)
+  status JobRequestStatus @default(DRAFT)
 
-  jobs Job[]
+  // Dados da solicitação
+  title              String?
+  department         String? // Área / Departamento
+  location           String? // Empresa / Unidade
+  requesterName      String? @map("requester_name")
+  requesterEmail     String? @map("requester_email")
+  requestedByUserId  String? @map("requested_by_user_id") // null = formulário público
+  openings           Int?
+
+  // Motivo da contratação
+  reasonType       JobRequestReason @default(OTHER) @map("reason_type")
+  replacedEmployee String?          @map("replaced_employee")
+  justification    String?          @db.Text
+  desiredStartDate DateTime?        @map("desired_start_date") @db.Date
+
+  // Condições da vaga
+  contractType ContractType? @map("contract_type")
+  modality     Modality?
+  workSchedule String?       @map("work_schedule")
+  salaryMin    Decimal?      @map("salary_min") @db.Decimal(12, 2)
+  salaryMax    Decimal?      @map("salary_max") @db.Decimal(12, 2)
+  costCenter   String?       @map("cost_center")
+  budgetStatus BudgetStatus  @default(NOT_APPLICABLE) @map("budget_status")
+
+  // Perguntas complementares (job_request_form_config)
+  extraData Json @default("{}") @map("extra_data")
+
+  // Aprovação
+  submittedAt           DateTime? @map("submitted_at")
+  hrValidatedAt         DateTime? @map("hr_validated_at")
+  hrValidatedBy         String?   @map("hr_validated_by")
+  currentApproverUserId String?   @map("current_approver_user_id")
+  approvedAt            DateTime? @map("approved_at")
+  approvedByUserId      String?   @map("approved_by_user_id")
+  approvedByName        String?   @map("approved_by_name")
+
+  // Última decisão (parecer exibido e enviado por e-mail)
+  decisionNote String?   @map("decision_note") @db.Text
+  decidedBy    String?   @map("decided_by")
+  decidedAt    DateTime? @map("decided_at")
+
+  jobId     String?  @map("job_id") // processo seletivo gerado
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // DEPRECATED — mantidos no banco por compatibilidade, não usados pela aplicação:
+  formData Json        @map("form_data") // envelope do formulário livre antigo
+  reason   String? // texto do select antigo (use reasonType)
+  priority JobPriority @default(MEDIUM) // priorização passou a ser externa
+
+  jobs      Job[]
+  history   JobRequestHistory[]
+  approvals JobRequestApproval[]
 
   @@index([status, createdAt])
+  @@index([requestedByUserId])
+  @@index([currentApproverUserId])
+  @@index([reasonType])
   @@map("job_requests")
+}
+
+/// Auditoria da solicitação — um registro por evento do workflow.
+model JobRequestHistory {
+  id          String   @id @default(uuid())
+  requestId   String   @map("request_id")
+  event       String // CREATED, SUBMITTED, HR_VALIDATED, APPROVE, REJECT, ...
+  fromStatus  String?  @map("from_status")
+  toStatus    String?  @map("to_status")
+  comment     String?  @db.Text
+  actorUserId String?  @map("actor_user_id")
+  actorName   String?  @map("actor_name")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  request JobRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("job_request_history")
+}
+
+/// Passos da cadeia de aprovação. V1 cria um passo só (o aprovador indicado pelo
+/// RH), mas a modelagem já comporta fluxos condicionais com vários stepOrder —
+/// ver buildApprovalChain() em src/lib/job-requests/workflow.ts.
+model JobRequestApproval {
+  id             String             @id @default(uuid())
+  requestId      String             @map("request_id")
+  stepOrder      Int                @default(1) @map("step_order")
+  ruleKey        String?            @map("rule_key") // DEFAULT, BUDGET, SALARY_CEILING...
+  approverUserId String?            @map("approver_user_id")
+  approverName   String?            @map("approver_name")
+  status         ApprovalStepStatus @default(PENDING)
+  comment        String?            @db.Text
+  decidedAt      DateTime?          @map("decided_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  request JobRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, stepOrder])
+  @@map("job_request_approvals")
+}
+
+/// Contador atômico da numeração humana (REQ-/VAG-), por escopo e ano.
+model CodeCounter {
+  scope String
+  year  Int
+  value Int    @default(0)
+
+  @@id([scope, year])
+  @@map("code_counters")
 }
 
 // ─── Candidaturas (inscrições nativas do portal) ──────────────────────────────

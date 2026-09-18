@@ -139,28 +139,9 @@ export const CONTRACT_TYPE_LABELS: Record<string, string> = {
   OTHER: "Outro",
 };
 
-export const JOB_PRIORITY_LABELS: Record<string, string> = {
-  LOW: "Baixa",
-  MEDIUM: "Média",
-  HIGH: "Alta",
-  URGENT: "Urgente",
-};
-
-// Ordem crescente de prioridade (para ordenação "maior prioridade")
-export const JOB_PRIORITY_ORDER: Record<string, number> = {
-  LOW: 0,
-  MEDIUM: 1,
-  HIGH: 2,
-  URGENT: 3,
-};
-
-// Cores do badge de prioridade (tema claro do admin)
-export const JOB_PRIORITY_BADGE: Record<string, string> = {
-  LOW: "bg-gray-100 text-gray-600",
-  MEDIUM: "bg-gray-100 text-gray-500",
-  HIGH: "bg-amber-100 text-amber-700",
-  URGENT: "bg-red-100 text-red-700",
-};
+// A prioridade de vaga saiu do sistema (a priorização de R&S é feita fora dele). As
+// colunas `jobs.priority` / `job_requests.priority` seguem no banco com o default 'MEDIUM'
+// só por compatibilidade — nenhuma tela ou API lê ou escreve nelas.
 
 /** Dias inteiros decorridos desde a data informada (nunca negativo). */
 export function daysSince(date: Date | string): number {

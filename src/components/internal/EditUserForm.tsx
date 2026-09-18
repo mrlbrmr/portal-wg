@@ -12,6 +12,8 @@ interface Props {
     name: string;
     email: string;
     role: UserRole;
+    /** Pode aprovar solicitações de vaga destinadas a si (independe do papel). */
+    isApprover: boolean;
     active: boolean;
   };
 }
@@ -40,6 +42,7 @@ export function EditUserForm({ user }: Props) {
       email: form.get("email") as string,
       role: form.get("role") as string,
       active: form.get("active") === "true",
+      isApprover: form.get("isApprover") === "on",
     };
 
     const password = (form.get("password") as string).trim();
@@ -144,6 +147,24 @@ export function EditUserForm({ user }: Props) {
               </select>
             </div>
           </div>
+
+          <label className="mt-4 flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="isApprover"
+              defaultChecked={user.isApprover}
+              className="mt-0.5 w-4 h-4 accent-wg-green"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-700">
+                Aprovador de solicitações de vaga
+              </span>
+              <span className="block text-xs text-gray-500">
+                Pode aprovar, reprovar ou devolver as solicitações encaminhadas a ele — mesmo
+                sendo apenas Visualizador no restante do painel.
+              </span>
+            </span>
+          </label>
         </section>
 
         {/* Redefinir senha */}

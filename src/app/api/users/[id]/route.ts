@@ -11,6 +11,7 @@ const updateUserSchema = z.object({
   email: z.string().email("E-mail inválido").optional(),
   role: z.nativeEnum(UserRole).optional(),
   active: z.boolean().optional(),
+  isApprover: z.boolean().optional(),
   password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres").optional(),
 });
 

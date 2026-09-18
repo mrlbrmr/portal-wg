@@ -1,164 +1,171 @@
 "use server";
 
-// Server actions do fluxo de Requisição de Pessoal (RP).
-// Escrita = ADMIN_RH (mesma regra das vagas). Cada decisão registra quem decidiu,
-// quando e o parecer — e avisa o gestor por e-mail quando houver e-mail válido.
+// Server actions da solicitação de vaga — casca fina sobre src/lib/job-requests/service.ts.
+//
+// Nenhuma regra de negócio aqui: a validação de status, permissão e comentário obrigatório
+// acontece no service (que consulta workflow.ts). Isso mantém a UI incapaz de "pular"
+// uma etapa mesmo que alguém chame a action direto.
 
-import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { isValidEmail, sendEmail } from "@/lib/email";
-import { jobRequestDecisionEmail, type DecisionKind } from "@/lib/email-templates";
-import type { JobPriority, JobRequestStatus } from "@/types/domain";
+import {
+  createJobFromRequest as createJobFromRequestUseCase,
+  createJobRequest as createJobRequestUseCase,
+  reassignApprover as reassignApproverUseCase,
+  runWorkflowAction,
+  updateJobRequest as updateJobRequestUseCase,
+  type ServiceResult,
+  type StartRecruitmentResult,
+} from "./service";
+import { jobRequestPayloadSchema, type JobRequestPayload } from "./schema";
+import { currentActor } from "./service";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-const LIST_PATH = "/vagas/solicitacoes";
-
-async function ensureAdmin(): Promise<{ name: string } | { error: string }> {
-  const session = await auth();
-  if (!session) return { error: "Não autenticado." };
-  if (session.user.role !== "ADMIN_RH") return { error: "Sem permissão." };
-  return { name: session.user.name ?? session.user.email ?? "Gente & Gestão" };
+function toActionResult(res: ServiceResult<unknown>): ActionResult {
+  return res.ok ? { ok: true } : { ok: false, error: res.error };
 }
 
-interface RequestSnapshot {
-  id: string;
-  status: JobRequestStatus;
-  title: string | null;
-  requester_name: string | null;
-  requester_email: string | null;
-  job_id: string | null;
+// ─── Transições do workflow ───────────────────────────────────────────────────
+
+/** Gestor (ou RH) envia a solicitação para validação do RH. */
+export async function submitJobRequest(id: string): Promise<ActionResult> {
+  return toActionResult(await runWorkflowAction(id, "SUBMIT"));
 }
 
-async function loadRequest(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  id: string
-): Promise<RequestSnapshot | null> {
-  const { data } = await supabase
-    .from("job_requests")
-    .select("id, status, title, requester_name, requester_email, job_id")
-    .eq("id", id)
-    .maybeSingle();
-  return (data as RequestSnapshot | null) ?? null;
-}
-
-/** Dispara o aviso ao gestor sem derrubar a ação se o e-mail falhar. */
-async function notifyRequester(
-  request: RequestSnapshot,
-  kind: DecisionKind,
-  note: string | null,
-  decidedBy: string
-): Promise<void> {
-  if (!isValidEmail(request.requester_email)) return;
-  const { subject, html } = jobRequestDecisionEmail({
-    kind,
-    jobTitle: request.title ?? "",
-    requesterName: request.requester_name,
-    note,
-    decidedBy,
-  });
-  await sendEmail({ to: request.requester_email, subject, html }).catch((err) =>
-    console.error("[email] decisão de requisição:", err)
+/** RH valida e encaminha para o aprovador escolhido. */
+export async function validateJobRequest(
+  id: string,
+  approverUserId: string,
+  note?: string
+): Promise<ActionResult> {
+  return toActionResult(
+    await runWorkflowAction(id, "HR_VALIDATE", { approverUserId, comment: note })
   );
 }
 
-function revalidateAll(): void {
-  revalidatePath(LIST_PATH);
-  revalidatePath("/dashboard");
+/** RH devolve ao gestor (comentário obrigatório). */
+export async function returnJobRequestByHr(id: string, note: string): Promise<ActionResult> {
+  return toActionResult(await runWorkflowAction(id, "HR_RETURN", { comment: note }));
 }
+
+/** Aprovador devolve para ajuste (comentário obrigatório). */
+export async function returnJobRequestByApprover(
+  id: string,
+  note: string
+): Promise<ActionResult> {
+  return toActionResult(await runWorkflowAction(id, "APPROVER_RETURN", { comment: note }));
+}
+
+/** Aprovador aprova (comentário opcional). */
+export async function approveJobRequest(id: string, note?: string): Promise<ActionResult> {
+  return toActionResult(await runWorkflowAction(id, "APPROVE", { comment: note }));
+}
+
+/** Aprovador reprova (comentário obrigatório). */
+export async function rejectJobRequest(id: string, note: string): Promise<ActionResult> {
+  return toActionResult(await runWorkflowAction(id, "REJECT", { comment: note }));
+}
+
+/** Cancelamento (comentário obrigatório — é uma ação sensível). */
+export async function cancelJobRequest(id: string, note: string): Promise<ActionResult> {
+  return toActionResult(await runWorkflowAction(id, "CANCEL", { comment: note }));
+}
+
+/** Reabre uma solicitação reprovada ou cancelada, devolvendo-a à fila do RH. */
+export async function reopenJobRequest(id: string): Promise<ActionResult> {
+  return toActionResult(await runWorkflowAction(id, "REOPEN"));
+}
+
+/** RH troca o aprovador da vez. */
+export async function reassignJobRequestApprover(
+  id: string,
+  approverUserId: string
+): Promise<ActionResult> {
+  return toActionResult(await reassignApproverUseCase(id, approverUserId));
+}
+
+// ─── Criar processo seletivo ──────────────────────────────────────────────────
+
+export type StartRecruitmentActionResult =
+  | { ok: true; jobId: string; jobCode: string | null }
+  | { ok: false; error: string };
 
 /**
- * Transição genérica de status. `notifyKind` null = não avisa o gestor
- * (usado ao voltar uma requisição para a fila, por exemplo).
+ * "CRIAR PROCESSO SELETIVO". A vaga nasce aqui — e só aqui. Transacional no banco:
+ * um segundo clique não cria uma segunda vaga.
  */
-async function transition(
+export async function startRecruitmentFromRequest(
+  id: string
+): Promise<StartRecruitmentActionResult> {
+  const res: ServiceResult<StartRecruitmentResult> = await createJobFromRequestUseCase(id);
+  if (!res.ok) return { ok: false, error: res.error };
+  return { ok: true, jobId: res.data.jobId, jobCode: res.data.jobCode };
+}
+
+// ─── Criação e edição ─────────────────────────────────────────────────────────
+
+export type CreateActionResult =
+  | { ok: true; id: string; code: string | null }
+  | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/** Criação interna (RH ou gestor logado). O formulário público usa POST /api/job-requests. */
+export async function createJobRequestInternal(
+  input: unknown,
+  asDraft = false
+): Promise<CreateActionResult> {
+  const actor = await currentActor();
+  if (!actor) return { ok: false, error: "Não autenticado." };
+
+  const parsed = jobRequestPayloadSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Revise os campos destacados.",
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    };
+  }
+
+  const res = await createJobRequestUseCase({
+    payload: parsed.data,
+    requestedByUserId: actor.userId,
+    actorName: actor.name,
+    asDraft,
+  });
+  if (!res.ok) return { ok: false, error: res.error };
+  return { ok: true, id: res.data.id, code: res.data.code };
+}
+
+export type UpdateActionResult =
+  | { ok: true; requiresReapproval: boolean }
+  /** `needsConfirmation` = a edição mexe em dado aprovado e espera o "sim" do usuário. */
+  | {
+      ok: false;
+      error: string;
+      needsConfirmation?: boolean;
+      fieldErrors?: Record<string, string[]>;
+    };
+
+export async function saveJobRequest(
   id: string,
-  next: JobRequestStatus,
-  opts: { note?: string; requireNote?: boolean; notify?: DecisionKind | null }
-): Promise<ActionResult> {
-  const admin = await ensureAdmin();
-  if ("error" in admin) return { ok: false, error: admin.error };
-
-  const note = (opts.note ?? "").trim();
-  if (opts.requireNote && !note) {
-    return { ok: false, error: "Descreva o motivo para o gestor." };
+  input: unknown,
+  opts: { confirmReapproval?: boolean } = {}
+): Promise<UpdateActionResult> {
+  const parsed = jobRequestPayloadSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Revise os campos destacados.",
+      fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    };
   }
 
-  const supabase = await createClient();
-  const request = await loadRequest(supabase, id);
-  if (!request) return { ok: false, error: "Solicitação não encontrada." };
-
-  const isDecision = next !== "SUBMITTED" && next !== "IN_REVIEW";
-  const { error } = await supabase
-    .from("job_requests")
-    .update({
-      status: next,
-      decision_note: note || null,
-      decided_by: isDecision ? admin.name : null,
-      decided_at: isDecision ? new Date().toISOString() : null,
-    })
-    .eq("id", id);
-
-  if (error) {
-    console.error("job_requests update error:", error);
-    return { ok: false, error: "Não foi possível atualizar a solicitação." };
+  const res = await updateJobRequestUseCase(id, parsed.data as JobRequestPayload, opts);
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: res.error,
+      // A recusa por reaprovação é a única que o usuário pode "vencer" confirmando.
+      needsConfirmation: res.error.includes("nova aprovação"),
+    };
   }
-
-  if (opts.notify) {
-    await notifyRequester(request, opts.notify, note || null, admin.name);
-  }
-
-  revalidateAll();
-  return { ok: true };
-}
-
-/** RH assume a análise — some da fila "novas" e o gestor é avisado. */
-export async function startReview(id: string): Promise<ActionResult> {
-  return transition(id, "IN_REVIEW", { notify: "IN_REVIEW" });
-}
-
-/** Devolve ao gestor pedindo ajustes (motivo obrigatório). */
-export async function returnRequest(id: string, note: string): Promise<ActionResult> {
-  return transition(id, "RETURNED", { note, requireNote: true, notify: "RETURNED" });
-}
-
-/** Reprova com justificativa (motivo obrigatório — fica no histórico). */
-export async function rejectRequest(id: string, note: string): Promise<ActionResult> {
-  return transition(id, "REJECTED", { note, requireNote: true, notify: "REJECTED" });
-}
-
-/** Cancelamento (desistência do gestor ou duplicidade). */
-export async function cancelRequest(id: string, note: string): Promise<ActionResult> {
-  return transition(id, "CANCELLED", { note, notify: "CANCELLED" });
-}
-
-/** Reabre uma requisição encerrada, devolvendo-a à fila de análise. */
-export async function reopenRequest(id: string): Promise<ActionResult> {
-  return transition(id, "SUBMITTED", { notify: null });
-}
-
-/**
- * Aprova a requisição. A vaga NÃO é criada aqui: quem aprova é levado ao
- * formulário de vaga pré-preenchido (/vagas/nova?request=<id>), completa o que é
- * de RH e salva. O vínculo requisição ↔ vaga é fechado no POST /api/jobs.
- */
-export async function approveRequest(id: string, note?: string): Promise<ActionResult> {
-  return transition(id, "APPROVED", { note, notify: "APPROVED" });
-}
-
-/** Ajusta a prioridade da requisição na fila do RH. */
-export async function setRequestPriority(
-  id: string,
-  priority: JobPriority
-): Promise<ActionResult> {
-  const admin = await ensureAdmin();
-  if ("error" in admin) return { ok: false, error: admin.error };
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("job_requests").update({ priority }).eq("id", id);
-  if (error) return { ok: false, error: "Não foi possível alterar a prioridade." };
-
-  revalidateAll();
-  return { ok: true };
+  return { ok: true, requiresReapproval: res.data.requiresReapproval };
 }

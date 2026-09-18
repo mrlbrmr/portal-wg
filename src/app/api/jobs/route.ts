@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, JobPriority } from "@/types/domain";
+import { Modality, ContractType, JobStatus } from "@/types/domain";
 import { generateSlug } from "@/lib/utils";
 import { applyJobFilters, onlyPublicVisible } from "@/lib/jobs-query";
 import { rateLimit } from "@/lib/rate-limit";
@@ -36,10 +36,8 @@ const jobSchema = z
   highlightBenefit: z.string().optional(),
   responsible: z.string().optional(),
   hiringManager: z.string().optional(),
-  requestId: z.string().uuid().optional(),
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
-  priority: z.nativeEnum(JobPriority).default("MEDIUM"),
   status: z.nativeEnum(JobStatus).default("ACTIVE"),
 })
 .superRefine((data, ctx) => {
@@ -124,7 +122,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, hiringDeadline, title, city = null, requestId, ...rest } = parsed.data;
+  const { closingDate, hiringDeadline, title, city = null, ...rest } = parsed.data;
 
   const supabase = await createClient();
 
@@ -145,7 +143,6 @@ export async function POST(req: NextRequest) {
       city,
       ...rest,
       slug,
-      requestId: requestId ?? null,
       closingDate: closingDate ? new Date(closingDate).toISOString() : null,
       hiringDeadline: hiringDeadline ? new Date(hiringDeadline).toISOString() : null,
     })
@@ -162,16 +159,9 @@ export async function POST(req: NextRequest) {
     changedBy: session.user.name ?? session.user.email ?? "Sistema",
   });
 
-  // Fecha o ciclo da Requisição de Pessoal: a RP aprovada passa a apontar
-  // para a vaga criada (link "ver vaga" na fila de solicitações).
-  if (requestId) {
-    const { error: linkError } = await supabase
-      .from("job_requests")
-      .update({ job_id: job.id })
-      .eq("id", requestId);
-    if (linkError) console.error("job_requests link error:", linkError);
-    revalidatePath("/vagas/solicitacoes");
-  }
+  // O vínculo solicitação ↔ vaga NÃO é fechado aqui: a vaga originada de uma solicitação
+  // nasce dentro de create_job_from_request() (transacional), que já grava os dois lados.
+  // Esta rota só cria vagas avulsas (banco de talentos e afins).
 
   revalidatePath("/");
   revalidatePath("/vagas/gerenciar");

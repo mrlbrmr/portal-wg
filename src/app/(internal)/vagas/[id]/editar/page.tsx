@@ -44,6 +44,22 @@ export default async function EditarVagaPage({ params }: Props) {
     | null;
   if (!job) notFound();
 
+  // Solicitação que autorizou esta contratação. Vagas legadas (anteriores ao fluxo de
+  // aprovação) não têm requestId — e continuam funcionando normalmente.
+  let originRequest: { id: string; code: string | null; requesterName: string | null } | null =
+    null;
+  if (job.requestId) {
+    const { data: req } = await supabase
+      .from("job_requests")
+      .select("id, code, requester_name")
+      .eq("id", job.requestId)
+      .maybeSingle();
+    if (req) {
+      const r = req as { id: string; code: string | null; requester_name: string | null };
+      originRequest = { id: r.id, code: r.code, requesterName: r.requester_name };
+    }
+  }
+
   const isPublic = isPublicJobStatus(job.status);
   const announcementText = buildAnnouncementText({
     id: job.id,
@@ -79,9 +95,17 @@ export default async function EditarVagaPage({ params }: Props) {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Editar Vaga</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-1">Editar vaga</h1>
+      <p className="text-sm text-gray-500 mb-6">
+        {job.code ? `${job.code} · ` : ""}
+        Configuração do processo seletivo (divulgação, etapas e prazos).
+      </p>
       <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 mb-6">
-        <JobForm job={job} currentUserName={session.user.name} />
+        <JobForm
+          job={job}
+          currentUserName={session.user.name}
+          originRequest={originRequest}
+        />
       </div>
 
       <div className="mb-6">

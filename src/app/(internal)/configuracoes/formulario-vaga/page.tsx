@@ -33,11 +33,19 @@ export default async function FormularioVagaConfigPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Formulário de Abertura de Vaga</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Formulário de Solicitação de Vaga</h1>
         <p className="text-gray-500 text-sm mt-1">
-          Configure os campos, título e opções do formulário que os gestores preenchem para solicitar
-          abertura de vagas.
+          Título, texto de apresentação e <strong>perguntas complementares</strong> do formulário
+          que os gestores preenchem em <code>/solicitar-vaga</code>.
         </p>
+        <div className="mt-3 rounded-lg border border-wg-green/30 bg-wg-green/5 px-4 py-3">
+          <p className="text-xs text-gray-600">
+            Os campos principais do pedido — título, área, unidade, gestor, quantidade, motivo,
+            justificativa e condições da vaga — são fixos: viraram campos estruturados da
+            solicitação para permitir filtro, aprovação e histórico. Aqui você acrescenta
+            perguntas extras específicas da WG; as respostas aparecem na tela da solicitação.
+          </p>
+        </div>
       </div>
 
       <FormConfigEditor initialConfig={config} />

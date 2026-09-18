@@ -1,4 +1,4 @@
-import type { JobStatus, Modality, ContractType, JobPriority } from "@/types/domain";
+import type { JobStatus, Modality, ContractType } from "@/types/domain";
 
 /**
  * Forma leve e serializável de uma vaga para as visões do painel
@@ -16,7 +16,6 @@ export interface JobRow {
   department: string | null;
   responsible: string | null;
   status: JobStatus;
-  priority: JobPriority;
   slug: string | null;
   createdAt: string; // ISO
   updatedAt: string; // ISO
@@ -32,7 +31,6 @@ export interface JobFilters {
   modality: string;
   contractType: string;
   responsible: string;
-  priority: string;
 }
 
 export const EMPTY_JOB_FILTERS: JobFilters = {
@@ -42,5 +40,4 @@ export const EMPTY_JOB_FILTERS: JobFilters = {
   modality: "",
   contractType: "",
   responsible: "",
-  priority: "",
 };

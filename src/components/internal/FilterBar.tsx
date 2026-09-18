@@ -5,7 +5,6 @@ import {
   JOB_STATUS_LABELS,
   MODALITY_LABELS,
   CONTRACT_TYPE_LABELS,
-  JOB_PRIORITY_LABELS,
   ACTIVE_STATUS_FILTER,
 } from "@/lib/utils";
 import type { JobFilters } from "@/types/jobs";
@@ -83,13 +82,6 @@ export function FilterBar({
         value={filters.responsible}
         onChange={(v) => onChange({ responsible: v })}
         options={options.managers.map((m) => [m, m])}
-      />
-
-      <FilterSelect
-        label="Prioridade"
-        value={filters.priority}
-        onChange={(v) => onChange({ priority: v })}
-        options={toPairs(JOB_PRIORITY_LABELS)}
       />
 
       {hasActive && (

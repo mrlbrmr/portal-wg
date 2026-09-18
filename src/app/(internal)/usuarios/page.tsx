@@ -18,13 +18,14 @@ export default async function UsuariosPage() {
   const supabase = createAdminClient();
   const { data: usersData } = await supabase
     .from("users")
-    .select("id, name, email, role, active, createdAt")
+    .select("id, name, email, role, isApprover, active, createdAt")
     .order("createdAt", { ascending: false });
   const users = (usersData ?? []) as Array<{
     id: string;
     name: string;
     email: string;
     role: string;
+    isApprover: boolean;
     active: boolean;
     createdAt: string;
   }>;
@@ -62,6 +63,11 @@ export default async function UsuariosPage() {
                     >
                       {user.role === "ADMIN_RH" ? "Admin RH" : "Visualizador"}
                     </span>
+                    {user.isApprover && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#FCF1DD] text-[#8A5B10] font-medium">
+                        Aprovador de vagas
+                      </span>
+                    )}
                     {!user.active && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
                         Inativo

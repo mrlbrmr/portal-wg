@@ -42,7 +42,7 @@ import type { JobRequestRow } from "@/types/job-requests";
 interface Props {
   request: JobRequestRow;
   actor: WorkflowActor;
-  approvers: Array<{ id: string; name: string; email: string }>;
+  approvers: Array<{ id: string; name: string; email: string; isApprover: boolean }>;
 }
 
 const ICONS: Record<WorkflowActionId, ElementType> = {
@@ -69,7 +69,12 @@ export function JobRequestActions({ request, actor, approvers }: Props) {
   const { notify } = useToast();
   const [pending, startTransition] = useTransition();
   const [comment, setComment] = useState("");
-  const [approverId, setApproverId] = useState(request.currentApproverUserId ?? "");
+  // Padrão: o aprovador já designado ou, se houver um só marcado em Usuários, ele.
+  const defaultApprovers = approvers.filter((a) => a.isApprover);
+  const [approverId, setApproverId] = useState(
+    request.currentApproverUserId ??
+      (defaultApprovers.length === 1 ? defaultApprovers[0].id : "")
+  );
   const [confirming, setConfirming] = useState<WorkflowActionId | null>(null);
 
   const actions = useMemo(
@@ -160,11 +165,32 @@ export function JobRequestActions({ request, actor, approvers }: Props) {
             className="w-full bg-white border border-[#E7EEDD] rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-wg-green/40"
           >
             <option value="">Selecione o aprovador…</option>
-            {approvers.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} — {a.email}
-              </option>
-            ))}
+            {defaultApprovers.length > 0 && (
+              <optgroup label="Aprovador designado">
+                {defaultApprovers.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} — {a.email}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {approvers.some((a) => !a.isApprover) && (
+              <optgroup
+                label={
+                  defaultApprovers.length > 0
+                    ? "Outros administradores (cobertura)"
+                    : "Administradores"
+                }
+              >
+                {approvers
+                  .filter((a) => !a.isApprover)
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} — {a.email}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
           </select>
           {approvers.length === 0 && (
             <p className="text-xs text-[#A24B2B] mt-1">

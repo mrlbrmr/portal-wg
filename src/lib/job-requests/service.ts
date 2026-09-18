@@ -260,7 +260,22 @@ export async function getJobRequestApprovals(id: string): Promise<JobRequestAppr
 }
 
 /** Usuários elegíveis a aprovar (flag isApprover ou ADMIN_RH), para o seletor do RH. */
-export async function listApprovers(): Promise<Array<{ id: string; name: string; email: string }>> {
+export interface ApproverOption {
+  id: string;
+  name: string;
+  email: string;
+  /** Marcado como aprovador em Usuários — vem primeiro e é o padrão do seletor. */
+  isApprover: boolean;
+}
+
+/**
+ * Quem o RH pode escolher como aprovador ao encaminhar a solicitação.
+ *
+ * Quem está marcado com `isApprover` é o aprovador de fato e aparece em primeiro lugar.
+ * Os demais ADMIN_RH continuam na lista (podem aprovar de qualquer jeito — regra 14),
+ * mas como alternativa: é o que cobre férias e ausências sem precisar mexer em cadastro.
+ */
+export async function listApprovers(): Promise<ApproverOption[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("users")
@@ -276,7 +291,8 @@ export async function listApprovers(): Promise<Array<{ id: string; name: string;
     isApprover: boolean;
   }>)
     .filter((u) => u.isApprover || u.role === "ADMIN_RH")
-    .map((u) => ({ id: u.id, name: u.name, email: u.email }));
+    .map((u) => ({ id: u.id, name: u.name, email: u.email, isApprover: u.isApprover }))
+    .sort((a, b) => Number(b.isApprover) - Number(a.isApprover) || a.name.localeCompare(b.name, "pt-BR"));
 }
 
 async function loadJobs(ids: Array<string | null>) {

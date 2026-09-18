@@ -7,6 +7,67 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-18 — Fluxo de aprovação da abertura de vaga (Requisição de Pessoal)
+
+Problema: o formulário público `/solicitar-vaga` criava **direto** uma vaga `DRAFT`. Pedido e vaga
+eram o mesmo objeto (sem aprovação), a vaga nascia com dados falsos (`isTalentPool=true`,
+`modality=PRESENTIAL`, `department` recebendo o *motivo* da abertura) e `jobs.responsible` —
+documentado como *recrutador* — guardava o nome do **gestor**.
+
+Agora a **Requisição de Pessoal (RP)** é um objeto próprio com ciclo de aprovação; a vaga só nasce
+quando o RH aprova e completa os dados. Aprovação em **um nível** (ADMIN_RH).
+
+### 1. Migração — `20260918000000_job_requests_workflow.sql` (APLICADA)
+
+- `enum JobRequestStatus`: `SUBMITTED → IN_REVIEW → APPROVED | RETURNED | REJECTED | CANCELLED`.
+- `job_requests` ganha colunas derivadas (`status`, `title`, `requester_name`, `requester_email`,
+  `reason`, `location`, `openings`, `priority`, `desired_start_date`) + decisão (`decision_note`,
+  `decided_by`, `decided_at`) + `updated_at` com trigger `moddatetime`. `form_data` segue sendo a
+  fonte do que o gestor digitou.
+- `jobs` ganha **`hiringManager`** (gestor solicitante) e **`requestId`** (FK → `job_requests`).
+- Backfill: as 7 requisições antigas viraram `APPROVED` (já tinham vaga); 7 vagas foram religadas à
+  sua RP e, nas 3 em que `responsible` guardava o nome do gestor, o valor migrou para `hiringManager`.
+- O singleton `job_request_form_config` recebeu os campos novos sem perder customizações
+  (`emailGestor` logo após `gestor`; `quantidade`, `tipoContratacao`, `dataInicio`,
+  `salarioPretendido`, `dataDesligamento` no fim — reordenáveis pelo editor).
+
+### 2. Fluxo
+
+1. Gestor envia em `/solicitar-vaga` → `POST /api/job-requests` grava a RP como `SUBMITTED`
+   (**não cria mais vaga**) e notifica o RH por e-mail.
+2. RH vê a fila em **`/vagas/solicitacoes`** (badge no menu + KPI no dashboard quando há pendências).
+3. Ações: *Assumir análise* · *Devolver para ajustes* · *Reprovar* · *Cancelar* — motivo obrigatório
+   em devolução/reprovação, enviado ao gestor por e-mail e gravado em `decision_note`.
+4. *Aprovar e abrir vaga* marca a RP como `APPROVED` e leva a `/vagas/nova?request=<id>` com o
+   `JobForm` **pré-preenchido** (título, unidade, posições, tipo de contratação, jornada, gestor,
+   prazo) e status default `DRAFT`. Ao salvar, `POST /api/jobs` grava `requestId` e fecha o ciclo
+   setando `job_requests.job_id`.
+- SLA de primeira resposta: 2 dias (`JOB_REQUEST_SLA_DAYS`); RP parada além disso ganha destaque.
+
+### 3. E-mail (Resend) — camada nova
+
+Antes o envio estava inline no route de solicitação e **nunca rodava** (faltavam `RESEND_API_KEY` e
+`RESEND_FROM_EMAIL` no ambiente). Agora: `src/lib/email.ts` (client + guarda de env — sem chave, só
+loga e devolve `{sent:false}`, nada quebra) e `src/lib/email-templates.ts` (aviso ao RH + um
+template por decisão). Configuração e verificação de domínio: ver `INSTALACAO.md`.
+
+### 4. Arquivos-chave
+
+`src/lib/job-requests/{actions,mapping}.ts` · `src/types/job-requests.ts` ·
+`src/app/(internal)/vagas/solicitacoes/page.tsx` · `src/components/internal/JobRequestsExplorer.tsx` ·
+`src/lib/{email,email-templates}.ts` · `src/app/api/job-requests/route.ts` ·
+`src/components/internal/JobForm.tsx` (campos *Responsável pelo processo (recrutador)* — default =
+usuário logado — e *Gestor solicitante*).
+
+### 5. Pendências
+
+- Configurar `RESEND_API_KEY`, `RESEND_FROM_EMAIL` e `RH_EMAIL` (local + Vercel) e verificar o
+  domínio no Resend — sem isso nenhum e-mail sai.
+- Segundo nível de aprovação (diretoria) e link público de acompanhamento por token ficaram fora
+  desta fase (decisão do usuário).
+
+---
+
 ## Sessão de 2026-08-07 — Banco de Talentos (perfil consolidado + validade de teste)
 
 Foco: implementação completa do **Banco de Talentos** — área interna para gerenciar candidatos

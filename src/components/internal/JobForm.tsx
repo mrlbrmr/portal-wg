@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BRAZIL_STATES, isPublicJobStatus } from "@/lib/utils";
 import { Check, ExternalLink, Eye, Loader2, Pencil } from "lucide-react";
 import type { Job } from "@/types/domain";
+import type { JobDraftFromRequest } from "@/lib/job-requests/mapping";
 
 const MARKDOWN_BOILERPLATE = [
   "### Responsabilidades",
@@ -129,8 +130,8 @@ function initialSalaryDigits(job?: Job): string {
   return String(Math.round(job.salary * 100));
 }
 
-function buildInitialContent(job?: Job): string {
-  if (!job) return MARKDOWN_BOILERPLATE;
+function buildInitialContent(job?: Job, draft?: JobDraftFromRequest): string {
+  if (!job) return draft?.markdown?.trim() ? draft.markdown : MARKDOWN_BOILERPLATE;
   const hasLegacy =
     job.responsibilities ||
     job.requiredRequirements ||
@@ -148,6 +149,12 @@ function buildInitialContent(job?: Job): string {
 
 interface Props {
   job?: Job;
+  /** Nome do recrutador logado — vira o "Responsável pelo processo" por padrão. */
+  currentUserName?: string | null;
+  /** Requisição de Pessoal aprovada que originou esta vaga (fluxo de aprovação). */
+  requestId?: string;
+  /** Valores pré-preenchidos com o que o gestor pediu na requisição. */
+  requestDraft?: JobDraftFromRequest;
 }
 
 const inputClass =
@@ -157,13 +164,13 @@ const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
 const sectionTitle = "text-xs font-semibold text-gray-400 uppercase tracking-wider";
 
-export default function JobForm({ job }: Props) {
+export default function JobForm({ job, currentUserName, requestId, requestDraft }: Props) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [editorTab, setEditorTab] = useState<"write" | "preview">("write");
-  const [mdContent, setMdContent] = useState(() => buildInitialContent(job));
+  const [mdContent, setMdContent] = useState(() => buildInitialContent(job, requestDraft));
   const [isTalentPool, setIsTalentPool] = useState(job?.isTalentPool ?? false);
   const [salaryDigits, setSalaryDigits] = useState(() => initialSalaryDigits(job));
   const [salaryHidden, setSalaryHidden] = useState(() => job?.salaryRange === "A combinar");
@@ -206,6 +213,8 @@ export default function JobForm({ job }: Props) {
       closingDate: formData.get("closingDate") || null,
       hiringDeadline: formData.get("hiringDeadline") || null,
       responsible: formData.get("responsible") || undefined,
+      hiringManager: formData.get("hiringManager") || undefined,
+      requestId: requestId ?? undefined,
       status: formData.get("status"),
       priority: formData.get("priority") || "MEDIUM",
     };
@@ -253,6 +262,22 @@ export default function JobForm({ job }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
 
+      {requestDraft && (
+        <div className="rounded-lg border border-wg-green/30 bg-wg-green/5 px-4 py-3">
+          <p className="text-sm font-semibold text-wg-green-dark">
+            Vaga a partir de uma requisição aprovada
+          </p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            Os campos abaixo vieram do pedido de{" "}
+            <strong>{requestDraft.hiringManager ?? "gestor não informado"}</strong>. Complete o
+            que é de RH (cidade, salário, modalidade e texto da vaga) antes de publicar.
+            {requestDraft.salaryRange
+              ? " Faixa pretendida pelo gestor: " + requestDraft.salaryRange + "."
+              : ""}
+          </p>
+        </div>
+      )}
+
       {/* ── Dados Principais ────────────────────────────────── */}
       <div>
         <p className={sectionTitle}>Dados Principais</p>
@@ -265,7 +290,7 @@ export default function JobForm({ job }: Props) {
               type="text"
               name="title"
               required
-              defaultValue={job?.title}
+              defaultValue={job?.title ?? requestDraft?.title ?? ""}
               className={inputClass}
             />
           </div>
@@ -285,7 +310,7 @@ export default function JobForm({ job }: Props) {
             <input
               type="text"
               name="company"
-              defaultValue={job?.company ?? ""}
+              defaultValue={job?.company ?? requestDraft?.company ?? ""}
               placeholder="Ex: WG Baterias SP"
               className={inputClass}
             />
@@ -319,7 +344,7 @@ export default function JobForm({ job }: Props) {
             <input
               type="number"
               name="openings"
-              defaultValue={job?.openings ?? ""}
+              defaultValue={job?.openings ?? requestDraft?.openings ?? ""}
               min={1}
               placeholder="Ex: 2"
               className={inputClass}
@@ -403,7 +428,7 @@ export default function JobForm({ job }: Props) {
             </label>
             <select
               name="contractType"
-              defaultValue={job?.contractType || "CLT"}
+              defaultValue={job?.contractType || requestDraft?.contractType || "CLT"}
               className={inputClass}
             >
               <option value="CLT" className="bg-white">CLT</option>
@@ -420,7 +445,7 @@ export default function JobForm({ job }: Props) {
             <input
               type="text"
               name="workSchedule"
-              defaultValue={job?.workSchedule ?? ""}
+              defaultValue={job?.workSchedule ?? requestDraft?.workSchedule ?? ""}
               placeholder="Ex: Seg a Sex, 08h-17h"
               className={inputClass}
             />
@@ -465,7 +490,7 @@ export default function JobForm({ job }: Props) {
             </label>
             <select
               name="status"
-              defaultValue={job?.status || "ACTIVE"}
+              defaultValue={job?.status || (requestDraft ? "DRAFT" : "ACTIVE")}
               className={inputClass}
             >
               <option value="DRAFT" className="bg-white">Rascunho — só no painel</option>
@@ -496,14 +521,29 @@ export default function JobForm({ job }: Props) {
           </div>
 
           <div>
-            <label className={labelClass}>Responsável pelo processo</label>
+            <label className={labelClass}>Responsável pelo processo (recrutador)</label>
             <input
               type="text"
               name="responsible"
-              defaultValue={job?.responsible ?? ""}
+              defaultValue={job?.responsible ?? currentUserName ?? ""}
               placeholder="Ex: Maria Fernanda"
               className={inputClass}
             />
+            <p className="text-xs text-gray-500 mt-1">Quem conduz a seleção pelo RH.</p>
+          </div>
+
+          <div>
+            <label className={labelClass}>Gestor solicitante</label>
+            <input
+              type="text"
+              name="hiringManager"
+              defaultValue={job?.hiringManager ?? requestDraft?.hiringManager ?? ""}
+              placeholder="Ex: Daniel Marchioti"
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Quem pediu a vaga e valida os finalistas.
+            </p>
           </div>
 
           <div>
@@ -514,7 +554,7 @@ export default function JobForm({ job }: Props) {
               defaultValue={
                 job?.hiringDeadline
                   ? new Date(job.hiringDeadline).toISOString().split("T")[0]
-                  : ""
+                  : (requestDraft?.hiringDeadline ?? "")
               }
               className={inputClass}
             />

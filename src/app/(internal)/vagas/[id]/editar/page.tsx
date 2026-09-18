@@ -81,7 +81,7 @@ export default async function EditarVagaPage({ params }: Props) {
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Editar Vaga</h1>
       <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 mb-6">
-        <JobForm job={job} />
+        <JobForm job={job} currentUserName={session.user.name} />
       </div>
 
       <div className="mb-6">

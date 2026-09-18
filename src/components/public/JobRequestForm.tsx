@@ -49,9 +49,13 @@ export function JobRequestForm({ config }: Props) {
   function validateLocally(): Record<string, string> {
     const errs: Record<string, string> = {};
     for (const field of getVisibleFields()) {
-      if (field.required) {
-        const val = (values[field.key] ?? "").trim();
-        if (!val) errs[field.key] = `${field.label} é obrigatório`;
+      const val = (values[field.key] ?? "").trim();
+      if (field.required && !val) {
+        errs[field.key] = `${field.label} é obrigatório`;
+        continue;
+      }
+      if (field.type === "email" && val && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val)) {
+        errs[field.key] = "Informe um e-mail válido";
       }
     }
     return errs;
@@ -161,6 +165,14 @@ export function JobRequestForm({ config }: Props) {
   );
 }
 
+// Tipos de campo que viram <input> — o restante cai em select/textarea.
+const INPUT_TYPE: Partial<Record<FormFieldConfig["type"], string>> = {
+  text: "text",
+  email: "email",
+  number: "number",
+  date: "date",
+};
+
 interface FieldRendererProps {
   field: FormFieldConfig;
   value: string;
@@ -212,7 +224,8 @@ function FieldRenderer({ field, value, onChange, error }: FieldRendererProps) {
         <input
           id={field.key}
           name={field.key}
-          type="text"
+          type={INPUT_TYPE[field.type] ?? "text"}
+          {...(field.type === "number" ? { min: 1, inputMode: "numeric" as const } : {})}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}

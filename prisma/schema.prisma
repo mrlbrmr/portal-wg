@@ -107,7 +107,9 @@ model Job {
   salaryRange          String? // Faixa salarial (ex: "R$ 2.500 – R$ 3.000")
   openings             Int? // Quantidade de vagas
   highlightBenefit     String? // Benefício em destaque (ex: "Plano de Saúde")
-  responsible          String? // Recrutador responsável pelo processo
+  responsible          String? // Recrutador responsável pelo processo (RH)
+  hiringManager        String? // Gestor solicitante (quem pediu a vaga)
+  requestId            String? // Requisição de Pessoal que originou a vaga
   slug                 String?      @unique
   closingDate          DateTime?
   hiringDeadline       DateTime? // Prazo interno alvo de contratação
@@ -119,8 +121,48 @@ model Job {
   statusHistory JobStatusHistory[]
   applications  Application[]
   publications  JobPublication[]
+  request       JobRequest?  @relation(fields: [requestId], references: [id])
 
   @@map("jobs")
+}
+
+// ─── Requisição de Pessoal (RP) ───────────────────────────────────────────────
+// O pedido do gestor em /solicitar-vaga. NÃO é uma vaga: passa por aprovação do
+// RH e só então vira Job (Rascunho) pelo JobForm pré-preenchido.
+// Regras e ações: src/lib/job-requests/actions.ts
+
+enum JobRequestStatus {
+  SUBMITTED // Solicitada — na fila do RH
+  IN_REVIEW // Em análise pelo RH
+  RETURNED // Devolvida ao gestor para ajustes
+  APPROVED // Aprovada — libera a abertura da vaga
+  REJECTED // Reprovada com justificativa
+  CANCELLED // Cancelada (desistência)
+}
+
+model JobRequest {
+  id               String           @id @default(uuid())
+  formData         Json             @map("form_data") // respostas do formulário configurável
+  status           JobRequestStatus @default(SUBMITTED)
+  title            String? // função pedida
+  requesterName    String?          @map("requester_name")
+  requesterEmail   String?          @map("requester_email")
+  reason           String? // motivo da abertura
+  location         String? // unidade / praça
+  openings         Int?
+  priority         JobPriority      @default(MEDIUM)
+  desiredStartDate DateTime?        @map("desired_start_date") @db.Date
+  decisionNote     String?          @map("decision_note") @db.Text
+  decidedBy        String?          @map("decided_by")
+  decidedAt        DateTime?        @map("decided_at")
+  jobId            String?          @map("job_id") // vaga gerada após a aprovação
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  jobs Job[]
+
+  @@index([status, createdAt])
+  @@map("job_requests")
 }
 
 // ─── Candidaturas (inscrições nativas do portal) ──────────────────────────────

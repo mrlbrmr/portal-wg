@@ -35,6 +35,8 @@ const jobSchema = z
   openings: z.number().int().positive().optional(),
   highlightBenefit: z.string().optional(),
   responsible: z.string().optional(),
+  hiringManager: z.string().optional(),
+  requestId: z.string().uuid().optional(),
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
   priority: z.nativeEnum(JobPriority).default("MEDIUM"),
@@ -122,7 +124,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, hiringDeadline, title, city = null, ...rest } = parsed.data;
+  const { closingDate, hiringDeadline, title, city = null, requestId, ...rest } = parsed.data;
 
   const supabase = await createClient();
 
@@ -143,6 +145,7 @@ export async function POST(req: NextRequest) {
       city,
       ...rest,
       slug,
+      requestId: requestId ?? null,
       closingDate: closingDate ? new Date(closingDate).toISOString() : null,
       hiringDeadline: hiringDeadline ? new Date(hiringDeadline).toISOString() : null,
     })
@@ -158,6 +161,17 @@ export async function POST(req: NextRequest) {
     status: job.status,
     changedBy: session.user.name ?? session.user.email ?? "Sistema",
   });
+
+  // Fecha o ciclo da Requisição de Pessoal: a RP aprovada passa a apontar
+  // para a vaga criada (link "ver vaga" na fila de solicitações).
+  if (requestId) {
+    const { error: linkError } = await supabase
+      .from("job_requests")
+      .update({ job_id: job.id })
+      .eq("id", requestId);
+    if (linkError) console.error("job_requests link error:", linkError);
+    revalidatePath("/vagas/solicitacoes");
+  }
 
   revalidatePath("/");
   revalidatePath("/vagas/gerenciar");

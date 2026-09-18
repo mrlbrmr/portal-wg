@@ -76,6 +76,8 @@ export default async function DashboardPage() {
         .limit(8),
       // Limit protege contra full table scan enquanto o índice stageId_only não estiver aplicado.
       supabase.from("applications").select("jobId, jobs!inner(isTalentPool, status)").eq("stageId", "NEW").eq("jobs.isTalentPool", false).neq("jobs.status", "FILLED").limit(2000),
+      // Requisições de vaga aguardando decisão do RH
+      supabase.from("job_requests").select("id", { count: "exact", head: true }).in("status", ["SUBMITTED", "IN_REVIEW"]),
     ]),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error("dashboard timeout")), 8_000)),
   ]).catch(() => null);
@@ -87,7 +89,10 @@ export default async function DashboardPage() {
     recentApplicationsRes = ZERO,
     attentionJobsRes = ZERO,
     newAppsByJobRes = ZERO,
+    pendingRequestsRes = ZERO,
   ] = (queryResults ?? []) as any[];
+
+  const pendingRequests = pendingRequestsRes.count ?? 0;
 
   // Métricas de vagas calculadas em JS a partir de uma única query
   type JobMeta = { status: string; createdAt: string; closingDate: string | null };
@@ -138,6 +143,15 @@ export default async function DashboardPage() {
   const isAdmin = session?.user.role === "ADMIN_RH";
 
   const KPIS = [
+    // Requisições pendentes abrem a lista só quando há algo a decidir — é a
+    // primeira coisa que o RH precisa ver ao entrar no painel.
+    ...(pendingRequests > 0
+      ? [{
+          icon: "📥", iconBg: "#FCF1DD", value: pendingRequests,
+          label: pendingRequests === 1 ? "Solicitação a analisar" : "Solicitações a analisar",
+          href: "/vagas/solicitacoes",
+        }]
+      : []),
     { icon: "💼", iconBg: "#EAF4DC", value: activeJobs,  label: "Vagas Ativas",    href: "/vagas/gerenciar" },
     { icon: "📄", iconBg: "#E9EDFA", value: draftJobs,   label: "Rascunhos",       href: "/vagas/gerenciar?status=DRAFT" },
     { icon: "⏸",  iconBg: "#FCF1DD", value: pausedJobs,  label: "Vagas Pausadas",  href: "/vagas/gerenciar?status=PAUSED" },

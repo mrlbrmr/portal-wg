@@ -11,10 +11,12 @@ const STORAGE_KEY = "sidebar-collapsed";
 
 interface Props {
   user: { name?: string | null; email?: string | null; role: string };
+  /** Requisições de vaga aguardando ação do RH — badge no menu. */
+  pendingRequests?: number;
   children: React.ReactNode;
 }
 
-export default function InternalShell({ user, children }: Props) {
+export default function InternalShell({ user, pendingRequests = 0, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed,   setCollapsed]   = useState(false);
   const [hydrated,    setHydrated]    = useState(false);
@@ -77,6 +79,7 @@ export default function InternalShell({ user, children }: Props) {
               role={user.role}
               name={user.name}
               email={user.email}
+              pendingRequests={pendingRequests}
               onNavClick={() => setSidebarOpen(false)}
             />
           </div>

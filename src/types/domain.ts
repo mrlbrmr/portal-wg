@@ -29,6 +29,16 @@ export const JobStatus = {
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
 
+export const JobRequestStatus = {
+  SUBMITTED: "SUBMITTED",
+  IN_REVIEW: "IN_REVIEW",
+  RETURNED: "RETURNED",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  CANCELLED: "CANCELLED",
+} as const;
+export type JobRequestStatus = (typeof JobRequestStatus)[keyof typeof JobRequestStatus];
+
 export const Modality = {
   PRESENTIAL: "PRESENTIAL",
   REMOTE: "REMOTE",
@@ -105,6 +115,8 @@ export interface Job {
   openings: number | null;
   highlightBenefit: string | null;
   responsible: string | null;
+  hiringManager: string | null;
+  requestId: string | null;
   slug: string | null;
   closingDate: Date | null;
   hiringDeadline: Date | null;

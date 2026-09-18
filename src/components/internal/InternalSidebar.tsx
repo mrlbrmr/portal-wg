@@ -21,6 +21,7 @@ import {
   LogOut,
   User,
   ExternalLink,
+  Inbox,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,8 @@ import { createClient } from "@/lib/supabase/client";
 
 interface Props {
   role: string;
+  /** Requisições de vaga aguardando ação do RH — badge no menu. */
+  pendingRequests?: number;
   name?: string | null;
   email?: string | null;
   onNavClick?: () => void;
@@ -37,6 +40,8 @@ interface NavLink {
   href: string;
   label: string;
   icon: ElementType;
+  /** Contador exibido à direita do item (ex: requisições pendentes). */
+  badge?: number;
 }
 
 function initials(name: string | null | undefined) {
@@ -45,7 +50,7 @@ function initials(name: string | null | undefined) {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-export default function InternalSidebar({ role, name, onNavClick }: Props) {
+export default function InternalSidebar({ role, name, pendingRequests = 0, onNavClick }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = role === "ADMIN_RH";
@@ -72,6 +77,7 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
   const topLinks: NavLink[] = [
     { href: "/dashboard",      label: "Dashboard", icon: LayoutDashboard },
     { href: "/vagas/gerenciar", label: "Vagas",     icon: Briefcase },
+    { href: "/vagas/solicitacoes", label: "Solicitações", icon: Inbox, badge: pendingRequests },
     { href: "/talentos",       label: "Talentos",  icon: Star },
   ];
 
@@ -113,7 +119,12 @@ export default function InternalSidebar({ role, name, onNavClick }: Props) {
     return (
       <Link key={link.href} href={link.href} onClick={onNavClick} className={itemClass(active, sub)}>
         <link.icon className="w-4 h-4 shrink-0" />
-        {link.label}
+        <span className="flex-1">{link.label}</span>
+        {link.badge ? (
+          <span className="shrink-0 rounded-full bg-wg-green px-1.5 py-0.5 text-[10.5px] font-bold leading-none text-[#1A2213]">
+            {link.badge > 99 ? "99+" : link.badge}
+          </span>
+        ) : null}
       </Link>
     );
   }

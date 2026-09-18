@@ -43,6 +43,12 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Admissões:** `src/app/(internal)/admissoes/**`, `src/lib/admissao/**`, `src/components/internal/admissao/**`
 - **Modelos de checklist:** `.../admissoes/configuracoes/modelos`, `src/lib/admissao/template-actions.ts`, `checklist.ts`
 - **ATS / Vagas:** `src/app/(internal)/vagas/**` (kanban de candidatos, funil configurável)
+- **Requisição de vaga (RP):** gestor pede em `/solicitar-vaga` → fila em `/vagas/solicitacoes`.
+  A solicitação **NÃO cria vaga**: só vira `Job` (Rascunho) quando o RH aprova e completa o
+  `JobForm` pré-preenchido (`/vagas/nova?request=<id>`). `jobs.responsible` = recrutador;
+  `jobs.hiringManager` = gestor solicitante. Código: `src/lib/job-requests/**`.
+- **E-mail transacional:** `src/lib/email.ts` (Resend) — sem `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
+  nada é enviado (só loga). Templates em `src/lib/email-templates.ts`.
 - **Avaliações / Testes:** `src/app/(internal)/avaliacoes/banco`, `src/lib/avaliacoes/**`
   (Fase 1 = Banco de Testes, **feito**; **Fase 2 = fluxo de sessão/candidato, PENDENTE** — ver doc)
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`

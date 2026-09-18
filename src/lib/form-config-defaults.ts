@@ -1,5 +1,10 @@
 import type { FormConfig } from "@/types/form-config";
 
+// Formulário de Requisição de Pessoal (RP) preenchido pelo gestor em /solicitar-vaga.
+// Fallback usado quando ainda não há config salva em `job_request_form_config`
+// (o editor em /vagas/configuracoes sobrescreve isto). As keys marcadas abaixo são
+// lidas pela API para preencher as colunas da requisição e pré-preencher a vaga —
+// renomeá-las no editor faz o mapeamento cair para o texto livre do form_data.
 export const DEFAULT_FORM_CONFIG: FormConfig = {
   title: "Abertura de Vaga | WG Baterias",
   description:
@@ -14,12 +19,36 @@ export const DEFAULT_FORM_CONFIG: FormConfig = {
       placeholder: "Nome completo do gestor(a)",
     },
     {
+      id: "emailGestor",
+      key: "emailGestor",
+      label: "E-mail do gestor(a)",
+      type: "email",
+      required: true,
+      placeholder: "nome@wgbaterias.com.br",
+    },
+    {
       id: "funcao",
       key: "funcao",
       label: "Função",
       type: "text",
       required: true,
       placeholder: "Ex: Auxiliar de Estoque, Vendedor(a)...",
+    },
+    {
+      id: "quantidade",
+      key: "quantidade",
+      label: "Quantidade de posições",
+      type: "number",
+      required: true,
+      placeholder: "Ex: 1",
+    },
+    {
+      id: "tipoContratacao",
+      key: "tipoContratacao",
+      label: "Tipo de contratação",
+      type: "select",
+      required: true,
+      options: ["CLT", "Estágio", "Jovem aprendiz", "Temporário", "PJ"],
     },
     {
       id: "horario",
@@ -65,12 +94,40 @@ export const DEFAULT_FORM_CONFIG: FormConfig = {
       },
     },
     {
+      id: "dataDesligamento",
+      key: "dataDesligamento",
+      label: "Data de desligamento do colaborador",
+      type: "date",
+      required: false,
+      showWhen: {
+        fieldKey: "motivo",
+        operator: "is",
+        value: "Substituição",
+      },
+    },
+    {
+      id: "dataInicio",
+      key: "dataInicio",
+      label: "Data desejada de início",
+      type: "date",
+      required: false,
+    },
+    {
+      id: "salarioPretendido",
+      key: "salarioPretendido",
+      label: "Faixa salarial pretendida",
+      type: "text",
+      required: false,
+      placeholder: 'Ex: R$ 2.500 a R$ 3.000 (ou "a combinar")',
+    },
+    {
       id: "perfil",
       key: "perfil",
       label: "Perfil do candidato",
       type: "textarea",
       required: false,
-      placeholder: "Descreva brevemente o perfil ideal: experiências, conhecimentos ou habilidades desejadas.",
+      placeholder:
+        "Descreva brevemente o perfil ideal: experiências, conhecimentos ou habilidades desejadas.",
     },
     {
       id: "observacoes",

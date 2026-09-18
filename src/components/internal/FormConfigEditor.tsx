@@ -17,6 +17,9 @@ import {
   ExternalLink,
   Eye,
   Zap,
+  Mail,
+  Hash,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FormConfig, FormFieldConfig, FieldType, ShowCondition } from "@/types/form-config";
@@ -32,12 +35,18 @@ const FIELD_TYPE_ICONS: Record<FieldType, typeof Type> = {
   text: Type,
   textarea: AlignLeft,
   select: ListOrdered,
+  email: Mail,
+  number: Hash,
+  date: CalendarDays,
 };
 
 const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   text: "Texto curto",
   textarea: "Texto longo",
   select: "Seleção",
+  email: "E-mail",
+  number: "Número",
+  date: "Data",
 };
 
 const OPERATOR_LABELS: Record<string, string> = {
@@ -286,6 +295,9 @@ export function FormConfigEditor({ initialConfig }: Props) {
                           <option value="text">Texto curto</option>
                           <option value="textarea">Texto longo</option>
                           <option value="select">Seleção (dropdown)</option>
+                          <option value="email">E-mail</option>
+                          <option value="number">Número</option>
+                          <option value="date">Data</option>
                         </select>
                       </div>
                     </div>
@@ -346,7 +358,7 @@ export function FormConfigEditor({ initialConfig }: Props) {
           {addingField ? (
             <div className="flex flex-wrap gap-2">
               <span className="text-xs text-gray-500 self-center mr-1">Adicionar:</span>
-              {(["text", "textarea", "select"] as FieldType[]).map((type) => {
+              {(["text", "textarea", "select", "email", "number", "date"] as FieldType[]).map((type) => {
                 const Icon = FIELD_TYPE_ICONS[type];
                 return (
                   <button

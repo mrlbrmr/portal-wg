@@ -1,4 +1,4 @@
-export type FieldType = "text" | "textarea" | "select";
+export type FieldType = "text" | "textarea" | "select" | "email" | "number" | "date";
 
 export type ConditionOperator = "is" | "is_not";
 

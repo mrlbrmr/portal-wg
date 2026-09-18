@@ -54,11 +54,28 @@ openssl rand -base64 32
 2. Vá em API Keys → Create Key
 3. Cole em ANTHROPIC_API_KEY
 
-### RESEND_API_KEY
-1. Acesse https://resend.com
-2. Settings → API Keys → Create API Key
-3. Cole em RESEND_API_KEY
-4. Configure também RESEND_FROM_EMAIL com um e-mail verificado no Resend
+### RESEND_API_KEY / RESEND_FROM_EMAIL / RH_EMAIL (e-mails transacionais)
+
+Sem essas três variáveis o portal **não envia nenhum e-mail** — o código registra um
+aviso no log e segue (nada quebra), mas o gestor não é avisado das decisões sobre a
+requisição de vaga e o RH não recebe o aviso de nova solicitação.
+
+1. Crie a conta em https://resend.com (plano gratuito cobre o volume do portal).
+2. **Domains → Add Domain → `wgbaterias.com.br`.** Copie os registros DNS que o Resend
+   mostrar (SPF/TXT, DKIM e, opcionalmente, DMARC) e publique-os no provedor de DNS do
+   domínio. Aguarde o status virar *Verified* — pode levar alguns minutos.
+   Enquanto o domínio não estiver verificado, o Resend só entrega para o e-mail dono da
+   conta e o remetente precisa ser `onboarding@resend.dev`.
+3. **API Keys → Create API Key** (permissão *Sending access*) → cole em `RESEND_API_KEY`.
+4. `RESEND_FROM_EMAIL`: remetente verificado, no formato com nome —
+   ex.: `RH WG Baterias <rh@wgbaterias.com.br>`.
+5. `RH_EMAIL`: caixa do time de Gente & Gestão que recebe as novas requisições.
+6. Replique as três variáveis na Vercel (Project → Settings → Environment Variables,
+   ambientes *Production* e *Preview*) e refaça o deploy.
+
+Para testar: envie uma requisição em `/solicitar-vaga` — deve chegar um e-mail em
+`RH_EMAIL`; depois aprove/devolva a requisição em `/vagas/solicitacoes` e o gestor
+recebe o aviso no e-mail que informou no formulário.
 
 ---
 

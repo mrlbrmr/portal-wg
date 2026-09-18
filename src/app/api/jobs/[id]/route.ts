@@ -32,6 +32,7 @@ const updateJobSchema = z.object({
   openings: z.number().int().positive().optional().nullable(),
   highlightBenefit: z.string().optional().nullable(),
   responsible: z.string().optional().nullable(),
+  hiringManager: z.string().optional().nullable(),
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
   priority: z.nativeEnum(JobPriority).optional(),

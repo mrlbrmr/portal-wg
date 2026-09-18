@@ -1,10 +1,24 @@
 // Templates HTML dos e-mails transacionais do fluxo de Requisição de Pessoal.
-// HTML de e-mail é inline por necessidade (clientes ignoram <style> externo).
+//
+// Regras de HTML para e-mail (não são preciosismo — o Outlook desktop renderiza com o
+// motor do Word e ignora CSS moderno):
+//   • layout em <table role="presentation">, largura FIXA de 600px (max-width não funciona);
+//   • nada de flex/grid/position; espaçamento vem de padding em <td>;
+//   • botão "bulletproof": <a> com padding dentro de um <td> colorido + fallback VML p/ Outlook;
+//   • border-radius e box-shadow são ignorados no Outlook — usados só como refinamento;
+//   • fontes web-safe (Segoe UI/Arial); Sora e Inter não existem no cliente de e-mail;
+//   • preheader oculto define a prévia mostrada na lista de mensagens.
 
 import { getAppBaseUrl } from "@/lib/app-url";
 
 const GREEN = "#90CB46";
 const GREEN_DARK = "#4F6930";
+const INK = "#1A2213";
+const INK_SOFT = "#55614A";
+const BORDER = "#E3E8DC";
+const CANVAS = "#F1F3EE";
+const FONT =
+  "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif";
 
 function escapeHtml(value: string): string {
   return value
@@ -14,57 +28,208 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function layout({
-  title,
-  subtitle,
-  body,
-  accent = GREEN,
-}: {
+/** Bloco invisível que o cliente usa como prévia ao lado do assunto. */
+function preheader(text: string): string {
+  return `<div style="display:none;font-size:1px;color:${CANVAS};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden">${escapeHtml(
+    text
+  )}</div>`;
+}
+
+interface LayoutInput {
+  /** Texto de prévia na caixa de entrada. */
+  preview: string;
+  /** Faixa de status no topo do card (cor + rótulo curto). */
+  chip?: { label: string; bg: string; color: string };
   title: string;
-  subtitle: string;
+  /** Conteúdo já em HTML de e-mail (linhas de <tr>). */
   body: string;
-  accent?: string;
-}): string {
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
-<body style="font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;margin:0;padding:24px">
-  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)">
-    <div style="background:${accent};padding:24px 32px">
-      <h1 style="margin:0;color:#fff;font-size:20px">${escapeHtml(title)}</h1>
-      <p style="margin:4px 0 0;color:rgba(255,255,255,.88);font-size:14px">${escapeHtml(subtitle)}</p>
-    </div>
-    <div style="padding:24px 32px">
-      ${body}
-    </div>
-    <div style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb">
-      <p style="margin:0;font-size:12px;color:#9ca3af">
-        Portal de Carreiras — Grupo WG Baterias. Mensagem automática, não responda.
-      </p>
-    </div>
-  </div>
+}
+
+function layout({ preview, chip, title, body }: LayoutInput): string {
+  const chipRow = chip
+    ? `<tr>
+         <td style="padding:0 32px 14px 32px">
+           <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+             <tr>
+               <td bgcolor="${chip.bg}" style="padding:5px 12px;border-radius:999px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${chip.color}">
+                 ${escapeHtml(chip.label)}
+               </td>
+             </tr>
+           </table>
+         </td>
+       </tr>`
+    : "";
+
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<meta name="x-apple-disable-message-reformatting"/>
+<title>${escapeHtml(title)}</title>
+<!--[if mso]>
+<xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+<![endif]-->
+<style type="text/css">
+  body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+  table,td{mso-table-lspace:0pt;mso-table-rspace:0pt}
+  img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none}
+  a{color:${GREEN_DARK}}
+  @media only screen and (max-width:620px){
+    .card{width:100% !important}
+    .gutter{padding-left:20px !important;padding-right:20px !important}
+    .stack{display:block !important;width:100% !important}
+    .label-cell{padding-bottom:2px !important}
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:${CANVAS};">
+${preheader(preview)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CANVAS}" style="background-color:${CANVAS};">
+  <tr>
+    <td align="center" style="padding:28px 12px;">
+      <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+      <table role="presentation" class="card" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;background-color:#ffffff;border:1px solid ${BORDER};border-radius:10px;">
+
+        <!-- filete da marca -->
+        <tr><td bgcolor="${GREEN}" height="4" style="height:4px;line-height:4px;font-size:0;border-radius:10px 10px 0 0;">&nbsp;</td></tr>
+
+        <!-- cabeçalho: logo + origem -->
+        <tr>
+          <td class="gutter" style="padding:22px 32px 10px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td align="left" valign="middle" width="46" style="width:46px;font-size:0;">
+                  <img src="${getAppBaseUrl()}/logo-wg.png" width="46" height="46" alt="Grupo WG Baterias" style="display:block;width:46px;height:46px;"/>
+                </td>
+                <!-- nome em texto: o cabeçalho continua legível se o cliente bloquear imagens -->
+                <td align="left" valign="middle" style="padding-left:12px;font-family:${FONT};font-size:15px;font-weight:700;color:${INK};line-height:20px;">
+                  Grupo WG Baterias
+                </td>
+                <td align="right" valign="middle" style="font-family:${FONT};font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9AA694;">
+                  Portal de Carreiras
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- título -->
+        <tr>
+          <td class="gutter" style="padding:8px 32px 0 32px;font-family:${FONT};font-size:21px;line-height:28px;font-weight:700;color:${INK};">
+            ${escapeHtml(title)}
+          </td>
+        </tr>
+        <tr><td style="height:14px;line-height:14px;font-size:0;">&nbsp;</td></tr>
+        ${chipRow}
+
+        ${body}
+
+        <!-- rodapé -->
+        <tr>
+          <td class="gutter" style="padding:20px 32px 22px 32px;border-top:1px solid ${BORDER};background-color:#FAFBF8;border-radius:0 0 10px 10px;font-family:${FONT};font-size:11.5px;line-height:17px;color:#9AA694;">
+            Gente &amp; Gestão — Grupo WG Baterias<br/>
+            Mensagem automática do Portal de Carreiras. Não é necessário responder.
+          </td>
+        </tr>
+      </table>
+      <!--[if mso]></td></tr></table><![endif]-->
+    </td>
+  </tr>
+</table>
 </body>
 </html>`;
 }
 
-function table(rows: Array<[string, string]>): string {
+/** Parágrafo padrão do corpo. */
+function paragraph(html: string): string {
+  return `<tr>
+    <td class="gutter" style="padding:0 32px 14px 32px;font-family:${FONT};font-size:14.5px;line-height:22px;color:${INK_SOFT};">
+      ${html}
+    </td>
+  </tr>`;
+}
+
+/** Ficha de dados: rótulo à esquerda, valor à direita, empilhando no mobile. */
+function dataTable(rows: Array<[string, string]>): string {
   const body = rows
     .filter(([, v]) => v && v.trim())
     .map(
-      ([label, value]) =>
-        `<tr>
-          <td style="padding:8px 12px;font-weight:600;color:#374151;background:#f9fafb;width:200px;vertical-align:top;border-bottom:1px solid #e5e7eb">${escapeHtml(label)}</td>
-          <td style="padding:8px 12px;color:#111827;white-space:pre-wrap;border-bottom:1px solid #e5e7eb">${escapeHtml(value)}</td>
+      ([label, value], i) => `
+        <tr>
+          <td class="label-cell" width="190" valign="top" style="width:190px;padding:11px 14px;background-color:#FAFBF8;border-top:${
+            i === 0 ? "0" : `1px solid ${BORDER}`
+          };font-family:${FONT};font-size:12px;line-height:18px;font-weight:600;color:${INK_SOFT};">
+            ${escapeHtml(label)}
+          </td>
+          <td valign="top" style="padding:11px 14px;border-top:${
+            i === 0 ? "0" : `1px solid ${BORDER}`
+          };font-family:${FONT};font-size:14px;line-height:21px;color:${INK};">
+            ${escapeHtml(value).replace(/\n/g, "<br/>")}
+          </td>
         </tr>`
     )
     .join("");
-  return `<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">${body}</table>`;
+
+  return `<tr>
+    <td class="gutter" style="padding:4px 32px 4px 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${BORDER};border-radius:8px;border-collapse:separate;">
+        ${body}
+      </table>
+    </td>
+  </tr>`;
 }
 
+/** Botão que sobrevive ao Outlook (VML) e aos clientes modernos (padding no <a>). */
 function button(href: string, label: string, color = GREEN_DARK): string {
-  return `<p style="margin:24px 0 0">
-    <a href="${href}" style="display:inline-block;background:${color};color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:8px">${escapeHtml(label)}</a>
-  </p>`;
+  const safeLabel = escapeHtml(label);
+  return `<tr>
+    <td class="gutter" style="padding:20px 32px 6px 32px;">
+      <!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:42px;v-text-anchor:middle;width:240px;" arcsize="20%" stroke="f" fillcolor="${color}">
+        <w:anchorlock/>
+        <center style="color:#ffffff;font-family:${FONT};font-size:14px;font-weight:600;">${safeLabel}</center>
+      </v:roundrect>
+      <![endif]-->
+      <!--[if !mso]><!-- -->
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td bgcolor="${color}" style="border-radius:8px;">
+            <a href="${href}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:${FONT};font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
+              ${safeLabel}
+            </a>
+          </td>
+        </tr>
+      </table>
+      <!--<![endif]-->
+    </td>
+  </tr>`;
+}
+
+/** Bloco destacado (parecer do RH) com barra lateral colorida. */
+function calloutBlock(title: string, text: string, accent: string): string {
+  return `<tr>
+    <td class="gutter" style="padding:14px 32px 4px 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAFBF8;border:1px solid ${BORDER};border-radius:8px;border-collapse:separate;">
+        <tr>
+          <td width="4" bgcolor="${accent}" style="width:4px;font-size:0;line-height:0;border-radius:8px 0 0 8px;">&nbsp;</td>
+          <td style="padding:13px 16px;font-family:${FONT};">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA694;padding-bottom:4px;">
+              ${escapeHtml(title)}
+            </div>
+            <div style="font-size:14px;line-height:21px;color:${INK};">
+              ${escapeHtml(text).replace(/\n/g, "<br/>")}
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>`;
+}
+
+function spacer(height = 10): string {
+  return `<tr><td style="height:${height}px;line-height:${height}px;font-size:0;">&nbsp;</td></tr>`;
 }
 
 /** E-mail para o RH quando um gestor envia uma nova requisição. */
@@ -73,20 +238,28 @@ export function jobRequestReceivedEmail(input: {
   rows: Array<[string, string]>;
 }): { subject: string; html: string } {
   const url = `${getAppBaseUrl()}/vagas/solicitacoes`;
-  const funcao = input.rows.find(([label]) => /fun[çc][ãa]o|cargo/i.test(label))?.[1] ?? "sem título";
+  const funcao =
+    input.rows.find(([label]) => /fun[çc][ãa]o|cargo/i.test(label))?.[1] ?? "sem título";
+  const gestor = input.requesterName || "gestor não informado";
 
   return {
-    subject: `Nova requisição de vaga: ${funcao} — ${input.requesterName || "gestor não informado"}`,
+    subject: `Nova requisição de vaga: ${funcao} — ${gestor}`,
     html: layout({
-      title: "Nova Requisição de Pessoal",
-      subtitle: "Recebida pelo Portal de Carreiras WG",
-      body: `
-        <p style="margin:0 0 16px;font-size:14px;color:#374151">
-          A requisição entrou na fila e está aguardando análise do time de Gente &amp; Gestão.
-        </p>
-        ${table(input.rows)}
-        ${button(url, "Analisar solicitação")}
-      `,
+      preview: `${gestor} solicitou a abertura de ${funcao}. Aguardando análise.`,
+      chip: { label: "Aguardando análise", bg: "#FCF1DD", color: "#8A5B10" },
+      title: "Nova requisição de pessoal",
+      body: [
+        paragraph(
+          `<strong style="color:${INK}">${escapeHtml(
+            gestor
+          )}</strong> solicitou a abertura de <strong style="color:${INK}">${escapeHtml(
+            funcao
+          )}</strong>. A requisição entrou na fila e aguarda a análise do time de Gente &amp; Gestão.`
+        ),
+        dataTable(input.rows),
+        button(url, "Analisar requisição"),
+        spacer(8),
+      ].join(""),
     }),
   };
 }
@@ -95,39 +268,53 @@ export type DecisionKind = "IN_REVIEW" | "RETURNED" | "APPROVED" | "REJECTED" | 
 
 const DECISION_COPY: Record<
   DecisionKind,
-  { title: string; subtitle: string; accent: string; lead: (t: string) => string }
+  {
+    title: string;
+    chip: { label: string; bg: string; color: string };
+    accent: string;
+    lead: (titulo: string) => string;
+    preview: (titulo: string) => string;
+  }
 > = {
   IN_REVIEW: {
     title: "Sua requisição está em análise",
-    subtitle: "Gente & Gestão — Grupo WG Baterias",
+    chip: { label: "Em análise", bg: "#E9EDFA", color: "#3C56A8" },
     accent: "#3C56A8",
-    lead: (t) => `A requisição para <strong>${t}</strong> foi recebida e está sendo analisada pelo RH.`,
+    lead: (t) =>
+      `Recebemos sua requisição para <strong style="color:${INK}">${t}</strong> e ela já está em análise pelo time de Gente &amp; Gestão. Avisaremos assim que houver uma decisão.`,
+    preview: (t) => `A requisição para ${t} está em análise pelo RH.`,
   },
   RETURNED: {
     title: "Requisição devolvida para ajustes",
-    subtitle: "Precisamos de mais informações",
+    chip: { label: "Precisa de ajustes", bg: "#FCF1DD", color: "#8A5B10" },
     accent: "#B4791C",
     lead: (t) =>
-      `A requisição para <strong>${t}</strong> precisa de ajustes antes de seguir para aprovação.`,
+      `A requisição para <strong style="color:${INK}">${t}</strong> precisa de alguns ajustes antes de seguir para aprovação. Veja abaixo o que falta e reenvie o formulário.`,
+    preview: (t) => `A requisição para ${t} precisa de ajustes antes da aprovação.`,
   },
   APPROVED: {
     title: "Requisição aprovada",
-    subtitle: "A vaga será aberta pelo RH",
+    chip: { label: "Aprovada", bg: "#EAF4DC", color: GREEN_DARK },
     accent: GREEN,
     lead: (t) =>
-      `A requisição para <strong>${t}</strong> foi aprovada. O time de Gente &amp; Gestão já está preparando a divulgação.`,
+      `A requisição para <strong style="color:${INK}">${t}</strong> foi aprovada. O time de Gente &amp; Gestão já está preparando a divulgação e entrará em contato para alinhar o perfil e as etapas do processo.`,
+    preview: (t) => `A requisição para ${t} foi aprovada pelo RH.`,
   },
   REJECTED: {
     title: "Requisição não aprovada",
-    subtitle: "Gente & Gestão — Grupo WG Baterias",
+    chip: { label: "Não aprovada", bg: "#F4E3E3", color: "#9A3B3B" },
     accent: "#9A3B3B",
-    lead: (t) => `A requisição para <strong>${t}</strong> não foi aprovada neste momento.`,
+    lead: (t) =>
+      `A requisição para <strong style="color:${INK}">${t}</strong> não foi aprovada neste momento. O motivo está registrado abaixo — se o cenário mudar, é só enviar uma nova requisição.`,
+    preview: (t) => `A requisição para ${t} não foi aprovada.`,
   },
   CANCELLED: {
     title: "Requisição cancelada",
-    subtitle: "Gente & Gestão — Grupo WG Baterias",
-    accent: "#6B7280",
-    lead: (t) => `A requisição para <strong>${t}</strong> foi cancelada.`,
+    chip: { label: "Cancelada", bg: "#EFEFEF", color: "#6B7280" },
+    accent: "#9AA694",
+    lead: (t) =>
+      `A requisição para <strong style="color:${INK}">${t}</strong> foi cancelada e não seguirá no processo.`,
+    preview: (t) => `A requisição para ${t} foi cancelada.`,
   },
 };
 
@@ -140,38 +327,49 @@ export function jobRequestDecisionEmail(input: {
   decidedBy?: string | null;
 }): { subject: string; html: string } {
   const copy = DECISION_COPY[input.kind];
-  const title = escapeHtml(input.jobTitle || "vaga sem título");
-  const saudacao = input.requesterName ? `Olá, ${escapeHtml(input.requesterName)}!` : "Olá!";
+  const titulo = escapeHtml(input.jobTitle || "vaga sem título");
+  const saudacao = input.requesterName
+    ? `Olá, ${escapeHtml(input.requesterName.split(" ")[0])}!`
+    : "Olá!";
 
-  const noteBlock = input.note?.trim()
-    ? `<div style="margin-top:16px;padding:14px 16px;background:#f9fafb;border-left:3px solid ${copy.accent};border-radius:6px">
-         <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Observação do RH</p>
-         <p style="margin:0;font-size:14px;color:#111827;white-space:pre-wrap">${escapeHtml(input.note)}</p>
-       </div>`
-    : "";
+  const blocks: string[] = [
+    paragraph(`<strong style="color:${INK}">${saudacao}</strong>`),
+    paragraph(copy.lead(titulo)),
+  ];
 
-  const assinatura = input.decidedBy
-    ? `<p style="margin:20px 0 0;font-size:13px;color:#6b7280">— ${escapeHtml(input.decidedBy)}, Gente &amp; Gestão</p>`
-    : "";
+  if (input.note?.trim()) {
+    blocks.push(
+      calloutBlock(
+        input.kind === "RETURNED" ? "O que precisa ser ajustado" : "Observação do RH",
+        input.note.trim(),
+        copy.accent
+      )
+    );
+  }
 
-  const reenvio =
-    input.kind === "RETURNED"
-      ? button(`${getAppBaseUrl()}/solicitar-vaga`, "Reenviar requisição ajustada", "#B4791C")
-      : "";
+  if (input.kind === "RETURNED") {
+    blocks.push(button(`${getAppBaseUrl()}/solicitar-vaga`, "Reenviar requisição", "#B4791C"));
+  }
+
+  if (input.decidedBy) {
+    blocks.push(
+      `<tr>
+        <td class="gutter" style="padding:18px 32px 4px 32px;font-family:${FONT};font-size:13px;line-height:20px;color:#9AA694;">
+          — ${escapeHtml(input.decidedBy)}, Gente &amp; Gestão
+        </td>
+      </tr>`
+    );
+  }
+
+  blocks.push(spacer(10));
 
   return {
     subject: `${copy.title}: ${input.jobTitle || "vaga sem título"}`,
     html: layout({
+      preview: copy.preview(input.jobTitle || "a vaga solicitada"),
+      chip: copy.chip,
       title: copy.title,
-      subtitle: copy.subtitle,
-      accent: copy.accent,
-      body: `
-        <p style="margin:0 0 12px;font-size:14px;color:#374151">${saudacao}</p>
-        <p style="margin:0;font-size:14px;color:#374151">${copy.lead(title)}</p>
-        ${noteBlock}
-        ${reenvio}
-        ${assinatura}
-      `,
+      body: blocks.join(""),
     }),
   };
 }

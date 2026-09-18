@@ -79,8 +79,8 @@ export async function currentActor(): Promise<WorkflowActor | null> {
 const SELECT_COLUMNS = `
   id, code, status, title, department, location, requester_name, requester_email,
   requested_by_user_id, openings, reason_type, replaced_employee, justification,
-  desired_start_date, contract_type, modality, work_schedule, salary_min, salary_max,
-  cost_center, budget_status, extra_data, submitted_at, hr_validated_at, hr_validated_by,
+  desired_start_date, contract_type, modality, work_schedule, extra_data,
+  submitted_at, hr_validated_at, hr_validated_by,
   current_approver_user_id, approved_at, approved_by_name, decision_note, decided_by,
   decided_at, job_id, created_at, updated_at
 `;
@@ -103,10 +103,6 @@ interface RawRequest {
   contract_type: JobRequestRow["contractType"];
   modality: JobRequestRow["modality"];
   work_schedule: string | null;
-  salary_min: string | number | null;
-  salary_max: string | number | null;
-  cost_center: string | null;
-  budget_status: JobRequestRow["budgetStatus"];
   extra_data: Record<string, string> | null;
   submitted_at: string | null;
   hr_validated_at: string | null;
@@ -153,10 +149,6 @@ function toRow(
     contractType: r.contract_type,
     modality: r.modality,
     workSchedule: r.work_schedule,
-    salaryMin: num(r.salary_min),
-    salaryMax: num(r.salary_max),
-    costCenter: r.cost_center,
-    budgetStatus: r.budget_status ?? "NOT_APPLICABLE",
     submittedAt: r.submitted_at,
     hrValidatedAt: r.hr_validated_at,
     hrValidatedBy: r.hr_validated_by,
@@ -559,11 +551,7 @@ async function syncApprovalSteps(
       : null;
 
     const chain = buildApprovalChain(
-      {
-        reasonType: raw.reason_type ?? "OTHER",
-        budgetStatus: raw.budget_status ?? "NOT_APPLICABLE",
-        salaryMax: num(raw.salary_max),
-      },
+      { reasonType: raw.reason_type ?? "OTHER" },
       approverUserId
     );
 
@@ -782,11 +770,7 @@ export async function updateJobRequest(
     openings: raw.openings,
     location: raw.location,
     contractType: raw.contract_type,
-    salaryMin: num(raw.salary_min),
-    salaryMax: num(raw.salary_max),
     reasonType: raw.reason_type,
-    costCenter: raw.cost_center,
-    budgetStatus: raw.budget_status,
   };
   const changed = findCriticalChanges(before, payload as Record<string, unknown>);
   const decision = evaluateEdit(asWorkflowRequest(raw), actor, changed);

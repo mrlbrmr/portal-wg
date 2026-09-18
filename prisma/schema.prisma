@@ -193,10 +193,6 @@ model JobRequest {
   contractType ContractType? @map("contract_type")
   modality     Modality?
   workSchedule String?       @map("work_schedule")
-  salaryMin    Decimal?      @map("salary_min") @db.Decimal(12, 2)
-  salaryMax    Decimal?      @map("salary_max") @db.Decimal(12, 2)
-  costCenter   String?       @map("cost_center")
-  budgetStatus BudgetStatus  @default(NOT_APPLICABLE) @map("budget_status")
 
   // Perguntas complementares (job_request_form_config)
   extraData Json @default("{}") @map("extra_data")
@@ -219,10 +215,14 @@ model JobRequest {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // DEPRECATED — mantidos no banco por compatibilidade, não usados pela aplicação:
-  formData Json        @map("form_data") // envelope do formulário livre antigo
-  reason   String? // texto do select antigo (use reasonType)
-  priority JobPriority @default(MEDIUM) // priorização passou a ser externa
+  // RESERVADOS — existem no banco, mas a aplicação NÃO lê nem escreve:
+  formData     Json         @map("form_data") // envelope do formulário livre antigo
+  reason       String? // texto do select antigo (use reasonType)
+  priority     JobPriority  @default(MEDIUM) // priorização é feita fora do sistema
+  salaryMin    Decimal?     @map("salary_min") @db.Decimal(12, 2) // RH define o salário na vaga
+  salaryMax    Decimal?     @map("salary_max") @db.Decimal(12, 2)
+  costCenter   String?      @map("cost_center") // a WG não usa centro de custo
+  budgetStatus BudgetStatus @default(NOT_APPLICABLE) @map("budget_status") // headcount é externo
 
   jobs      Job[]
   history   JobRequestHistory[]

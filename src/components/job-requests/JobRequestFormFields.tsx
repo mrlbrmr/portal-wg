@@ -11,15 +11,8 @@
 import { useCallback, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import type { FormFieldConfig, ShowCondition } from "@/types/form-config";
-import type {
-  BudgetStatus,
-  ContractType,
-  JobRequestReason,
-  Modality,
-} from "@/types/domain";
+import type { ContractType, JobRequestReason, Modality } from "@/types/domain";
 import {
-  BUDGET_STATUS_LABELS,
-  BUDGET_STATUS_ORDER,
   CONTRACT_TYPE_LABELS,
   CONTRACT_TYPE_ORDER,
   JOB_REQUEST_REASON_LABELS,
@@ -43,11 +36,6 @@ export interface JobRequestFormValues {
   contractType: ContractType;
   modality: Modality;
   workSchedule: string;
-  /** Guardados em centavos (string de dígitos), como no JobForm da vaga. */
-  salaryMinDigits: string;
-  salaryMaxDigits: string;
-  costCenter: string;
-  budgetStatus: BudgetStatus;
   extraData: Record<string, string>;
 }
 
@@ -65,31 +53,8 @@ export const EMPTY_JOB_REQUEST_FORM: JobRequestFormValues = {
   contractType: "CLT",
   modality: "PRESENTIAL",
   workSchedule: "",
-  salaryMinDigits: "",
-  salaryMaxDigits: "",
-  costCenter: "",
-  budgetStatus: "NOT_APPLICABLE",
   extraData: {},
 };
-
-// ─── Dinheiro ─────────────────────────────────────────────────────────────────
-
-export function maskBRL(digits: string): string {
-  const d = digits.replace(/\D/g, "").slice(0, 12);
-  if (!d) return "";
-  const cents = Number.parseInt(d, 10);
-  return `R$ ${Math.floor(cents / 100).toLocaleString("pt-BR")},${String(cents % 100).padStart(2, "0")}`;
-}
-
-export function digitsToNumber(digits: string): number | null {
-  if (!digits) return null;
-  return Number.parseInt(digits, 10) / 100;
-}
-
-export function numberToDigits(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "";
-  return String(Math.round(value * 100));
-}
 
 /** Converte o estado do formulário no payload que o schema zod espera. */
 export function toPayload(v: JobRequestFormValues) {
@@ -107,10 +72,6 @@ export function toPayload(v: JobRequestFormValues) {
     contractType: v.contractType,
     modality: v.modality,
     workSchedule: v.workSchedule.trim() || null,
-    salaryMin: digitsToNumber(v.salaryMinDigits),
-    salaryMax: digitsToNumber(v.salaryMaxDigits),
-    costCenter: v.costCenter.trim() || null,
-    budgetStatus: v.budgetStatus,
     extraData: v.extraData,
   };
 }
@@ -477,70 +438,11 @@ export function JobRequestFormFields({
             />
           </Field>
 
-          <Field label="Faixa salarial mínima" htmlFor="jr-salary-min" error={errors.salaryMin}>
-            <>
-              <input
-                id="jr-salary-min"
-                type="text"
-                inputMode="numeric"
-                value={maskBRL(values.salaryMinDigits)}
-                onChange={(e) => onChange({ salaryMinDigits: e.target.value.replace(/\D/g, "") })}
-                placeholder="R$ 0,00"
-                className={inputClass}
-              />
-              {criticalMark}
-            </>
-          </Field>
-
-          <Field label="Faixa salarial máxima" htmlFor="jr-salary-max" error={errors.salaryMax}>
-            <>
-              <input
-                id="jr-salary-max"
-                type="text"
-                inputMode="numeric"
-                value={maskBRL(values.salaryMaxDigits)}
-                onChange={(e) => onChange({ salaryMaxDigits: e.target.value.replace(/\D/g, "") })}
-                placeholder="R$ 0,00"
-                className={inputClass}
-              />
-              {criticalMark}
-            </>
-          </Field>
-
-          <Field label="Centro de custo" htmlFor="jr-cost-center" error={errors.costCenter}>
-            <>
-              <input
-                id="jr-cost-center"
-                type="text"
-                value={values.costCenter}
-                onChange={(e) => onChange({ costCenter: e.target.value })}
-                placeholder="Ex: 3020 — Logística"
-                className={inputClass}
-              />
-              {criticalMark}
-            </>
-          </Field>
-
-          <Field
-            label="A contratação está prevista no orçamento/headcount?"
-            htmlFor="jr-budget"
-            error={errors.budgetStatus}
-          >
-            <>
-              <Select
-                id="jr-budget"
-                value={values.budgetStatus}
-                onChange={(v) => onChange({ budgetStatus: v as BudgetStatus })}
-              >
-                {BUDGET_STATUS_ORDER.map((b) => (
-                  <option key={b} value={b}>
-                    {BUDGET_STATUS_LABELS[b]}
-                  </option>
-                ))}
-              </Select>
-              {criticalMark}
-            </>
-          </Field>
+          {/*
+            Faixa salarial, centro de custo e previsão de orçamento NÃO são pedidos ao
+            gestor: a WG não usa centro de custo, o salário é definido pelo RH direto na
+            vaga e o headcount é controlado fora do sistema.
+          */}
         </div>
       </Section>
 

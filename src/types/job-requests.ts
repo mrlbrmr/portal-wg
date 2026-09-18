@@ -1,6 +1,5 @@
 import type {
   ApprovalStepStatus,
-  BudgetStatus,
   ContractType,
   JobRequestReason,
   JobRequestStatus,
@@ -42,10 +41,6 @@ export interface JobRequestRow {
   contractType: ContractType | null;
   modality: Modality | null;
   workSchedule: string | null;
-  salaryMin: number | null;
-  salaryMax: number | null;
-  costCenter: string | null;
-  budgetStatus: BudgetStatus;
 
   // ── Aprovação ──
   submittedAt: string | null;

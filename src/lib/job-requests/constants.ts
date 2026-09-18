@@ -1,11 +1,10 @@
 // Vocabulário da SOLICITAÇÃO DE VAGA (o pedido de autorização para contratar).
 //
-// Fonte única dos rótulos, cores e listas de status/motivo/orçamento. Nada de string solta
+// Fonte única dos rótulos, cores e listas de status/motivo/condições. Nada de string solta
 // espalhada por página ou componente: quem precisa exibir um status importa daqui.
 // As cores reaproveitam os tokens já usados no painel (mesma paleta dos badges do Kanban).
 
 import type {
-  BudgetStatus,
   ContractType,
   JobRequestReason,
   JobRequestStatus,
@@ -108,16 +107,6 @@ export const JOB_REQUEST_REASON_ORDER: JobRequestReason[] = [
 export function requiresReplacedEmployee(reason: JobRequestReason): boolean {
   return reason === "REPLACEMENT";
 }
-
-// ─── Orçamento / headcount ────────────────────────────────────────────────────
-
-export const BUDGET_STATUS_LABELS: Record<BudgetStatus, string> = {
-  YES: "Sim, prevista no orçamento",
-  NO: "Não prevista",
-  NOT_APPLICABLE: "Não informado / não se aplica",
-};
-
-export const BUDGET_STATUS_ORDER: BudgetStatus[] = ["YES", "NO", "NOT_APPLICABLE"];
 
 // ─── Condições da vaga (reaproveita os enums que a vaga já usa) ───────────────
 

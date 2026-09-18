@@ -12,17 +12,15 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { saveJobRequest } from "@/lib/job-requests/actions";
 import {
   JobRequestFormFields,
-  numberToDigits,
   toPayload,
   type JobRequestFormValues,
 } from "@/components/job-requests/JobRequestFormFields";
 import {
-  BUDGET_STATUS_LABELS,
   CONTRACT_TYPE_LABELS,
   JOB_REQUEST_REASON_LABELS,
   MODALITY_LABELS,
 } from "@/lib/job-requests/constants";
-import { formatDateBR, formatDateTimeBR, formatSalaryRange } from "@/lib/job-requests/mapping";
+import { formatDateBR, formatDateTimeBR } from "@/lib/job-requests/mapping";
 import {
   CRITICAL_FIELD_LABELS,
   evaluateEdit,
@@ -55,10 +53,6 @@ function toFormValues(r: JobRequestRow): JobRequestFormValues {
     contractType: r.contractType ?? "CLT",
     modality: r.modality ?? "PRESENTIAL",
     workSchedule: r.workSchedule ?? "",
-    salaryMinDigits: numberToDigits(r.salaryMin),
-    salaryMaxDigits: numberToDigits(r.salaryMax),
-    costCenter: r.costCenter ?? "",
-    budgetStatus: r.budgetStatus,
     extraData: r.extraData ?? {},
   };
 }
@@ -117,11 +111,7 @@ export function JobRequestDetail({
       openings: request.openings,
       location: request.location,
       contractType: request.contractType,
-      salaryMin: request.salaryMin,
-      salaryMax: request.salaryMax,
       reasonType: request.reasonType,
-      costCenter: request.costCenter,
-      budgetStatus: request.budgetStatus,
     };
     return findCriticalChanges(before, toPayload(values) as Record<string, unknown>);
   }, [request, values]);
@@ -156,8 +146,6 @@ export function JobRequestDetail({
       router.refresh();
     });
   }
-
-  const salaryText = formatSalaryRange(request.salaryMin, request.salaryMax);
 
   if (editing) {
     return (
@@ -287,12 +275,6 @@ export function JobRequestDetail({
             value={request.modality ? MODALITY_LABELS[request.modality] : null}
           />
           <Row label="Horário / Jornada" value={request.workSchedule} />
-          <Row label="Faixa salarial" value={salaryText} />
-          <Row label="Centro de custo" value={request.costCenter} />
-          <Row
-            label="Prevista no orçamento / headcount"
-            value={BUDGET_STATUS_LABELS[request.budgetStatus]}
-          />
         </dl>
       </Card>
 

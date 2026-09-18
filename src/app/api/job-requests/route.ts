@@ -18,12 +18,10 @@ import { jobRequestReceivedEmail } from "@/lib/email-templates";
 import { createJobRequest } from "@/lib/job-requests/service";
 import { jobRequestPayloadSchema } from "@/lib/job-requests/schema";
 import {
-  BUDGET_STATUS_LABELS,
   CONTRACT_TYPE_LABELS,
   JOB_REQUEST_REASON_LABELS,
   MODALITY_LABELS,
 } from "@/lib/job-requests/constants";
-import { formatSalaryRange } from "@/lib/job-requests/mapping";
 import type { FormConfig } from "@/types/form-config";
 
 async function loadExtraFields(): Promise<FormConfig["fields"]> {
@@ -104,15 +102,6 @@ export async function POST(req: NextRequest) {
       ...(payload.workSchedule
         ? ([["Horário / Jornada", payload.workSchedule]] as Array<[string, string]>)
         : []),
-      ...(formatSalaryRange(payload.salaryMin, payload.salaryMax)
-        ? ([
-            ["Faixa salarial", formatSalaryRange(payload.salaryMin, payload.salaryMax)!],
-          ] as Array<[string, string]>)
-        : []),
-      ...(payload.costCenter
-        ? ([["Centro de custo", payload.costCenter]] as Array<[string, string]>)
-        : []),
-      ["Prevista no orçamento", BUDGET_STATUS_LABELS[payload.budgetStatus]],
       ["Data desejada para admissão", payload.desiredStartDate],
       ["Justificativa", payload.justification],
       ...extraFields

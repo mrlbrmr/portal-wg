@@ -60,8 +60,10 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   - Campo crítico alterado depois de aprovado ⇒ volta para `PENDING_APPROVAL`.
   - `jobs.responsible` = recrutador; `jobs.hiringManager` = gestor solicitante;
     `jobs.requestId` = solicitação de origem (**null em vagas legadas — é esperado**).
-  - **Prioridade foi removida da aplicação.** `jobs.priority` / `job_requests.priority`
-    continuam no banco (deprecated, default `MEDIUM`); nenhuma tela ou API lê ou escreve.
+  - **Colunas que existem no banco mas a aplicação NÃO usa** (reservadas, não remover sem
+    migração): `priority` (priorização é externa), `salary_min`/`salary_max` (o RH define o
+    salário direto na vaga), `cost_center` (a WG não usa) e `budget_status` (headcount é
+    controlado fora do sistema). O gestor não informa nenhum desses no formulário.
   - `job_request_form_config` agora guarda só **perguntas complementares** (→ `extra_data`).
 - **E-mail transacional:** `src/lib/email.ts` (Resend) — sem `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
   nada é enviado (só loga). Templates em `src/lib/email-templates.ts`.

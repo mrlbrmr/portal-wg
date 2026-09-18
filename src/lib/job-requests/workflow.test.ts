@@ -243,30 +243,28 @@ describe("campos críticos", () => {
   });
 
   it("11c. a lista de campos críticos é a acordada com o negócio", () => {
+    // Faixa salarial, centro de custo e orçamento/headcount saíram: a solicitação não
+    // coleta esses dados (salário é definido pelo RH na vaga; headcount é externo).
     assert.deepEqual([...CRITICAL_FIELDS].sort(), [
-      "budgetStatus",
       "contractType",
-      "costCenter",
       "location",
       "openings",
       "reasonType",
-      "salaryMax",
-      "salaryMin",
       "title",
     ]);
   });
 
   it("11d. comparação é tolerante a tipo (3 e \"3\" são o mesmo valor)", () => {
     assert.deepEqual(findCriticalChanges({ openings: 3 }, { openings: "3" }), []);
-    assert.deepEqual(findCriticalChanges({ costCenter: null }, { costCenter: "" }), []);
-    assert.deepEqual(findCriticalChanges({ costCenter: null }, { costCenter: "3020" }), [
-      "costCenter",
+    assert.deepEqual(findCriticalChanges({ location: null }, { location: "" }), []);
+    assert.deepEqual(findCriticalChanges({ location: null }, { location: "Matriz" }), [
+      "location",
     ]);
   });
 
   it("11e. com a vaga já criada, campo crítico não pode mais ser alterado", () => {
     const emRecrutamento = request({ status: "RECRUITING", jobId: "job-1" });
-    const decision = evaluateEdit(emRecrutamento, RH, ["salaryMax"]);
+    const decision = evaluateEdit(emRecrutamento, RH, ["contractType"]);
     assert.equal(decision.allowed, false);
   });
 

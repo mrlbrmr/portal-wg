@@ -2,29 +2,7 @@
 // (/api/job-requests), pela criação interna e pela edição. Client-safe.
 
 import { z } from "zod";
-import {
-  BudgetStatus,
-  ContractType,
-  JobRequestReason,
-  Modality,
-} from "@/types/domain";
-
-/** "R$ 2.500,00", "2500,00", "2500" → 2500. Vazio → null. */
-export function parseMoney(raw: unknown): number | null {
-  if (raw === null || raw === undefined || raw === "") return null;
-  if (typeof raw === "number") return Number.isFinite(raw) && raw >= 0 ? raw : null;
-  const digits = String(raw).replace(/[^\d,.-]/g, "");
-  if (!digits) return null;
-  // pt-BR: ponto é milhar, vírgula é decimal.
-  const normalized = digits.replace(/\./g, "").replace(",", ".");
-  const n = Number.parseFloat(normalized);
-  return Number.isFinite(n) && n >= 0 ? n : null;
-}
-
-const money = z
-  .union([z.string(), z.number(), z.null()])
-  .optional()
-  .transform((v) => parseMoney(v ?? null));
+import { ContractType, JobRequestReason, Modality } from "@/types/domain";
 
 const optionalText = (max = 500) =>
   z
@@ -60,13 +38,13 @@ export const jobRequestPayloadSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data desejada para admissão"),
 
     // ── Condições da vaga ──
+    // O gestor NÃO informa faixa salarial, centro de custo nem previsão de orçamento:
+    // a WG não usa centro de custo, o salário é definido pelo RH direto na vaga e o
+    // headcount é controlado fora do sistema. As colunas salary_min/salary_max/
+    // cost_center/budget_status seguem no banco, reservadas e sem uso pela aplicação.
     contractType: z.nativeEnum(ContractType),
     modality: z.nativeEnum(Modality),
     workSchedule: optionalText(200),
-    salaryMin: money,
-    salaryMax: money,
-    costCenter: optionalText(120),
-    budgetStatus: z.nativeEnum(BudgetStatus).default("NOT_APPLICABLE"),
 
     /** Perguntas complementares configuradas em /configuracoes/formulario-vaga. */
     extraData: z.record(z.string()).optional().default({}),
@@ -78,17 +56,6 @@ export const jobRequestPayloadSchema = z
         code: z.ZodIssueCode.custom,
         path: ["replacedEmployee"],
         message: "Informe o colaborador substituído",
-      });
-    }
-    if (
-      data.salaryMin !== null &&
-      data.salaryMax !== null &&
-      data.salaryMax < data.salaryMin
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["salaryMax"],
-        message: "A faixa máxima não pode ser menor que a mínima",
       });
     }
   });
@@ -110,10 +77,6 @@ export const jobRequestDraftSchema = z.object({
   contractType: z.nativeEnum(ContractType).optional().nullable(),
   modality: z.nativeEnum(Modality).optional().nullable(),
   workSchedule: optionalText(200),
-  salaryMin: money,
-  salaryMax: money,
-  costCenter: optionalText(120),
-  budgetStatus: z.nativeEnum(BudgetStatus).optional().default("NOT_APPLICABLE"),
   extraData: z.record(z.string()).optional().default({}),
 });
 
@@ -143,10 +106,6 @@ export function payloadToColumns(data: JobRequestColumnsInput): Record<string, u
     contract_type: data.contractType ?? null,
     modality: data.modality ?? null,
     work_schedule: data.workSchedule ?? null,
-    salary_min: data.salaryMin ?? null,
-    salary_max: data.salaryMax ?? null,
-    cost_center: data.costCenter ?? null,
-    budget_status: data.budgetStatus ?? "NOT_APPLICABLE",
     extra_data: data.extraData ?? {},
   };
 }

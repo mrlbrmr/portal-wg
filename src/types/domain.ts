@@ -53,13 +53,8 @@ export const JobRequestReason = {
 } as const;
 export type JobRequestReason = (typeof JobRequestReason)[keyof typeof JobRequestReason];
 
-/** A contratação está prevista no orçamento/headcount? */
-export const BudgetStatus = {
-  YES: "YES",
-  NO: "NO",
-  NOT_APPLICABLE: "NOT_APPLICABLE",
-} as const;
-export type BudgetStatus = (typeof BudgetStatus)[keyof typeof BudgetStatus];
+// O enum "BudgetStatus" existe no banco (coluna job_requests.budget_status), mas a
+// aplicação não o usa: previsão de orçamento/headcount é controlada fora do sistema.
 
 /** Situação de um passo da cadeia de aprovação. */
 export const ApprovalStepStatus = {

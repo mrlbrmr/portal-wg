@@ -254,17 +254,18 @@ export function availableActions(
 
 // ─── Edição ───────────────────────────────────────────────────────────────────
 
-/** Campos críticos: alterá-los depois de aprovado invalida a aprovação (regra 9). */
+/**
+ * Campos críticos: alterá-los depois de aprovado invalida a aprovação (regra 9).
+ *
+ * Faixa salarial, centro de custo e previsão de orçamento ficaram de fora porque a
+ * solicitação não os coleta (ver o comentário em schema.ts).
+ */
 export const CRITICAL_FIELDS = [
   "title",
   "openings",
   "location",
   "contractType",
-  "salaryMin",
-  "salaryMax",
   "reasonType",
-  "costCenter",
-  "budgetStatus",
 ] as const;
 export type CriticalField = (typeof CRITICAL_FIELDS)[number];
 
@@ -273,11 +274,7 @@ export const CRITICAL_FIELD_LABELS: Record<CriticalField, string> = {
   openings: "Quantidade de vagas",
   location: "Empresa / Unidade",
   contractType: "Tipo de contratação",
-  salaryMin: "Faixa salarial mínima",
-  salaryMax: "Faixa salarial máxima",
   reasonType: "Motivo da abertura",
-  costCenter: "Centro de custo",
-  budgetStatus: "Previsão no orçamento / headcount",
 };
 
 /** Status em que a aprovação já foi dada (ou está em curso) e precisa ser protegida. */
@@ -389,19 +386,15 @@ export interface ApprovalStepPlan {
 
 export interface ApprovalContext {
   reasonType: string;
-  budgetStatus: string;
-  salaryMax: number | null;
-  /** Teto acima do qual a contratação exigiria uma aprovação adicional (null = sem regra). */
-  salaryCeiling?: number | null;
 }
 
 /**
  * Monta a cadeia de aprovação de uma solicitação.
  *
  * V1: um passo só — o aprovador que o RH indicar ao encaminhar. A assinatura já recebe o
- * contexto (motivo, orçamento, salário) e devolve uma LISTA ordenada, então evoluir para
- * "aumento de quadro passa por Diretoria + Financeiro" ou "salário acima da faixa ganha um
- * passo extra" é acrescentar regras aqui — sem tocar em schema, service ou UI.
+ * contexto (motivo, orçamento) e devolve uma LISTA ordenada, então evoluir para "aumento
+ * de quadro passa por Diretoria + Financeiro" é acrescentar regras aqui — sem tocar em
+ * schema, service ou UI.
  */
 export function buildApprovalChain(
   ctx: ApprovalContext,
@@ -412,9 +405,7 @@ export function buildApprovalChain(
   ];
 
   // Ganchos já previstos (desligados na V1 — nenhum passo extra é criado ainda):
-  //   ctx.reasonType === "HEADCOUNT_INCREASE"  → passo "BUDGET" (Financeiro/Diretoria)
-  //   ctx.budgetStatus === "NO"                → passo "BUDGET"
-  //   ctx.salaryMax > ctx.salaryCeiling        → passo "SALARY_CEILING"
+  //   ctx.reasonType === "HEADCOUNT_INCREASE" → passo "BUDGET" (Financeiro/Diretoria)
   void ctx;
 
   return steps;

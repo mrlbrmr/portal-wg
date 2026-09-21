@@ -201,7 +201,7 @@ export function TestSessionsSection({ applicationId, canManage, defaultTemplateI
       {sessions === null ? (
         <p className="text-sm text-gray-400">Carregando…</p>
       ) : sessions.length === 0 ? (
-        <p className="text-sm text-gray-500">Nenhum teste enviado ainda.</p>
+        <p className="text-sm text-gray-500">Nenhum teste online enviado para este candidato.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {sessions.map((s) => {

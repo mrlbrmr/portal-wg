@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { deleteResume } from "@/lib/storage";
+import { extractScreeningCriteria } from "@/lib/recruitment/screening";
 
 // Rotas internas — leitura/mutação de candidatura.
 // LGPD: nenhuma dessas rotas é pública (protegidas por auth + middleware).
@@ -24,7 +25,7 @@ export async function GET(
   const { data: application } = await supabase
     .from("applications")
     .select(
-      "id, fullName, email, phone, resumeName, stageId, stage:application_stages(id, name, color), source, addedBy, notes, createdAt, country, candidateCity, availablePresential, salaryExpectation, stageHistory:application_stage_history(id, stageId, stage:application_stages(name, color), changedBy, changedAt)"
+      "id, fullName, email, phone, resumeName, stageId, stage:application_stages(id, name, color), source, addedBy, notes, createdAt, country, candidateCity, candidateState, availablePresential, salaryExpectation, job:jobs(responsible, description, requiredRequirements), stageHistory:application_stage_history(id, stageId, stage:application_stages(name, color), changedBy, changedAt)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -37,7 +38,18 @@ export async function GET(
     (a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime()
   );
 
-  return NextResponse.json({ ...application, stageHistory });
+  // Dados da vaga relevantes à triagem: o recrutador responsável (da VAGA, não da
+  // candidatura) e os requisitos obrigatórios em lista. A descrição inteira não sai daqui.
+  const { job, ...rest } = application as typeof application & {
+    job: { responsible: string | null; description: string | null; requiredRequirements: string | null } | null;
+  };
+
+  return NextResponse.json({
+    ...rest,
+    stageHistory,
+    jobResponsible: job?.responsible ?? null,
+    screeningCriteria: job ? extractScreeningCriteria(job) : [],
+  });
 }
 
 const patchSchema = z.object({
@@ -48,6 +60,7 @@ const patchSchema = z.object({
   phone: z.string().regex(/^\d{11}$/, "Telefone inválido").optional(),
   country: z.string().max(80).nullable().optional(),
   candidateCity: z.string().max(120).nullable().optional(),
+  candidateState: z.string().max(2).nullable().optional(),
   availablePresential: z.boolean().nullable().optional(),
   salaryExpectation: z.number().min(0).max(9999999).nullable().optional(),
 });
@@ -108,6 +121,7 @@ export async function PATCH(
   if (parsed.data.phone !== undefined) update.phone = parsed.data.phone;
   if (parsed.data.country !== undefined) update.country = parsed.data.country;
   if (parsed.data.candidateCity !== undefined) update.candidateCity = parsed.data.candidateCity;
+  if (parsed.data.candidateState !== undefined) update.candidateState = parsed.data.candidateState?.toUpperCase() ?? null;
   if (parsed.data.availablePresential !== undefined) update.availablePresential = parsed.data.availablePresential;
   if (parsed.data.salaryExpectation !== undefined) update.salaryExpectation = parsed.data.salaryExpectation;
 

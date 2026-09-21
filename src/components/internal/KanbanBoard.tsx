@@ -602,8 +602,13 @@ export function KanbanBoard({ applications, stages, canManage, jobId, jobTitle, 
       canManage={canManage}
       stages={stages}
       jobTitle={jobTitle}
-      jobLocation={jobLocation}
       onClose={() => setDetailId(null)}
+      onBeforeStageChange={(id, toStageId) => {
+        // Mesmo gate do arrastar no Kanban: Admissão/Contratado abre o modal de admissão.
+        if (handleBeforeMove(id, toStageId)) return true;
+        setDetailId(null);
+        return false;
+      }}
     />
 
     <AdmissionLinkModal

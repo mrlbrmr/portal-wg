@@ -43,7 +43,15 @@ export async function GET(
   const admin = createAdminClient();
   const { data: signed, error: signErr } = await admin.storage
     .from(RESUMES_BUCKET)
-    .createSignedUrl(application.resumeUrl, 60);
+    // ?download=1 força o download com o nome original; sem ele o navegador abre o
+    // arquivo (PDF) para visualização.
+    .createSignedUrl(
+      application.resumeUrl,
+      60,
+      req.nextUrl.searchParams.get("download") === "1"
+        ? { download: application.resumeName ?? true }
+        : undefined
+    );
 
   if (signErr || !signed?.signedUrl) {
     return NextResponse.json({ error: "Falha ao acessar o currículo" }, { status: 502 });

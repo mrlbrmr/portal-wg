@@ -205,7 +205,7 @@ export function AssessmentsSection({ applicationId, canManage, hasResume }: Prop
   }
 
   return (
-    <div className="mt-6">
+    <div>
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ClipboardCheck className="h-4 w-4 text-gray-400" />
@@ -344,7 +344,7 @@ export function AssessmentsSection({ applicationId, canManage, hasResume }: Prop
       {items === null ? (
         <p className="text-sm text-gray-400">Carregando…</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-gray-500">Nenhuma avaliação registrada ainda.</p>
+        <p className="text-sm text-gray-500">Nenhuma avaliação registrada para este candidato.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((a) => (

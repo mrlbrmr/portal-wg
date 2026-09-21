@@ -7,6 +7,32 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-21 (tarde) — Drawer do candidato vira workspace de triagem
+
+Redesenho do drawer lateral aberto pelo Kanban da vaga (continua drawer, não virou página).
+**Sem migração.** API: só leitura de colunas já existentes + `?download=1` no currículo.
+
+- **Estrutura:** cabeçalho fixo (nome, cargo · cidade/UF, origem, "Candidatou-se há…", "Na etapa
+  há…", responsável da VAGA) + bloco "Etapa atual" com CTA explícito ("Avançar para Triagem →"),
+  "Contatar ▾" e "•••"; abas **Resumo / Avaliações / Histórico** com UMA área rolável.
+- **Regra de etapa** em `src/lib/recruitment/candidate-stage-flow.ts` (puro, testado): progressão
+  só pelas etapas visíveis e não-LOST — corrige bug antigo em que "Avançar" a partir da última
+  etapa levava a "Pausada" (oculta). Reprovado/pausado ganham "Reabrir/Retomar em <última etapa>".
+  Avançar para Admissão pelo drawer passa pelo mesmo `AdmissionLinkModal` do arrastar (antes: beco
+  sem saída "Mova pelo Kanban").
+- **Reprovação:** saiu do lado do CTA; fica no "•••" com diálogo (motivo obrigatório + observação).
+  ⚠️ Não há coluna de motivo: o motivo vai como TEXTO anexado a `applications.notes`
+  ("Reprovação em dd/mm/aaaa — Motivo: …"). Relatório por motivo exige coluna própria.
+- **Triagem:** lista os requisitos obrigatórios REAIS da vaga (`src/lib/recruitment/screening.ts`
+  extrai do HTML da descrição/`requiredRequirements`). Registro "Atende / Não atende" por critério
+  **pendente de backend** — `ScreeningCriteria` já aceita `verdicts`/`onEvaluate`.
+- **Anotações:** continua 1 campo (`notes`); salvar explícito colado ao campo (Ctrl+Enter), salva
+  sozinho ao fechar o drawer se houver rascunho. Histórico de notas por autor = tabela futura.
+- **Histórico:** `ActivityTimeline` com criação + `application_stage_history` (eventos reais).
+- Componentes novos: `src/components/ui/DropdownMenu.tsx` (menu acessível genérico) e
+  `src/components/internal/candidate/*` (Header, ContactMenu, ResumeCard, Summary, EditForm,
+  ScreeningCriteria, TeamNotes, History, RejectionDialog, MoveStageDialog, DialogShell, Section).
+
 ## Sessão de 2026-09-21 — Profissionalização de Recrutamento e Admissões (Design System + trabalho por exceção)
 
 Evolução da UI existente (sem redesign, sem migração, sem mudança de API). Identidade mantida:

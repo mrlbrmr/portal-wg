@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { JobRequestForm } from "@/components/public/JobRequestForm";
 import { DEFAULT_FORM_CONFIG } from "@/lib/form-config-defaults";
+import { JOB_REQUEST_REASON_LABELS } from "@/lib/job-requests/constants";
 import type { FormConfig } from "@/types/form-config";
 
 // Render dinâmico: a página lê a sessão (para pré-preencher o gestor requisitante) e as
@@ -24,6 +25,12 @@ async function loadConfig(): Promise<FormConfig> {
     fields: Array.isArray(data.fields) ? data.fields : DEFAULT_FORM_CONFIG.fields,
   };
 }
+
+// O fluxo antigo gravava o MOTIVO da abertura em jobs.department; sem este filtro esses
+// valores voltariam como sugestão de "Área / Departamento".
+const REASON_LABELS = new Set(
+  [...Object.values(JOB_REQUEST_REASON_LABELS), "Expansão de equipe"].map((l) => l.toLowerCase())
+);
 
 /** Sugestões de Empresa/Unidade e Área já usadas, para o gestor não inventar variações. */
 async function loadSuggestions(): Promise<{ units: string[]; departments: string[] }> {
@@ -52,7 +59,9 @@ async function loadSuggestions(): Promise<{ units: string[]; departments: string
 
   return {
     units: [...units].sort((a, b) => a.localeCompare(b, "pt-BR")),
-    departments: [...departments].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    departments: [...departments]
+      .filter((d) => !REASON_LABELS.has(d.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b, "pt-BR")),
   };
 }
 

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus } from "@/types/domain";
+import { Modality, ContractType, JobStatus, JobRequestReason } from "@/types/domain";
 import { generateSlug } from "@/lib/utils";
 import { applyJobFilters, onlyPublicVisible } from "@/lib/jobs-query";
 import { rateLimit } from "@/lib/rate-limit";
@@ -36,6 +36,7 @@ const jobSchema = z
   highlightBenefit: z.string().optional(),
   responsible: z.string().optional(),
   hiringManager: z.string().optional(),
+  openingReason: z.nativeEnum(JobRequestReason).optional().nullable(),
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
   status: z.nativeEnum(JobStatus).default("ACTIVE"),

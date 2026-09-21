@@ -114,6 +114,7 @@ model Job {
   responsible          String? // Recrutador responsável pelo processo (RH)
   hiringManager        String? // Gestor solicitante (quem pediu a vaga)
   requestId            String? // Solicitação que autorizou a vaga (null em vagas legadas)
+  openingReason        JobRequestReason? // Motivo da abertura (vem da solicitação; editável na vaga)
   slug                 String?      @unique
   closingDate          DateTime?
   hiringDeadline       DateTime? // Prazo interno alvo de contratação

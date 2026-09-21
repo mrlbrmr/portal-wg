@@ -148,6 +148,8 @@ export interface Job {
   responsible: string | null;
   hiringManager: string | null;
   requestId: string | null;
+  /** Motivo da abertura (Substituição, Nova posição...). Vem da solicitação de origem. */
+  openingReason: JobRequestReason | null;
   slug: string | null;
   closingDate: Date | null;
   hiringDeadline: Date | null;

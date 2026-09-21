@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { BRAZIL_STATES, isPublicJobStatus } from "@/lib/utils";
 import { Check, ExternalLink, Eye, Loader2, Pencil } from "lucide-react";
 import type { Job } from "@/types/domain";
+import {
+  JOB_REQUEST_REASON_LABELS,
+  JOB_REQUEST_REASON_ORDER,
+} from "@/lib/job-requests/constants";
 
 const MARKDOWN_BOILERPLATE = [
   "### Responsabilidades",
@@ -215,6 +219,7 @@ export default function JobForm({ job, currentUserName, originRequest = null }: 
       hiringDeadline: formData.get("hiringDeadline") || null,
       responsible: formData.get("responsible") || undefined,
       hiringManager: formData.get("hiringManager") || undefined,
+      openingReason: formData.get("openingReason") || null,
       status: formData.get("status"),
     };
 
@@ -314,6 +319,22 @@ export default function JobForm({ job, currentUserName, originRequest = null }: 
               placeholder="Ex: WG Baterias SP"
               className={inputClass}
             />
+          </div>
+
+          <div>
+            <label className={labelClass}>Motivo da abertura</label>
+            <select
+              name="openingReason"
+              defaultValue={job?.openingReason ?? ""}
+              className={inputClass}
+            >
+              <option value="">Não informado</option>
+              {JOB_REQUEST_REASON_ORDER.map((r) => (
+                <option key={r} value={r}>
+                  {JOB_REQUEST_REASON_LABELS[r]}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Salário Fixo com toggle A combinar */}

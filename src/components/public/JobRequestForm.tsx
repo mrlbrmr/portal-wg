@@ -5,7 +5,7 @@
 // O que ele preenche é a NECESSIDADE DE CONTRATAÇÃO — não a vaga. A vaga (processo
 // seletivo) só é aberta pelo RH depois que a solicitação for validada e aprovada.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import {
   EMPTY_JOB_REQUEST_FORM,
@@ -38,6 +38,20 @@ export function JobRequestForm({
   const [done, setDone] = useState<{ code: string | null } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [errorTick, setErrorTick] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // O aviso geral fica ao lado do botão, no fim do formulário; em celular o campo com
+  // problema costuma estar fora da tela e o gestor achava que tinha enviado. Leva a tela
+  // até o primeiro campo com erro e foca nele.
+  useEffect(() => {
+    if (errorTick === 0) return;
+    const firstError = formRef.current?.querySelector("[data-field-error]");
+    const field = firstError?.parentElement;
+    if (!field) return;
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+    field.querySelector<HTMLElement>("input, select, textarea")?.focus({ preventScroll: true });
+  }, [errorTick]);
 
   const patch = useCallback((p: Partial<JobRequestFormValues>) => {
     setValues((prev) => ({ ...prev, ...p }));
@@ -74,7 +88,11 @@ export function JobRequestForm({
             flat[k] = Array.isArray(v) ? v[0] : v;
           }
           setErrors(flat);
-          setGeneralError("Revise os campos destacados.");
+          setErrorTick((t) => t + 1);
+          const n = Object.keys(flat).length;
+          setGeneralError(
+            `A solicitação NÃO foi enviada: ${n === 1 ? "1 campo precisa" : `${n} campos precisam`} de ajuste (destacados em vermelho).`
+          );
         } else {
           setGeneralError(body?.error ?? "Erro ao enviar a solicitação. Tente novamente.");
         }
@@ -108,7 +126,7 @@ export function JobRequestForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-8">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-8">
       <JobRequestFormFields
         values={values}
         onChange={patch}

@@ -109,7 +109,11 @@ function Field({
       </label>
       {children}
       {hint && !error && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && (
+        <p data-field-error className="text-xs text-red-500 mt-1">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

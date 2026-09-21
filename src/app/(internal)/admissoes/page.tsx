@@ -3,10 +3,11 @@ import { Plus } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmissionConfig } from "@/lib/admissao/queries";
+import { loadAdmissionRows, admissionFlags } from "@/lib/admissao/overview";
 import { PageHeader } from "@/components/internal/PageHeader";
 import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
+import { CompactMetrics } from "@/components/ui/CompactMetrics";
 import { AdmissionDashboardClient } from "@/components/internal/admissao/AdmissionDashboardClient";
-import type { AdmissionRow } from "@/components/internal/admissao/AdmissionsExplorer";
 import {
   NO_STAGE,
   type KanbanAdmission,
@@ -15,103 +16,38 @@ import type { KanbanColumnDef } from "@/components/internal/KanbanBoardShell";
 
 export const metadata: Metadata = { title: "Admissões — RH" };
 
-export default async function AdmissoesPage() {
-  const now = new Date();
-  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const in7 = new Date(todayUTC.getTime() + 7 * 86400000);
+function fmtDateBR(iso: string | null) {
+  if (!iso) return null;
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
 
+export default async function AdmissoesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const supabase = await createClient();
-  const [session, config, admissionsRes, metricsRes] = await Promise.all([
-    auth(),
-    getAdmissionConfig(),
-    supabase
-      .from("admissions")
-      .select(
-        `id, fullName, cpf, stageId, startDate, createdAt, companyId, responsibleId,
-         position:admission_positions(name),
-         company:admission_companies(name),
-         branch:admission_branches(name),
-         stage:admission_stages(id, name, color, isFinal)`
-      )
-      .is("deletedAt", null)
-      .order("createdAt", { ascending: false })
-      .limit(300),
-    supabase
-      .from("admissions")
-      .select("startDate, stage:admission_stages(isFinal)")
-      .is("deletedAt", null),
-  ]);
-
-  const admissions = (admissionsRes.data ?? []) as unknown as Array<{
-    id: string;
-    fullName: string;
-    cpf: string | null;
-    stageId: string | null;
-    startDate: string | null;
-    createdAt: string;
-    companyId: string | null;
-    responsibleId: string | null;
-    position: { name: string } | null;
-    company: { name: string } | null;
-    branch: { name: string } | null;
-    stage: { id: string; name: string; color: string; isFinal: boolean } | null;
-  }>;
-
-  const metricRows = (metricsRes.data ?? []) as unknown as Array<{
-    startDate: string | null;
-    stage: { isFinal: boolean } | null;
-  }>;
-  const total = metricRows.length;
-  const doneCount = metricRows.filter((m) => m.stage?.isFinal).length;
-  const lateCount = metricRows.filter(
-    (m) => m.startDate && new Date(m.startDate) < todayUTC && !m.stage?.isFinal
-  ).length;
-  const upcomingCount = metricRows.filter(
-    (m) =>
-      m.startDate &&
-      new Date(m.startDate) >= todayUTC &&
-      new Date(m.startDate) <= in7 &&
-      !m.stage?.isFinal
-  ).length;
+  const [session, config, params] = await Promise.all([auth(), getAdmissionConfig(), searchParams]);
+  const admissions = await loadAdmissionRows(supabase, config);
 
   const canWrite = session?.user.role === "ADMIN_RH";
-  const userMap = new Map(config.users.map((u) => [u.id, u.name]));
-  const inProgress = total - doneCount;
+  const now = new Date();
 
-  // Lista: apenas admissões em aberto
-  const openAdmissions = admissions.filter((a) => !a.stage?.isFinal);
+  // Lista: apenas admissões em aberto. Kanban: todas (inclusive concluídas).
+  const openRows = admissions.filter((a) => !a.isFinal);
+  const flags = openRows.map((a) => admissionFlags(a, now));
+  const doneCount = admissions.length - openRows.length;
 
-  const rows: AdmissionRow[] = openAdmissions.map((a) => ({
-    id: a.id,
-    fullName: a.fullName,
-    cpf: a.cpf,
-    positionName: a.position?.name ?? null,
-    companyId: a.companyId ?? null,
-    companyName: a.company?.name ?? null,
-    branchName: a.branch?.name ?? null,
-    stageId: a.stage?.id ?? null,
-    stageName: a.stage?.name ?? null,
-    stageColor: a.stage?.color ?? null,
-    responsibleName: a.responsibleId ? (userMap.get(a.responsibleId) ?? null) : null,
-    startDate: a.startDate
-      ? new Date(a.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
-      : null,
-    startDateISO: a.startDate ? new Date(a.startDate).toISOString().slice(0, 10) : null,
-    createdAt: new Date(a.createdAt).toISOString(),
-  }));
-
-  // Kanban: todas as admissões
   const kanbanCards: KanbanAdmission[] = admissions.map((a) => ({
     id: a.id,
     fullName: a.fullName,
     stageKey: a.stageId ?? NO_STAGE,
-    positionName: a.position?.name ?? null,
-    companyName: a.company?.name ?? null,
-    branchName: a.branch?.name ?? null,
-    responsibleName: a.responsibleId ? (userMap.get(a.responsibleId) ?? null) : null,
-    startDate: a.startDate
-      ? new Date(a.startDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
-      : null,
+    positionName: a.positionName,
+    companyName: a.companyName,
+    branchName: a.branchName,
+    responsibleName: a.responsibleName,
+    startDate: fmtDateBR(a.startDateISO),
   }));
 
   const hasUnstaged = kanbanCards.some((c) => c.stageKey === NO_STAGE);
@@ -120,18 +56,11 @@ export default async function AdmissoesPage() {
     ...config.stages.map((s) => ({ key: s.id, label: s.name, dotColor: s.color })),
   ];
 
-  const kpiCards = [
-    { emoji: "👤", iconBg: "#E9EDFA", value: inProgress,     label: "Em andamento" },
-    { emoji: "✓",  iconBg: "#EAF4DC", value: doneCount,      label: "Concluídas" },
-    { emoji: "⚠",  iconBg: "#FBE6E1", value: lateCount,      label: "Atrasadas · início já passou" },
-    { emoji: "📅", iconBg: "#FCF1DD", value: upcomingCount,  label: "Próximos 7 dias" },
-  ];
-
   return (
     <div>
       <PageHeader
         title="Admissões"
-        subtitle="Controle de admissões ativas — onboarding dos novos colaboradores do Grupo WG."
+        subtitle="Onboarding dos novos colaboradores do Grupo WG — progresso, documentos e prazos de início."
         action={
           canWrite ? (
             <PrimaryActionLink href="/admissoes/nova" icon={Plus}>
@@ -141,32 +70,28 @@ export default async function AdmissoesPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-3 page-stagger">
-        {kpiCards.map((k) => (
-          <div
-            key={k.label}
-            className="bg-white border border-[#E7EEDD] rounded-2xl p-4 hover:shadow-[0_6px_16px_rgba(0,0,0,.06)] hover:-translate-y-0.5 transition-all cursor-default"
-          >
-            <div
-              className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[15px] mb-2.5"
-              style={{ background: k.iconBg }}
-            >
-              {k.emoji}
-            </div>
-            <div className="text-[#1A2213] text-2xl font-extrabold font-sora tabular-nums">{k.value}</div>
-            <div className="text-[#55614A] text-[12.5px] mt-0.5 font-inter">{k.label}</div>
-          </div>
-        ))}
-      </div>
+      <CompactMetrics
+        className="mb-4"
+        total={{ value: openRows.length, label: "em andamento" }}
+        items={[
+          { label: "com início vencido", value: flags.filter((f) => f.late).length, tone: "danger", href: "/admissoes?filtro=atrasadas" },
+          { label: "começam em 7 dias", value: flags.filter((f) => f.upcoming).length, tone: "info", href: "/admissoes?filtro=proximas" },
+          { label: "com documentos pendentes", value: flags.filter((f) => f.missingDocs).length, tone: "warning", href: "/admissoes?filtro=documentos" },
+          { label: "aguardando formulário", value: flags.filter((f) => f.waitingForm).length, tone: "neutral", href: "/admissoes?filtro=formulario" },
+          { label: "concluídas", value: doneCount, hint: "Admissões em etapa final — visíveis no Kanban e nos relatórios" },
+        ]}
+      />
 
       <AdmissionDashboardClient
-        rows={rows}
+        key={new URLSearchParams(params as Record<string, string>).toString()}
+        rows={openRows}
         kanbanCards={kanbanCards}
         columns={columns}
         stages={config.stages}
         companies={config.companies}
         positions={config.positions}
         canManage={canWrite}
+        initialParams={params}
       />
     </div>
   );

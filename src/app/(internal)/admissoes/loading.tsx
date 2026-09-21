@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Skeleton, SkeletonListItem, SkeletonPageTop } from "@/components/ui/Skeleton";
 
 /**
  * Fallback de carregamento do módulo de Admissões. Cobre a lista e — por
@@ -9,23 +9,20 @@ import { Skeleton } from "@/components/ui/Skeleton";
 export default function LoadingAdmissoes() {
   return (
     <div>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <Skeleton className="h-8 w-44" />
-          <Skeleton className="mt-2 h-4 w-72" />
-        </div>
-        <Skeleton className="h-10 w-40 rounded-full" />
+      <SkeletonPageTop />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Skeleton className="h-9 min-w-[220px] flex-1" />
+        <Skeleton className="h-9 w-28" />
+        <Skeleton className="h-9 w-44" />
       </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-xl" />
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-8 w-32 rounded-full" />
         ))}
       </div>
-
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+      <div className="flex flex-col gap-2">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-10 w-full" />
+          <SkeletonListItem key={i} />
         ))}
       </div>
     </div>

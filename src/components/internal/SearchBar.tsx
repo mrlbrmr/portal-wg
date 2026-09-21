@@ -22,21 +22,21 @@ export function SearchBar({
 }: Props) {
   return (
     <div className={`relative ${className}`}>
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wg-ink-muted" aria-hidden />
       <input
-        type="text"
+        type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-9 text-sm text-gray-900 placeholder:text-gray-400 transition-colors focus:border-wg-green focus:outline-none focus:ring-2 focus:ring-wg-green/40"
+        className="h-9 w-full rounded-control border border-wg-border-light bg-white pl-9 pr-9 text-sm text-wg-ink placeholder:text-wg-ink-muted/80 transition-colors focus:border-wg-green-dark focus:outline-none focus:ring-2 focus:ring-wg-green/30 [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange("")}
           aria-label="Limpar pesquisa"
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-wg-ink-muted transition-colors hover:bg-wg-hover-light hover:text-wg-ink"
         >
           <X className="h-4 w-4" />
         </button>

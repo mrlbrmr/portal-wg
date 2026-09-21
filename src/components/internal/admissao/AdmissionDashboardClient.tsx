@@ -25,9 +25,31 @@ interface Props {
   companies: Option[];
   positions: Option[];
   canManage: boolean;
+  initialParams?: Record<string, string | undefined>;
 }
 
 type View = "list" | "kanban";
+
+function KanbanView({
+  kanbanCards,
+  columns,
+  canManage,
+  onViewChange,
+}: {
+  kanbanCards: KanbanAdmission[];
+  columns: KanbanColumnDef[];
+  canManage: boolean;
+  onViewChange: (v: View) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-3 flex justify-end">
+        <ViewToggle view="kanban" onChange={onViewChange} />
+      </div>
+      <AdmissionKanbanBoard admissions={kanbanCards} columns={columns} canManage={canManage} />
+    </div>
+  );
+}
 
 export function AdmissionDashboardClient({
   rows,
@@ -37,8 +59,18 @@ export function AdmissionDashboardClient({
   companies,
   positions,
   canManage,
+  initialParams = {},
 }: Props) {
-  const [view, setView] = useState<View>("list");
+  const [view, setViewState] = useState<View>(initialParams.view === "kanban" ? "kanban" : "list");
+
+  // A visualização também fica na URL (?view=kanban) para sobreviver ao F5 e ao "voltar".
+  function setView(v: View) {
+    setViewState(v);
+    const url = new URL(window.location.href);
+    if (v === "kanban") url.searchParams.set("view", "kanban");
+    else url.searchParams.delete("view");
+    window.history.replaceState(window.history.state, "", url);
+  }
 
   if (view === "list") {
     return (
@@ -49,20 +81,11 @@ export function AdmissionDashboardClient({
         positions={positions}
         view="list"
         onViewChange={setView}
+        initialParams={initialParams}
+        canManage={canManage}
       />
     );
   }
 
-  return (
-    <div>
-      <div className="flex justify-end mb-3">
-        <ViewToggle view={view} onChange={setView} />
-      </div>
-      <AdmissionKanbanBoard
-        admissions={kanbanCards}
-        columns={columns}
-        canManage={canManage}
-      />
-    </div>
-  );
+  return <KanbanView kanbanCards={kanbanCards} columns={columns} canManage={canManage} onViewChange={setView} />;
 }

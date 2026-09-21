@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Base dos utilitários rounded-lg/md/sm do Tailwind (lg = 8px, md = 6px, sm = 4px).
+       Antes não era definida, e esses utilitários resolviam para canto reto. */
+    --radius: 0.5rem;
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -31,7 +37,9 @@
 
   /* Foco acessível */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-wg-green rounded;
+    /* wg-green-dark: contraste ≥ 3:1 sobre o fundo claro (o verde claro não passava). */
+    outline: 2px solid #4F6930;
+    outline-offset: 2px;
   }
 }
 

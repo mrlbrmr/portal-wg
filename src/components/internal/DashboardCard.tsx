@@ -1,59 +1,46 @@
 import Link from "next/link";
 import type { ElementType } from "react";
+import { cn } from "@/lib/utils";
+import { TONE_SOFT, type Tone } from "@/components/ui/StatusBadge";
 
 interface Props {
   label: string;
   value: string | number;
   icon: ElementType;
-  /** Classe utilitária para o "badge" do ícone (fundo + cor). */
-  iconClass?: string;
-  /** Texto auxiliar em cinza abaixo do rótulo (ex.: contexto ou período). */
+  /** Tom semântico do ícone. Default: neutral. */
+  tone?: Tone;
+  /** Texto auxiliar abaixo do rótulo (ex.: contexto ou período). */
   hint?: string;
   /** Se informado, o card inteiro vira um link para esse destino. */
   href?: string;
 }
 
 /**
- * Card compacto de métrica para a faixa de indicadores (dashboard superior
- * da tela de Vagas). Server-friendly: sem estado nem interatividade além do
- * link opcional. Segue a paleta clara do admin.
+ * Card de métrica do Dashboard (páginas operacionais usam <CompactMetrics>).
+ * Horizontal e baixo: ícone à esquerda, número + rótulo à direita.
  */
-export function DashboardCard({
-  label,
-  value,
-  icon: Icon,
-  iconClass = "bg-gray-100 text-gray-600",
-  hint,
-  href,
-}: Props) {
+export function DashboardCard({ label, value, icon: Icon, tone = "neutral", hint, href }: Props) {
   const inner = (
     <>
-      <div
-        className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconClass}`}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="mt-2 text-xl font-bold leading-none text-gray-900 font-sora tabular-nums">
-        {value}
-      </div>
-      <div className="mt-0.5 text-xs font-medium text-gray-500 font-inter">{label}</div>
-      {hint && <div className="mt-0.5 text-[11px] text-gray-400">{hint}</div>}
+      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-control", TONE_SOFT[tone])}>
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <span className="min-w-0">
+        <span className="block font-sora text-xl font-semibold leading-tight tabular-nums text-wg-ink">{value}</span>
+        <span className="block truncate text-meta text-wg-ink-muted">{label}</span>
+        {hint && <span className="block truncate text-[11.5px] text-wg-ink-muted/80">{hint}</span>}
+      </span>
     </>
   );
 
-  const base =
-    "block rounded-xl border border-gray-200 bg-white p-3 shadow-sm";
+  const base = "flex items-center gap-3 rounded-card border border-wg-border-lighter bg-white px-4 py-3";
 
   if (href) {
     return (
-      <Link
-        href={href}
-        className={`${base} transition-colors hover:border-wg-green/50`}
-      >
+      <Link href={href} className={cn(base, "transition-colors hover:border-wg-green/60 hover:bg-[#FBFCF9]")}>
         {inner}
       </Link>
     );
   }
-
   return <div className={base}>{inner}</div>;
 }

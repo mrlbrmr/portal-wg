@@ -1,355 +1,491 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Briefcase,
+  CalendarClock,
+  CalendarX,
+  CheckCircle2,
+  ClipboardCheck,
+  FileWarning,
+  FlaskConical,
+  Hourglass,
+  Inbox,
+  Plus,
+  Send,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
-import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
-import { OPEN_JOB_REQUEST_STATUSES } from "@/lib/job-requests/constants";
-import type { Metadata } from "next";
+import { getAdmissionConfig } from "@/lib/admissao/queries";
+import { loadJobRows } from "@/lib/recruitment/job-rows";
+import { loadAdmissionRows, admissionFlags, daysUntilStart } from "@/lib/admissao/overview";
+import {
+  jobAttentionReasons,
+  operationalSituation,
+  attentionScore,
+  ATTENTION_RULES,
+  SITUATION_META,
+} from "@/lib/recruitment/attention";
+import { jobLifecycle } from "@/lib/recruitment/job-presentation";
+import { formatRelativeTime } from "@/lib/utils";
+import { PageHeader } from "@/components/internal/PageHeader";
+import { DashboardCard } from "@/components/internal/DashboardCard";
+import { ButtonLink } from "@/components/ui/Button";
+import { Panel, panelLinkClass } from "@/components/ui/Panel";
+import { ActionListItem } from "@/components/ui/ActionListItem";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { StatusBadge, StageBadge, TONE_TEXT } from "@/components/ui/StatusBadge";
 
-export const metadata: Metadata = { title: "Dashboard — RH" };
+export const metadata: Metadata = { title: "Visão geral — RH" };
 
-const STATUS_STRIPE: Record<string, string> = {
-  ADMISSION: "#D1503C",
-  INTERVIEW:  "#D9873C",
-  SCREENING:  "#D9873C",
-  ACTIVE:     "#B9C2AA",
-  DRAFT:      "#B9C2AA",
-  PAUSED:     "#B9C2AA",
+type QueueItem = {
+  key: string;
+  href: string;
+  icon: typeof Inbox;
+  tone: "success" | "info" | "warning" | "danger" | "neutral";
+  count: number;
+  title: string;
+  description?: string;
 };
 
-const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
-  ACTIVE:    { bg: "#EAF4DC", color: "#4F6930" },
-  SCREENING: { bg: "#FCF1DD", color: "#A0721E" },
-  INTERVIEW: { bg: "#EAF4DC", color: "#4F6930" },
-  ADMISSION: { bg: "#FCF1DD", color: "#A0721E" },
-  DRAFT:     { bg: "#E9EDFA", color: "#3C56A8" },
-  PAUSED:    { bg: "#F3F3F3", color: "#777777" },
-  CLOSED:    { bg: "#F3F3F3", color: "#777777" },
-  FILLED:    { bg: "#E4F3DA", color: "#2F5D1E" },
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "Ativa", SCREENING: "Triagem", INTERVIEW: "Entrevistas",
-  ADMISSION: "Admissão", DRAFT: "Rascunho", PAUSED: "Pausada",
-  CLOSED: "Cancelada", FILLED: "Finalizada",
-};
-
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 60) return `há ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `há ${h}h`;
-  const d = Math.floor(h / 24);
-  return `há ${d} dia${d > 1 ? "s" : ""}`;
+function plural(n: number, one: string, many: string) {
+  return n === 1 ? one : many;
 }
 
 export default async function DashboardPage() {
-  const session = await auth();
-  const firstName = session?.user.name?.split(" ")[0] ?? "";
-
-  const now = new Date();
-  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const startOfThisMonth  = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfNextMonth  = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const startOfLastMonth  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const in7UTC   = new Date(todayUTC.getTime() + 7 * 86400000);
-
   const supabase = await createClient();
-  const publicStatuses = PUBLIC_JOB_STATUS_LIST as readonly string[];
-  const publicStatusSet = new Set<string>(publicStatuses);
+  const nowIso = new Date().toISOString();
 
-  const ZERO = { count: null, data: null };
-  const queryResults = await Promise.race([
-    Promise.all([
-      // Uma query para todos os metadados de vagas (substitui 8 queries COUNT)
-      supabase.from("jobs").select("status, createdAt, closingDate").limit(500),
-      supabase.from("applications").select("*, jobs!inner(isTalentPool, status)", { count: "exact", head: true }).eq("stageId", "NEW").eq("jobs.isTalentPool", false).neq("jobs.status", "FILLED"),
-      supabase.from("applications").select("*, jobs!inner(isTalentPool, status)", { count: "exact", head: true }).eq("jobs.isTalentPool", false).neq("jobs.status", "FILLED"),
-      supabase.from("applications")
-        .select("id, fullName, createdAt, jobId, job:jobs(title), stage:application_stages(name, color)")
-        .order("createdAt", { ascending: false })
-        .limit(5),
-      supabase.from("jobs")
-        .select("id, title, status, city, state")
-        .in("status", [...publicStatuses, "DRAFT"])
-        .order("createdAt", { ascending: false })
-        .limit(8),
-      // Limit protege contra full table scan enquanto o índice stageId_only não estiver aplicado.
-      supabase.from("applications").select("jobId, jobs!inner(isTalentPool, status)").eq("stageId", "NEW").eq("jobs.isTalentPool", false).neq("jobs.status", "FILLED").limit(2000),
-      // Solicitações de vaga aguardando ação (validação do RH ou aprovação)
-      supabase.from("job_requests").select("id", { count: "exact", head: true }).in("status", OPEN_JOB_REQUEST_STATUSES),
-    ]),
-    new Promise<never>((_, rej) => setTimeout(() => rej(new Error("dashboard timeout")), 8_000)),
-  ]).catch(() => null);
+  const [session, admissions, jobs, recentAppsRes, requestsRes, reviewRes, waitingTestsRes] = await Promise.all([
+    auth(),
+    getAdmissionConfig().then((config) => loadAdmissionRows(supabase, config)),
+    loadJobRows(supabase, { limit: 500 }),
+    supabase
+      .from("applications")
+      .select("id, fullName, createdAt, jobId, job:jobs(title), stage:application_stages(name, color)")
+      .order("createdAt", { ascending: false })
+      .limit(6),
+    supabase.from("job_requests").select("status").in("status", ["PENDING_HR", "PENDING_APPROVAL", "RETURNED"]),
+    supabase.from("assessment_sessions").select("id", { count: "exact", head: true }).eq("outcome", "PENDING_REVIEW"),
+    supabase
+      .from("assessment_sessions")
+      .select("id", { count: "exact", head: true })
+      .is("submittedAt", null)
+      .or(`expiresAt.is.null,expiresAt.gt.${nowIso}`),
+  ]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [
-    jobsMetaRes = ZERO,
-    newAppsRes = ZERO, totalAppsRes = ZERO,
-    recentApplicationsRes = ZERO,
-    attentionJobsRes = ZERO,
-    newAppsByJobRes = ZERO,
-    pendingRequestsRes = ZERO,
-  ] = (queryResults ?? []) as any[];
+  const firstName = session?.user.name?.split(" ")[0] ?? "";
+  const isAdmin = session?.user.role === "ADMIN_RH";
+  const now = new Date();
 
-  const pendingRequests = pendingRequestsRes.count ?? 0;
+  // ── Recrutamento ───────────────────────────────────────────────────────────
+  const openJobs = jobs.filter((j) => !j.isTalentPool && jobLifecycle(j.status) === "OPEN");
+  const candidatesInProcess = openJobs.reduce((acc, j) => acc + j.candidateCount, 0);
+  const awaitingTriage = openJobs.reduce((acc, j) => acc + j.newCount, 0);
+  const jobsWithNew = openJobs.filter((j) => j.newCount > 0);
 
-  // Métricas de vagas calculadas em JS a partir de uma única query
-  type JobMeta = { status: string; createdAt: string; closingDate: string | null };
-  const jobsMeta = (jobsMetaRes.data ?? []) as JobMeta[];
-  const thisMonthStart = startOfThisMonth.toISOString();
-  const nextMonthStart = startOfNextMonth.toISOString();
-  const lastMonthStart = startOfLastMonth.toISOString();
-  const nowISO         = now.toISOString();
-  const in7ISO         = sevenDaysFromNow.toISOString();
-
-  const activeJobs   = jobsMeta.filter((j) => publicStatusSet.has(j.status)).length;
-  const draftJobs    = jobsMeta.filter((j) => j.status === "DRAFT").length;
-  const pausedJobs   = jobsMeta.filter((j) => j.status === "PAUSED").length;
-  const closedJobs   = jobsMeta.filter((j) => j.status === "CLOSED").length;
-  const filledJobs   = jobsMeta.filter((j) => j.status === "FILLED").length;
-  const thisMonth    = jobsMeta.filter((j) => j.createdAt >= thisMonthStart && j.createdAt < nextMonthStart).length;
-  const lastMonth    = jobsMeta.filter((j) => j.createdAt >= lastMonthStart && j.createdAt < thisMonthStart).length;
-  const expiringSoon = jobsMeta.filter(
-    (j) => publicStatusSet.has(j.status) && j.closingDate != null && j.closingDate >= nowISO && j.closingDate <= in7ISO
+  const attention = openJobs
+    .map((j) => ({ job: j, reasons: jobAttentionReasons(j, now) }))
+    .filter((x) => x.reasons.length > 0)
+    .sort((a, b) => attentionScore(b.reasons) - attentionScore(a.reasons));
+  const staleJobs = attention.filter((x) => x.reasons.some((r) => r.key === "STALE")).length;
+  const closingJobs = attention.filter((x) =>
+    x.reasons.some((r) => r.key === "CLOSING_SOON" || r.key === "CLOSING_PASSED")
   ).length;
-  const newApps   = newAppsRes.count   ?? 0;
-  const totalApps = totalAppsRes.count ?? 0;
 
-  const monthDiff  = thisMonth - lastMonth;
-  const monthTrend = monthDiff > 0 ? `+${monthDiff} vs mês anterior`
-    : monthDiff < 0 ? `${monthDiff} vs mês anterior`
-    : "igual ao mês anterior";
+  const requestStatuses = ((requestsRes.data ?? []) as Array<{ status: string }>).map((r) => r.status);
+  const pendingHr = requestStatuses.filter((s) => s === "PENDING_HR").length;
+  const pendingApproval = requestStatuses.filter((s) => s === "PENDING_APPROVAL").length;
+  const returned = requestStatuses.filter((s) => s === "RETURNED").length;
+  const reviewTests = reviewRes.count ?? 0;
+  const waitingTests = waitingTestsRes.count ?? 0;
 
-  // New applications per job → used in "Vagas que Precisam de Atenção"
-  const countByJob: Record<string, number> = {};
-  for (const row of (newAppsByJobRes.data ?? [])) {
-    countByJob[row.jobId] = (countByJob[row.jobId] ?? 0) + 1;
-  }
+  // ── Admissões ──────────────────────────────────────────────────────────────
+  const openAdmissions = admissions.filter((a) => !a.isFinal);
+  const flags = openAdmissions.map((a) => ({ a, f: admissionFlags(a, now) }));
+  const missingDocs = flags.filter((x) => x.f.missingDocs).length;
+  const lateAdmissions = flags.filter((x) => x.f.late).length;
+  const upcoming = flags
+    .filter((x) => x.f.upcoming)
+    .map((x) => x.a)
+    .sort((a, b) => (a.startDateISO ?? "").localeCompare(b.startDateISO ?? ""));
+  const waitingForm = flags.filter((x) => x.f.waitingForm).length;
+  const admissionsWithIssues = flags.filter((x) => x.f.missingDocs || x.f.late || x.f.waitingForm).length;
 
-  const attentionJobs = ((attentionJobsRes.data ?? []) as Array<{
-    id: string; title: string; status: string; city: string; state: string;
-  }>)
-    .filter((j) => (countByJob[j.id] ?? 0) > 0 || ["ADMISSION", "INTERVIEW", "SCREENING"].includes(j.status))
-    .sort((a, b) => (countByJob[b.id] ?? 0) - (countByJob[a.id] ?? 0))
-    .slice(0, 4);
+  // ── Fila de trabalho (só itens com algo a fazer) ───────────────────────────
+  const recruitmentQueue: QueueItem[] = [
+    awaitingTriage > 0 && {
+      key: "triagem",
+      href:
+        jobsWithNew.length === 1
+          ? `/vagas/${jobsWithNew[0].id}/candidatos`
+          : "/vagas/gerenciar?pendencia=triagem",
+      icon: UserCheck,
+      tone: "warning" as const,
+      count: awaitingTriage,
+      title: plural(awaitingTriage, "candidatura aguardando triagem", "candidaturas aguardando triagem"),
+      description:
+        jobsWithNew.length === 1
+          ? jobsWithNew[0].title
+          : `Em ${jobsWithNew.length} ${plural(jobsWithNew.length, "vaga", "vagas")}`,
+    },
+    pendingHr > 0 && {
+      key: "rh",
+      href: "/solicitacoes?status=PENDING_HR",
+      icon: Inbox,
+      tone: "warning" as const,
+      count: pendingHr,
+      title: plural(pendingHr, "solicitação de vaga para validar", "solicitações de vaga para validar"),
+      description: "Pedidos dos gestores aguardando o RH",
+    },
+    reviewTests > 0 && {
+      key: "avaliacoes",
+      href: "/avaliacoes/resultados",
+      icon: FlaskConical,
+      tone: "info" as const,
+      count: reviewTests,
+      title: plural(reviewTests, "avaliação aguardando revisão", "avaliações aguardando revisão"),
+      description: "Testes respondidos que precisam de correção manual",
+    },
+    staleJobs > 0 && {
+      key: "paradas",
+      href: "/vagas/gerenciar?pendencia=atencao",
+      icon: Hourglass,
+      tone: "danger" as const,
+      count: staleJobs,
+      title: plural(staleJobs, "vaga sem movimentação", "vagas sem movimentação"),
+      description: `Nenhuma atividade há ${ATTENTION_RULES.staleDays} dias ou mais`,
+    },
+    closingJobs > 0 && {
+      key: "encerrando",
+      href: "/vagas/gerenciar?pendencia=atencao",
+      icon: CalendarClock,
+      tone: "warning" as const,
+      count: closingJobs,
+      title: plural(closingJobs, "vaga com prazo de inscrição próximo ou vencido", "vagas com prazo de inscrição próximo ou vencido"),
+    },
+  ].filter(Boolean) as QueueItem[];
 
-  const recentApplications = (recentApplicationsRes.data ?? []) as unknown as Array<{
-    id: string; fullName: string; createdAt: string; jobId: string;
+  const admissionQueue: QueueItem[] = [
+    lateAdmissions > 0 && {
+      key: "atrasadas",
+      href: "/admissoes?filtro=atrasadas",
+      icon: CalendarX,
+      tone: "danger" as const,
+      count: lateAdmissions,
+      title: plural(lateAdmissions, "admissão com início vencido", "admissões com início vencido"),
+      description: "A data de início passou e a admissão não foi concluída",
+    },
+    missingDocs > 0 && {
+      key: "docs",
+      href: "/admissoes?filtro=documentos",
+      icon: FileWarning,
+      tone: "warning" as const,
+      count: missingDocs,
+      title: plural(missingDocs, "admissão com documentos obrigatórios pendentes", "admissões com documentos obrigatórios pendentes"),
+    },
+    upcoming.length > 0 && {
+      key: "proximas",
+      href: "/admissoes?filtro=proximas",
+      icon: CalendarClock,
+      tone: "info" as const,
+      count: upcoming.length,
+      title: plural(upcoming.length, "admissão começa nos próximos 7 dias", "admissões começam nos próximos 7 dias"),
+    },
+  ].filter(Boolean) as QueueItem[];
+
+  const waitingOthersQueue: QueueItem[] = [
+    pendingApproval > 0 && {
+      key: "aprovacao",
+      href: "/solicitacoes?status=PENDING_APPROVAL",
+      icon: Hourglass,
+      tone: "neutral" as const,
+      count: pendingApproval,
+      title: plural(pendingApproval, "solicitação aguardando aprovação do gestor", "solicitações aguardando aprovação do gestor"),
+    },
+    returned > 0 && {
+      key: "devolvidas",
+      href: "/solicitacoes?status=RETURNED",
+      icon: Inbox,
+      tone: "neutral" as const,
+      count: returned,
+      title: plural(returned, "solicitação devolvida aguardando ajuste do gestor", "solicitações devolvidas aguardando ajuste do gestor"),
+    },
+    waitingForm > 0 && {
+      key: "formulario",
+      href: "/admissoes?filtro=formulario",
+      icon: Send,
+      tone: "neutral" as const,
+      count: waitingForm,
+      title: plural(waitingForm, "formulário admissional aguardando o candidato", "formulários admissionais aguardando o candidato"),
+    },
+    waitingTests > 0 && {
+      key: "testes",
+      href: "/avaliacoes/resultados",
+      icon: FlaskConical,
+      tone: "neutral" as const,
+      count: waitingTests,
+      title: plural(waitingTests, "teste enviado aguardando o candidato", "testes enviados aguardando o candidato"),
+    },
+  ].filter(Boolean) as QueueItem[];
+
+  const queueGroups = [
+    { title: "Recrutamento", items: recruitmentQueue },
+    { title: "Admissões", items: admissionQueue },
+    { title: "Aguardando outras pessoas", items: waitingOthersQueue },
+  ].filter((g) => g.items.length > 0);
+  const myActions = [...recruitmentQueue, ...admissionQueue].reduce((acc, i) => acc + i.count, 0);
+
+  const recentApplications = (recentAppsRes.data ?? []) as unknown as Array<{
+    id: string;
+    fullName: string;
+    createdAt: string;
+    jobId: string;
     job: { title: string } | null;
     stage: { name: string; color: string } | null;
   }>;
 
-  const isAdmin = session?.user.role === "ADMIN_RH";
-
-  const KPIS = [
-    // Requisições pendentes abrem a lista só quando há algo a decidir — é a
-    // primeira coisa que o RH precisa ver ao entrar no painel.
-    ...(pendingRequests > 0
-      ? [{
-          icon: "📥", iconBg: "#FCF1DD", value: pendingRequests,
-          label: pendingRequests === 1 ? "Solicitação a analisar" : "Solicitações a analisar",
-          href: "/solicitacoes",
-        }]
-      : []),
-    { icon: "💼", iconBg: "#EAF4DC", value: activeJobs,  label: "Vagas Ativas",    href: "/vagas/gerenciar" },
-    { icon: "📄", iconBg: "#E9EDFA", value: draftJobs,   label: "Rascunhos",       href: "/vagas/gerenciar?status=DRAFT" },
-    { icon: "⏸",  iconBg: "#FCF1DD", value: pausedJobs,  label: "Vagas Pausadas",  href: "/vagas/gerenciar?status=PAUSED" },
-    { icon: "⊗",  iconBg: "#EFEFEF", value: closedJobs,  label: "Vagas Canceladas",href: "/vagas/gerenciar?status=CLOSED" },
-    { icon: "✓",  iconBg: "#EAF4DC", value: filledJobs,  label: "Vagas Finalizadas",href: "/vagas/gerenciar?status=FILLED" },
-  ];
-
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Visão geral"
+        subtitle={
+          <>
+            Olá{firstName ? `, ${firstName}` : ""}.{" "}
+            {myActions > 0
+              ? `Há ${myActions} ${plural(myActions, "item", "itens")} pedindo a sua ação.`
+              : "Nenhuma pendência sua no momento."}
+          </>
+        }
+        action={
+          isAdmin && (
+            <>
+              <ButtonLink href="/vagas/gerenciar" variant="secondary" icon={Briefcase}>
+                Gerenciar vagas
+              </ButtonLink>
+              <ButtonLink href="/vagas/nova" variant="primary" icon={Plus}>
+                Nova vaga
+              </ButtonLink>
+            </>
+          )
+        }
+      />
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-wg-ink text-[28px] font-extrabold tracking-tight font-sora">
-            Olá, {firstName} 👋
-          </h1>
-          <p className="text-wg-ink-secondary text-[14.5px] mt-1.5">
-            Você tem <strong>{newApps} novas candidaturas</strong> aguardando triagem
-            {expiringSoon > 0 && (
-              <> e <strong>{expiringSoon} {expiringSoon === 1 ? "vaga encerrando" : "vagas encerrando"}</strong> nos próximos 7 dias</>
-            )}.
-          </p>
-        </div>
-        {isAdmin && (
-          <div className="flex gap-2 shrink-0 pt-1">
-            <Link
-              href="/vagas/nova"
-              className="bg-wg-green text-wg-dark py-2 px-3.5 rounded-lg shadow-sm text-sm font-semibold transition-opacity hover:opacity-90"
-            >
-              + Nova Vaga
-            </Link>
-            <Link
-              href="/vagas/gerenciar"
-              className="bg-white border border-slate-300 text-slate-700 text-sm font-semibold py-2 px-3.5 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
-            >
-              💼 Gerenciar Vagas
-            </Link>
-          </div>
-        )}
+      {/* Métricas compactas — contexto, não o foco da tela */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <DashboardCard icon={Briefcase} tone="success" value={openJobs.length} label="Vagas abertas" href="/vagas/gerenciar?status=OPEN" />
+        <DashboardCard icon={Users} tone="info" value={candidatesInProcess} label="Candidatos em processo" hint="Nas vagas abertas, sem descartados" />
+        <DashboardCard
+          icon={UserCheck}
+          tone={awaitingTriage > 0 ? "warning" : "neutral"}
+          value={awaitingTriage}
+          label="Aguardando triagem"
+          href="/vagas/gerenciar?pendencia=triagem"
+        />
+        <DashboardCard
+          icon={Inbox}
+          tone={pendingHr + pendingApproval > 0 ? "warning" : "neutral"}
+          value={pendingHr + pendingApproval}
+          label="Solicitações em análise"
+          href="/solicitacoes"
+        />
+        <DashboardCard
+          icon={ClipboardCheck}
+          tone={admissionsWithIssues > 0 ? "warning" : "neutral"}
+          value={openAdmissions.length}
+          label="Admissões em andamento"
+          hint={admissionsWithIssues > 0 ? `${admissionsWithIssues} com pendências` : "Nenhuma com pendência"}
+          href="/admissoes"
+        />
       </div>
 
-      {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 page-stagger">
-        {KPIS.map((k) => (
-          <Link
-            key={k.label}
-            href={k.href}
-            className="block bg-white border border-wg-border-lighter rounded-2xl p-4 hover:shadow-md hover:-translate-y-0.5 transition duration-200 cursor-pointer"
-          >
-            <div
-              className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[15px] mb-2.5"
-              style={{ background: k.iconBg }}
-            >
-              {k.icon}
-            </div>
-            <div className="text-wg-ink text-2xl font-extrabold font-sora tabular-nums">{k.value}</div>
-            <div className="text-wg-ink-muted text-[12.5px] mt-0.5 font-inter">{k.label}</div>
-            <div className="text-wg-green-dark text-[11px] font-bold mt-1.5">Ver detalhes →</div>
-          </Link>
-        ))}
-
-        {/* Publicadas este mês + sparkline */}
-        <div className="bg-white border border-wg-border-lighter rounded-2xl p-4">
-          <div className="flex justify-between items-start">
-            <div className="text-wg-ink text-2xl font-extrabold font-sora tabular-nums">{thisMonth}</div>
-            <svg width="56" height="24" viewBox="0 0 56 24" className="shrink-0">
-              <polyline
-                points="0,18 10,15 20,17 30,10 40,8 56,2"
-                fill="none" stroke="#90CB46" strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <div className="text-wg-ink-muted text-[12.5px] mt-0.5">Publicadas este mês</div>
-          <div className={`text-[11px] font-bold mt-1 ${monthDiff >= 0 ? "text-wg-green-dark" : "text-red-600"}`}>
-            {monthTrend}
-          </div>
-        </div>
-      </div>
-
-      {/* Dois painéis: candidaturas + vagas atenção */}
-      <div className="grid gap-5 items-start page-stagger" style={{ gridTemplateColumns: "1.3fr 1fr" }}>
-
-        {/* Candidaturas Recentes */}
-        <div className="bg-white border border-wg-border-lighter rounded-2xl p-5 flex flex-col gap-3.5">
-          <div className="flex items-center justify-between flex-wrap gap-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[15px]">👥</span>
-              <span className="text-wg-ink text-base font-bold font-sora">Candidaturas Recentes</span>
-              <span className="text-[#6B7860] text-[13px]">{totalApps} no total</span>
-              {newApps > 0 && (
-                <span className="bg-[#EAF4DC] text-wg-green-dark text-[11.5px] font-bold px-2 py-0.5 rounded-full">
-                  {newApps} nova{newApps > 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-            <Link href="/vagas/gerenciar" className="text-wg-green-dark text-[13px] font-semibold">
-              Ver todas →
-            </Link>
-          </div>
-
-          <div className="flex flex-col">
-            {recentApplications.length === 0 ? (
-              <p className="text-wg-ink-muted text-sm py-6 text-center">Nenhuma candidatura ainda.</p>
-            ) : (
-              recentApplications.map((app) => (
-                <Link
-                  key={app.id}
-                  href={`/vagas/${app.jobId}/candidatos`}
-                  className="group flex items-center justify-between gap-3 py-3 px-1 border-t border-[#F0F3EC] relative"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-wg-ink text-[14.5px] font-bold truncate">{app.fullName}</div>
-                    <div className="text-wg-ink-muted text-[12.5px] mt-0.5 truncate group-hover:opacity-0 transition-opacity">
-                      {app.job?.title} · {timeAgo(app.createdAt)}
-                    </div>
-                    <div className="absolute left-1 bottom-2.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
-                      <span className="bg-[#F0F5E8] text-[#3E5A2A] px-2.5 py-1 rounded-lg text-xs font-semibold">
-                        Ver Perfil
-                      </span>
-                    </div>
-                  </div>
-                  {app.stage && (
-                    <span
-                      className="text-[11.5px] font-bold px-2.5 py-1 rounded-full shrink-0"
-                      style={{ background: `${app.stage.color}1f`, color: app.stage.color }}
-                    >
-                      {app.stage.name}
-                    </span>
-                  )}
-                </Link>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Vagas que Precisam de Atenção */}
-        <div className="bg-white border border-wg-border-lighter rounded-2xl p-5 flex flex-col gap-3.5">
-          <div className="flex items-center justify-between flex-wrap gap-1.5">
-            <span className="text-wg-ink text-base font-bold font-sora">Vagas que Precisam de Atenção</span>
-            <Link href="/vagas/gerenciar" className="text-wg-green-dark text-[13px] font-semibold">
-              Ver todas →
-            </Link>
-          </div>
-
-          <div className="flex flex-col">
-            {attentionJobs.length === 0 ? (
-              <p className="text-wg-ink-muted text-sm py-6 text-center">Nenhuma vaga precisando de atenção.</p>
-            ) : (
-              attentionJobs.map((vaga) => {
-                const badge  = STATUS_BADGE[vaga.status]  ?? { bg: "#F3F3F3", color: "#777" };
-                const stripe = STATUS_STRIPE[vaga.status] ?? "#B9C2AA";
-                const pendentes = countByJob[vaga.id] ?? 0;
-                return (
-                  <Link
-                    key={vaga.id}
-                    href={`/vagas/${vaga.id}/candidatos`}
-                    className="group flex items-center justify-between gap-2.5 py-2.5 px-1 border-t border-[#F0F3EC] relative"
-                  >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span
-                        className="w-1 h-6 rounded shrink-0"
-                        style={{ background: stripe }}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        {/* Fila de trabalho */}
+        <Panel
+          id="fila"
+          title="Sua fila de trabalho"
+          description="O que precisa de ação agora. Cada item abre a tela já filtrada."
+        >
+          {queueGroups.length === 0 ? (
+            <EmptyState
+              compact
+              icon={CheckCircle2}
+              title="Tudo em dia"
+              description="Não há candidaturas para triar, solicitações para validar nem admissões com pendência."
+            />
+          ) : (
+            <div className="flex flex-col gap-4">
+              {queueGroups.map((g) => (
+                <div key={g.title}>
+                  <h3 className="mb-1 px-2 font-inter text-label uppercase tracking-wide text-wg-ink-muted">{g.title}</h3>
+                  <ul className="flex flex-col">
+                    {g.items.map((i) => (
+                      <ActionListItem
+                        key={i.key}
+                        href={i.href}
+                        icon={i.icon}
+                        tone={i.tone}
+                        count={i.count}
+                        title={i.title}
+                        description={i.description}
                       />
-                      <div className="min-w-0">
-                        <div className="text-wg-ink text-[13.5px] font-bold truncate">{vaga.title}</div>
-                        <div className="text-wg-ink-muted text-xs mt-0.5 group-hover:opacity-0 transition-opacity">
-                          {[vaga.city, vaga.state].filter(Boolean).join("/") || "—"}
-                        </div>
-                        <div className="absolute left-3 bottom-2.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
-                          <span className="bg-[#F0F5E8] text-[#3E5A2A] px-2.5 py-1 rounded-lg text-xs font-semibold">
-                            Ir para a vaga
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {pendentes > 0 && (
-                        <span className="bg-[#F0F5E8] text-[#3E5A2A] text-[11px] font-bold px-2 py-0.5 rounded-full">
-                          👥 {pendentes} {pendentes === 1 ? "novo" : "novos"}
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        {/* Vagas que precisam de atenção — sempre com o motivo */}
+        <Panel
+          id="atencao"
+          title="Vagas que precisam de atenção"
+          meta={attention.length > 0 ? `${attention.length} de ${openJobs.length} abertas` : undefined}
+          action={
+            attention.length > 0 ? (
+              <Link href="/vagas/gerenciar?pendencia=atencao" className={panelLinkClass}>
+                Ver todas <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            ) : undefined
+          }
+          flush
+        >
+          {attention.length === 0 ? (
+            <EmptyState
+              compact
+              icon={CheckCircle2}
+              title="Nenhuma vaga precisa de atenção no momento"
+              description="Todas as vagas abertas estão com movimentação recente e sem candidatos parados na triagem."
+            />
+          ) : (
+            <ul className="flex flex-col">
+              {attention.slice(0, 5).map(({ job, reasons }) => {
+                const situation = SITUATION_META[operationalSituation(reasons)];
+                const location = job.isTalentPool ? "Todas as praças" : [job.city, job.state].filter(Boolean).join("/");
+                return (
+                  <li key={job.id} className="border-t border-wg-border-lighter first:border-t-0">
+                    <Link
+                      href={`/vagas/${job.id}/candidatos`}
+                      className="flex items-start gap-3 px-5 py-3 transition-colors hover:bg-wg-bg"
+                    >
+                      <AlertTriangle
+                        className={`mt-0.5 h-4 w-4 shrink-0 ${TONE_TEXT[situation.tone]}`}
+                        aria-label={`Situação: ${situation.label}`}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-record-title text-wg-ink">{job.title}</span>
+                        {location && <span className="block truncate text-meta text-wg-ink-muted">{location}</span>}
+                        <span className="mt-1 flex flex-col gap-0.5">
+                          {reasons.map((r) => (
+                            <span key={r.key} className={`text-meta font-medium ${TONE_TEXT[r.tone]}`}>
+                              {r.label}
+                            </span>
+                          ))}
                         </span>
-                      )}
-                      <span
-                        className="text-[11px] font-bold px-2.5 py-1 rounded-full"
-                        style={{ background: badge.bg, color: badge.color }}
-                      >
-                        {STATUS_LABEL[vaga.status]?.toUpperCase() ?? vaga.status}
                       </span>
-                    </div>
-                  </Link>
+                      <StatusBadge tone={situation.tone}>{situation.label}</StatusBadge>
+                    </Link>
+                  </li>
                 );
-              })
-            )}
-          </div>
-        </div>
+              })}
+            </ul>
+          )}
+        </Panel>
+
+        {/* Candidaturas recentes */}
+        <Panel
+          id="candidaturas"
+          title="Candidaturas recentes"
+          meta={awaitingTriage > 0 ? `${awaitingTriage} aguardando triagem` : undefined}
+          action={
+            <Link href="/vagas/gerenciar?pendencia=triagem" className={panelLinkClass}>
+              Ver vagas <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          }
+          flush
+        >
+          {recentApplications.length === 0 ? (
+            <EmptyState compact icon={Users} title="Nenhuma candidatura recebida ainda" />
+          ) : (
+            <ul className="flex flex-col">
+              {recentApplications.map((app) => (
+                <li key={app.id} className="border-t border-wg-border-lighter first:border-t-0">
+                  <Link
+                    href={`/vagas/${app.jobId}/candidatos`}
+                    className="flex items-center justify-between gap-3 px-5 py-2.5 transition-colors hover:bg-wg-bg"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-body font-medium text-wg-ink">{app.fullName}</span>
+                      <span className="block truncate text-meta text-wg-ink-muted">
+                        {app.job?.title ?? "Vaga removida"} · <time dateTime={app.createdAt}>{formatRelativeTime(app.createdAt, now)}</time>
+                      </span>
+                    </span>
+                    {app.stage && <StageBadge color={app.stage.color}>{app.stage.name}</StageBadge>}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        {/* Próximas admissões */}
+        <Panel
+          id="proximas-admissoes"
+          title="Próximas admissões"
+          meta="próximos 7 dias"
+          action={
+            <Link href="/admissoes/calendario" className={panelLinkClass}>
+              Calendário <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          }
+          flush
+        >
+          {upcoming.length === 0 ? (
+            <EmptyState compact icon={CalendarClock} title="Não há admissões previstas para os próximos 7 dias" />
+          ) : (
+            <ul className="flex flex-col">
+              {upcoming.slice(0, 5).map((a) => {
+                const d = daysUntilStart(a.startDateISO!, now);
+                const f = admissionFlags(a, now);
+                return (
+                  <li key={a.id} className="border-t border-wg-border-lighter first:border-t-0">
+                    <Link
+                      href={`/admissoes/${a.id}`}
+                      className="flex items-center justify-between gap-3 px-5 py-2.5 transition-colors hover:bg-wg-bg"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-body font-medium text-wg-ink">{a.fullName}</span>
+                        <span className="block truncate text-meta text-wg-ink-muted">
+                          {[a.positionName, a.branchName].filter(Boolean).join(" · ") || "Cargo não definido"}
+                          {f.missingDocs && (
+                            <span className="text-warning-fg">
+                              {" "}
+                              · {a.requiredDocsTotal - a.requiredDocsDone}{" "}
+                              {plural(a.requiredDocsTotal - a.requiredDocsDone, "documento pendente", "documentos pendentes")}
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                      <StatusBadge tone={d <= 1 ? "warning" : "info"}>
+                        {d === 0 ? "Começa hoje" : d === 1 ? "Amanhã" : `Em ${d} dias`}
+                      </StatusBadge>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
       </div>
 
+      <p className="text-meta text-wg-ink-muted">
+        Uma vaga aberta pede atenção quando tem candidatos sem triagem, prazo de inscrição próximo ou vencido, nenhum
+        candidato após {ATTENTION_RULES.noCandidatesDays} dias ou nenhuma movimentação há {ATTENTION_RULES.staleDays} dias.
+      </p>
     </div>
   );
 }

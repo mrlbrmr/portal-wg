@@ -1,22 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, useCallback } from "react";
+import { useEffect, useRef, useState, useTransition, useCallback, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Paperclip,
-  Upload,
-  Download,
-  Trash2,
-  FileText,
-  FolderOpen,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  X,
-} from "lucide-react";
+import { Upload, Download, Trash2, FileText, Eye, X, FilePlus2, FolderOpen } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { Button, buttonVariants } from "@/components/ui/Button";
+import { QuickFilterChips } from "@/components/ui/FilterPopover";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { ActionResult } from "@/lib/admissao/actions";
 import { updateAttachmentCategory, deleteAttachment } from "@/lib/admissao/actions";
+import { DOCUMENT_STATUS_META, fileStatus, sectionStatus, type DocumentStatus } from "@/lib/admissao/document-status";
+import { cn } from "@/lib/utils";
 
 const UNCATEGORIZED = "__uncategorized__";
 
@@ -27,6 +24,10 @@ export interface AttachmentView {
   sizeBytes: number | null;
   createdAt: string; // ISO
   documentTypeId: string | null;
+  aiStatus?: string | null;
+  aiReason?: string | null;
+  /** Nome de quem enviou (quando registrado). */
+  uploadedByName?: string | null;
 }
 
 interface DocumentType {
@@ -47,19 +48,33 @@ interface Section {
   name: string;
   required: boolean;
   files: AttachmentView[];
+  status: DocumentStatus;
 }
 
-const smallSelect =
-  "h-8 rounded-md border border-gray-300 px-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green";
+type DocFilter = "todos" | "pendentes" | "enviados";
 
-function isImage(mime: string | null) { return !!mime && mime.startsWith("image/"); }
-function isPdf(mime: string | null) { return mime === "application/pdf"; }
+const smallSelect =
+  "h-8 rounded-control border border-wg-border-light bg-white px-2 text-[12.5px] text-wg-ink focus:border-wg-green-dark focus:outline-none focus:ring-2 focus:ring-wg-green/30";
+
+function isImage(mime: string | null) {
+  return !!mime && mime.startsWith("image/");
+}
+function isPdf(mime: string | null) {
+  return mime === "application/pdf";
+}
 
 function formatSize(n: number | null): string {
-  if (!n) return "—";
+  if (!n) return "";
   if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatSentAt(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" });
+  const time = d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  return `${date} às ${time}`;
 }
 
 export function AdmissionAttachments({ admissionId, canManage, attachments, documentTypes }: Props) {
@@ -67,66 +82,78 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
   const { notify } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [pendingCategory, setPendingCategory] = useState(UNCATEGORIZED);
+  const [uploadCategory, setUploadCategory] = useState(UNCATEGORIZED);
+  const [dragOver, setDragOver] = useState(false);
+  const [filter, setFilter] = useState<DocFilter>("todos");
+  const [toDelete, setToDelete] = useState<AttachmentView | null>(null);
 
   const [previewItem, setPreviewItem] = useState<AttachmentView | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const blobUrlRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!previewItem) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closePreview(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [previewItem]);
-
-  // Busca o arquivo e cria um blob URL local — contorna X-Frame-Options/CSP do servidor.
-  const openPreview = useCallback(async (f: AttachmentView) => {
-    setPreviewItem(f);
-    setPreviewBlobUrl(null);
-    if (!isImage(f.mimeType) && !isPdf(f.mimeType)) return;
-    setPreviewLoading(true);
-    try {
-      const res = await fetch(
-        `/api/admissoes/${admissionId}/attachments/${f.id}?inline=true`,
-        { credentials: "same-origin" }
-      );
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = url;
-        setPreviewBlobUrl(url);
-      }
-    } finally {
-      setPreviewLoading(false);
-    }
-  }, [admissionId]);
-
-  function closePreview() {
+  const closePreview = useCallback(() => {
     setPreviewItem(null);
     setPreviewBlobUrl(null);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
     }
-  }
+  }, []);
 
-  function run(fn: () => Promise<ActionResult>) {
+  useEffect(() => {
+    if (!previewItem) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePreview();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [previewItem, closePreview]);
+
+  // Busca o arquivo e cria um blob URL local — contorna X-Frame-Options/CSP do servidor.
+  const openPreview = useCallback(
+    async (f: AttachmentView) => {
+      setPreviewItem(f);
+      setPreviewBlobUrl(null);
+      if (!isImage(f.mimeType) && !isPdf(f.mimeType)) return;
+      setPreviewLoading(true);
+      try {
+        const res = await fetch(`/api/admissoes/${admissionId}/attachments/${f.id}?inline=true`, {
+          credentials: "same-origin",
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+          blobUrlRef.current = url;
+          setPreviewBlobUrl(url);
+        } else {
+          notify("error", "Não foi possível carregar a pré-visualização.");
+        }
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [admissionId, notify]
+  );
+
+  function run(fn: () => Promise<ActionResult>, success?: string) {
     startTransition(async () => {
       const res = await fn();
       if (!res.ok) notify("error", res.error);
+      else if (success) notify("success", success);
     });
   }
 
-  function handleFiles(files: FileList) {
-    const categoryId = pendingCategory === UNCATEGORIZED ? "" : pendingCategory;
+  function uploadFiles(files: FileList | File[], categoryId: string) {
+    const list = Array.from(files);
+    if (list.length === 0) return;
     startTransition(async () => {
-      for (const file of Array.from(files)) {
+      let sent = 0;
+      for (const file of list) {
         const fd = new FormData();
         fd.set("file", file);
-        if (categoryId) fd.set("documentTypeId", categoryId);
+        if (categoryId && categoryId !== UNCATEGORIZED) fd.set("documentTypeId", categoryId);
         const res = await fetch(`/api/admissoes/${admissionId}/attachments`, {
           method: "POST",
           credentials: "same-origin",
@@ -141,277 +168,346 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
             /* mantém a mensagem padrão */
           }
           notify("error", `${file.name}: ${msg}`);
-          return;
+          continue;
         }
+        sent++;
       }
-      notify("success", "Anexo(s) enviado(s).");
-      router.refresh();
+      if (sent > 0) {
+        notify("success", sent === 1 ? "Documento adicionado." : `${sent} documentos adicionados.`);
+        router.refresh();
+      }
     });
   }
 
-  const sections = buildSections(attachments, documentTypes);
+  function pickFor(categoryId: string) {
+    setUploadCategory(categoryId);
+    // Aguarda o estado para o onChange do input usar a categoria certa.
+    requestAnimationFrame(() => inputRef.current?.click());
+  }
 
-  // % de documentos obrigatórios com ao menos um anexo.
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    if (!canManage || isPending) return;
+    uploadFiles(e.dataTransfer.files, uploadCategory);
+  }
+
+  const sections = buildSections(attachments, documentTypes);
   const requiredTypes = documentTypes.filter((d) => d.required);
-  const requiredDone = requiredTypes.filter((d) =>
-    attachments.some((a) => a.documentTypeId === d.id)
-  ).length;
+  const requiredDone = requiredTypes.filter((d) => attachments.some((a) => a.documentTypeId === d.id)).length;
   const reqTotal = requiredTypes.length;
   const reqPct = reqTotal > 0 ? Math.round((requiredDone / reqTotal) * 100) : 0;
+  const pendingCount = sections.filter((s) => s.status === "PENDING").length;
+  const reviewCount = sections.filter((s) => s.status === "NEEDS_REVIEW" || s.status === "AI_REJECTED").length;
+
+  const visibleSections = sections.filter((s) =>
+    filter === "pendentes"
+      ? s.status === "PENDING" || s.status === "NEEDS_REVIEW" || s.status === "AI_REJECTED"
+      : filter === "enviados"
+        ? s.files.length > 0
+        : true
+  );
 
   return (
     <>
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-200">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            <Paperclip className="w-4 h-4" /> Documentos
-          </h2>
-          {reqTotal > 0 && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              {requiredDone} de {reqTotal} obrigatórios · {reqPct}%
-            </p>
-          )}
-        </div>
+      <section aria-labelledby="docs-title" className="rounded-card border border-wg-border-lighter bg-white">
+        <header className="flex flex-wrap items-end justify-between gap-3 border-b border-wg-border-lighter px-5 py-4">
+          <div className="min-w-[220px] flex-1">
+            <h2 id="docs-title" className="font-sora text-section-title text-wg-ink">
+              Documentos
+            </h2>
+            {reqTotal > 0 ? (
+              <>
+                <p className="mt-0.5 text-meta text-wg-ink-muted">
+                  {requiredDone} de {reqTotal} obrigatórios enviados · {reqPct}%
+                  {reviewCount > 0 && (
+                    <span className="text-warning-fg">
+                      {" "}
+                      · {reviewCount} {reviewCount === 1 ? "precisa" : "precisam"} de revisão
+                    </span>
+                  )}
+                </p>
+                <ProgressBar
+                  className="mt-2 max-w-xs"
+                  value={reqPct}
+                  tone={reqPct === 100 ? "success" : "warning"}
+                  label="Documentos obrigatórios enviados"
+                />
+              </>
+            ) : (
+              <p className="mt-0.5 text-meta text-wg-ink-muted">Nenhum documento obrigatório configurado.</p>
+            )}
+          </div>
+          <QuickFilterChips<DocFilter>
+            label="Filtrar documentos"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: "todos", label: "Todos", count: sections.length },
+              { value: "pendentes", label: "Pendentes", count: pendingCount + reviewCount },
+              { value: "enviados", label: "Enviados", count: sections.filter((s) => s.files.length > 0).length },
+            ]}
+          />
+        </header>
+
         {canManage && (
-          <div className="flex items-center gap-2">
-            <select
-              value={pendingCategory}
-              onChange={(e) => setPendingCategory(e.target.value)}
-              className={`${smallSelect} w-[170px]`}
-            >
-              <option value={UNCATEGORIZED}>Sem categoria</option>
-              {documentTypes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          <div className="px-5 pt-4">
             <input
               ref={inputRef}
               type="file"
               multiple
-              className="hidden"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
               onChange={(e) => {
                 if (e.target.files?.length) {
-                  handleFiles(e.target.files);
+                  uploadFiles(e.target.files, uploadCategory);
                   e.target.value = "";
                 }
               }}
             />
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => inputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 bg-wg-green hover:bg-wg-green-bright text-black text-sm font-semibold px-3 py-1.5 rounded-full disabled:opacity-60"
-            >
-              <Upload className="w-4 h-4" /> {isPending ? "Enviando…" : "Enviar"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="p-5 space-y-4">
-        {/* Barra de progresso dos obrigatórios */}
-        {reqTotal > 0 && (
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className={`h-full transition-all ${reqPct === 100 ? "bg-wg-green" : "bg-amber-400"}`}
-              style={{ width: `${reqPct}%` }}
-            />
-          </div>
-        )}
-
-        {sections.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-6">
-            Nenhum tipo de documento configurado.
-          </p>
-        )}
-
-        {sections.map((s) => {
-          const isEmptyRequired = s.required && s.files.length === 0;
-          return (
-            <div
-              key={s.key}
-              className={`border rounded-lg overflow-hidden ${
-                isEmptyRequired ? "border-amber-300" : "border-gray-200"
-              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={onDrop}
+              className={cn(
+                "flex flex-col items-center gap-3 rounded-card border-2 border-dashed px-4 py-5 text-center transition-colors sm:flex-row sm:text-left",
+                dragOver ? "border-wg-green-dark bg-wg-sidebar" : "border-wg-border-light bg-wg-bg"
+              )}
             >
-              <div
-                className={`flex items-center gap-2 px-3 py-2 ${
-                  isEmptyRequired ? "bg-amber-50" : "bg-gray-50"
-                }`}
-              >
-                <FolderOpen
-                  className={`w-4 h-4 shrink-0 ${isEmptyRequired ? "text-amber-500" : "text-gray-400"}`}
-                />
-                <span className="font-medium text-sm text-gray-800">{s.name}</span>
-                {s.required && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 rounded px-1.5 py-0.5">
-                    Obrigatório
-                  </span>
-                )}
-                {s.files.length > 0 && (
-                  <span className="text-[11px] text-gray-500 bg-gray-200 rounded-full px-1.5">
-                    {s.files.length}
-                  </span>
-                )}
-                {s.required &&
-                  (s.files.length > 0 ? (
-                    <CheckCircle2 className="w-4 h-4 text-wg-green ml-auto shrink-0" />
-                  ) : (
-                    <span className="ml-auto flex items-center gap-1 text-xs text-amber-600 shrink-0">
-                      <AlertCircle className="w-3.5 h-3.5" /> Pendente
-                    </span>
-                  ))}
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-wg-green-dark">
+                <Upload className="h-5 w-5" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-body font-medium text-wg-ink">
+                  {isPending ? "Enviando documentos…" : "Arraste os documentos aqui"}
+                </p>
+                <p className="text-meta text-wg-ink-muted">
+                  ou{" "}
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => inputRef.current?.click()}
+                    className="font-semibold text-wg-green-dark underline-offset-2 hover:underline disabled:opacity-50"
+                  >
+                    escolha arquivos do computador
+                  </button>{" "}
+                  · PDF ou imagem, até 4,5 MB
+                </p>
               </div>
+              <label className="flex flex-col gap-1 text-left">
+                <span className="text-label text-wg-ink-muted">Categoria do documento</span>
+                <select
+                  value={uploadCategory}
+                  onChange={(e) => setUploadCategory(e.target.value)}
+                  className={cn(smallSelect, "h-9 w-[200px]")}
+                >
+                  <option value={UNCATEGORIZED}>Sem categoria</option>
+                  {documentTypes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.required ? " (obrigatório)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
 
-              {s.files.length === 0 ? (
-                <p className="text-xs text-gray-400 px-3 py-3">Nenhum arquivo nesta seção.</p>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {s.files.map((f) => (
-                    <div key={f.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50/60">
-                      <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-gray-800 truncate">{f.fileName}</div>
-                        <div className="text-xs text-gray-400">
-                          {formatSize(f.sizeBytes)} · {new Date(f.createdAt).toLocaleString("pt-BR")}
-                        </div>
-                      </div>
-                      {canManage && (
-                        <select
-                          value={f.documentTypeId ?? UNCATEGORIZED}
+        <div className="p-5">
+          {sections.length === 0 ? (
+            <EmptyState
+              compact
+              icon={FolderOpen}
+              title="Nenhum tipo de documento configurado"
+              description="Cadastre os tipos em Admissões → Configurações → Categorias."
+            />
+          ) : visibleSections.length === 0 ? (
+            <EmptyState
+              compact
+              icon={FolderOpen}
+              title={filter === "pendentes" ? "Nenhum documento pendente" : "Nenhum documento enviado ainda"}
+            />
+          ) : (
+            <ul className="divide-y divide-wg-border-lighter rounded-card border border-wg-border-lighter">
+              {visibleSections.map((s) => {
+                const meta = DOCUMENT_STATUS_META[s.status];
+                return (
+                  <li key={s.key} className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-body font-medium text-wg-ink">{s.name}</span>
+                      {s.required && <span className="text-[11.5px] text-wg-ink-muted">Obrigatório</span>}
+                      <StatusBadge tone={meta.tone} hint={meta.hint} className="ml-auto">
+                        {meta.label}
+                      </StatusBadge>
+                      {canManage && s.key !== UNCATEGORIZED && (
+                        <Button
+                          size="sm"
+                          variant={s.files.length === 0 ? "secondary" : "tertiary"}
+                          icon={FilePlus2}
                           disabled={isPending}
-                          onChange={(e) =>
-                            run(() =>
-                              updateAttachmentCategory(
-                                admissionId,
-                                f.id,
-                                e.target.value === UNCATEGORIZED ? null : e.target.value
-                              )
-                            )
-                          }
-                          className={`${smallSelect} w-[150px]`}
+                          onClick={() => pickFor(s.key)}
+                          aria-label={`${s.files.length === 0 ? "Fazer upload" : "Adicionar arquivo"} — ${s.name}`}
                         >
-                          <option value={UNCATEGORIZED}>Sem categoria</option>
-                          {documentTypes.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => openPreview(f)}
-                        className="p-1 text-gray-400 hover:text-wg-green-dark rounded"
-                        title="Pré-visualizar"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <a
-                        href={`/api/admissoes/${admissionId}/attachments/${f.id}`}
-                        className="p-1 text-gray-400 hover:text-wg-green-dark rounded"
-                        title="Baixar"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                      {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (confirm(`Remover "${f.fileName}"?`))
-                              run(() => deleteAttachment(admissionId, f.id));
-                          }}
-                          className="p-1 text-gray-400 hover:text-red-600 rounded"
-                          title="Remover"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          {s.files.length === 0 ? "Fazer upload" : "Adicionar"}
+                        </Button>
                       )}
                     </div>
-                  ))}
-                </div>
+
+                    {s.files.length > 0 && (
+                      <ul className="mt-2 flex flex-col gap-1.5">
+                        {s.files.map((f) => {
+                          const fs = DOCUMENT_STATUS_META[fileStatus(f.aiStatus)];
+                          return (
+                            <li
+                              key={f.id}
+                              className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-control bg-wg-bg px-3 py-2"
+                            >
+                              <FileText className="h-4 w-4 shrink-0 text-wg-ink-muted" aria-hidden />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[13px] font-medium text-wg-ink" title={f.fileName}>
+                                  {f.fileName}
+                                </p>
+                                <p className="text-[12px] text-wg-ink-muted">
+                                  Enviado em {formatSentAt(f.createdAt)}
+                                  {f.uploadedByName ? ` por ${f.uploadedByName}` : ""}
+                                  {f.sizeBytes ? ` · ${formatSize(f.sizeBytes)}` : ""}
+                                </p>
+                                {f.aiReason && (fs.tone === "warning" || fs.tone === "danger") && (
+                                  <p className={cn("mt-1 text-[12px]", fs.tone === "danger" ? "text-danger-fg" : "text-warning-fg")}>
+                                    <span className="font-semibold">Motivo:</span> {f.aiReason}
+                                  </p>
+                                )}
+                              </div>
+                              {canManage && (
+                                <select
+                                  aria-label={`Categoria de ${f.fileName}`}
+                                  value={f.documentTypeId ?? UNCATEGORIZED}
+                                  disabled={isPending}
+                                  onChange={(e) =>
+                                    run(
+                                      () =>
+                                        updateAttachmentCategory(
+                                          admissionId,
+                                          f.id,
+                                          e.target.value === UNCATEGORIZED ? null : e.target.value
+                                        ),
+                                      "Categoria atualizada."
+                                    )
+                                  }
+                                  className={cn(smallSelect, "w-[160px]")}
+                                >
+                                  <option value={UNCATEGORIZED}>Sem categoria</option>
+                                  {documentTypes.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              <div className="flex items-center gap-1">
+                                <Button size="sm" variant="tertiary" icon={Eye} onClick={() => openPreview(f)}>
+                                  Visualizar
+                                </Button>
+                                <a
+                                  href={`/api/admissoes/${admissionId}/attachments/${f.id}`}
+                                  className={buttonVariants({ variant: "tertiary", size: "sm" })}
+                                >
+                                  <Download aria-hidden /> Baixar
+                                </a>
+                                {canManage && (
+                                  <Button
+                                    size="icon-sm"
+                                    variant="tertiary"
+                                    icon={Trash2}
+                                    disabled={isPending}
+                                    onClick={() => setToDelete(f)}
+                                    aria-label={`Remover ${f.fileName}`}
+                                    title="Remover arquivo"
+                                    className="hover:bg-danger-bg hover:text-danger-fg"
+                                  />
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <ConfirmModal
+        isOpen={!!toDelete}
+        title="Remover documento?"
+        message={toDelete ? `"${toDelete.fileName}" será removido desta admissão. Esta ação não pode ser desfeita.` : ""}
+        confirmLabel="Remover"
+        onConfirm={() => {
+          const f = toDelete;
+          setToDelete(null);
+          if (f) run(() => deleteAttachment(admissionId, f.id), "Documento removido.");
+        }}
+        onCancel={() => setToDelete(null)}
+      />
+
+      {/* Modal de pré-visualização */}
+      {previewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={closePreview}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Pré-visualização de ${previewItem.fileName}`}
+            className="relative flex w-full max-w-4xl flex-col overflow-hidden rounded-card bg-white shadow-2xl"
+            style={{ maxHeight: "90vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center gap-3 border-b border-wg-border-lighter px-4 py-3">
+              <FileText className="h-4 w-4 shrink-0 text-wg-ink-muted" aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-wg-ink">{previewItem.fileName}</span>
+              <a
+                href={`/api/admissoes/${admissionId}/attachments/${previewItem.id}`}
+                className={buttonVariants({ variant: "secondary", size: "sm" })}
+              >
+                <Download aria-hidden /> Baixar
+              </a>
+              <Button size="icon-sm" variant="tertiary" icon={X} onClick={closePreview} aria-label="Fechar pré-visualização" autoFocus />
+            </div>
+
+            <div className="flex min-h-[300px] flex-1 items-center justify-center overflow-auto bg-wg-bg">
+              {previewLoading && <p className="text-sm text-wg-ink-muted">Carregando pré-visualização…</p>}
+              {!previewLoading && previewBlobUrl && isImage(previewItem.mimeType) && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewBlobUrl} alt={previewItem.fileName} className="max-h-[75vh] max-w-full object-contain p-4" />
+              )}
+              {!previewLoading && previewBlobUrl && isPdf(previewItem.mimeType) && (
+                <iframe src={previewBlobUrl} title={previewItem.fileName} className="w-full" style={{ height: "75vh" }} />
+              )}
+              {!previewLoading && !previewBlobUrl && !isImage(previewItem.mimeType) && !isPdf(previewItem.mimeType) && (
+                <EmptyState
+                  icon={FileText}
+                  title="Este formato não tem pré-visualização"
+                  action={
+                    <a
+                      href={`/api/admissoes/${admissionId}/attachments/${previewItem.id}`}
+                      className={buttonVariants({ variant: "secondary" })}
+                    >
+                      <Download aria-hidden /> Baixar arquivo
+                    </a>
+                  }
+                />
               )}
             </div>
-          );
-        })}
-      </div>
-    </div>
-
-    {/* Modal de pré-visualização */}
-    {previewItem && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
-        onClick={closePreview}
-      >
-        <div
-          className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden"
-          style={{ maxHeight: "90vh" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Cabeçalho */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0">
-            <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-            <span className="flex-1 text-sm font-medium text-gray-800 truncate min-w-0">
-              {previewItem.fileName}
-            </span>
-            <a
-              href={`/api/admissoes/${admissionId}/attachments/${previewItem.id}`}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-wg-green-dark shrink-0"
-              title="Baixar"
-            >
-              <Download className="w-3.5 h-3.5" /> Baixar
-            </a>
-            <button
-              onClick={closePreview}
-              className="p-1 text-gray-400 hover:text-gray-700 rounded shrink-0"
-              title="Fechar"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Conteúdo */}
-          <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 min-h-[300px]">
-            {previewLoading && (
-              <p className="text-sm text-gray-400">Carregando…</p>
-            )}
-            {!previewLoading && previewBlobUrl && isImage(previewItem.mimeType) && (
-              <img
-                src={previewBlobUrl}
-                alt={previewItem.fileName}
-                className="max-w-full max-h-[75vh] object-contain p-4"
-              />
-            )}
-            {!previewLoading && previewBlobUrl && isPdf(previewItem.mimeType) && (
-              <iframe
-                src={previewBlobUrl}
-                title={previewItem.fileName}
-                className="w-full"
-                style={{ height: "75vh" }}
-              />
-            )}
-            {!previewLoading && !previewBlobUrl &&
-              !isImage(previewItem.mimeType) && !isPdf(previewItem.mimeType) && (
-              <div className="text-center p-10">
-                <FileText className="w-14 h-14 text-gray-200 mx-auto mb-3" />
-                <p className="text-sm text-gray-500 mb-4">
-                  Este formato não suporta pré-visualização.
-                </p>
-                <a
-                  href={`/api/admissoes/${admissionId}/attachments/${previewItem.id}`}
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-wg-green-dark hover:underline"
-                >
-                  <Download className="w-4 h-4" /> Baixar arquivo
-                </a>
-              </div>
-            )}
           </div>
         </div>
-      </div>
-    )}
+      )}
     </>
   );
 }
@@ -422,12 +518,10 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
  * houver arquivos soltos.
  */
 function buildSections(files: AttachmentView[], types: DocumentType[]): Section[] {
-  const sections: Section[] = types.map((t) => ({
-    key: t.id,
-    name: t.name,
-    required: t.required,
-    files: files.filter((f) => f.documentTypeId === t.id),
-  }));
+  const sections: Section[] = types.map((t) => {
+    const f = files.filter((x) => x.documentTypeId === t.id);
+    return { key: t.id, name: t.name, required: t.required, files: f, status: sectionStatus(f, t.required) };
+  });
 
   const knownIds = new Set(types.map((t) => t.id));
   const uncategorized = files.filter((f) => !f.documentTypeId || !knownIds.has(f.documentTypeId));
@@ -437,6 +531,7 @@ function buildSections(files: AttachmentView[], types: DocumentType[]): Section[
       name: "Sem categoria",
       required: false,
       files: uncategorized,
+      status: sectionStatus(uncategorized, false),
     });
   }
 

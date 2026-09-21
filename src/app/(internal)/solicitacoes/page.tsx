@@ -15,8 +15,12 @@ export const metadata: Metadata = { title: "Solicitações de Vaga — RH" };
  * seletivo) é outra coisa e mora em /vagas — só aparece lá depois que a solicitação
  * correspondente for aprovada e o RH iniciar o recrutamento.
  */
-export default async function SolicitacoesPage() {
-  const [session, requests] = await Promise.all([auth(), listJobRequests()]);
+export default async function SolicitacoesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const [session, requests, params] = await Promise.all([auth(), listJobRequests(), searchParams]);
   const canCreate = session?.user.role === "ADMIN_RH";
 
   return (
@@ -32,7 +36,7 @@ export default async function SolicitacoesPage() {
           )
         }
       />
-      <JobRequestsExplorer requests={requests} />
+      <JobRequestsExplorer requests={requests} initialStatus={params.status} />
     </div>
   );
 }

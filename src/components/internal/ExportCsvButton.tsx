@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/ToastProvider";
 
 interface Props {
   status?: string;
 }
 
+/** Botão secundário "Exportar CSV" da lista de vagas. */
 export function ExportCsvButton({ status }: Props) {
   const [loading, setLoading] = useState(false);
+  const { notify } = useToast();
 
   async function handleExport() {
     setLoading(true);
@@ -18,7 +22,10 @@ export function ExportCsvButton({ status }: Props) {
       const res = await fetch(`/api/jobs/export?${params.toString()}`, {
         credentials: "same-origin",
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        notify("error", "Não foi possível exportar as vagas. Tente novamente.");
+        return;
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -29,20 +36,23 @@ export function ExportCsvButton({ status }: Props) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } catch {
+      notify("error", "Erro de conexão ao exportar. Tente novamente.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <button
+    <Button
+      variant="secondary"
+      icon={Download}
+      loading={loading}
       onClick={handleExport}
-      disabled={loading}
-      title="Exportar lista de vagas como CSV"
-      className="flex items-center gap-1.5 text-sm bg-white border border-slate-300 text-slate-700 font-semibold py-2.5 px-4 rounded-lg hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
+      title="Baixar a lista de vagas em CSV"
+      aria-label="Exportar vagas em CSV"
     >
-      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
       <span className="hidden sm:inline">Exportar CSV</span>
-    </button>
+    </Button>
   );
 }

@@ -27,6 +27,8 @@ import {
 
 interface Props {
   requests: JobRequestRow[];
+  /** Filtro rápido inicial vindo da URL (?status=) — links do Dashboard. */
+  initialStatus?: string;
 }
 
 type QuickFilter = "OPEN" | "ALL" | JobRequestStatus;
@@ -35,6 +37,7 @@ const QUICK_FILTERS: Array<{ value: QuickFilter; label: string }> = [
   { value: "OPEN", label: "Em andamento" },
   { value: "PENDING_HR", label: "Aguardando RH" },
   { value: "PENDING_APPROVAL", label: "Aguardando aprovação" },
+  { value: "RETURNED", label: "Devolvidas" },
   { value: "APPROVED", label: "Aprovadas" },
   { value: "RECRUITING", label: "Em recrutamento" },
   { value: "ALL", label: "Todas" },
@@ -49,8 +52,12 @@ function uniqueSorted(values: Array<string | null>): string[] {
   );
 }
 
-export function JobRequestsExplorer({ requests }: Props) {
-  const [quick, setQuick] = useState<QuickFilter>("OPEN");
+export function JobRequestsExplorer({ requests, initialStatus }: Props) {
+  const initialQuick: QuickFilter =
+    initialStatus === "ALL" || (JOB_REQUEST_STATUS_ORDER as string[]).includes(initialStatus ?? "")
+      ? (initialStatus as QuickFilter)
+      : "OPEN";
+  const [quick, setQuick] = useState<QuickFilter>(initialQuick);
   const [query, setQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<JobRequestFilters>(EMPTY_JOB_REQUEST_FILTERS);

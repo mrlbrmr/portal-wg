@@ -110,7 +110,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
 
   const busy = loading !== null;
   const itemClass =
-    "flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50";
+    "flex w-full items-center gap-2 px-3 py-2 text-sm text-wg-ink-secondary transition-colors hover:bg-wg-bg hover:text-wg-ink disabled:opacity-50";
 
   return (
     <>
@@ -121,8 +121,9 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
           disabled={busy}
           aria-haspopup="menu"
           aria-expanded={open}
+          aria-label={`Mais ações para ${jobTitle}`}
           title="Mais ações"
-          className="rounded-lg border border-gray-300 p-1.5 text-gray-500 transition-colors hover:border-wg-green hover:text-wg-green-dark disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded-control border border-transparent text-wg-ink-muted transition-colors hover:border-wg-border-light hover:bg-wg-bg hover:text-wg-ink disabled:opacity-50"
         >
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -134,7 +135,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+            className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-card border border-wg-border-lighter bg-white py-1 shadow-[0_12px_32px_rgba(26,34,19,.12)]"
           >
             <Link
               href={`/vagas/${jobId}/editar`}
@@ -143,7 +144,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
               onClick={() => setOpen(false)}
             >
               <Pencil className="h-4 w-4 text-gray-400" />
-              Editar
+              Editar vaga
             </Link>
             <button
               type="button"
@@ -155,7 +156,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
               }}
             >
               <Copy className="h-4 w-4 text-gray-400" />
-              Duplicar
+              Duplicar vaga
             </button>
 
             <div className="my-1 border-t border-gray-100" />
@@ -171,7 +172,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
                 }}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                Finalizar vaga
+                Encerrar vaga
               </button>
             )}
             {status !== "CLOSED" && (
@@ -198,7 +199,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
               }}
             >
               <Trash2 className="h-4 w-4" />
-              Excluir
+              Excluir vaga
             </button>
           </div>
         )}
@@ -208,7 +209,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
         isOpen={pendingAction === "cancel"}
         title="Cancelar vaga?"
         message={`"${jobTitle}" será marcada como Cancelada e deixará de aparecer no portal público.`}
-        confirmLabel="Sim, cancelar"
+        confirmLabel="Cancelar vaga"
         variant="warning"
         onConfirm={() => {
           setPendingAction(null);
@@ -219,9 +220,9 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
 
       <ConfirmModal
         isOpen={pendingAction === "finish"}
-        title="Finalizar vaga?"
-        message={`"${jobTitle}" será marcada como Finalizada, sairá do portal público e passará a contar nos indicadores de vagas concluídas.`}
-        confirmLabel="Sim, finalizar"
+        title="Encerrar vaga?"
+        message={`"${jobTitle}" será marcada como Encerrada (vaga preenchida), sairá do portal público e passará a contar nos indicadores de vagas concluídas.`}
+        confirmLabel="Encerrar vaga"
         variant="warning"
         onConfirm={() => {
           setPendingAction(null);
@@ -234,7 +235,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
         isOpen={pendingAction === "delete"}
         title="Excluir vaga permanentemente?"
         message={`"${jobTitle}" será removida e esta ação não pode ser desfeita.`}
-        confirmLabel="Sim, excluir"
+        confirmLabel="Excluir vaga"
         variant="danger"
         onConfirm={() => {
           setPendingAction(null);

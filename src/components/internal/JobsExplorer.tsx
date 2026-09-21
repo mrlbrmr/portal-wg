@@ -1,32 +1,66 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Users, Briefcase, SearchX, Plus, Search } from "lucide-react";
+import { Briefcase, SearchX, Plus, Users, CalendarDays, Clock3, UserRound, Eye } from "lucide-react";
 import {
-  JOB_STATUS_LABELS,
-  formatAge,
-  isTerminalJobStatus,
+  CONTRACT_TYPE_LABELS,
+  MODALITY_LABELS,
+  formatDate,
+  formatRelativeTime,
   isKanbanDefaultHiddenStatus,
   normalizeText,
+  pluralDays,
+  daysSince,
+  cn,
 } from "@/lib/utils";
+import {
+  JOB_LIFECYCLE_META,
+  JOB_LIFECYCLE_ORDER,
+  JOB_STAGE_META,
+  JOB_STAGE_ORDER,
+  jobLifecycle,
+  jobProcessStage,
+  parseLegacyStatusParam,
+  type JobLifecycle,
+  type JobProcessStage,
+} from "@/lib/recruitment/job-presentation";
+import {
+  jobAttentionReasons,
+  operationalSituation,
+  attentionScore,
+  SITUATION_META,
+  type AttentionReason,
+} from "@/lib/recruitment/attention";
+import { evaluateSla, SLA_META } from "@/lib/recruitment/sla";
 import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
 import { ViewToggle } from "@/components/internal/ViewToggle";
+import { SearchBar } from "@/components/internal/SearchBar";
+import { SortDropdown } from "@/components/internal/SortDropdown";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { StatusBadge, StageBadge, TONE_DOT, TONE_TEXT } from "@/components/ui/StatusBadge";
+import { ButtonLink, Button } from "@/components/ui/Button";
+import {
+  FilterPopover,
+  ActiveFilterChips,
+  QuickFilterChips,
+  type ActiveChip,
+  type FilterSection,
+} from "@/components/ui/FilterPopover";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useSyncQueryString, parseList } from "@/hooks/useSyncQueryString";
 import { type JobRow } from "@/types/jobs";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 const JobKanbanBoard = dynamic(
-  () =>
-    import("@/components/internal/JobKanbanBoard").then((m) => m.JobKanbanBoard),
+  () => import("@/components/internal/JobKanbanBoard").then((m) => m.JobKanbanBoard),
   {
     ssr: false,
     loading: () => (
       <div className="flex gap-4 overflow-hidden pb-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-64 w-72 shrink-0 rounded-xl" />
+          <Skeleton key={i} className="h-64 w-72 shrink-0 rounded-card" />
         ))}
       </div>
     ),
@@ -34,82 +68,56 @@ const JobKanbanBoard = dynamic(
 );
 
 type View = "list" | "kanban";
-type QuickFilter = null | "minhas" | "comCandidatos";
+type Quick = "todas" | "minhas" | "atencao" | "triagem";
+type CandidatesFilter = "" | "com" | "sem";
+type PeriodFilter = "" | "7" | "30" | "90";
 
 interface Props {
   jobs: JobRow[];
   canManage: boolean;
-  initialView?: View;
-  initialStatus?: string;
-  initialSort?: string;
+  /** Query string da página — fonte do estado inicial dos filtros (persistência por URL). */
+  initialParams: Record<string, string | undefined>;
   currentUserName?: string | null;
 }
 
 const SORT_OPTIONS = [
   { value: "date_desc", label: "Mais recentes" },
   { value: "date_asc", label: "Mais antigas" },
-  { value: "updated_desc", label: "Última atualização" },
+  { value: "attention", label: "Mais urgentes" },
+  { value: "updated_desc", label: "Movimentação recente" },
   { value: "candidates_desc", label: "Mais candidatos" },
   { value: "candidates_asc", label: "Menos candidatos" },
   { value: "city_asc", label: "Cidade (A-Z)" },
-  { value: "state_asc", label: "Estado (A-Z)" },
   { value: "title_asc", label: "Título (A-Z)" },
 ];
 
-const STATUS_FILTER_OPTIONS = [
-  { value: "DRAFT", label: "Rascunho" },
-  { value: "ACTIVE", label: "Ativa" },
-  { value: "SCREENING", label: "Triagem" },
-  { value: "INTERVIEW", label: "Entrevistas" },
-  { value: "ADMISSION", label: "Admissão" },
-  { value: "PAUSED", label: "Pausada" },
-  { value: "CLOSED", label: "Cancelada" },
-  { value: "FILLED", label: "Finalizada" },
-];
+const KANBAN_STATUSES = ["DRAFT", "ACTIVE", "SCREENING", "INTERVIEW", "ADMISSION", "PAUSED", "CLOSED", "FILLED"];
 
-const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  DRAFT:     { bg: "#E9EDFA", color: "#3C56A8" },
-  ACTIVE:    { bg: "#EAF4DC", color: "#4F6930" },
-  SCREENING: { bg: "#FCF1DD", color: "#A0721E" },
-  INTERVIEW: { bg: "#EAF4DC", color: "#4F6930" },
-  ADMISSION: { bg: "#FCF1DD", color: "#A0721E" },
-  PAUSED:    { bg: "#FCF1DD", color: "#A0721E" },
-  CLOSED:    { bg: "#EFEFEF", color: "#6B7860" },
-  FILLED:    { bg: "#EAF4DC", color: "#4F6930" },
+const CANDIDATES_LABEL: Record<Exclude<CandidatesFilter, "">, string> = { com: "Com candidatos", sem: "Sem candidatos" };
+const PERIOD_LABEL: Record<Exclude<PeriodFilter, "">, string> = {
+  "7": "Abertas nos últimos 7 dias",
+  "30": "Abertas nos últimos 30 dias",
+  "90": "Abertas nos últimos 90 dias",
 };
 
-// A faixa lateral do card agora acompanha a ETAPA da vaga — a prioridade saiu do sistema
-// (a priorização de R&S é feita fora dele).
-const STATUS_STRIPE: Record<string, string> = {
-  ADMISSION: "#D1503C",
-  INTERVIEW: "#D9873C",
-  SCREENING: "#D9873C",
-  ACTIVE:    "#4F6930",
-  DRAFT:     "#B9C2AA",
-  PAUSED:    "#B9C2AA",
-  CLOSED:    "#B9C2AA",
-  FILLED:    "#4F6930",
-};
+type Enriched = JobRow & { reasons: AttentionReason[] };
 
-function byNewest(a: JobRow, b: JobRow): number {
-  return b.createdAt.localeCompare(a.createdAt);
-}
-
-function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
+function sortJobs(jobs: Enriched[], sort: string): Enriched[] {
+  const byNewest = (a: Enriched, b: Enriched) => b.createdAt.localeCompare(a.createdAt);
   const copy = [...jobs];
   switch (sort) {
     case "date_asc":
       return copy.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    case "attention":
+      return copy.sort((a, b) => attentionScore(b.reasons) - attentionScore(a.reasons) || byNewest(a, b));
     case "updated_desc":
-      return copy.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      return copy.sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
     case "candidates_desc":
       return copy.sort((a, b) => b.candidateCount - a.candidateCount || byNewest(a, b));
     case "candidates_asc":
       return copy.sort((a, b) => a.candidateCount - b.candidateCount || byNewest(a, b));
     case "city_asc":
       return copy.sort((a, b) => (a.city ?? "").localeCompare(b.city ?? "", "pt-BR"));
-    case "state_asc":
-      return copy.sort((a, b) => (a.state ?? "").localeCompare(b.state ?? "", "pt-BR"));
     case "title_asc":
       return copy.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
     default:
@@ -117,317 +125,296 @@ function sortJobs(jobs: JobRow[], sort: string): JobRow[] {
   }
 }
 
-function uniqueSorted(values: (string | null)[]): string[] {
-  return Array.from(new Set(values.filter((v): v is string => Boolean(v)))).sort((a, b) =>
-    a.localeCompare(b, "pt-BR")
-  );
+function countBy(values: (string | null)[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const v of values) if (v) m.set(v, (m.get(v) ?? 0) + 1);
+  return m;
 }
 
-function FilterCheckbox({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <div
-      className="px-2.5 py-2 rounded-lg text-wg-ink text-[13px] cursor-pointer flex items-center gap-2.5 hover:bg-[#F0F5E8]"
-      onClick={onClick}
-    >
-      <span
-        className="w-4 h-4 rounded flex items-center justify-center text-white text-[11px] shrink-0"
-        style={{
-          border: `1.5px solid ${active ? "#90CB46" : "#DCE8CC"}`,
-          background: active ? "#90CB46" : "#fff",
-        }}
-      >
-        {active ? "✓" : ""}
-      </span>
-      {label}
-    </div>
-  );
+function toOptions(m: Map<string, number>) {
+  return [...m.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], "pt-BR"))
+    .map(([value, count]) => ({ value, label: value, count }));
 }
 
-export function JobsExplorer({
-  jobs,
-  canManage,
-  initialView = "list",
-  initialStatus = "",
-  initialSort = "date_desc",
-  currentUserName,
-}: Props) {
-  const [view, setView] = useState<View>(initialView);
-  const [search, setSearch] = useState("");
-  const [selectedFilters, setSelectedFilters] = useState<string[]>(
-    initialStatus && STATUS_FILTER_OPTIONS.some((o) => o.value === initialStatus)
-      ? [initialStatus]
-      : []
+function toggle<T>(list: T[], v: T): T[] {
+  return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+}
+
+/** Idade da vaga conforme o status: "Aberta há X" só faz sentido para vagas abertas. */
+function ageLabel(job: JobRow): string {
+  const l = jobLifecycle(job.status);
+  if (l === "OPEN") return `Aberta há ${pluralDays(daysSince(job.openedAt))}`;
+  if (l === "DRAFT") return `Criada há ${pluralDays(daysSince(job.createdAt))}`;
+  if (l === "PAUSED") return `Pausada em ${formatDate(job.statusChangedAt)}`;
+  return `${JOB_LIFECYCLE_META[l].label} em ${formatDate(job.statusChangedAt)}`;
+}
+
+export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }: Props) {
+  const legacy = parseLegacyStatusParam(initialParams.status);
+  const [view, setView] = useState<View>(initialParams.view === "kanban" ? "kanban" : "list");
+  const [search, setSearch] = useState(initialParams.q ?? "");
+  const [lifecycle, setLifecycle] = useState<JobLifecycle[]>(legacy.lifecycle);
+  const [stages, setStages] = useState<JobProcessStage[]>([
+    ...legacy.stage,
+    ...(parseList(initialParams.etapa).filter((s) => (JOB_STAGE_ORDER as string[]).includes(s)) as JobProcessStage[]),
+  ]);
+  const [responsibles, setResponsibles] = useState<string[]>(parseList(initialParams.resp));
+  const [cities, setCities] = useState<string[]>(parseList(initialParams.cidade));
+  const [departments, setDepartments] = useState<string[]>(parseList(initialParams.area));
+  const [candidates, setCandidates] = useState<CandidatesFilter>(
+    initialParams.candidatos === "com" || initialParams.candidatos === "sem" ? initialParams.candidatos : ""
   );
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null);
+  const [period, setPeriod] = useState<PeriodFilter>(
+    (["7", "30", "90"] as const).find((p) => p === initialParams.periodo) ?? ""
+  );
+  const [quick, setQuick] = useState<Quick>(
+    initialParams.pendencia === "atencao" || initialParams.pendencia === "triagem"
+      ? initialParams.pendencia
+      : initialParams.minhas === "1"
+        ? "minhas"
+        : "todas"
+  );
   const [sort, setSort] = useState(
-    SORT_OPTIONS.some((o) => o.value === initialSort) ? initialSort : "date_desc"
+    SORT_OPTIONS.some((o) => o.value === initialParams.ordem) ? initialParams.ordem! : "date_desc"
   );
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-
-  const filterRef = useRef<HTMLDivElement>(null);
-  const sortRef = useRef<HTMLDivElement>(null);
 
   const query = useDebouncedValue(search, 300);
 
-  useEffect(() => {
-    function onOutsideClick(e: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node))
-        setFilterMenuOpen(false);
-      if (sortRef.current && !sortRef.current.contains(e.target as Node))
-        setSortMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onOutsideClick);
-    return () => document.removeEventListener("mousedown", onOutsideClick);
-  }, []);
+  useSyncQueryString({
+    q: query || undefined,
+    status: lifecycle.join(","),
+    etapa: stages.join(","),
+    resp: responsibles.join(","),
+    cidade: cities.join(","),
+    area: departments.join(","),
+    candidatos: candidates,
+    periodo: period,
+    pendencia: quick === "atencao" || quick === "triagem" ? quick : undefined,
+    minhas: quick === "minhas" ? "1" : undefined,
+    ordem: sort !== "date_desc" ? sort : undefined,
+    view: view === "kanban" ? "kanban" : undefined,
+  });
 
-  const toggleFilter = (key: string) =>
-    setSelectedFilters((f) =>
-      f.includes(key) ? f.filter((k) => k !== key) : [...f, key]
-    );
+  const enriched: Enriched[] = useMemo(() => {
+    const now = new Date();
+    return jobs.map((j) => ({ ...j, reasons: jobAttentionReasons(j, now) }));
+  }, [jobs]);
 
-  const options = useMemo(
+  const facets = useMemo(
     () => ({
-      cities: uniqueSorted(jobs.map((j) => j.city)),
-      departments: uniqueSorted(jobs.map((j) => j.department)),
+      responsibles: toOptions(countBy(jobs.map((j) => j.responsible))),
+      cities: toOptions(countBy(jobs.map((j) => j.city))),
+      departments: toOptions(countBy(jobs.map((j) => j.department))),
+      lifecycle: countBy(jobs.map((j) => jobLifecycle(j.status))),
+      stage: countBy(jobs.map((j) => jobProcessStage(j.status))),
     }),
     [jobs]
   );
 
-  const filtered = useMemo(() => {
+  const hasStatusFilter = lifecycle.length > 0 || stages.length > 0;
+
+  // Filtros "estruturais" (tudo menos o chip rápido) — base também das contagens dos chips.
+  const baseFiltered = useMemo(() => {
     const q = normalizeText(query);
-    let result = jobs;
+    const periodMs = period ? Number(period) * 86_400_000 : 0;
+    const now = Date.now();
+    return enriched.filter((job) => {
+      if (q && !normalizeText(`${job.title} ${job.city ?? ""} ${job.department ?? ""} ${job.responsible ?? ""}`).includes(q))
+        return false;
+      const l = jobLifecycle(job.status);
+      if (lifecycle.length > 0 && !lifecycle.includes(l)) return false;
+      if (stages.length > 0) {
+        const s = jobProcessStage(job.status);
+        if (!s || !stages.includes(s)) return false;
+      }
+      // Sem filtro de status: lista esconde encerradas/canceladas; Kanban esconde Pausada/Cancelada.
+      if (!hasStatusFilter) {
+        if (view === "list" && (l === "FILLED" || l === "CLOSED")) return false;
+        if (view === "kanban" && isKanbanDefaultHiddenStatus(job.status)) return false;
+      }
+      if (responsibles.length > 0 && !responsibles.includes(job.responsible ?? "")) return false;
+      if (cities.length > 0 && !cities.includes(job.city ?? "")) return false;
+      if (departments.length > 0 && !departments.includes(job.department ?? "")) return false;
+      if (candidates === "com" && job.candidateCount === 0) return false;
+      if (candidates === "sem" && job.candidateCount > 0) return false;
+      if (periodMs && now - new Date(job.openedAt).getTime() > periodMs) return false;
+      return true;
+    });
+  }, [enriched, query, lifecycle, stages, hasStatusFilter, view, responsibles, cities, departments, candidates, period]);
 
-    if (q) {
-      result = result.filter((job) => {
-        const haystack = normalizeText(
-          `${job.title} ${job.city ?? ""} ${job.department ?? ""}`
-        );
-        return haystack.includes(q);
-      });
-    }
+  const quickCounts = useMemo(
+    () => ({
+      minhas: currentUserName ? baseFiltered.filter((j) => j.responsible === currentUserName).length : 0,
+      atencao: baseFiltered.filter((j) => j.reasons.length > 0).length,
+      triagem: baseFiltered.filter((j) => j.newCount > 0).length,
+    }),
+    [baseFiltered, currentUserName]
+  );
 
-    // Status filter. Sem seleção manual: lista esconde vagas terminais
-    // (Cancelada/Finalizada); Kanban esconde Pausada/Cancelada (Finalizada
-    // continua visível lá). Com seleção manual, mostra só o que foi marcado —
-    // vale para as duas views.
-    const statusFilters = selectedFilters.filter((k) =>
-      STATUS_FILTER_OPTIONS.some((o) => o.value === k)
-    );
-    if (statusFilters.length > 0) {
-      result = result.filter((j) => statusFilters.includes(j.status));
-    } else if (view === "list") {
-      result = result.filter((j) => !isTerminalJobStatus(j.status));
-    } else {
-      result = result.filter((j) => !isKanbanDefaultHiddenStatus(j.status));
-    }
+  const filtered = useMemo(() => {
+    let result = baseFiltered;
+    if (quick === "minhas") result = result.filter((j) => currentUserName && j.responsible === currentUserName);
+    else if (quick === "atencao") result = result.filter((j) => j.reasons.length > 0);
+    else if (quick === "triagem") result = result.filter((j) => j.newCount > 0);
+    return sortJobs(result, quick === "atencao" && sort === "date_desc" ? "attention" : sort);
+  }, [baseFiltered, quick, sort, currentUserName]);
 
-    // City filter
-    const cityFilters = selectedFilters.filter((k) => k.startsWith("CITY:"));
-    if (cityFilters.length > 0) {
-      result = result.filter((j) => j.city && cityFilters.includes(`CITY:${j.city}`));
-    }
-
-    // Department filter
-    const deptFilters = selectedFilters.filter((k) => k.startsWith("DEPT:"));
-    if (deptFilters.length > 0) {
-      result = result.filter(
-        (j) => j.department && deptFilters.includes(`DEPT:${j.department}`)
-      );
-    }
-
-    // Quick filter
-    if (quickFilter === "minhas" && currentUserName) {
-      result = result.filter((j) => j.responsible === currentUserName);
-    } else if (quickFilter === "comCandidatos") {
-      result = result.filter((j) => j.candidateCount > 0);
-    }
-
-    return sortJobs(result, sort);
-  }, [jobs, query, selectedFilters, quickFilter, sort, view, currentUserName]);
-
-  // Colunas exibidas no Kanban: por padrão, todas menos Pausada/Cancelada;
-  // ao selecionar status no filtro "Etapa", mostra só as colunas marcadas.
   const kanbanVisibleStatuses = useMemo(() => {
-    const statusFilters = selectedFilters.filter((k) =>
-      STATUS_FILTER_OPTIONS.some((o) => o.value === k)
-    );
-    const allKeys = STATUS_FILTER_OPTIONS.map((o) => o.value);
-    return statusFilters.length > 0
-      ? allKeys.filter((s) => statusFilters.includes(s))
-      : allKeys.filter((s) => !isKanbanDefaultHiddenStatus(s));
-  }, [selectedFilters]);
+    if (!hasStatusFilter) return KANBAN_STATUSES.filter((s) => !isKanbanDefaultHiddenStatus(s));
+    return KANBAN_STATUSES.filter((s) => {
+      if (lifecycle.length > 0 && !lifecycle.includes(jobLifecycle(s))) return false;
+      if (stages.length > 0) {
+        const st = jobProcessStage(s);
+        return !!st && stages.includes(st);
+      }
+      return true;
+    });
+  }, [hasStatusFilter, lifecycle, stages]);
 
-  const activeFilterCount = selectedFilters.length;
-  const currentSortLabel =
-    SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "Mais recentes";
+  function clearFilters() {
+    setLifecycle([]);
+    setStages([]);
+    setResponsibles([]);
+    setCities([]);
+    setDepartments([]);
+    setCandidates("");
+    setPeriod("");
+  }
+
+  function clearAll() {
+    clearFilters();
+    setSearch("");
+    setQuick("todas");
+  }
+
+  const sections: FilterSection[] = [
+    {
+      key: "status",
+      title: "Status da vaga",
+      options: JOB_LIFECYCLE_ORDER.map((l) => ({
+        value: l,
+        label: JOB_LIFECYCLE_META[l].label,
+        count: facets.lifecycle.get(l) ?? 0,
+      })),
+      selected: lifecycle,
+      onToggle: (v) => setLifecycle((p) => toggle(p, v as JobLifecycle)),
+    },
+    {
+      key: "etapa",
+      title: "Etapa do processo",
+      options: JOB_STAGE_ORDER.map((s) => ({ value: s, label: JOB_STAGE_META[s].label, count: facets.stage.get(s) ?? 0 })),
+      selected: stages,
+      onToggle: (v) => setStages((p) => toggle(p, v as JobProcessStage)),
+    },
+    {
+      key: "resp",
+      title: "Responsável",
+      options: facets.responsibles,
+      selected: responsibles,
+      onToggle: (v) => setResponsibles((p) => toggle(p, v)),
+    },
+    {
+      key: "area",
+      title: "Área / departamento",
+      options: facets.departments,
+      selected: departments,
+      onToggle: (v) => setDepartments((p) => toggle(p, v)),
+    },
+    {
+      key: "cidade",
+      title: "Cidade",
+      options: facets.cities,
+      selected: cities,
+      onToggle: (v) => setCities((p) => toggle(p, v)),
+    },
+    {
+      key: "candidatos",
+      title: "Candidatos",
+      mode: "single",
+      options: (["com", "sem"] as const).map((v) => ({ value: v, label: CANDIDATES_LABEL[v] })),
+      selected: candidates ? [candidates] : [],
+      onToggle: (v) => setCandidates((p) => (p === v ? "" : (v as CandidatesFilter))),
+    },
+    {
+      key: "periodo",
+      title: "Período de abertura",
+      mode: "single",
+      options: (["7", "30", "90"] as const).map((v) => ({ value: v, label: `Últimos ${v} dias` })),
+      selected: period ? [period] : [],
+      onToggle: (v) => setPeriod((p) => (p === v ? "" : (v as PeriodFilter))),
+    },
+  ];
+
+  const chips: ActiveChip[] = [
+    ...lifecycle.map((l) => ({
+      key: `s-${l}`,
+      label: `Status: ${JOB_LIFECYCLE_META[l].label}`,
+      onRemove: () => setLifecycle((p) => p.filter((x) => x !== l)),
+    })),
+    ...stages.map((s) => ({
+      key: `e-${s}`,
+      label: `Etapa: ${JOB_STAGE_META[s].label}`,
+      onRemove: () => setStages((p) => p.filter((x) => x !== s)),
+    })),
+    ...responsibles.map((r) => ({
+      key: `r-${r}`,
+      label: `Responsável: ${r}`,
+      onRemove: () => setResponsibles((p) => p.filter((x) => x !== r)),
+    })),
+    ...departments.map((d) => ({
+      key: `a-${d}`,
+      label: `Área: ${d}`,
+      onRemove: () => setDepartments((p) => p.filter((x) => x !== d)),
+    })),
+    ...cities.map((c) => ({
+      key: `c-${c}`,
+      label: `Cidade: ${c}`,
+      onRemove: () => setCities((p) => p.filter((x) => x !== c)),
+    })),
+    ...(candidates ? [{ key: "cand", label: CANDIDATES_LABEL[candidates], onRemove: () => setCandidates("") }] : []),
+    ...(period ? [{ key: "per", label: PERIOD_LABEL[period], onRemove: () => setPeriod("") }] : []),
+  ];
+
+  const hiddenTerminal =
+    view === "list" && !hasStatusFilter
+      ? jobs.filter((j) => ["FILLED", "CLOSED"].includes(jobLifecycle(j.status))).length
+      : 0;
 
   return (
-    <div className={view === "kanban" ? "" : "max-w-4xl"}>
+    <div className={view === "kanban" ? "" : "max-w-5xl"}>
       {/* Toolbar */}
-      <div className="sticky top-14 z-30 mb-3 border-b border-wg-border-lighter bg-slate-50 pt-2 pb-3">
-        {/* Row 1: search + filters + sort + toggle */}
-        <div className="flex gap-3 items-center flex-wrap">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-wg-ink-muted pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Pesquisar por vaga, cidade ou departamento…"
-              className="w-full bg-white border border-[#E7EEDD] rounded-[10px] pl-9 pr-3.5 py-2.5 text-wg-ink text-sm outline-none focus:border-wg-green transition-colors placeholder:text-wg-ink-muted"
-            />
-          </div>
-
-          {/* Filtros dropdown */}
-          <div className="relative" ref={filterRef}>
-            <button
-              type="button"
-              onClick={() => {
-                setFilterMenuOpen((v) => !v);
-                setSortMenuOpen(false);
-              }}
-              className="bg-white border border-[#E7EEDD] rounded-[10px] px-4 py-2.5 text-wg-ink-secondary text-sm font-medium whitespace-nowrap select-none hover:bg-wg-bg transition-colors"
-            >
-              {activeFilterCount > 0 ? `Filtros (${activeFilterCount})` : "Filtros"} ▾
-            </button>
-            {filterMenuOpen && (
-              <div className="absolute top-[calc(100%+6px)] left-0 bg-white border border-[#E7EEDD] rounded-[10px] shadow-[0_10px_28px_rgba(0,0,0,.1)] p-2 min-w-[220px] max-h-[420px] overflow-y-auto z-20">
-                <div className="text-[#6B7860] text-[11px] tracking-[.06em] uppercase px-2.5 pt-1.5 pb-1">
-                  Etapa
-                </div>
-                {STATUS_FILTER_OPTIONS.map((opt) => (
-                  <FilterCheckbox
-                    key={opt.value}
-                    label={opt.label}
-                    active={selectedFilters.includes(opt.value)}
-                    onClick={() => toggleFilter(opt.value)}
-                  />
-                ))}
-
-                {options.cities.length > 0 && (
-                  <>
-                    <div className="text-[#6B7860] text-[11px] tracking-[.06em] uppercase px-2.5 pt-2.5 pb-1">
-                      Cidade
-                    </div>
-                    {options.cities.map((city) => (
-                      <FilterCheckbox
-                        key={city}
-                        label={city}
-                        active={selectedFilters.includes(`CITY:${city}`)}
-                        onClick={() => toggleFilter(`CITY:${city}`)}
-                      />
-                    ))}
-                  </>
-                )}
-
-                {options.departments.length > 0 && (
-                  <>
-                    <div className="text-[#6B7860] text-[11px] tracking-[.06em] uppercase px-2.5 pt-2.5 pb-1">
-                      Área
-                    </div>
-                    {options.departments.map((dept) => (
-                      <FilterCheckbox
-                        key={dept}
-                        label={dept}
-                        active={selectedFilters.includes(`DEPT:${dept}`)}
-                        onClick={() => toggleFilter(`DEPT:${dept}`)}
-                      />
-                    ))}
-                  </>
-                )}
-
-                {activeFilterCount > 0 && (
-                  <div className="border-t border-[#EEF2E9] mt-1.5 pt-1.5">
-                    <div
-                      className="px-2.5 py-2 rounded-lg text-[#C4552E] text-[13px] cursor-pointer hover:bg-[#FDF1EE]"
-                      onClick={() => setSelectedFilters([])}
-                    >
-                      Limpar filtros
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Ordenar dropdown */}
-          <div className="relative" ref={sortRef}>
-            <button
-              type="button"
-              onClick={() => {
-                setSortMenuOpen((v) => !v);
-                setFilterMenuOpen(false);
-              }}
-              className="bg-white border border-[#E7EEDD] rounded-[10px] px-4 py-2.5 text-wg-ink-secondary text-sm font-medium whitespace-nowrap select-none hover:bg-wg-bg transition-colors"
-            >
-              Ordenar: {currentSortLabel} ▾
-            </button>
-            {sortMenuOpen && (
-              <div className="absolute top-[calc(100%+6px)] left-0 bg-white border border-[#E7EEDD] rounded-[10px] shadow-[0_10px_28px_rgba(0,0,0,.1)] p-1.5 min-w-[190px] z-20">
-                {SORT_OPTIONS.map((opt) => (
-                  <div
-                    key={opt.value}
-                    className={`px-3 py-2 rounded-lg text-[13px] cursor-pointer hover:bg-[#F0F5E8] ${
-                      sort === opt.value
-                        ? "text-wg-ink font-semibold"
-                        : "text-[#2E3A26]"
-                    }`}
-                    onClick={() => {
-                      setSort(opt.value);
-                      setSortMenuOpen(false);
-                    }}
-                  >
-                    {opt.label}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Lista / Kanban toggle */}
+      <div className="sticky top-11 z-30 -mx-1 mb-3 space-y-2.5 border-b border-wg-border-lighter bg-slate-50 px-1 pb-3 pt-2 md:top-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <SearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="Pesquisar por vaga, cidade, área ou responsável"
+            className="min-w-[220px] flex-1"
+          />
+          <FilterPopover sections={sections} activeCount={chips.length} onClear={clearFilters} />
+          <SortDropdown value={sort} onChange={setSort} options={SORT_OPTIONS} />
           <ViewToggle view={view} onChange={setView} />
         </div>
 
-        {/* Row 2: quick-filter chips */}
-        <div className="flex gap-2 items-center mt-2.5 flex-wrap">
-          {(
-            [
-              { key: null, label: "Todas" },
-              { key: "minhas", label: "Minhas Vagas" },
-              { key: "comCandidatos", label: "Com Candidatos" },
-            ] as const
-          ).map((c) => {
-            const active = quickFilter === c.key;
-            return (
-              <button
-                key={c.label}
-                type="button"
-                onClick={() => setQuickFilter(c.key)}
-                className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-all"
-                style={{
-                  background: active ? "#90CB46" : "#fff",
-                  color: active ? "#0C0D0C" : "#3E4A34",
-                  border: `1px solid ${active ? "#90CB46" : "#E7EEDD"}`,
-                }}
-              >
-                {c.label}
-              </button>
-            );
-          })}
-          <span className="text-[#6B7860] text-[12.5px] ml-auto">
+        <div className="flex flex-wrap items-center gap-2">
+          <QuickFilterChips<Quick>
+            label="Filtro rápido"
+            value={quick}
+            onChange={setQuick}
+            options={[
+              { value: "todas", label: "Todas" },
+              ...(currentUserName ? [{ value: "minhas" as const, label: "Minhas vagas", count: quickCounts.minhas }] : []),
+              { value: "atencao", label: "Precisam de atenção", count: quickCounts.atencao },
+              { value: "triagem", label: "Com candidatos para triar", count: quickCounts.triagem },
+            ]}
+          />
+          <span className="ml-auto text-meta text-wg-ink-muted" aria-live="polite">
             {filtered.length} de {jobs.length} vagas
           </span>
         </div>
+
+        <ActiveFilterChips chips={chips} onClear={clearFilters} />
       </div>
 
       {/* Content */}
@@ -449,116 +436,192 @@ export function JobsExplorer({
           canManage={canManage}
         />
       ) : filtered.length === 0 ? (
-        jobs.length === 0 ? (
-          <EmptyState
-            icon={Briefcase}
-            title="Nenhuma vaga cadastrada"
-            description="Crie a primeira vaga para começar a receber candidaturas."
-            action={
-              canManage ? (
-                <Link
-                  href="/vagas/nova"
-                  className="inline-flex items-center gap-2 rounded-lg bg-wg-green px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-wg-green-bright"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nova vaga
-                </Link>
-              ) : undefined
-            }
-          />
-        ) : (
-          <EmptyState
-            icon={SearchX}
-            title="Nenhuma vaga encontrada"
-            description="Nenhuma vaga corresponde à pesquisa e aos filtros atuais."
-            action={
+        <div className="rounded-card border border-wg-border-lighter bg-white">
+          {jobs.length === 0 ? (
+            <EmptyState
+              icon={Briefcase}
+              title="Nenhuma vaga cadastrada"
+              description="Vagas nascem de solicitações aprovadas ou podem ser criadas direto pelo RH."
+              action={
+                canManage ? (
+                  <ButtonLink href="/vagas/nova" variant="primary" icon={Plus}>
+                    Nova vaga
+                  </ButtonLink>
+                ) : undefined
+              }
+            />
+          ) : quick === "atencao" && chips.length === 0 && !query ? (
+            <EmptyState
+              icon={Briefcase}
+              title="Nenhuma vaga precisa de atenção no momento"
+              description="Todas as vagas abertas têm movimentação recente e nenhum candidato parado na triagem."
+            />
+          ) : quick === "triagem" && chips.length === 0 && !query ? (
+            <EmptyState
+              icon={Users}
+              title="Todas as candidaturas recentes já foram triadas"
+              description="Nenhuma vaga tem candidatos na etapa Novo."
+            />
+          ) : (
+            <EmptyState
+              icon={SearchX}
+              title="Não encontramos vagas com esses filtros"
+              description="Revise a pesquisa ou remova algum filtro para ver mais resultados."
+              action={
+                <Button variant="secondary" onClick={clearAll}>
+                  Limpar pesquisa e filtros
+                </Button>
+              }
+            />
+          )}
+        </div>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-2">
+            {filtered.map((job) => (
+              <JobListItem key={job.id} job={job} canManage={canManage} />
+            ))}
+          </ul>
+          {hiddenTerminal > 0 && (
+            <p className="mt-3 text-meta text-wg-ink-muted">
+              {hiddenTerminal} {hiddenTerminal === 1 ? "vaga encerrada ou cancelada oculta" : "vagas encerradas ou canceladas ocultas"}.{" "}
               <button
                 type="button"
-                onClick={() => {
-                  setSearch("");
-                  setSelectedFilters([]);
-                  setQuickFilter(null);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#E7EEDD] px-3 py-2 text-sm font-medium text-wg-ink-secondary transition-colors hover:border-wg-green hover:text-wg-green-dark"
+                onClick={() => setLifecycle(["FILLED", "CLOSED"])}
+                className="font-semibold text-wg-green-dark underline-offset-2 hover:underline"
               >
-                Limpar pesquisa e filtros
+                Mostrar encerradas
               </button>
-            }
-          />
-        )
-      ) : (
-        <div className="flex flex-col gap-3">
-          {filtered.map((job) => {
-            const stripeColor = STATUS_STRIPE[job.status] ?? "#B9C2AA";
-            const statusStyle = STATUS_STYLE[job.status] ?? { bg: "#EFEFEF", color: "#6B7860" };
-            const location = job.isTalentPool
-              ? "Todas as praças"
-              : [job.city, job.state].filter(Boolean).join("/") || "—";
-            const meta = [location, job.department, `Criada ${formatAge(job.createdAt)}`]
-              .filter(Boolean)
-              .join(" · ");
-
-            return (
-              <div
-                key={job.id}
-                className="group bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,.05)] flex hover:shadow-[0_8px_22px_rgba(0,0,0,.08)] transition-shadow"
-              >
-                {/* Faixa da etapa — arredondada para não precisar de overflow-hidden no card */}
-                <div className="w-[5px] shrink-0 rounded-l-2xl" style={{ background: stripeColor }} />
-
-                <div className="flex-1 px-5 py-4 flex justify-between items-center gap-4 min-w-0">
-                  {/* Left: job info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="text-wg-ink text-base font-bold">{job.title}</span>
-                      <span
-                        className="text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0"
-                        style={{ background: statusStyle.bg, color: statusStyle.color }}
-                      >
-                        {JOB_STATUS_LABELS[job.status] ?? job.status}
-                      </span>
-                    </div>
-                    <div className="text-wg-ink-muted text-[13px] mt-1.5">{meta}</div>
-                  </div>
-
-                  {/* Right: hover actions + candidate count + menu */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    {/* Hover-reveal action */}
-                    <div className="flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
-                      <Link
-                        href={`/vagas/${job.id}/candidatos`}
-                        className="bg-[#F0F5E8] text-[#3E5A2A] px-3 py-2 rounded-lg text-[12.5px] font-semibold whitespace-nowrap hover:bg-[#E4EED6] transition-colors"
-                      >
-                        Ver candidatos
-                      </Link>
-                    </div>
-
-                    {/* Candidate count */}
-                    <div className="text-right shrink-0 min-w-[56px]">
-                      <div className="text-wg-ink text-lg font-extrabold flex items-center gap-1 justify-end">
-                        <Users className="w-4 h-4 text-wg-ink-muted" />
-                        {job.candidateCount}
-                      </div>
-                      <div className="text-[#6B7860] text-[11px]">
-                        {job.candidateCount === 1 ? "candidato" : "candidatos"}
-                      </div>
-                    </div>
-
-                    {/* Actions menu (⋯) */}
-                    {canManage && (
-                      <JobActionsMenu
-                        jobId={job.id}
-                        jobTitle={job.title}
-                        status={job.status}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+            </p>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+function JobListItem({ job, canManage }: { job: Enriched; canManage: boolean }) {
+  const lifecycle = jobLifecycle(job.status);
+  const status = JOB_LIFECYCLE_META[lifecycle];
+  const stage = jobProcessStage(job.status);
+  const situation = operationalSituation(job.reasons);
+  const sla = lifecycle === "OPEN" ? evaluateSla(daysSince(job.openedAt)) : null;
+
+  const location = job.isTalentPool ? "Todas as praças" : [job.city, job.state].filter(Boolean).join("/");
+  const facts = [
+    location,
+    job.department,
+    CONTRACT_TYPE_LABELS[job.contractType] ?? null,
+    MODALITY_LABELS[job.modality] ?? null,
+  ].filter(Boolean);
+
+  return (
+    <li
+      className={cn(
+        "group relative flex rounded-card border border-wg-border-lighter bg-white transition-shadow hover:shadow-[0_6px_18px_rgba(26,34,19,.07)]",
+        "focus-within:shadow-[0_6px_18px_rgba(26,34,19,.07)]"
+      )}
+    >
+      {/* Faixa = situação operacional (Normal / Atenção / Atrasada). O texto dos motivos abaixo
+          explica a cor — ela nunca comunica sozinha. */}
+      <span
+        aria-hidden
+        className={cn(
+          "w-1 shrink-0 rounded-l-card",
+          situation === "NORMAL" ? "bg-transparent" : TONE_DOT[SITUATION_META[situation].tone]
+        )}
+      />
+      <div className="flex min-w-0 flex-1 flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/vagas/${job.id}/candidatos`}
+              className="truncate text-record-title text-wg-ink hover:text-wg-green-dark"
+            >
+              {job.title}
+            </Link>
+            <StatusBadge tone={status.tone} hint={status.hint}>
+              {status.label}
+            </StatusBadge>
+            {stage && (
+              <StageBadge color={JOB_STAGE_META[stage].color} hint="Etapa do processo seletivo">
+                {JOB_STAGE_META[stage].label}
+              </StageBadge>
+            )}
+            {sla && (
+              <StatusBadge tone={SLA_META[sla.state].tone} hint="Prazo de preenchimento (SLA)">
+                {SLA_META[sla.state].label}
+              </StatusBadge>
+            )}
+          </div>
+
+          {facts.length > 0 && <p className="mt-0.5 truncate text-meta text-wg-ink-muted">{facts.join(" · ")}</p>}
+
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-wg-ink-secondary">
+            <span className="inline-flex items-center gap-1">
+              <UserRound className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
+              {job.responsible ?? <span className="text-wg-ink-muted">Sem responsável</span>}
+            </span>
+            <span className="inline-flex items-center gap-1" suppressHydrationWarning>
+              <CalendarDays className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
+              {ageLabel(job)}
+            </span>
+            <span
+              className="inline-flex items-center gap-1"
+              title={`Última movimentação: ${formatDate(job.lastActivityAt)}`}
+              suppressHydrationWarning
+            >
+              <Clock3 className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
+              Atualizada {formatRelativeTime(job.lastActivityAt)}
+            </span>
+          </p>
+
+          {job.reasons.length > 0 && (
+            <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5" aria-label="Motivos de atenção">
+              {job.reasons.map((r) => (
+                <li key={r.key} className={cn("inline-flex items-center gap-1 text-meta font-medium", TONE_TEXT[r.tone])}>
+                  <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[r.tone])} />
+                  {r.label}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            href={`/vagas/${job.id}/candidatos`}
+            className="min-w-[88px] rounded-control px-2 py-1 text-right hover:bg-wg-bg"
+            aria-label={`${job.candidateCount} candidatos em ${job.title}${job.newCount ? `, ${job.newCount} novos` : ""}`}
+          >
+            <span className="flex items-center justify-end gap-1 font-sora text-lg font-semibold tabular-nums text-wg-ink">
+              <Users className="h-4 w-4 text-wg-ink-muted" aria-hidden />
+              {job.candidateCount}
+            </span>
+            <span className="block text-[11.5px] text-wg-ink-muted">
+              {job.newCount > 0 ? (
+                <span className="font-semibold text-warning-fg">
+                  {job.newCount} {job.newCount === 1 ? "novo" : "novos"}
+                </span>
+              ) : job.candidateCount === 1 ? (
+                "candidato"
+              ) : (
+                "candidatos"
+              )}
+            </span>
+          </Link>
+          <ButtonLink
+            href={`/vagas/${job.id}/candidatos`}
+            variant="secondary"
+            size="sm"
+            icon={Eye}
+            className="hidden md:inline-flex"
+          >
+            Ver candidatos
+          </ButtonLink>
+          {canManage && <JobActionsMenu jobId={job.id} jobTitle={job.title} status={job.status} />}
+        </div>
+      </div>
+    </li>
   );
 }

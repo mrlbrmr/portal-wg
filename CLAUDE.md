@@ -71,6 +71,16 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   (Fase 1 = Banco de Testes, **feito**; **Fase 2 = fluxo de sessão/candidato, PENDENTE** — ver doc)
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`
 
+## Design System do painel (ler antes de criar UI)
+- Tokens: cores semânticas `success/info/warning/danger/neutral` (`bg-*-bg text-*-fg`), radius
+  `rounded-control` (8px) / `rounded-card` (12px), tipografia `text-page-title … text-label`.
+- Reutilize `src/components/ui/*`: `Button`/`ButtonLink`, `StatusBadge` (status) × `StageBadge`
+  (etapa), `ProgressBar`, `CompactMetrics`, `Panel`, `ActionListItem`, `ActivityTimeline`,
+  `FilterPopover`/`ActiveFilterChips`/`QuickFilterChips`, `EmptyState`, `Skeleton`, `ConfirmModal`.
+- Status da vaga × etapa: sempre via `src/lib/recruitment/job-presentation.ts` (não use o enum cru).
+  Alertas de vaga sempre com motivo (`src/lib/recruitment/attention.ts`); SLA em `sla.ts` (política
+  ainda `null`). Sentence case nos textos ("Nova vaga"), sem emoji como ícone (use lucide).
+
 ## Convenções
 - Mutações internas = **Server Actions** (revalidam a página com `revalidatePath`); uploads (>1 MB) e
   fluxos públicos = **API routes**.

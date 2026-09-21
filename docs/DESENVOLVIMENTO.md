@@ -7,6 +7,71 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-21 — Profissionalização de Recrutamento e Admissões (Design System + trabalho por exceção)
+
+Evolução da UI existente (sem redesign, sem migração, sem mudança de API). Identidade mantida:
+sidebar escura, fundo claro, cards brancos, verde WG.
+
+### Design System (tokens e componentes)
+- **Tokens semânticos** no Tailwind: `success / info / warning / danger / neutral` com `bg/fg/border`
+  (pares AA). Significado fixo: success=concluído, info=em processamento, warning=aguardando/atenção,
+  danger=atrasado/erro, neutral=inativo. **Nenhum status comunica só por cor** (sempre texto).
+- **Radius:** `rounded-control` (8px) e `rounded-card` (12px). Corrigido bug antigo: `--radius` nunca
+  era definida, então `rounded-lg/md/sm` renderizavam com canto **reto** — agora `--radius: .5rem`.
+- **Tipografia:** `text-page-title` (28/semibold), `text-section-title` (18), `text-record-title` (15),
+  `text-body` (14), `text-meta` (13), `text-label` (12/medium).
+- **Componentes** (`src/components/ui`): `Button`/`ButtonLink`/`buttonVariants` (primary · secondary ·
+  tertiary · danger; tamanhos fixos), `StatusBadge` (status = pílula preenchida) × `StageBadge`
+  (etapa = chip contornado), `ProgressBar`, `CompactMetrics`, `Panel`, `ActionListItem`,
+  `ActivityTimeline` (reutilizável: vaga/candidato/admissão), `FilterPopover` + `ActiveFilterChips` +
+  `QuickFilterChips`. Refeitos nos tokens, mesma API: `EmptyState` (+`compact`), `PageHeader`,
+  `PrimaryActionLink`, `DashboardCard`, `ConfirmModal` (agora `alertdialog`, Esc, foco seguro),
+  `SearchBar`, `SortDropdown`, `Skeleton` (+`SkeletonListItem`, `SkeletonPageTop`).
+- Removido o órfão `FilterBar.tsx`. Hook `useSyncQueryString` persiste filtros na URL.
+
+### Status × etapa (sem migração)
+`src/lib/recruitment/job-presentation.ts` projeta o enum `JobStatus` (que mistura as duas coisas) em
+**status** (Rascunho · Aberta · Pausada · Encerrada · Cancelada) e **etapa** (Triagem · Entrevistas ·
+Admissão). `FILLED` passou a se chamar **Encerrada** em todo o sistema (antes "Finalizada").
+Links antigos `?status=SCREENING` continuam funcionando (`parseLegacyStatusParam`).
+
+### Atenção e SLA
+- `src/lib/recruitment/attention.ts` (puro, testado): motivos explícitos — candidatos aguardando
+  triagem, inscrições encerrando/vencidas, nenhum candidato após N dias, sem movimentação há N dias.
+  Limiares em `ATTENTION_RULES` (`staleDays` = `STALE_JOB_DAYS` existente; `closingSoonDays` = 7 já
+  usado no Dashboard; **`noCandidatesDays = 7` é provisório**). Situação operacional: Normal/Atenção/Atrasada.
+- `src/lib/recruitment/sla.ts`: arquitetura pronta, **`RECRUITMENT_SLA_POLICY = null`** (o RH ainda
+  não definiu SLA de vaga) — a UI mostra a idade da vaga e só classifica No prazo/Atenção/SLA excedido
+  quando a política existir.
+
+### Telas
+- **Navegação:** "Visão geral", "Solicitações de vaga", "Vagas", "Banco de talentos", "Avaliações" ·
+  Admissões: "Admissões", "Calendário", "Relatórios", "Histórico" · "Administração". Paths inalterados.
+- **Visão geral (`/dashboard`):** métricas compactas + **Sua fila de trabalho** (Recrutamento /
+  Admissões / Aguardando outras pessoas), **Vagas que precisam de atenção** com o motivo, candidaturas
+  recentes e próximas admissões. Cada item leva à tela já filtrada.
+- **Vagas:** loader compartilhado `src/lib/recruitment/job-rows.ts` (abertura real via
+  `job_status_history`, candidatos novos, última movimentação). Linha com status + etapa, local/área/
+  contrato, responsável, "Aberta há X dias", "Atualizada há", candidatos/novos e motivos de atenção.
+  Filtros: status, etapa, responsável, área, cidade, com/sem candidatos, período; chips removíveis;
+  estado na URL (`?status=OPEN&etapa=…&pendencia=atencao`).
+- **Admissões:** loader `src/lib/admissao/overview.ts` (etapa i/N, docs obrigatórios, formulário
+  digital). Linha com progresso, pendências, início e última movimentação; filtros rápidos
+  `?filtro=atrasadas|proximas|documentos|formulario`.
+- **Ficha da admissão:** cabeçalho com progresso + **jornada** (etapas reais configuradas), resumo
+  lateral, abas Visão geral · Documentos · Dados cadastrais · Histórico (`?aba=`). Documentos com
+  estado por item (`src/lib/admissao/document-status.ts`, usa `aiStatus/aiReason` existentes),
+  arrastar-e-soltar, "Fazer upload" por categoria, remoção com confirmação. Admissão digital mostra
+  estado, validade real do link, "Copiar link" e "Gerar novo link" (com confirmação — invalida o anterior).
+
+### Depende de backend (não implementado — não inventar dados)
+- Aprovação/recusa **manual** de documento pelo RH com motivo e "solicitar novamente" (colunas novas).
+- Data de envio do link, histórico de envios e cancelamento de link da admissão digital.
+- Agenda de entrevistas ("entrevistas hoje"), SLA configurável, log de mudança de etapa da admissão.
+- Tela global de **Candidatos** (hoje candidatos vivem dentro de cada vaga).
+
+---
+
 ## Sessão de 2026-09-18 — Fluxo de aprovação da abertura de vaga (Requisição de Pessoal)
 
 Problema: o formulário público `/solicitar-vaga` criava **direto** uma vaga `DRAFT`. Pedido e vaga

@@ -63,7 +63,7 @@ export const JOB_STATUS_LABELS: Record<string, string> = {
   ADMISSION: "Admissão",
   PAUSED: "Pausada",
   CLOSED: "Cancelada",
-  FILLED: "Finalizada",
+  FILLED: "Encerrada",
 };
 
 // Status em que a vaga fica VISÍVEL no portal público (e aceitando inscrições).
@@ -84,7 +84,7 @@ export function isActiveJobStatus(status: string): boolean {
   return (ACTIVE_JOB_STATUSES as readonly string[]).includes(status);
 }
 
-// Status terminais (vaga encerrada): Cancelada e Finalizada. Ocultadas por
+// Status terminais (vaga encerrada): Cancelada e Encerrada. Ocultadas por
 // padrão na lista interna de vagas.
 export const TERMINAL_JOB_STATUSES = ["CLOSED", "FILLED"] as const;
 
@@ -93,7 +93,7 @@ export function isTerminalJobStatus(status: string): boolean {
 }
 
 // Status ocultados por padrão no Kanban de vagas: Pausada e Cancelada.
-// Diferente da lista (que também esconde Finalizada), aqui Finalizada
+// Diferente da lista (que também esconde Encerrada), aqui Encerrada
 // continua visível. O filtro "Etapa" permite reexibir esses status.
 export const KANBAN_DEFAULT_HIDDEN_STATUSES = ["PAUSED", "CLOSED"] as const;
 
@@ -157,6 +157,29 @@ export function formatAge(date: Date | string): string {
   if (d < 30) return `há ${d} dias`;
   const months = Math.round(d / 30);
   return months === 1 ? "há 1 mês" : `há ${months} meses`;
+}
+
+/**
+ * Tempo relativo com granularidade fina, para "última movimentação":
+ * "agora", "há 12 min", "há 3h", "ontem", "há 5 dias", "há 2 meses".
+ */
+export function formatRelativeTime(date: Date | string, now: Date = new Date()): string {
+  const diffMs = Math.max(0, now.getTime() - new Date(date).getTime());
+  const min = Math.floor(diffMs / 60_000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "ontem";
+  if (d < 30) return `há ${d} dias`;
+  const months = Math.round(d / 30);
+  return months === 1 ? "há 1 mês" : `há ${months} meses`;
+}
+
+/** "3 dias", "1 dia" — duração em dias, para "Aberta há 3 dias". */
+export function pluralDays(n: number): string {
+  return n === 1 ? "1 dia" : `${n} dias`;
 }
 
 // A partir de quantos dias sem atividade (candidatura/edição) uma vaga aberta

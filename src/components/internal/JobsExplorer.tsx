@@ -51,6 +51,8 @@ import {
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useSyncQueryString, parseList } from "@/hooks/useSyncQueryString";
 import { type JobRow } from "@/types/jobs";
+import type { JobRequestReason } from "@/types/domain";
+import { JOB_REQUEST_REASON_LABELS, JOB_REQUEST_REASON_ORDER } from "@/lib/job-requests/constants";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 const JobKanbanBoard = dynamic(
@@ -162,6 +164,11 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
   const [responsibles, setResponsibles] = useState<string[]>(parseList(initialParams.resp));
   const [cities, setCities] = useState<string[]>(parseList(initialParams.cidade));
   const [departments, setDepartments] = useState<string[]>(parseList(initialParams.area));
+  const [openingReasons, setOpeningReasons] = useState<JobRequestReason[]>(
+    parseList(initialParams.motivo).filter((r): r is JobRequestReason =>
+      (JOB_REQUEST_REASON_ORDER as string[]).includes(r)
+    )
+  );
   const [candidates, setCandidates] = useState<CandidatesFilter>(
     initialParams.candidatos === "com" || initialParams.candidatos === "sem" ? initialParams.candidatos : ""
   );
@@ -188,6 +195,7 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
     resp: responsibles.join(","),
     cidade: cities.join(","),
     area: departments.join(","),
+    motivo: openingReasons.join(","),
     candidatos: candidates,
     periodo: period,
     pendencia: quick === "atencao" || quick === "triagem" ? quick : undefined,
@@ -206,6 +214,7 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       responsibles: toOptions(countBy(jobs.map((j) => j.responsible))),
       cities: toOptions(countBy(jobs.map((j) => j.city))),
       departments: toOptions(countBy(jobs.map((j) => j.department))),
+      openingReasons: countBy(jobs.map((j) => j.openingReason)),
       lifecycle: countBy(jobs.map((j) => jobLifecycle(j.status))),
       stage: countBy(jobs.map((j) => jobProcessStage(j.status))),
     }),
@@ -236,12 +245,14 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       if (responsibles.length > 0 && !responsibles.includes(job.responsible ?? "")) return false;
       if (cities.length > 0 && !cities.includes(job.city ?? "")) return false;
       if (departments.length > 0 && !departments.includes(job.department ?? "")) return false;
+      if (openingReasons.length > 0 && (!job.openingReason || !openingReasons.includes(job.openingReason)))
+        return false;
       if (candidates === "com" && job.candidateCount === 0) return false;
       if (candidates === "sem" && job.candidateCount > 0) return false;
       if (periodMs && now - new Date(job.openedAt).getTime() > periodMs) return false;
       return true;
     });
-  }, [enriched, query, lifecycle, stages, hasStatusFilter, view, responsibles, cities, departments, candidates, period]);
+  }, [enriched, query, lifecycle, stages, hasStatusFilter, view, responsibles, cities, departments, openingReasons, candidates, period]);
 
   const quickCounts = useMemo(
     () => ({
@@ -278,6 +289,7 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
     setResponsibles([]);
     setCities([]);
     setDepartments([]);
+    setOpeningReasons([]);
     setCandidates("");
     setPeriod("");
   }
@@ -320,6 +332,17 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       options: facets.departments,
       selected: departments,
       onToggle: (v) => setDepartments((p) => toggle(p, v)),
+    },
+    {
+      key: "motivo",
+      title: "Motivo da abertura",
+      options: JOB_REQUEST_REASON_ORDER.map((r) => ({
+        value: r,
+        label: JOB_REQUEST_REASON_LABELS[r],
+        count: facets.openingReasons.get(r) ?? 0,
+      })),
+      selected: openingReasons,
+      onToggle: (v) => setOpeningReasons((p) => toggle(p, v as JobRequestReason)),
     },
     {
       key: "cidade",
@@ -366,6 +389,11 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       key: `a-${d}`,
       label: `Área: ${d}`,
       onRemove: () => setDepartments((p) => p.filter((x) => x !== d)),
+    })),
+    ...openingReasons.map((r) => ({
+      key: `m-${r}`,
+      label: `Motivo: ${JOB_REQUEST_REASON_LABELS[r]}`,
+      onRemove: () => setOpeningReasons((p) => p.filter((x) => x !== r)),
     })),
     ...cities.map((c) => ({
       key: `c-${c}`,
@@ -511,6 +539,7 @@ function JobListItem({ job, canManage }: { job: Enriched; canManage: boolean }) 
   const facts = [
     location,
     job.department,
+    job.openingReason ? JOB_REQUEST_REASON_LABELS[job.openingReason] : null,
     CONTRACT_TYPE_LABELS[job.contractType] ?? null,
     MODALITY_LABELS[job.modality] ?? null,
   ].filter(Boolean);

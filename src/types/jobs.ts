@@ -1,4 +1,4 @@
-import type { JobStatus, Modality, ContractType } from "@/types/domain";
+import type { JobStatus, Modality, ContractType, JobRequestReason } from "@/types/domain";
 
 /**
  * Forma leve e serializável de uma vaga para as visões do painel
@@ -14,6 +14,8 @@ export interface JobRow {
   modality: Modality;
   contractType: ContractType;
   department: string | null;
+  /** Motivo da abertura (Substituição, Nova posição...) — null em vagas sem essa informação. */
+  openingReason: JobRequestReason | null;
   responsible: string | null;
   status: JobStatus;
   slug: string | null;

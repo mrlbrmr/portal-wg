@@ -1,4 +1,5 @@
-// Instância lazy — NÃO instanciar no top-level (quebraria se ANTHROPIC_API_KEY não existir)
+// Validação de documentos do fluxo de WhatsApp via Google Gemini (cliente lazy em ./gemini).
+import { describeGeminiError, generateJson, getGeminiApiKey, inlineFile } from './gemini'
 
 export type DocumentType = 'RG_CNH' | 'CPF_CARD' | 'ADDRESS_PROOF' | 'PHOTO_3X4'
 export type ValidationStatus = 'APPROVED' | 'NEEDS_REVIEW' | 'REJECTED'
@@ -75,53 +76,32 @@ export async function validateDocument(
   documentType: DocumentType,
   declaredData: { name?: string; cpf?: string; birthDate?: string }
 ): Promise<ValidationResult> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { status: 'NEEDS_REVIEW', confidence: 0, extractedData: {}, issues: ['ANTHROPIC_API_KEY não configurado'], rejectionReason: undefined }
+  if (!getGeminiApiKey()) {
+    return { status: 'NEEDS_REVIEW', confidence: 0, extractedData: {}, issues: ['GEMINI_API_KEY não configurado'], rejectionReason: undefined }
   }
 
-  // PDFs não têm suporte direto a vision — encaminhar para revisão manual
-  if (mimeType === 'application/pdf' || mimeType === 'application/msword' || mimeType.includes('word')) {
+  // Word não é lido pelo modelo — encaminhar para revisão manual (imagens e PDF vão inline)
+  if (mimeType === 'application/msword' || mimeType.includes('word')) {
     return {
       status: 'NEEDS_REVIEW',
       confidence: 0.5,
       extractedData: {},
-      issues: ['Documento em formato PDF/Word — revisão manual necessária'],
+      issues: ['Documento em formato Word — revisão manual necessária'],
     }
   }
 
-  const { default: Anthropic } = await import('@anthropic-ai/sdk')
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-  const userPrompt = `${DOC_INSTRUCTIONS[documentType]}\n\nDados declarados pelo colaborador:\n- Nome: ${declaredData.name ?? 'não informado'}\n- CPF: ${declaredData.cpf ?? 'não informado'}\n- Data de nascimento: ${declaredData.birthDate ?? 'não informada'}\n\nAnalise o documento na imagem e valide.`
-
-  let raw: string
-  try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 512,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: imageBase64 } },
-            { type: 'text', text: userPrompt },
-          ],
-        },
-      ],
-    })
-    raw = response.content[0].type === 'text' ? response.content[0].text : ''
-  } catch (err) {
-    console.error('[ai:validateDocument] Claude API error:', err)
-    return { status: 'NEEDS_REVIEW', confidence: 0, extractedData: {}, issues: ['Erro na API de IA — revisão manual'] }
-  }
+  const userPrompt = `${DOC_INSTRUCTIONS[documentType]}\n\nDados declarados pelo colaborador:\n- Nome: ${declaredData.name ?? 'não informado'}\n- CPF: ${declaredData.cpf ?? 'não informado'}\n- Data de nascimento: ${declaredData.birthDate ?? 'não informada'}\n\nAnalise o documento e valide.`
 
   let parsed: ValidationResult
   try {
-    parsed = JSON.parse(raw.trim()) as ValidationResult
-  } catch {
-    console.error('[ai:validateDocument] JSON parse error. Raw:', raw.slice(0, 200))
-    return { status: 'NEEDS_REVIEW', confidence: 0, extractedData: {}, issues: ['Resposta da IA inválida — revisão manual'] }
+    parsed = await generateJson<ValidationResult>({
+      parts: [inlineFile(mimeType, imageBase64), userPrompt],
+      system: SYSTEM_PROMPT,
+      maxOutputTokens: 1024,
+    })
+  } catch (err) {
+    console.error('[ai:validateDocument] Gemini error:', err)
+    return { status: 'NEEDS_REVIEW', confidence: 0, extractedData: {}, issues: [describeGeminiError(err)] }
   }
 
   // Cross-reference CPF

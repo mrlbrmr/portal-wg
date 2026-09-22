@@ -89,7 +89,8 @@ export async function revalidateAttachmentsWithAI(
       outcomes.push(await validateAttachmentWithAI(r.id, r.blobUrl, r.mimeType ?? "", typeName));
     }
   }
-  await Promise.all(Array.from({ length: Math.min(4, targets.length) }, worker));
+  // Concorrência baixa: o plano gratuito do Gemini limita requisições por minuto.
+  await Promise.all(Array.from({ length: Math.min(2, targets.length) }, worker));
 
   done(admissionId);
   if (outcomes.every((o) => o === "unavailable"))

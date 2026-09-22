@@ -2,6 +2,8 @@
 // Usa unpdf (wrapper Node.js/edge-compatível sobre pdfjs-dist) para evitar problemas de APIs de browser
 // como DOMMatrix ausente no Node.js e o bug "Command token too long" do pdf-parse antigo.
 
+import { GEMINI_MODEL, getGeminiClient } from './gemini'
+
 export interface CvProfile {
   experienceYears: number | null
   education: string | null
@@ -51,13 +53,6 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   return (Array.isArray(text) ? text.join('\n') : String(text)).trim()
 }
 
-function getGeminiClient() {
-  const { GoogleGenAI } = require('@google/genai') as typeof import('@google/genai')
-  const apiKey = (process.env.GEMINI_API_KEY ?? '').replace(/^﻿/, '').trim()
-  if (!apiKey) throw new Error('GEMINI_API_KEY não configurado')
-  return new GoogleGenAI({ apiKey })
-}
-
 /**
  * Extrai perfil estruturado de um currículo PDF sem contexto de vaga.
  * Usado na inscrição pública (assíncrono, pós-resposta).
@@ -77,7 +72,7 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
   const ai = getGeminiClient()
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3.6-flash',
+    model: GEMINI_MODEL,
     contents: `CURRÍCULO:\n${pdfText.slice(0, 8000)}\n\nExtraia as informações e retorne o JSON.`,
     config: {
       systemInstruction: EXTRACT_PROFILE_PROMPT,
@@ -101,7 +96,7 @@ export async function extractCvProfile(pdfBuffer: Buffer): Promise<CvProfileExtr
     lastPosition: parsed.lastPosition ?? null,
     skills: Array.isArray(parsed.skills) ? parsed.skills.slice(0, 8) : [],
     extractedAt: new Date().toISOString(),
-    modelUsed: 'google/gemini-3.6-flash',
+    modelUsed: `google/${GEMINI_MODEL}`,
   }
 }
 
@@ -180,7 +175,7 @@ export async function analyzeCv(
   const ai = getGeminiClient()
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3.6-flash',
+    model: GEMINI_MODEL,
     contents: userPrompt,
     config: {
       systemInstruction: SYSTEM_PROMPT,

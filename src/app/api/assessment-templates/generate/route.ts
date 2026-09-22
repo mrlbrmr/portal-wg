@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import Anthropic from '@anthropic-ai/sdk'
+import { generateJson, getGeminiApiKey } from '@/lib/ai/gemini'
 import { z } from 'zod'
 import type { Question } from '@/lib/avaliacoes/schema'
 
@@ -25,8 +25,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.errors }, { status: 422 })
 
   const { jobTitle, jobDescription, kind, subtype, count } = parsed.data
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'IA não configurada.' }, { status: 503 })
+  if (!getGeminiApiKey()) return NextResponse.json({ error: 'IA não configurada.' }, { status: 503 })
 
   const kindLabel = kind === 'SCREENING' ? 'triagem comportamental/situacional' : `técnico de ${subtype ?? 'conhecimentos específicos'}`
   const prompt = `Você é especialista em recrutamento e seleção. Crie ${count} questões de múltipla escolha para um teste de ${kindLabel} para a vaga de "${jobTitle}".
@@ -46,22 +45,12 @@ Regras:
 ]`
 
   try {
-    const client = new Anthropic({ apiKey })
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-    })
-
-    const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
-    const match = text.match(/\[[\s\S]*\]/)
-    if (!match) throw new Error('Array JSON não encontrado na resposta')
-
-    const raw = JSON.parse(match[0]) as Array<{
+    const raw = await generateJson<Array<{
       text: string
       options: string[]
       correctAnswer: string
-    }>
+    }>>({ parts: [prompt], maxOutputTokens: 8192 })
+    if (!Array.isArray(raw)) throw new Error('A IA não retornou uma lista de questões')
 
     const questions: Question[] = raw.map((q) => ({
       id: crypto.randomUUID(),

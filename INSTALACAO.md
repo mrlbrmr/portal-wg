@@ -9,7 +9,7 @@
 - Conta no Neon (banco PostgreSQL gratuito) → https://neon.tech
 - Conta no Vercel (deploy gratuito) → https://vercel.com
 - Conta no Resend (e-mails — plano gratuito) → https://resend.com
-- Conta na Anthropic (Claude API) → https://console.anthropic.com
+- Chave do Google Gemini (AI Studio, plano gratuito) → https://aistudio.google.com/apikey
 
 ---
 
@@ -49,10 +49,10 @@ Gere uma string aleatória segura:
 openssl rand -base64 32
 ```
 
-### ANTHROPIC_API_KEY
-1. Acesse https://console.anthropic.com
-2. Vá em API Keys → Create Key
-3. Cole em ANTHROPIC_API_KEY
+### GEMINI_API_KEY (IA — plano gratuito)
+1. Acesse https://aistudio.google.com/apikey
+2. Clique em Create API key
+3. Cole em GEMINI_API_KEY (opcional: `GEMINI_MODEL` para trocar o modelo)
 
 ### RESEND_API_KEY / RESEND_FROM_EMAIL / RH_EMAIL (e-mails transacionais)
 
@@ -165,7 +165,7 @@ VALUES (
 - [ ] `.env.local` NÃO commitado no Git
 - [ ] Repositório configurado como **privado**
 - [ ] Senhas do seed foram trocadas ou seed não foi executado em produção
-- [ ] ANTHROPIC_API_KEY válida e com créditos
+- [ ] GEMINI_API_KEY válida
 - [ ] RESEND_FROM_EMAIL verificado na plataforma Resend
 - [ ] NEXTAUTH_URL = URL de produção real
 - [ ] NEXTAUTH_SECRET = string longa e aleatória

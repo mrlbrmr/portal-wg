@@ -11,7 +11,7 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 ## Stack
 - **Next.js 15** (App Router) · React 19 · TypeScript · Tailwind 3
 - **Supabase** (Postgres + Auth + Storage) — acesso a dados em runtime é via **`supabase-js`**
-- `@anthropic-ai/sdk` (validação de documentos e geração de testes por IA); `exceljs`, `resend`, `@dnd-kit`, `tiptap`, `zod`
+- `@google/genai` — **toda IA passa por `src/lib/ai/gemini.ts`** (Gemini, plano gratuito: validação de documentos, análise de CV, geração de testes; modelo via `GEMINI_MODEL`); `exceljs`, `resend`, `@dnd-kit`, `tiptap`, `zod`
 - ⚠️ **`prisma/schema.prisma` é APENAS documentação do schema.** Não há Prisma client em runtime
   (não existe dependência `prisma`/`@prisma/client`; `src/lib/prisma.ts` foi removido na migração
   para o Supabase). A **fonte de verdade do schema são as migrações SQL** em `supabase/migrations/`.

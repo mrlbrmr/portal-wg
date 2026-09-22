@@ -1,6 +1,7 @@
 "use client";
 
 import { Copy, Pencil } from "lucide-react";
+import { formatExperience } from "@/lib/recruitment/candidate-presentation";
 import { Button } from "@/components/ui/Button";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import { DataRow, Section } from "./Section";
@@ -55,6 +56,37 @@ export function ApplicationData({
         </DataRow>
         {data.country && <DataRow label="País">{data.country}</DataRow>}
       </dl>
+    </Section>
+  );
+}
+
+/**
+ * "Experiência": perfil lido do currículo pela IA (cargo, tempo, formação, competências).
+ * Não renderiza nada sem perfil — nunca mostra campos vazios de exemplo.
+ */
+export function CandidateExperience({ data }: { data: CandidateDetail }) {
+  const p = data.cv_profile;
+  const experience = formatExperience(p?.experienceYears);
+  const skills = (p?.skills ?? []).filter((s) => typeof s === "string" && s.trim());
+  if (!p || (!p.lastPosition && !experience && !p.education && skills.length === 0)) return null;
+
+  return (
+    <Section title="Experiência">
+      <dl className="divide-y divide-wg-border-lighter/70">
+        {p.lastPosition && <DataRow label="Cargo mais recente">{p.lastPosition}</DataRow>}
+        {experience && <DataRow label="Tempo de experiência">{experience.replace(" de exp.", "")}</DataRow>}
+        {p.education && <DataRow label="Formação">{p.education}</DataRow>}
+      </dl>
+      {skills.length > 0 && (
+        <ul className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Competências">
+          {skills.map((s) => (
+            <li key={s} className="rounded-md bg-neutral-bg px-2 py-0.5 text-[12px] text-neutral-fg">
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-[11.5px] text-wg-ink-muted">Extraído automaticamente do currículo — confira no arquivo.</p>
     </Section>
   );
 }

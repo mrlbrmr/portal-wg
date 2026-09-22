@@ -2,12 +2,18 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users } from "lucide-react";
-import { KanbanBoard, type KanbanApplication } from "@/components/internal/KanbanBoard";
+import { AlertTriangle, ChevronLeft, Users } from "lucide-react";
+import { CandidatePipeline } from "@/components/internal/candidates/CandidatePipeline";
+import { JobPipelineActions } from "@/components/internal/candidates/JobPipelineActions";
+import type { PipelineCandidate } from "@/components/internal/candidates/types";
 import { AddCandidateModal } from "@/components/internal/AddCandidateModal";
 import { IncluirTalentoModal } from "@/components/internal/IncluirTalentoModal";
-import { JobStageConfigButton } from "@/components/internal/JobStageConfigButton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { MODALITY_LABELS } from "@/lib/utils";
+import { JOB_LIFECYCLE_META, jobLifecycle } from "@/lib/recruitment/job-presentation";
+import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/candidate-presentation";
+import type { CvProfile } from "@/lib/ai/cv-analyzer";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -21,6 +27,8 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+type AssessmentRow = { id: string; kind: string; occurredAt: string | null; outcome: string | null };
+
 export default async function CandidatosPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
@@ -28,15 +36,21 @@ export default async function CandidatosPage({ params }: Props) {
   // auth + job em paralelo (independentes entre si)
   const [session, { data: job }] = await Promise.all([
     auth(),
-    supabase.from("jobs").select("id, code, title, city, state, isTalentPool, requestId").eq("id", id).maybeSingle(),
+    supabase
+      .from("jobs")
+      .select("id, code, title, city, state, isTalentPool, requestId, modality, status, responsible")
+      .eq("id", id)
+      .maybeSingle(),
   ]);
   if (!job) notFound();
 
-  // applications (com assessments embutidos) + stages em paralelo
-  const [{ data: applications }, { data: stagesData }] = await Promise.all([
+  // applications (com avaliações embutidas) + stages em paralelo
+  const [{ data: applications, error: applicationsError }, { data: stagesData }] = await Promise.all([
     supabase
       .from("applications")
-      .select("id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, assessments:application_assessments(id)")
+      .select(
+        "id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, candidateCity, candidateState, cv_profile, notes, assessments:application_assessments(id, kind, occurredAt, outcome)"
+      )
       .eq("jobId", id)
       .order("sort_order", { ascending: true, nullsFirst: false })
       .order("createdAt", { ascending: false }),
@@ -68,7 +82,11 @@ export default async function CandidatosPage({ params }: Props) {
     createdAt: string;
     cv_extraction_status: string;
     sort_order: number | null;
-    assessments: Array<{ id: string }>;
+    candidateCity: string | null;
+    candidateState: string | null;
+    cv_profile: Partial<CvProfile> | null;
+    notes: string | null;
+    assessments: AssessmentRow[] | null;
   }>;
 
   const testAppIds = appList.filter((a) => testStageIds.has(a.stageId)).map((a) => a.id);
@@ -79,8 +97,9 @@ export default async function CandidatosPage({ params }: Props) {
   type MetaItem = { id: string; name: string };
   type SessRow = { applicationId: string; outcome: string | null; submittedAt: string | null };
   type AiRow = { applicationId: string; score: number };
+  type HistoryRow = { applicationId: string; stageId: string | null; changedAt: string };
 
-  const [tmplData, stageConfigData, sessData, aiData, admissionMeta] = await Promise.all([
+  const [tmplData, stageConfigData, sessData, aiData, historyData, admissionMeta] = await Promise.all([
     testTemplateIds.length > 0
       ? supabase.from("assessment_templates").select("id, name, kind").in("id", testTemplateIds)
           .then((r) => r.data as TemplateRow[] | null)
@@ -98,6 +117,14 @@ export default async function CandidatosPage({ params }: Props) {
           .eq("kind", "AI_FIT").in("applicationId", allAppIds)
           .not("score", "is", null).order("createdAt", { ascending: false })
           .then((r) => r.data as AiRow[] | null)
+      : null,
+    // Entrada na etapa atual: registro mais recente do histórico de cada candidatura.
+    allAppIds.length > 0
+      ? supabase.from("application_stage_history")
+          .select("applicationId, stageId, changedAt")
+          .in("applicationId", allAppIds)
+          .order("changedAt", { ascending: false })
+          .then((r) => r.data as HistoryRow[] | null)
       : null,
     hasAdmissionStage
       ? Promise.all([
@@ -136,18 +163,22 @@ export default async function CandidatosPage({ params }: Props) {
       ? allStages.filter((s) => activeStageIds.includes(s.id))
       : allStages;
 
-  // testOutcomeByApp
-  const testOutcomeByApp = new Map<string, "PASS" | "FAIL" | "PENDING_REVIEW" | null>();
-  for (const s of (sessData ?? [])) {
-    if (!testOutcomeByApp.has(s.applicationId)) {
-      testOutcomeByApp.set(
-        s.applicationId,
-        s.submittedAt ? ((s.outcome as "PASS" | "FAIL" | "PENDING_REVIEW") ?? null) : null,
-      );
-    }
+  // Situação do teste (só para quem está numa etapa TEST), pela sessão mais recente:
+  // sem sessão → não enviado; sessão aberta → aguardando; respondida → resultado.
+  const testStatusByApp = new Map<string, TestStatus>();
+  for (const s of sessData ?? []) {
+    if (testStatusByApp.has(s.applicationId)) continue;
+    testStatusByApp.set(
+      s.applicationId,
+      !s.submittedAt
+        ? "AWAITING"
+        : s.outcome === "PASS" || s.outcome === "FAIL"
+        ? s.outcome
+        : "PENDING_REVIEW"
+    );
   }
   for (const appId of testAppIds) {
-    if (!testOutcomeByApp.has(appId)) testOutcomeByApp.set(appId, null);
+    if (!testStatusByApp.has(appId)) testStatusByApp.set(appId, "NOT_SENT");
   }
 
   // Wave 3: Big Five (depende de templateKinds da wave 2)
@@ -171,23 +202,50 @@ export default async function CandidatosPage({ params }: Props) {
     if (!aiScoreByApp.has(row.applicationId)) aiScoreByApp.set(row.applicationId, row.score);
   }
 
-  const cards: KanbanApplication[] = appList.map((a) => ({
-    id: a.id,
-    fullName: a.fullName,
-    email: a.email,
-    phone: a.phone,
-    resumeName: a.resumeName,
-    stageId: a.stageId,
-    source: a.source,
-    assessmentCount: (a.assessments ?? []).length,
-    createdAt: new Date(a.createdAt).toISOString(),
-    // undefined quando não está em etapa TEST → sem badge
-    testOutcome: testOutcomeByApp.has(a.id) ? testOutcomeByApp.get(a.id) : undefined,
-    aiScore: aiScoreByApp.get(a.id),
-    cvExtractionStatus: a.cv_extraction_status ?? undefined,
-    bigFiveDone: bigFiveDoneSet.has(a.id),
-    sortOrder: a.sort_order ?? undefined,
-  }));
+  const latestHistoryByApp = new Map<string, HistoryRow>();
+  for (const h of historyData ?? []) {
+    if (!latestHistoryByApp.has(h.applicationId)) latestHistoryByApp.set(h.applicationId, h);
+  }
+
+  // Entrevistas registradas com data de hoje em diante (datas só-dia ficam em 00h/12h UTC).
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const nextInterview = (rows: AssessmentRow[]) =>
+    rows
+      .filter((r) => r.kind === "INTERVIEW" && r.occurredAt && r.occurredAt.slice(0, 10) >= todayUtc)
+      .filter((r) => !r.outcome || r.outcome === "PENDING")
+      .map((r) => r.occurredAt as string)
+      .sort()[0] ?? null;
+
+  const cards: PipelineCandidate[] = appList.map((a) => {
+    const assessments = a.assessments ?? [];
+    const profile = a.cv_profile ?? null;
+    return {
+      id: a.id,
+      fullName: a.fullName,
+      email: a.email,
+      phone: a.phone,
+      resumeName: a.resumeName,
+      stageId: a.stageId,
+      source: a.source,
+      createdAt: new Date(a.createdAt).toISOString(),
+      sortOrder: a.sort_order ?? undefined,
+      aiScore: aiScoreByApp.get(a.id),
+      cvExtractionStatus: a.cv_extraction_status ?? undefined,
+      bigFiveDone: bigFiveDoneSet.has(a.id),
+      // undefined quando não está em etapa TEST → sem badge de teste
+      testStatus: testStatusByApp.get(a.id),
+      city: a.candidateCity,
+      state: a.candidateState,
+      lastPosition: profile?.lastPosition?.trim() || null,
+      experienceYears: typeof profile?.experienceYears === "number" ? profile.experienceYears : null,
+      education: profile?.education?.trim() || null,
+      skills: Array.isArray(profile?.skills) ? profile.skills.filter((s): s is string => typeof s === "string") : [],
+      hasNotes: !!a.notes?.trim(),
+      assessmentCount: assessments.filter((r) => r.kind !== "AI_FIT").length,
+      enteredStageAt: enteredStageAtFromLatest(latestHistoryByApp.get(a.id), a.stageId),
+      nextInterviewAt: nextInterview(assessments),
+    };
+  });
 
   // Ordena: sort_order explícito primeiro, depois por aiScore desc (padrão).
   // A filtragem por coluna no Kanban preserva esta ordem relativa.
@@ -211,83 +269,94 @@ export default async function CandidatosPage({ params }: Props) {
     if (req) originRequest = req as { id: string; code: string | null };
   }
 
+  const jobLocation = job.isTalentPool
+    ? "Banco de talentos"
+    : job.city
+    ? `${job.city}/${job.state}`
+    : "Múltiplas cidades";
+  const lifecycle = JOB_LIFECYCLE_META[jobLifecycle(job.status)];
+  const meta = [job.code, jobLocation, job.modality ? MODALITY_LABELS[job.modality] ?? job.modality : null].filter(Boolean);
+
   return (
     <div>
       <Link
         href="/vagas/gerenciar"
-        className="inline-flex items-center gap-1 text-[13px] font-medium text-[#55614A] hover:text-[#1A2213] transition-colors mb-4"
+        className="-ml-1 mb-3 inline-flex items-center gap-1 rounded-control px-1 py-0.5 text-meta font-medium text-wg-ink-muted transition-colors hover:text-wg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/60"
       >
-        <ChevronLeft className="w-4 h-4" />
+        <ChevronLeft className="h-4 w-4" aria-hidden />
         Voltar às vagas
       </Link>
 
-      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-[26px] font-extrabold text-[#1A2213] leading-tight">{job.title}</h1>
-          <p className="text-[13px] text-[#55614A] mt-1">
-            {job.code ? `${job.code} · ` : ""}
-            {job.isTalentPool
-            ? "Banco de Talentos"
-            : job.city
-            ? `${job.city}/${job.state}`
-            : "Múltiplas cidades"}{" "}
-          · Candidatos por etapa
+      {/* Header da vaga: quem é a vaga à esquerda, ações à direita (CTA principal por último). */}
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="font-sora text-2xl font-semibold tracking-tight text-wg-ink md:text-page-title">{job.title}</h1>
+            <StatusBadge tone={lifecycle.tone} hint={lifecycle.hint}>
+              {lifecycle.label}
+            </StatusBadge>
+          </div>
+          <p className="mt-1 text-meta text-wg-ink-muted">
+            {meta.join(" · ")}
+            {job.responsible && <> · Recrutador: <span className="text-wg-ink-secondary">{job.responsible}</span></>}
           </p>
           {originRequest && (
-            <p className="text-[13px] text-[#55614A] mt-1">
-              Originada da solicitação{" "}
+            <p className="mt-0.5 text-meta text-wg-ink-muted">
+              Solicitação{" "}
               <Link
                 href={`/solicitacoes/${originRequest.id}`}
-                className="font-semibold text-[#4F6930] hover:underline"
+                className="font-medium text-wg-green-dark hover:underline"
               >
                 {originRequest.code ?? "sem número"}
               </Link>
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-[#EEF4E3] border border-[#DCE8CC] rounded-xl px-4 py-2">
-            <Users className="w-4 h-4 text-[#4F6930]" />
-            <span className="text-[13.5px] font-bold text-[#1A2213]">{cards.length}</span>
-            <span className="text-[13.5px] text-[#55614A]">
-              {cards.length === 1 ? "candidatura" : "candidaturas"}
-            </span>
-          </div>
-          {canManage && (
-            <JobStageConfigButton
+        {canManage && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <IncluirTalentoModal jobId={job.id} />
+            <AddCandidateModal jobId={job.id} />
+            <JobPipelineActions
               jobId={job.id}
               allStages={allStages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
               activeStageIds={activeStageIds}
             />
-          )}
-          {canManage && <IncluirTalentoModal jobId={job.id} />}
-          {canManage && <AddCandidateModal jobId={job.id} />}
-        </div>
-      </div>
+          </div>
+        )}
+      </header>
 
-      {cards.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#DCE8CC]">
+      {applicationsError ? (
+        <div className="rounded-card border border-danger-border bg-white">
+          <EmptyState
+            icon={AlertTriangle}
+            title="Não foi possível carregar as candidaturas"
+            description="Houve uma falha ao consultar o banco. Recarregue a página em instantes."
+            action={
+              <Link href={`/vagas/${job.id}/candidatos`} className="text-meta font-semibold text-wg-green-dark hover:underline">
+                Tentar novamente
+              </Link>
+            }
+          />
+        </div>
+      ) : cards.length === 0 ? (
+        <div className="rounded-card border border-dashed border-wg-border-light bg-white">
           <EmptyState
             icon={Users}
             title="Nenhuma candidatura recebida ainda"
-            description="Quando alguém se inscrever por esta vaga no portal, a candidatura aparece aqui no Kanban por etapa."
+            description={
+              canManage
+                ? "Quando alguém se inscrever pelo portal, a candidatura aparece aqui. Você também pode cadastrar um candidato ou trazer alguém do banco de talentos."
+                : "Quando alguém se inscrever por esta vaga no portal, a candidatura aparece aqui."
+            }
           />
         </div>
       ) : (
-        <KanbanBoard
-          key={cards.length}
+        <CandidatePipeline
           applications={cards}
           stages={stages}
           canManage={canManage}
           jobId={job.id}
           jobTitle={job.title}
-          jobLocation={
-            job.isTalentPool
-              ? "Banco de Talentos"
-              : job.city
-              ? `${job.city}/${job.state}`
-              : "Múltiplas cidades"
-          }
           admissionMeta={admissionMeta}
         />
       )}

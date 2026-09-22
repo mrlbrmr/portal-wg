@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Settings, X, Loader2 } from "lucide-react";
@@ -17,23 +17,38 @@ interface Props {
   allStages: StageOption[];
   /** IDs das etapas atualmente ativas para esta vaga (vazio = padrão global). */
   activeStageIds: string[];
+  /**
+   * Modo controlado: o modal é aberto por fora (ex.: item "Configurar etapas" do menu ⋯
+   * da vaga) e o botão próprio não é renderizado.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function JobStageConfigButton({ jobId, allStages, activeStageIds }: Props) {
+export function JobStageConfigButton({ jobId, allStages, activeStageIds, open: openProp, onOpenChange }: Props) {
   const router = useRouter();
   const { notify } = useToast();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : internalOpen;
+  const setOpen = (v: boolean) => (controlled ? onOpenChange?.(v) : setInternalOpen(v));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
+  function initialSelection() {
+    return activeStageIds.length > 0 ? new Set(activeStageIds) : new Set(allStages.map((s) => s.id));
+  }
+
   function openModal() {
-    setSelected(
-      activeStageIds.length > 0
-        ? new Set(activeStageIds)
-        : new Set(allStages.map((s) => s.id))
-    );
+    setSelected(initialSelection());
     setOpen(true);
   }
+
+  // Aberto por fora: parte da configuração salva, como no clique do botão.
+  useEffect(() => {
+    if (controlled && openProp) setSelected(initialSelection());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlled, openProp]);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -76,19 +91,21 @@ export function JobStageConfigButton({ jobId, allStages, activeStageIds }: Props
 
   return (
     <>
-      <button
-        type="button"
-        onClick={openModal}
-        title="Configurar etapas do funil para esta vaga"
-        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12.5px] font-bold transition-colors ${
-          isCustom
-            ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-            : "border-[#DCE8CC] bg-[#EEF4E3] text-[#4F6930] hover:bg-[#E3EDCC]"
-        }`}
-      >
-        <Settings className="w-3.5 h-3.5" />
-        {isCustom ? "Etapas personalizadas" : "Configurar etapas"}
-      </button>
+      {!controlled && (
+        <button
+          type="button"
+          onClick={openModal}
+          title="Configurar etapas do funil para esta vaga"
+          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[12.5px] font-bold transition-colors ${
+            isCustom
+              ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+              : "border-[#DCE8CC] bg-[#EEF4E3] text-[#4F6930] hover:bg-[#E3EDCC]"
+          }`}
+        >
+          <Settings className="w-3.5 h-3.5" />
+          {isCustom ? "Etapas personalizadas" : "Configurar etapas"}
+        </button>
+      )}
 
       {open &&
         createPortal(

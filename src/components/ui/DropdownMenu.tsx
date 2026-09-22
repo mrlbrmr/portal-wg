@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ElementType, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ElementType, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 export type DropdownMenuItem =
@@ -33,6 +34,11 @@ interface Props {
   align?: "left" | "right";
   disabled?: boolean;
   menuClassName?: string;
+  /**
+   * Renderiza o menu no <body> com posição fixa — para gatilhos dentro de áreas com
+   * rolagem/overflow (colunas do Kanban, tabelas), onde o menu seria cortado.
+   */
+  portal?: boolean;
 }
 
 /**
@@ -49,12 +55,42 @@ export function DropdownMenu({
   align = "right",
   disabled,
   menuClassName,
+  portal = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const [fixedStyle, setFixedStyle] = useState<CSSProperties | null>(null);
+
+  // Modo portal: posiciona abaixo do gatilho (ou acima, se faltar espaço) e fecha ao rolar.
+  useLayoutEffect(() => {
+    if (!open || !portal) return;
+    const place = () => {
+      const r = triggerRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const menuH = menuRef.current?.offsetHeight ?? 0;
+      const below = window.innerHeight - r.bottom;
+      const top = below < menuH + 12 && r.top > menuH + 12 ? r.top - menuH - 4 : r.bottom + 4;
+      setFixedStyle(
+        align === "right"
+          ? { position: "fixed", top, right: Math.max(8, window.innerWidth - r.right) }
+          : { position: "fixed", top, left: Math.max(8, r.left) }
+      );
+    };
+    place();
+    const onScroll = (e: Event) => {
+      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, portal, align]);
 
   const focusables = () =>
     Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? []);
@@ -63,7 +99,9 @@ export function DropdownMenu({
     if (!open) return;
     focusables()[0]?.focus();
     const onPointerDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
@@ -129,15 +167,17 @@ export function DropdownMenu({
         {trigger}
       </button>
 
-      {open && (
+      {open && renderMenu(
         <div
           ref={menuRef}
           id={menuId}
           role="menu"
           onKeyDown={onMenuKeyDown}
+          style={portal ? (fixedStyle ?? { position: "fixed", visibility: "hidden" }) : undefined}
           className={cn(
-            "absolute top-full z-[60] mt-1 min-w-[200px] overflow-hidden rounded-card border border-wg-border-lighter bg-white py-1 shadow-[0_12px_32px_rgba(26,34,19,.12)]",
-            align === "right" ? "right-0" : "left-0",
+            "z-[60] min-w-[200px] overflow-hidden rounded-card border border-wg-border-lighter bg-white py-1 shadow-[0_12px_32px_rgba(26,34,19,.12)]",
+            !portal && "absolute top-full mt-1",
+            !portal && (align === "right" ? "right-0" : "left-0"),
             menuClassName
           )}
         >
@@ -192,4 +232,8 @@ export function DropdownMenu({
       )}
     </div>
   );
+
+  function renderMenu(menu: ReactNode) {
+    return portal ? createPortal(menu, document.body) : menu;
+  }
 }

@@ -14,6 +14,8 @@ interface Props {
   children: ReactNode;
   footer: ReactNode;
   tone?: "default" | "danger";
+  /** "wide": tabelas lado a lado (ex.: comparação de candidatos). */
+  size?: "default" | "wide";
 }
 
 /**
@@ -21,7 +23,7 @@ interface Props {
  * Tab preso dentro do diálogo, Esc fecha (com preventDefault para o drawer não fechar
  * junto) e o foco volta para quem abriu.
  */
-export function DialogShell({ open, title, description, onClose, busy, children, footer, tone = "default" }: Props) {
+export function DialogShell({ open, title, description, onClose, busy, children, footer, tone = "default", size = "default" }: Props) {
   const titleId = useId();
   const descId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -73,7 +75,10 @@ export function DialogShell({ open, title, description, onClose, busy, children,
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
-        className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col rounded-card border border-wg-border-lighter bg-white shadow-[0_24px_48px_rgba(26,34,19,.2)]"
+        className={cn(
+          "relative flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-card border border-wg-border-lighter bg-white shadow-[0_24px_48px_rgba(26,34,19,.2)]",
+          size === "wide" ? "max-w-5xl" : "max-w-md"
+        )}
       >
         <div className="flex items-start justify-between gap-3 border-b border-wg-border-lighter px-5 py-4">
           <div className="min-w-0">

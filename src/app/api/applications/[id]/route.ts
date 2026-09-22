@@ -25,7 +25,7 @@ export async function GET(
   const { data: application } = await supabase
     .from("applications")
     .select(
-      "id, fullName, email, phone, resumeName, stageId, stage:application_stages(id, name, color), source, addedBy, notes, createdAt, country, candidateCity, candidateState, availablePresential, salaryExpectation, job:jobs(responsible, description, requiredRequirements), stageHistory:application_stage_history(id, stageId, stage:application_stages(name, color), changedBy, changedAt)"
+      "id, fullName, email, phone, resumeName, stageId, stage:application_stages(id, name, color), source, addedBy, notes, createdAt, country, candidateCity, candidateState, availablePresential, salaryExpectation, cv_profile, job:jobs(responsible, description, requiredRequirements), stageHistory:application_stage_history(id, stageId, stage:application_stages(name, color), changedBy, changedAt)"
     )
     .eq("id", id)
     .maybeSingle();

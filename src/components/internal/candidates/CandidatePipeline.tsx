@@ -221,9 +221,10 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     const now = new Date();
     const m = new Map<string, Derived>();
     for (const a of all) {
+      const score = aiScoreOverrides.get(a.id) ?? a.aiScore;
       m.set(a.id, {
-        score: aiScoreOverrides.get(a.id) ?? a.aiScore,
-        signals: candidateSignals(a, stageById.get(a.stageId), now),
+        score,
+        signals: candidateSignals({ ...a, hasScore: score !== undefined }, stageById.get(a.stageId), now),
       });
     }
     return m;
@@ -614,7 +615,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     const d = derived.get(c.id);
     // O card pode estar numa coluna nova (arraste ainda não confirmado): sinais pela etapa atual.
     const signals =
-      d && allById.get(c.id)?.stageId === c.stageId ? d.signals : candidateSignals(c, stageById.get(c.stageId));
+      d && allById.get(c.id)?.stageId === c.stageId ? d.signals : candidateSignals({ ...c, hasScore: d?.score !== undefined }, stageById.get(c.stageId));
     return (
       <CandidateCard
         candidate={c}

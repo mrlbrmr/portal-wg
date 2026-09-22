@@ -66,7 +66,8 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     controlado fora do sistema). O gestor não informa nenhum desses no formulário.
   - `job_request_form_config` agora guarda só **perguntas complementares** (→ `extra_data`).
 - **E-mail transacional:** `src/lib/email.ts` (Resend) — sem `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
-  nada é enviado (só loga). Templates em `src/lib/email-templates.ts`.
+  nada é enviado (só loga). Templates em `src/lib/email-templates.ts`. Avisos ao RH: nova
+  solicitação de vaga e formulário de admissão enviado (`src/lib/admissao/notify-submitted.ts`).
 - **Avaliações / Testes:** `src/app/(internal)/avaliacoes/banco`, `src/lib/avaliacoes/**`
   (Fase 1 = Banco de Testes, **feito**; **Fase 2 = fluxo de sessão/candidato, PENDENTE** — ver doc)
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`

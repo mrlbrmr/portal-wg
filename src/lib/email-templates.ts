@@ -397,3 +397,38 @@ export function jobRequestDecisionEmail(input: {
     }),
   };
 }
+
+/** E-mail para o RH quando o candidato conclui o formulário digital de admissão. */
+export function admissionSubmittedEmail(input: {
+  admissionId: string;
+  candidateName: string;
+  rows: Array<[string, string]>;
+  /** Nomes dos documentos enviados (já agrupados, ex.: "RG (2 arquivos)"). */
+  documents: string[];
+}): { subject: string; html: string } {
+  const nome = input.candidateName || "Candidato";
+  const docs = input.documents.length;
+  const docsLabel = docs === 1 ? "1 documento" : `${docs} documentos`;
+
+  return {
+    subject: `Documentos de admissão recebidos — ${nome}`,
+    html: layout({
+      preview: `${nome} concluiu o formulário de admissão e enviou ${docsLabel}.`,
+      chip: { label: "Pronto para conferência", bg: "#E9EDFA", color: "#3C56A8" },
+      title: "Documentos de admissão recebidos",
+      body: [
+        paragraph(
+          `<strong style="color:${INK}">${escapeHtml(
+            nome
+          )}</strong> concluiu o formulário digital de admissão e enviou <strong style="color:${INK}">${docsLabel}</strong>. Os dados e anexos já estão na ficha da admissão, aguardando a conferência do time de Gente &amp; Gestão.`
+        ),
+        dataTable([
+          ...input.rows,
+          ["Documentos enviados", input.documents.join("\n") || "Nenhum anexo"],
+        ]),
+        button(`${getAppBaseUrl()}/admissoes/${input.admissionId}`, "Conferir admissão"),
+        spacer(8),
+      ].join(""),
+    }),
+  };
+}

@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { deleteAdmissionAttachment } from '@/lib/admissao/storage'
+import { notifyAdmissionSubmitted } from '@/lib/admissao/notify-submitted'
 import { z } from 'zod'
 import { isValidCpf } from '@/lib/cpf'
 
@@ -111,6 +112,15 @@ export async function POST(
       console.error('[admissao-submit] limpeza de anexos órfãos', cleanupErr)
     }
   }
+
+  // Avisa o RH por e-mail depois de responder ao candidato (roda após a limpeza
+  // acima, então a lista de documentos já reflete só os anexos válidos).
+  const admissionId = admission.id as string
+  after(() =>
+    notifyAdmissionSubmitted(supabase, admissionId).catch((err) =>
+      console.error('[email] admissão enviada:', err)
+    )
+  )
 
   return NextResponse.json({ ok: true })
 }

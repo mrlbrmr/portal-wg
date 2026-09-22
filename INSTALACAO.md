@@ -69,7 +69,8 @@ requisição de vaga e o RH não recebe o aviso de nova solicitação.
 3. **API Keys → Create API Key** (permissão *Sending access*) → cole em `RESEND_API_KEY`.
 4. `RESEND_FROM_EMAIL`: remetente verificado, no formato com nome —
    ex.: `RH WG Baterias <rh@wgbaterias.com.br>`.
-5. `RH_EMAIL`: caixa do time de Gente & Gestão que recebe as novas requisições.
+5. `RH_EMAIL`: caixa do time de Gente & Gestão que recebe as novas requisições e o aviso
+   de documentos de admissão enviados (o responsável pela admissão também recebe esse aviso).
 6. Replique as três variáveis na Vercel (Project → Settings → Environment Variables,
    ambientes *Production* e *Preview*) e refaça o deploy.
 

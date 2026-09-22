@@ -80,6 +80,12 @@ test("sinal de teste só aparece na etapa de teste", () => {
   assert.equal(elsewhere.length, 0);
 });
 
+test("currículo: só sinaliza se nem a aderência conseguiu ler o arquivo", () => {
+  const base = { stageId: "NEW", enteredStageAt: null, cvExtractionStatus: "FAILED" };
+  assert.equal(candidateSignals(base, STAGES[0], NOW)[0]?.key, "cv");
+  assert.equal(candidateSignals({ ...base, hasScore: true }, STAGES[0], NOW).length, 0);
+});
+
 test("entrevista: hoje, amanhã, data futura; passadas somem", () => {
   assert.equal(formatInterviewLabel("2026-09-22T00:00:00.000Z", NOW), "Entrevista hoje");
   assert.equal(formatInterviewLabel("2026-09-23T12:00:00Z", NOW), "Entrevista amanhã");

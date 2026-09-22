@@ -112,7 +112,7 @@ export function CandidateKanban({ items, columns, canManage, orderMode, onBefore
         scrollerRef={scrollerRef}
         boardClassName="flex items-start gap-3 overflow-x-auto scroll-smooth pb-3 [scrollbar-width:thin]"
         columnClassName="flex w-[272px] shrink-0 flex-col rounded-card bg-[#EEF2E8]/50 transition-colors data-[over]:bg-wg-green/10 data-[over]:ring-2 data-[over]:ring-wg-green/30"
-        columnBodyClassName="flex min-h-[132px] max-h-[max(360px,calc(100vh-330px))] flex-col gap-2 overflow-y-auto overscroll-contain px-2 pb-2 [scrollbar-width:thin]"
+        columnBodyClassName="flex min-h-[132px] max-h-[max(320px,calc(100vh-400px))] flex-col gap-2 overflow-y-auto overscroll-contain px-2 pb-2 [scrollbar-width:thin]"
         getId={getId}
         getColumn={getColumn}
         applyColumn={applyColumn}

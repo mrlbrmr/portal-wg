@@ -173,6 +173,8 @@ export interface SignalInput {
   nextInterviewAt?: string | null;
   cvExtractionStatus?: string;
   bigFiveDone?: boolean;
+  /** A IA já calculou a aderência — prova de que o currículo é legível. */
+  hasScore?: boolean;
 }
 
 const TEST_SIGNAL: Record<TestStatus, Omit<CandidateSignal, "key" | "icon">> = {
@@ -229,7 +231,8 @@ export function candidateSignals(
     }
   }
 
-  if (input.cvExtractionStatus === "FAILED" || input.cvExtractionStatus === "MANUAL_REVIEW") {
+  // Só sinaliza quando nem a análise de aderência conseguiu ler o arquivo.
+  if (!input.hasScore && (input.cvExtractionStatus === "FAILED" || input.cvExtractionStatus === "MANUAL_REVIEW")) {
     out.push({
       key: "cv",
       icon: "file",

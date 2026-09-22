@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, useCallback, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Download, Trash2, FileText, Eye, X, FilePlus2, FolderOpen } from "lucide-react";
+import { Upload, Download, Trash2, FileText, Eye, X, FilePlus2, FolderOpen, Sparkles } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -11,7 +11,7 @@ import { Button, buttonVariants } from "@/components/ui/Button";
 import { QuickFilterChips } from "@/components/ui/FilterPopover";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { ActionResult } from "@/lib/admissao/actions";
-import { updateAttachmentCategory, deleteAttachment } from "@/lib/admissao/actions";
+import { updateAttachmentCategory, deleteAttachment, revalidateAttachmentsWithAI } from "@/lib/admissao/actions";
 import { DOCUMENT_STATUS_META, fileStatus, sectionStatus, type DocumentStatus } from "@/lib/admissao/document-status";
 import { cn } from "@/lib/utils";
 
@@ -145,6 +145,15 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
     });
   }
 
+  function revalidateAll() {
+    startTransition(async () => {
+      const res = await revalidateAttachmentsWithAI(admissionId);
+      if (!res.ok) notify("error", res.error);
+      else notify("success", `Validação concluída: ${res.approved} de ${res.total} documentos aprovados pela IA.`);
+      router.refresh();
+    });
+  }
+
   function uploadFiles(files: FileList | File[], categoryId: string) {
     const list = Array.from(files);
     if (list.length === 0) return;
@@ -238,6 +247,18 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
               <p className="mt-0.5 text-meta text-wg-ink-muted">Nenhum documento obrigatório configurado.</p>
             )}
           </div>
+          {canManage && reviewCount > 0 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={Sparkles}
+              disabled={isPending}
+              onClick={revalidateAll}
+              title="Refaz a validação automática dos documentos que ainda não foram aprovados pela IA"
+            >
+              {isPending ? "Validando…" : "Validar novamente com IA"}
+            </Button>
+          )}
           <QuickFilterChips<DocFilter>
             label="Filtrar documentos"
             value={filter}

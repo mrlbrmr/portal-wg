@@ -15,14 +15,14 @@ interface Props {
 }
 
 /**
- * Currículo em uma linha: nome + Visualizar (abre em nova aba) + Baixar. Substituir fica
- * no "•••" para não competir com a leitura. Renomear/Excluir não existem na API — não
- * aparecem.
+ * Currículo: tipo do arquivo em destaque, nome físico em segundo plano (tooltip), e
+ * "Visualizar currículo" como ação principal. Substituir fica no "•••". Número de
+ * páginas não é exibido: exigiria baixar e ler o arquivo a cada abertura.
  */
 export function ResumeCard({ applicationId, resumeName, canManage, uploading, onReplace }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const href = `/api/applications/${applicationId}/resume`;
-  const ext = resumeName?.split(".").pop()?.toUpperCase();
+  const ext = resumeName?.includes(".") ? resumeName.split(".").pop()?.toUpperCase() : null;
 
   return (
     <Section title="Currículo">
@@ -42,23 +42,25 @@ export function ResumeCard({ applicationId, resumeName, canManage, uploading, on
 
       {resumeName ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <div className="flex min-w-0 flex-1 basis-40 items-center gap-2.5" title={resumeName}>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-wg-sidebar text-wg-green-dark">
               <FileText className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-body font-medium text-wg-ink" title={resumeName}>
-                {resumeName}
-              </p>
-              <p className="text-meta text-wg-ink-muted">
+              <p className="text-body font-medium text-wg-ink">
                 {uploading ? "Enviando novo arquivo…" : ext ? `Arquivo ${ext}` : "Arquivo anexado"}
+              </p>
+              <p className="truncate text-[12px] text-wg-ink-muted">
+                <span className="sr-only">Nome do arquivo: </span>
+                {resumeName}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <a href={href} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "secondary", size: "sm" })}>
               <Eye aria-hidden />
-              Visualizar
+              Visualizar currículo
+              <span className="sr-only">(abre em nova aba)</span>
             </a>
             <a href={`${href}?download=1`} className={buttonVariants({ variant: "tertiary", size: "sm" })}>
               <Download aria-hidden />

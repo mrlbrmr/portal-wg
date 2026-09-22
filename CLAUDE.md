@@ -45,6 +45,10 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Admissões:** `src/app/(internal)/admissoes/**`, `src/lib/admissao/**`, `src/components/internal/admissao/**`
 - **Modelos de checklist:** `.../admissoes/configuracoes/modelos`, `src/lib/admissao/template-actions.ts`, `checklist.ts`
 - **ATS / Vagas:** `src/app/(internal)/vagas/**` (kanban de candidatos, funil configurável)
+- **Quick View do candidato** (abre ao lado do pipeline da vaga): `src/components/internal/candidate/CandidateQuickView.tsx`
+  (split view no desktop, J/K, barra de decisão). Anotações por autor em `application_notes`
+  (`/api/applications/[id]/notes`); `applications.notes` = "anotações anteriores" + motivo de reprovação.
+  Análise de IA estruturada em `application_assessments.metadata` (lida por `src/lib/recruitment/ai-analysis.ts`).
 - **Solicitação de vaga:** módulo próprio em `/solicitacoes` (`src/app/(internal)/solicitacoes/**`).
   **Solicitação ≠ Vaga.** A solicitação é o pedido de AUTORIZAÇÃO para contratar; a vaga é o
   processo seletivo que nasce depois. Gestor pede em `/solicitar-vaga` (público, campos

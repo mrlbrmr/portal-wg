@@ -20,7 +20,7 @@ export async function GET(
   const { data } = await supabase
     .from("application_assessments")
     .select(
-      "id, kind, source, title, score, outcome, summary, evaluator, attachmentName, occurredAt, createdAt, createdBy"
+      "id, kind, source, title, score, outcome, summary, evaluator, attachmentName, metadata, occurredAt, createdAt, createdBy"
     )
     .eq("applicationId", id)
     .order("occurredAt", { ascending: false, nullsFirst: false })

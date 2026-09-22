@@ -96,7 +96,7 @@ export async function POST(
     return NextResponse.json({ error: 'Erro ao salvar respostas' }, { status: 500 })
   }
 
-  // Registra em application_assessments para aparecer no CandidateDrawer
+  // Registra em application_assessments para aparecer no Quick View do candidato
   const bigFive = scoreBreakdown?.bigFive as Record<string, number | null> | undefined
   const summaryParts: string[] = [`Teste online: ${template.name as string}`]
   if (bigFive) {

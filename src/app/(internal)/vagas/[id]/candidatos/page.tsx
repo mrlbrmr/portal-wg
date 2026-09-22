@@ -49,7 +49,7 @@ export default async function CandidatosPage({ params }: Props) {
     supabase
       .from("applications")
       .select(
-        "id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, candidateCity, candidateState, cv_profile, notes, assessments:application_assessments(id, kind, occurredAt, outcome)"
+        "id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, candidateCity, candidateState, cv_profile, notes, noteRows:application_notes(id), assessments:application_assessments(id, kind, occurredAt, outcome)"
       )
       .eq("jobId", id)
       .order("sort_order", { ascending: true, nullsFirst: false })
@@ -86,6 +86,7 @@ export default async function CandidatosPage({ params }: Props) {
     candidateState: string | null;
     cv_profile: Partial<CvProfile> | null;
     notes: string | null;
+    noteRows: Array<{ id: string }> | null;
     assessments: AssessmentRow[] | null;
   }>;
 
@@ -240,7 +241,7 @@ export default async function CandidatosPage({ params }: Props) {
       experienceYears: typeof profile?.experienceYears === "number" ? profile.experienceYears : null,
       education: profile?.education?.trim() || null,
       skills: Array.isArray(profile?.skills) ? profile.skills.filter((s): s is string => typeof s === "string") : [],
-      hasNotes: !!a.notes?.trim(),
+      hasNotes: !!a.notes?.trim() || (a.noteRows?.length ?? 0) > 0,
       assessmentCount: assessments.filter((r) => r.kind !== "AI_FIT").length,
       enteredStageAt: enteredStageAtFromLatest(latestHistoryByApp.get(a.id), a.stageId),
       nextInterviewAt: nextInterview(assessments),

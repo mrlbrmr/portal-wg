@@ -85,7 +85,7 @@ export default function InternalShell({ user, pendingRequests = 0, children }: P
           </div>
 
           {/* Conteúdo principal + botão toggle (desktop) */}
-          <main className="flex-1 p-4 md:p-8 min-w-0 relative">
+          <main data-internal-main className="flex-1 p-4 md:p-8 min-w-0 relative">
             <button
               type="button"
               onClick={toggleCollapsed}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ interface Props {
 }
 
 /**
- * Diálogo modal usado por cima do drawer do candidato. Foco inicial no primeiro campo,
+ * Diálogo modal usado por cima do Quick View do candidato (renderizado no <body>). Foco inicial no primeiro campo,
  * Tab preso dentro do diálogo, Esc fecha (com preventDefault para o drawer não fechar
  * junto) e o foco volta para quem abriu.
  */
@@ -66,8 +67,8 @@ export function DialogShell({ open, title, description, onClose, busy, children,
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onKeyDown={onKeyDown}>
+  return createPortal(
+    <div data-dialog-shell className="fixed inset-0 z-[70] flex items-center justify-center p-4" onKeyDown={onKeyDown}>
       <div className="absolute inset-0 bg-[#1A2213]/50" onClick={() => !busy && onClose()} aria-hidden />
       <div
         ref={panelRef}
@@ -101,9 +102,64 @@ export function DialogShell({ open, title, description, onClose, busy, children,
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {children != null && <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>}
         <div className="flex justify-end gap-2 border-t border-wg-border-lighter px-5 py-3">{footer}</div>
       </div>
-    </div>
+    </div>,
+    document.body
+  );
+}
+
+/** Confirmação de ação destrutiva por cima do Quick View (ex.: excluir anotação). */
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  description: ReactNode;
+  confirmLabel: string;
+  busy?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <DialogShell
+      open={open}
+      tone="danger"
+      title={title}
+      description={description}
+      busy={busy}
+      onClose={onCancel}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            data-autofocus
+            className="inline-flex h-9 items-center justify-center rounded-control border border-wg-border-light bg-white px-3.5 text-sm font-semibold text-wg-ink-secondary transition-colors hover:bg-wg-bg disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            aria-busy={busy || undefined}
+            className="inline-flex h-9 items-center justify-center rounded-control bg-danger px-3.5 text-sm font-semibold text-white transition-colors hover:bg-danger-fg disabled:opacity-50"
+          >
+            {busy ? "Excluindo…" : confirmLabel}
+          </button>
+        </>
+      }
+    >
+      {null}
+    </DialogShell>
   );
 }

@@ -172,3 +172,14 @@
 }
 .rich-editor p:first-child { margin-top: 0; }
 .rich-editor p:last-child { margin-bottom: 0; }
+
+/* Quick View do candidato em split view (>= lg): a área de conteúdo abre espaço à direita
+   para o painel, e o pipeline da vaga continua visível e clicável à esquerda. */
+[data-internal-main] {
+  transition: padding-right 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (min-width: 1024px) {
+  html[data-quickview="split"] [data-internal-main] {
+    padding-right: calc(var(--quickview-width, 0px) + 1.5rem);
+  }
+}

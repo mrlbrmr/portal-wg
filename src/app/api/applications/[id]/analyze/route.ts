@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RESUMES_BUCKET } from "@/lib/storage";
 import { analyzeCv } from "@/lib/ai/cv-analyzer";
+import { GEMINI_MODEL } from "@/lib/ai/gemini";
+import { extractScreeningCriteria } from "@/lib/recruitment/screening";
+import type { AiAnalysisMetadata } from "@/lib/recruitment/ai-analysis";
 
 // Remove HTML tags, collapse whitespace — para enviar texto limpo ao Claude.
 function stripHtml(html: string | null | undefined): string {
@@ -101,7 +104,7 @@ export async function POST(
   // Executa análise via Claude Haiku
   let result;
   try {
-    result = await analyzeCv(pdfBuffer, job.title, jobDescription);
+    result = await analyzeCv(pdfBuffer, job.title, jobDescription, extractScreeningCriteria(job));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro desconhecido";
     console.error("[analyze] IA error:", msg);
@@ -137,6 +140,19 @@ export async function POST(
 
   const summary = summaryParts.join("\n");
 
+  // Versão estruturada (a UI mostra critérios, pontos fortes e lacunas sem parsear texto).
+  // `summary` continua gravado para leitura humana e para quem ainda lê só o texto.
+  const metadata: AiAnalysisMetadata = {
+    version: 2,
+    model: GEMINI_MODEL,
+    profileSummary: result.profileSummary,
+    fitReason: result.fitReason,
+    strengths: result.strengths,
+    gaps: result.gaps,
+    criteria: result.criteria,
+    profile: result.profile,
+  };
+
   // Remove análise anterior de IA (mantém lista limpa)
   await supabase
     .from("application_assessments")
@@ -155,6 +171,7 @@ export async function POST(
     outcome,
     summary,
     evaluator: "IA · Gemini",
+    metadata,
     occurredAt: new Date().toISOString(),
   });
   if (insertError) {

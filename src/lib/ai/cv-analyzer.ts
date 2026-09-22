@@ -11,13 +11,30 @@ export interface CvProfile {
   skills: string[]
 }
 
+/** Veredito da IA para um requisito da vaga — descritivo, nunca uma decisão. */
+export type CvCriterionStatus = 'MEETS' | 'PARTIAL' | 'NOT_FOUND'
+
+export interface CvCriterionAssessment {
+  criterion: string
+  status: CvCriterionStatus
+  /** Evidência curta do currículo — ou o que não foi encontrado. */
+  evidence: string | null
+}
+
 export interface CvAnalysisResult {
   profile: CvProfile
+  /** 1 frase sobre o profissional, só com fatos do currículo (sem juízo sobre a vaga). */
+  profileSummary: string | null
   fitScore: number        // 0–100
   fitReason: string       // 2-3 frases
   strengths: string[]     // até 3 pontos fortes em relação à vaga
   gaps: string[]          // até 3 lacunas em relação à vaga
+  /** Requisitos da vaga avaliados um a um (vazio se a vaga não tem requisitos em lista). */
+  criteria: CvCriterionAssessment[]
 }
+
+const CRITERION_STATUSES: CvCriterionStatus[] = ['MEETS', 'PARTIAL', 'NOT_FOUND']
+const MAX_CRITERIA = 8
 
 // ─── Extração de perfil (sem contexto de vaga) ───────────────────────────────
 
@@ -125,6 +142,7 @@ Formato JSON obrigatório:
     "lastPosition": string | null,
     "skills": [string]
   },
+  "profileSummary": "UMA frase descrevendo o profissional só com fatos do currículo (formação, área, experiências principais). Ex.: 'Profissional formado em Administração, com experiência em prospecção de clientes e rotinas administrativas.' Sem opinião e sem mencionar a vaga. null se o currículo não tiver dados suficientes.",
   "fitScore": number inteiro entre 0 e 100,
   "fitReason": "3 a 4 frases citando dados concretos do currículo (cargo, tempo, empresa) e comparando com requisitos específicos da vaga. Exemplo: 'O candidato atuou X anos como Y na empresa Z, atendendo ao requisito de experiência em W. Sua formação em... alinha-se com...'",
   "strengths": [
@@ -136,18 +154,25 @@ Formato JSON obrigatório:
     "Cite o que a vaga exige explicitamente e o que está ausente ou insuficiente no currículo do candidato",
     "...",
     "..."
+  ],
+  "criteria": [
+    { "criterion": "requisito da vaga resumido em até 5 palavras", "status": "MEETS | PARTIAL | NOT_FOUND", "evidence": "evidência curta do currículo, ou o que não foi encontrado" }
   ]
 }
 
 Regras adicionais:
 - Em strengths e gaps, sempre nomeie evidências reais: empresa, cargo, período, habilidade ou formação
 - Se a vaga exige algo que o currículo não menciona, sinalize como lacuna com clareza
+- criteria: avalie CADA item da lista "REQUISITOS OBRIGATÓRIOS" (quando houver), na mesma ordem, no máximo ${MAX_CRITERIA}. MEETS = o currículo demonstra; PARTIAL = demonstra em parte; NOT_FOUND = o currículo não menciona (não significa que o candidato não tenha). Sem lista de requisitos, devolva "criteria": []
+- Linguagem descritiva: nunca escreva "contrate", "reprove", "candidato ideal" ou "melhor candidato"
 - Responda em português brasileiro`
 
 export async function analyzeCv(
   pdfBuffer: Buffer,
   jobTitle: string,
   jobDescription: string,
+  /** Requisitos obrigatórios da vaga, em lista (screening.ts) — viram os critérios avaliados. */
+  requirements: string[] = [],
 ): Promise<CvAnalysisResult> {
   let pdfText: string
   try {
@@ -170,6 +195,9 @@ export async function analyzeCv(
     `CURRÍCULO:\n${pdfText.slice(0, 8000)}\n\n` +
     `VAGA: ${jobTitle}\n\n` +
     `DESCRIÇÃO DA VAGA:\n${jobDescription.slice(0, 3000)}\n\n` +
+    (requirements.length > 0
+      ? `REQUISITOS OBRIGATÓRIOS:\n${requirements.slice(0, MAX_CRITERIA).map((r) => `- ${r}`).join('\n')}\n\n`
+      : '') +
     `Analise o currículo acima em relação à vaga e retorne o JSON de análise.`
 
   const ai = getGeminiClient()
@@ -193,6 +221,15 @@ export async function analyzeCv(
     throw new Error(`Resposta da IA inválida: ${raw.slice(0, 200)}`)
   }
 
+  const criteria: CvCriterionAssessment[] = (Array.isArray(parsed.criteria) ? parsed.criteria : [])
+    .filter((c) => c && typeof c.criterion === 'string' && c.criterion.trim())
+    .slice(0, MAX_CRITERIA)
+    .map((c) => ({
+      criterion: c.criterion.trim(),
+      status: CRITERION_STATUSES.includes(c.status) ? c.status : 'NOT_FOUND',
+      evidence: typeof c.evidence === 'string' && c.evidence.trim() ? c.evidence.trim() : null,
+    }))
+
   return {
     profile: {
       experienceYears: parsed.profile?.experienceYears ?? null,
@@ -200,6 +237,9 @@ export async function analyzeCv(
       lastPosition: parsed.profile?.lastPosition ?? null,
       skills: Array.isArray(parsed.profile?.skills) ? parsed.profile.skills : [],
     },
+    profileSummary:
+      typeof parsed.profileSummary === 'string' && parsed.profileSummary.trim() ? parsed.profileSummary.trim() : null,
+    criteria,
     fitScore: Math.min(100, Math.max(0, Math.round(Number(parsed.fitScore) || 0))),
     fitReason: parsed.fitReason ?? '',
     strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 3) : [],

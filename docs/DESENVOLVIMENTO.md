@@ -7,6 +7,50 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-22 — Quick View do candidato (estação de triagem)
+
+Evolução do drawer do candidato (seção abaixo) para um **Quick View** focado em "avançar, manter
+ou reprovar?". Continua abrindo sem sair da vaga.
+
+- **Migração `20260922150000_application_notes.sql` — APLICADA.** Tabela `application_notes`
+  (autor, data, texto) com RLS: staff lê; ADMIN_RH cria em nome próprio; só o autor edita/exclui.
+  Aditiva. `applications.notes` (campo único antigo) continua em uso: aparece como "Anotações
+  anteriores" e segue recebendo o motivo de reprovação (regra inalterada).
+- **Split view no desktop** (≥ lg, com ≥ 1040px de área de conteúdo): painel com ~60% da área à
+  direita, **sem fundo escurecido**; o conteúdo ganha `padding-right` (`html[data-quickview]` +
+  `--quickview-width` em `globals.css`, `main[data-internal-main]` no `InternalShell`) e o
+  Kanban continua visível e clicável. Abaixo disso, overlay (tela cheia no celular). "Abrir
+  perfil completo" expande o painel para toda a área de conteúdo — **não existe rota de perfil
+  dedicada ainda**; `FullProfileAction` já aceita `href` para quando existir.
+- **Triagem sequencial:** ‹ 1 de 5 › no cabeçalho + atalhos **J/K** (ignorados em campos de texto,
+  menus, diálogos e durante arraste por teclado). A fila é congelada ao abrir (`queuePosition` em
+  `src/lib/recruitment/candidate-navigation.ts`): avançar/reprovar alguém não embaralha a sequência.
+- **Barra de decisão fixa no rodapé:** etapa atual, próxima etapa, "Entrou …" + **Reprovar**
+  (diálogo com motivo) · **Manter** (deixa na etapa e abre o próximo — sem estado novo) ·
+  **Avançar para X**. Cabeçalho: avatar, nome, vaga · cidade, selos (aderência, Novo, origem),
+  "Candidatou-se …", responsável, Contatar ▾, •••.
+- **Abas Visão geral · Avaliações · Anotações · Histórico.** Visão geral: aderência (com (i)
+  explicando a base), resumo profissional, fatos-chave, competências, pontos fortes/atenção,
+  currículo (tipo em destaque, nome físico secundário), contato e detalhes. Avaliações: análise de
+  IA estruturada (score, faixa descritiva, critérios da vaga um a um, pontos fortes, lacunas,
+  "Ver análise completa"), testes online e avaliações registradas (exclusão agora com confirmação).
+- **IA estruturada sem migração:** a rota `/analyze` passa os requisitos obrigatórios da vaga ao
+  Gemini e grava `profileSummary` + `criteria` (MEETS/PARTIAL/NOT_FOUND) em
+  `application_assessments.metadata` (coluna que já existia). Análises antigas (só texto) são
+  lidas por `parseLegacySummary` — critérios aparecem como "Não avaliado" até reanalisar.
+  Rótulos descritivos ("Recomendado para análise", "Aderência parcial", "Baixa aderência").
+- **Histórico** (`src/lib/recruitment/candidate-timeline.ts`, puro/testado): etapa (origem → destino),
+  reprovação, análise de IA, avaliação, entrevista registrada, teste enviado/concluído, anotação.
+  Tipos "contato realizado" e "troca de responsável" existem no vocabulário mas não têm fonte de dado.
+- Componentes (`src/components/internal/candidate/`): `CandidateQuickView` (orquestra), hook
+  `useCandidateWorkspace`, `CandidateHeader`/`FullProfileAction`, `CandidateNavigation`,
+  `CandidateStageBar`, `CandidateOverview`, `AiAnalysisPanel`, `CandidateTests`,
+  `ManualAssessments`, `CandidateNotes`, `CandidateTimeline`; `ui/InfoHint` (tooltip acessível).
+  Removidos: `CandidateDrawer`, `AssessmentsSection`, `TestSessionsSection`, `TeamNotes`,
+  `CandidateHistory`, `ScreeningCriteria`. `DialogShell` agora renderiza no `<body>`.
+- Validação visual feita em página temporária com fetch simulado (desktop split/expandido, tablet,
+  celular). **Validação logada com dados reais ainda pendente.**
+
 ## Sessão de 2026-09-21 (tarde) — Drawer do candidato vira workspace de triagem
 
 Redesenho do drawer lateral aberto pelo Kanban da vaga (continua drawer, não virou página).

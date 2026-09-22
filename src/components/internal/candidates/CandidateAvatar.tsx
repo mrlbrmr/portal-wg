@@ -5,7 +5,7 @@ interface Props {
   name: string;
   /** Semente da cor (id da candidatura) — a mesma pessoa mantém a mesma cor. */
   seed: string;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }
 
@@ -17,7 +17,7 @@ export function CandidateAvatar({ name, seed, size = "md", className }: Props) {
       aria-hidden
       className={cn(
         "inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold tracking-wide",
-        size === "sm" ? "h-8 w-8 text-[11.5px]" : "h-9 w-9 text-[12.5px]",
+        size === "xs" ? "h-7 w-7 text-[10.5px]" : size === "sm" ? "h-8 w-8 text-[11.5px]" : size === "lg" ? "h-10 w-10 text-[13px]" : "h-9 w-9 text-[12.5px]",
         className
       )}
       style={{ background: tone.bg, color: tone.fg }}

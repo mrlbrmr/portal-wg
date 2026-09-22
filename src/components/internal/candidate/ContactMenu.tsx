@@ -26,10 +26,12 @@ export function ContactMenu({ email, phone, onCopy }: Props) {
   return (
     <DropdownMenu
       items={items}
-      triggerClassName={buttonVariants({ variant: "secondary" })}
+      ariaLabel="Contatar candidato"
+      triggerClassName={buttonVariants({ variant: "secondary", className: "px-2.5 sm:px-3.5" })}
       trigger={
         <>
-          Contatar
+          <MessageCircle className="sm:hidden" aria-hidden />
+          <span className="hidden sm:inline">Contatar</span>
           <ChevronDown aria-hidden />
         </>
       }

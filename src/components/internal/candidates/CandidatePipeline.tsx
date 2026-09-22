@@ -23,6 +23,7 @@ import {
   type CandidateSignal,
 } from "@/lib/recruitment/candidate-presentation";
 import { candidateStageFlow, type FlowStage } from "@/lib/recruitment/candidate-stage-flow";
+import { queuePosition } from "@/lib/recruitment/candidate-navigation";
 import { useToast } from "@/components/ui/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -30,7 +31,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import type { DropdownMenuItem } from "@/components/ui/DropdownMenu";
 import type { ActiveChip, FilterSection } from "@/components/ui/FilterPopover";
 import type { KanbanCardApi, KanbanColumnDef } from "@/components/internal/KanbanBoardShell";
-import { CandidateDrawer } from "@/components/internal/CandidateDrawer";
+import { CandidateQuickView } from "@/components/internal/candidate/CandidateQuickView";
 import { InterviewModal } from "@/components/internal/InterviewModal";
 import { AdmissionLinkModal, type AdmissionMeta } from "@/components/internal/AdmissionLinkModal";
 import { MoveStageDialog } from "@/components/internal/candidate/MoveStageDialog";
@@ -144,6 +145,9 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
 
   // ── Estado de operação ──
   const [detailId, setDetailId] = useState<string | null>(null);
+  /** Fila de triagem do Quick View: a ordem visível no momento em que o candidato foi aberto. */
+  const [queue, setQueue] = useState<string[]>([]);
+  const lastQueueIndex = useRef<number | null>(null);
   const [pendingAdmission, setPendingAdmission] = useState<{ candidateId: string; toStageId: string } | null>(null);
   const [aiScoreOverrides, setAiScoreOverrides] = useState<Map<string, number>>(new Map());
   const [sendingTestFor, setSendingTestFor] = useState<string | null>(null);
@@ -471,7 +475,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
   function menuFor(c: PipelineCandidate): DropdownMenuItem[] {
     const stage = stageById.get(c.stageId);
     const items: DropdownMenuItem[] = [
-      { label: "Abrir ficha", icon: PanelRightOpen, onSelect: () => setDetailId(c.id) },
+      { label: "Abrir candidato", icon: PanelRightOpen, onSelect: () => openCandidate(c.id) },
     ];
     if (c.resumeName) {
       items.push({ label: "Ver currículo", icon: FileText, href: `/api/applications/${c.id}/resume`, external: true });
@@ -609,6 +613,31 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     [stages, filters.stages]
   );
   const boardKeys = new Set(columns.map((c) => c.key));
+
+  // ── Quick View: fila de triagem (J/K, ‹ ›) ──
+  // Na lista, a ordem visível; no Kanban, coluna a coluna. A fila é "congelada" ao abrir:
+  // avançar/reprovar alguém não embaralha a sequência que o recrutador está percorrendo.
+  const navOrder =
+    view === "list"
+      ? visible.map((a) => a.id)
+      : columns.flatMap((col) => visible.filter((a) => a.stageId === col.key).map((a) => a.id));
+  const navOrderRef = useRef(navOrder);
+  navOrderRef.current = navOrder;
+  const openCandidate = useCallback((id: string) => {
+    const order = navOrderRef.current;
+    setQueue(order.includes(id) ? order : [id, ...order]);
+    lastQueueIndex.current = null;
+    setDetailId(id);
+  }, []);
+  const liveQueue = queue.filter((id) => !deletedIds.has(id));
+  const queuePos = queuePosition(liveQueue, detailId, lastQueueIndex.current);
+  if (queuePos.index !== null) lastQueueIndex.current = queuePos.index - 1;
+  const queueNav = {
+    index: queuePos.index,
+    total: queuePos.total,
+    onPrev: queuePos.prevId ? () => setDetailId(queuePos.prevId) : null,
+    onNext: queuePos.nextId ? () => setDetailId(queuePos.nextId) : null,
+  };
   const onBoardCount = visible.filter((a) => boardKeys.has(a.stageId)).length;
 
   const renderCard = (c: PipelineCandidate, api: KanbanCardApi) => {
@@ -625,7 +654,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
         selectionActive={selectedIds.size > 0}
         menuItems={menuFor(c)}
         stageAction={cardActionFor(c)}
-        onOpen={setDetailId}
+        onOpen={openCandidate}
         onToggleSelect={toggleSelect}
         drag={api.drag}
       />
@@ -704,7 +733,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
               selected={selectedIds}
               onToggleSelect={toggleSelect}
               onToggleAll={toggleAll}
-              onOpen={setDetailId}
+              onOpen={openCandidate}
             />
           )
         ) : columns.length === 0 ? (
@@ -757,7 +786,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
         onClose={() => setCompareOpen(false)}
         onOpen={(id) => {
           setCompareOpen(false);
-          setDetailId(id);
+          openCandidate(id);
         }}
         onRemove={(id) => toggleSelect(id)}
       />
@@ -804,11 +833,14 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
         onCancel={() => setDialog(null)}
       />
 
-      <CandidateDrawer
+      <CandidateQuickView
         applicationId={detailId}
         canManage={canManage}
         stages={stages}
         jobTitle={jobTitle}
+        knownScore={detailId ? derived.get(detailId)?.score : undefined}
+        nav={queueNav}
+        onScoreChange={(id, score) => setAiScoreOverrides((prev) => new Map(prev).set(id, score))}
         onClose={() => setDetailId(null)}
         onBeforeStageChange={(id, toStageId) => {
           // Mesmo gate do arrastar no Kanban: Admissão/Contratado abre o modal de admissão.

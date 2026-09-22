@@ -77,11 +77,11 @@ export function CandidateTimeline({ events, loadingExtras }: { events: Candidate
           </ol>
         </section>
       ))}
-      <p className="border-t border-wg-border-lighter pt-3 text-[12px] text-wg-ink-muted" aria-live="polite">
-        {loadingExtras
-          ? "Carregando avaliações, testes e anotações…"
-          : "Mostra movimentações de etapa, avaliações, testes e anotações registrados no sistema."}
-      </p>
+      {loadingExtras && (
+        <p className="text-[12px] text-wg-ink-muted" aria-live="polite">
+          Carregando avaliações, testes e anotações…
+        </p>
+      )}
     </div>
   );
 }

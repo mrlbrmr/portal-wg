@@ -43,6 +43,8 @@ interface Props {
   score: number | undefined;
   signals: CandidateSignal[];
   selected: boolean;
+  /** Candidato aberto no Quick View ao lado. */
+  active?: boolean;
   /** Há alguma seleção ativa: as caixas de seleção ficam visíveis em todos os cards. */
   selectionActive: boolean;
   menuItems: DropdownMenuItem[];
@@ -69,6 +71,7 @@ function CandidateCardBase({
   score,
   signals,
   selected,
+  active = false,
   selectionActive,
   menuItems,
   stageAction,
@@ -86,6 +89,7 @@ function CandidateCardBase({
   return (
     <article
       aria-label={c.fullName}
+      aria-current={active ? "true" : undefined}
       onClick={(e) => {
         if (!isOverlay && !fromInteractive(e)) onOpen(c.id);
       }}
@@ -94,11 +98,18 @@ function CandidateCardBase({
         drag?.handleProps ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
         selected
           ? "border-wg-green-dark/70 shadow-[0_0_0_1px_rgba(79,105,48,.45)]"
+          : active
+          ? "border-wg-green-dark/40 bg-[#F8FBF3] shadow-[0_1px_3px_rgba(26,34,19,.08)]"
           : "border-wg-border-lighter shadow-[0_1px_2px_rgba(26,34,19,.04)] hover:-translate-y-px hover:border-[#CBDBB6] hover:shadow-[0_6px_16px_-4px_rgba(26,34,19,.12)]",
         drag?.isDragging && "opacity-40",
         isOverlay && "rotate-[1.5deg] cursor-grabbing border-[#CBDBB6] shadow-[0_16px_32px_-8px_rgba(26,34,19,.25)]"
       )}
     >
+      {/* Aberto no Quick View: faixa lateral verde (além do fundo, para não depender só de cor). */}
+      {active && !isOverlay && (
+        <span aria-hidden className="absolute inset-y-2.5 left-0 w-[3px] rounded-r-full bg-wg-green-dark" />
+      )}
+
       {/* Alça de teclado (Espaço pega, setas movem, Espaço solta). */}
       {drag?.handleProps && (
         <button
@@ -151,8 +162,9 @@ function CandidateCardBase({
             type="button"
             onClick={() => onOpen(c.id)}
             onPointerDown={stop}
-            className="block max-w-full truncate rounded text-left text-[13.5px] font-semibold leading-5 text-wg-ink transition-colors hover:text-wg-green-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/60"
-            title={`Abrir ficha de ${c.fullName}`}
+            className="line-clamp-2 max-w-full break-words rounded text-left text-[13.5px] font-semibold leading-5 text-wg-ink transition-colors hover:text-wg-green-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/60"
+            title={c.fullName}
+            aria-label={`Abrir candidato ${c.fullName}`}
           >
             {c.fullName}
           </button>
@@ -180,8 +192,8 @@ function CandidateCardBase({
           <button
             type="button"
             onClick={() => onOpen(c.id)}
-            aria-label={`Abrir ficha de ${c.fullName}`}
-            title="Abrir ficha"
+            aria-label={`Abrir ${c.fullName} no painel`}
+            title="Abrir no painel"
             className="flex h-7 w-7 items-center justify-center rounded-control bg-white text-wg-ink-muted opacity-0 transition hover:bg-wg-hover-light hover:text-wg-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/60 group-hover/card:opacity-100"
           >
             <PanelRightOpen className="h-3.5 w-3.5" aria-hidden />

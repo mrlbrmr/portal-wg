@@ -28,4 +28,10 @@ test("isTypingTarget: campos de texto bloqueiam atalhos; botões e checkboxes n�
   assert.equal(isTypingTarget(el("BUTTON")), false);
   assert.equal(isTypingTarget(el("DIV", { isContentEditable: true })), true);
   assert.equal(isTypingTarget(null), false);
+  // Componentes de edição customizados (combobox, busca) também bloqueiam.
+  const inside = (selector: string) =>
+    ({ tagName: "SPAN", closest: (s: string) => (s.includes(selector) ? {} : null) }) as unknown as EventTarget;
+  assert.equal(isTypingTarget(inside("[role='combobox']")), true);
+  assert.equal(isTypingTarget(inside("[role='searchbox']")), true);
+  assert.equal(isTypingTarget(inside("[contenteditable='plaintext-only']")), true);
 });

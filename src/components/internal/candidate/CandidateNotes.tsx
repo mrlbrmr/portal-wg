@@ -108,7 +108,7 @@ export function CandidateNotes({
   const items = notes.items;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {canManage ? (
         <div>
           <label htmlFor="qv-new-note" className="sr-only">
@@ -151,7 +151,7 @@ export function CandidateNotes({
       ) : (
         <p className="inline-flex items-center gap-1.5 text-meta text-wg-ink-muted">
           <Lock className="h-3.5 w-3.5" aria-hidden />
-          Somente a equipe de RH com permissão de edição pode adicionar anotações.
+          Somente administradores de RH adicionam anotações.
         </p>
       )}
 
@@ -177,7 +177,7 @@ export function CandidateNotes({
           </div>
         )
       ) : items.length === 0 && !legacyNotes?.trim() ? (
-        <p className="text-body text-wg-ink-muted">Nenhuma anotação ainda.</p>
+        <p className="text-meta text-wg-ink-muted">Nenhuma anotação adicionada.</p>
       ) : (
         <ol className="space-y-4" aria-label="Anotações">
           {items.map((n) => {
@@ -307,9 +307,7 @@ function LegacyNotes({ value, canManage, onSave }: { value: string; canManage: b
           </Button>
         )}
       </div>
-      <p className="mb-2 text-[12px] text-wg-ink-muted">
-        Registro único, sem autor por trecho. Inclui os motivos de reprovação registrados pelo sistema.
-      </p>
+      <p className="mb-2 text-[12px] text-wg-ink-muted">Registro sem autor por trecho; inclui motivos de reprovação.</p>
       {editing ? (
         <>
           <label htmlFor="qv-legacy-edit" className="sr-only">

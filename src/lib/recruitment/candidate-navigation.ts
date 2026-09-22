@@ -24,6 +24,9 @@ export function queuePosition(queue: string[], currentId: string | null, lastInd
   return { index: null, total, prevId: queue[at - 1] ?? null, nextId: queue[at] ?? null };
 }
 
+/** Papéis ARIA de componentes de edição (autocomplete, busca, campos numéricos customizados). */
+const EDITABLE_ROLES = "[contenteditable=''], [contenteditable='true'], [contenteditable='plaintext-only'], [role='textbox'], [role='searchbox'], [role='combobox'], [role='spinbutton']";
+
 /** Foco num campo editável: atalhos de uma letra (J/K) não podem disparar. */
 export function isTypingTarget(target: EventTarget | null): boolean {
   if (!target || typeof (target as HTMLElement).tagName !== "string") return false;
@@ -34,5 +37,5 @@ export function isTypingTarget(target: EventTarget | null): boolean {
     const type = ((el as HTMLInputElement).type || "text").toLowerCase();
     return !["button", "checkbox", "radio", "submit", "reset", "range", "color", "file"].includes(type);
   }
-  return el.isContentEditable === true || el.closest?.("[contenteditable='true'], [role='textbox']") != null;
+  return el.isContentEditable === true || el.closest?.(EDITABLE_ROLES) != null;
 }

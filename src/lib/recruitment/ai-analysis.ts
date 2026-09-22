@@ -77,22 +77,24 @@ export interface AiAnalysis {
 }
 
 /** Tooltip do (i) de aderência: o que o número significa — e o que ele não é. */
-export const MATCH_BASIS_HINT =
-  "Calculado com base nos critérios definidos para esta vaga e no que foi identificado no currículo. É um apoio à triagem, não uma decisão.";
+export const MATCH_BASIS_HINT = "Calculado com base nos critérios definidos para esta vaga.";
 
-export const AI_FIT_BAND_META: Record<AiFitBand, { label: string; tone: Tone; hint: string }> = {
+export const AI_FIT_BAND_META: Record<AiFitBand, { label: string; summary: string; tone: Tone; hint: string }> = {
   HIGH: {
     label: "Recomendado para análise",
+    summary: "Boa compatibilidade com os critérios da vaga.",
     tone: "success",
     hint: "Atende à maior parte dos critérios da vaga identificáveis no currículo.",
   },
   PARTIAL: {
     label: "Aderência parcial",
+    summary: "Compatibilidade parcial com os critérios da vaga.",
     tone: "neutral",
     hint: "Atende a parte dos critérios da vaga identificáveis no currículo.",
   },
   LOW: {
     label: "Baixa aderência",
+    summary: "Poucos critérios da vaga identificados no currículo.",
     tone: "neutral",
     hint: "Poucos critérios da vaga foram identificados no currículo — confira o arquivo.",
   },

@@ -7,6 +7,29 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-22 (tarde) — Polimento do Quick View
+
+Refinamento sem mudar a estrutura (split view, abas, J/K e rodapé mantidos). Sem migração, sem API nova.
+
+- **Rodapé:** removido "Manter" (ficar na etapa já é manter). Esquerda em linhas: etapa · próxima ·
+  "Entrou nesta etapa …"; botões truncam nomes longos de etapa (`!shrink`: o `Button` tem `shrink-0`).
+- **Bug corrigido — toast sobre o rodapé:** os avisos (`fixed bottom-4`, z acima do painel) cobriam
+  "Avançar" por alguns segundos após cada ação. Agora a altura REAL do rodapé é medida
+  (ResizeObserver → `--quickview-footer-height`) e `html[data-quickview-open] [data-toast-stack]` sobe
+  a pilha. A área rolável é irmã do rodapé (não há sobreposição) e ganhou `pb-8` + `scroll-pb`.
+- **Kanban/lista:** card do candidato aberto com faixa verde + fundo + `aria-current`; nome em até 2
+  linhas (`line-clamp-2`, nome completo no `title`).
+- **Visão geral:** aderência compacta antes/depois da análise (frase descritiva por faixa, chips só
+  com critérios ATENDIDOS da análise, "Ver análise completa →"); fatos-chave só com cards preenchidos
+  + linha "Não informado: …"; tudo vazio vira uma linha com "Editar dados". Currículo: "Currículo" +
+  "PDF · nome.pdf". Contato: "Copiado" no próprio botão (só se a cópia der certo) + WhatsApp via
+  `whatsappUrl`.
+- **Densidade:** seções sem linhas entre si (`Section` sem borda), listas sem `divide-y`, header sem
+  borda própria; J/K discreto (aparece no hover/foco da navegação). Microcopy padronizado.
+- **Performance:** `useCandidateWorkspace` guarda cache por candidato (reaparece na hora, revalida em
+  segundo plano) e faz prefetch da ficha + avaliações dos vizinhos da fila → J/K sem skeleton.
+  Bug evitado no cache: anotações são gravadas por um setter com o id do candidato, não por efeito.
+
 ## Sessão de 2026-09-22 — Quick View do candidato (estação de triagem)
 
 Evolução do drawer do candidato (seção abaixo) para um **Quick View** focado em "avançar, manter

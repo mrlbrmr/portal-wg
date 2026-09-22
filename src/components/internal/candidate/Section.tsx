@@ -12,14 +12,14 @@ interface Props {
 }
 
 /**
- * Seção do Quick View: título + conteúdo, separada da anterior por um divisor (sem card)
- * — o painel é uma lista de seções, não uma pilha de caixas.
+ * Seção do Quick View: título + conteúdo. A separação vem do espaçamento e do título —
+ * sem linha entre seções (divisores só onde agrupam blocos grandes, no nível da aba).
  */
 export function Section({ title, action, meta, children, className }: Props) {
   return (
-    <section className={cn("border-t border-wg-border-lighter py-4 first:border-t-0 first:pt-0", className)}>
-      <div className="mb-2 flex min-h-[24px] items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-[13px] font-semibold text-wg-ink">
+    <section className={cn("pt-5 first:pt-0", className)}>
+      <div className="mb-1.5 flex min-h-[28px] items-center justify-between gap-2">
+        <h3 className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-wg-ink">
           {title}
           {meta}
         </h3>
@@ -30,17 +30,17 @@ export function Section({ title, action, meta, children, className }: Props) {
   );
 }
 
-/** Linha "rótulo  valor" para dados simples (grade de 2 colunas). */
+/** Linha "rótulo  valor" para dados simples (grade de 2 colunas, sem linhas de tabela). */
 export function DataRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[112px_1fr] items-baseline gap-3 py-1.5 sm:grid-cols-[132px_1fr]">
+    <div className="grid grid-cols-[104px_1fr] items-baseline gap-3 py-1 sm:grid-cols-[124px_1fr]">
       <dt className="text-meta text-wg-ink-muted">{label}</dt>
       <dd className="min-w-0 break-words text-body text-wg-ink">{children}</dd>
     </div>
   );
 }
 
-/** "Não informado" discreto — dado ausente sem poluir a leitura. */
-export function Missing({ children = "Não informado" }: { children?: ReactNode }) {
-  return <span className="font-normal text-wg-ink-muted/80">{children}</span>;
+/** Dado ausente: discreto, menor e neutro — nunca com o peso de um dado preenchido. */
+export function Missing({ children = "Não informado." }: { children?: ReactNode }) {
+  return <span className="text-meta font-normal text-wg-ink-muted/80">{children}</span>;
 }

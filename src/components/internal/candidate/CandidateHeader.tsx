@@ -47,7 +47,7 @@ interface Props {
   onOpenMove: () => void;
   onOpenReject: () => void;
   onEdit: () => void;
-  onCopy: (label: "E-mail" | "Telefone", value: string) => void;
+  onCopy: (label: "E-mail" | "Telefone", value: string) => Promise<boolean>;
 }
 
 const linkAction =
@@ -92,14 +92,14 @@ export function CandidateHeader({
     moreItems.push({ label: "Editar dados", icon: Pencil, onSelect: onEdit });
     if (flow.lost) {
       moreItems.push({ type: "separator" });
-      moreItems.push({ label: "Reprovar candidatura…", icon: UserX, danger: true, onSelect: onOpenReject });
+      moreItems.push({ label: "Reprovar…", icon: UserX, danger: true, onSelect: onOpenReject });
     }
   }
 
   const source = data ? APPLICATION_SOURCE_LABELS[data.source] ?? data.source : null;
 
   return (
-    <header className="shrink-0 border-b border-wg-border-lighter px-4 pb-3 pt-3 sm:px-5">
+    <header className="shrink-0 px-4 pb-2.5 pt-3 sm:px-5">
       <div className="flex items-start gap-3">
         {data ? (
           <CandidateAvatar name={data.fullName} seed={data.id} size="lg" className="mt-0.5" />
@@ -112,7 +112,7 @@ export function CandidateHeader({
             <h2
               id={titleId}
               tabIndex={-1}
-              className="truncate font-sora text-[18px] font-semibold leading-tight text-wg-ink outline-none"
+              className="line-clamp-2 break-words font-sora text-[18px] font-semibold leading-tight text-wg-ink outline-none"
               title={data.fullName}
             >
               {data.fullName}
@@ -142,8 +142,8 @@ export function CandidateHeader({
         </div>
 
         {/* Ações do painel */}
-        <div className="flex shrink-0 items-center gap-1">
-          <CandidateNavigation nav={nav} className="mr-1 hidden sm:flex" />
+        <div className="flex shrink-0 items-center gap-0.5">
+          <CandidateNavigation nav={nav} className="mr-2 hidden sm:flex" />
           {data && <ContactMenu email={data.email} phone={data.phone} onCopy={onCopy} />}
           {moreItems.length > 0 && (
             <DropdownMenu
@@ -151,7 +151,7 @@ export function CandidateHeader({
               ariaLabel="Mais ações"
               title="Mais ações"
               disabled={busy}
-              triggerClassName={buttonVariants({ variant: "tertiary", size: "icon" })}
+              triggerClassName={buttonVariants({ variant: "tertiary", size: "icon-sm", className: "ml-1" })}
               trigger={busy ? <Loader2 className="animate-spin" aria-hidden /> : <MoreHorizontal aria-hidden />}
             />
           )}
@@ -161,7 +161,7 @@ export function CandidateHeader({
             onClick={onClose}
             aria-label="Fechar candidato"
             title="Fechar (Esc)"
-            className={buttonVariants({ variant: "tertiary", size: "icon" })}
+            className={buttonVariants({ variant: "tertiary", size: "icon-sm" })}
           >
             <X aria-hidden />
           </button>
@@ -169,7 +169,7 @@ export function CandidateHeader({
       </div>
 
       {data && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 sm:pl-[52px]">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:pl-[52px]">
           <div className="flex flex-wrap items-center gap-1.5">
             {score !== undefined && (
               <StatusBadge tone={score >= 70 ? "success" : "neutral"} hint={MATCH_SCORE_HINT}>

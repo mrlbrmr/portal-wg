@@ -8,7 +8,7 @@ import { whatsappUrl } from "./types";
 interface Props {
   email: string;
   phone: string;
-  onCopy: (label: "E-mail" | "Telefone", value: string) => void;
+  onCopy: (label: "E-mail" | "Telefone", value: string) => Promise<boolean>;
 }
 
 /** "Contatar ▾": canais reais do candidato (WhatsApp, e-mail) + copiar dados. */
@@ -27,7 +27,7 @@ export function ContactMenu({ email, phone, onCopy }: Props) {
     <DropdownMenu
       items={items}
       ariaLabel="Contatar candidato"
-      triggerClassName={buttonVariants({ variant: "secondary", className: "px-2.5 sm:px-3.5" })}
+      triggerClassName={buttonVariants({ variant: "secondary", size: "sm", className: "px-2.5 sm:px-3" })}
       trigger={
         <>
           <MessageCircle className="sm:hidden" aria-hidden />

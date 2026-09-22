@@ -157,7 +157,7 @@ export function CandidateTests({ applicationId, sessions, canManage, defaultTemp
       ) : items.length === 0 ? (
         !formOpen && (
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-body text-wg-ink-muted">Nenhum teste enviado.</p>
+            <p className="text-meta text-wg-ink-muted">Nenhum teste enviado.</p>
             {canManage && (
               <Button size="sm" variant="secondary" icon={Plus} onClick={openForm}>
                 Enviar teste
@@ -166,13 +166,13 @@ export function CandidateTests({ applicationId, sessions, canManage, defaultTemp
           </div>
         )
       ) : (
-        <ul className="divide-y divide-wg-border-lighter/70">
+        <ul className="space-y-1">
           {items.map((s) => {
             const status = sessionStatus(s);
             const bf = s.template?.kind === "PERSONALITY_BIG5" ? bigFiveScores(s.scoreBreakdown) : null;
             const isOpen = expandedId === s.id;
             return (
-              <li key={s.id} className="py-2">
+              <li key={s.id} className="py-1.5">
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

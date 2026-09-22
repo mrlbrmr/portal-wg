@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, ChevronsRight, Loader2, RotateCcw, UserX } from "lucide-react";
+import { forwardRef } from "react";
+import { ArrowRight, Loader2, RotateCcw, UserX } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import type { CandidateStageFlow, FlowStage } from "@/lib/recruitment/candidate-stage-flow";
@@ -13,35 +14,38 @@ interface Props {
   canManage: boolean;
   pending: StageActionKind | null;
   enteredStageAt: string | null;
-  /** Próximo candidato da fila — "Manter" deixa este na etapa e abre o próximo. */
-  onKeep: (() => void) | null;
   onChangeStage: (stage: FlowStage, kind: StageActionKind) => void;
   onOpenReject: () => void;
 }
 
+const bar =
+  "flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-wg-border-lighter bg-white px-4 py-2.5 shadow-[0_-6px_16px_-12px_rgba(26,34,19,.18)] sm:px-5";
+
 /**
- * Barra de decisão fixa no rodapé do Quick View: onde o candidato está (etapa, próxima
- * etapa, desde quando) + as três decisões de triagem — Reprovar, Manter, Avançar. Fica
- * sempre visível enquanto o recrutador rola o perfil. As ações vêm de
- * candidate-stage-flow: só aparece o que o servidor aceita.
+ * Barra de decisão fixa no rodapé do Quick View: onde o candidato está (etapa, próxima,
+ * desde quando) + as decisões — Reprovar e Avançar. Permanecer na etapa já é "manter".
+ * As ações vêm de candidate-stage-flow: só aparece o que o servidor aceita.
  */
-export function CandidateStageBar({ data, flow, canManage, pending, enteredStageAt, onKeep, onChangeStage, onOpenReject }: Props) {
+export const CandidateStageBar = forwardRef<HTMLElement, Props>(function CandidateStageBar(
+  { data, flow, canManage, pending, enteredStageAt, onChangeStage, onOpenReject },
+  ref
+) {
   if (!data || !flow) {
     return (
-      <div className="flex shrink-0 items-center justify-between gap-3 border-t border-wg-border-lighter bg-white px-4 py-3 sm:px-5">
-        <div className="space-y-1.5">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-4 w-44" />
+      <section ref={ref} aria-hidden className={bar}>
+        <div className="flex-1 space-y-1.5">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-3 w-52" />
         </div>
-        <Skeleton className="h-9 w-48" />
-      </div>
+        <Skeleton className="h-9 w-56" />
+      </section>
     );
   }
 
   const busy = pending !== null;
   const stageName = data.stage?.name ?? "Sem etapa";
-  const stageColor = data.stage?.color ?? "#9AA68A";
-
+  const next = flow.status === "OPEN" ? flow.next : null;
   const statusLine =
     flow.status === "LOST"
       ? "Candidatura reprovada"
@@ -49,77 +53,57 @@ export function CandidateStageBar({ data, flow, canManage, pending, enteredStage
       ? "Fora do funil ativo"
       : flow.status === "FINAL"
       ? "Etapa final do processo"
-      : flow.next
-      ? `Próxima: ${flow.next.name}`
+      : next
+      ? `Próxima: ${next.name}`
       : null;
 
   return (
-    <section
-      aria-label="Etapa e decisão"
-      className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-wg-border-lighter bg-white px-4 py-3 shadow-[0_-6px_16px_-12px_rgba(26,34,19,.18)] sm:px-5"
-    >
-      <div className="min-w-0 flex-1 basis-48">
+    <section ref={ref} aria-label="Etapa e decisão" className={bar}>
+      <div className="min-w-0 flex-1 basis-52 leading-tight">
         <p className="text-[11px] font-medium uppercase tracking-wide text-wg-ink-muted">
           Etapa do processo
           {flow.position && (
-            <span className="ml-1.5 normal-case tracking-normal tabular-nums">
+            <span className="normal-case tracking-normal tabular-nums">
+              {" "}
               · {flow.position.index} de {flow.position.total}
             </span>
           )}
         </p>
-        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-body font-medium text-wg-ink">
-          <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: stageColor }} />
-          <span className="truncate" title={stageName}>{stageName}</span>
+        <p className="mt-1 flex min-w-0 items-center gap-1.5 text-body font-semibold text-wg-ink">
+          <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: data.stage?.color ?? "#9AA68A" }} />
+          <span className="truncate" title={stageName}>
+            {stageName}
+          </span>
         </p>
-        {(statusLine || enteredStageAt) && (
-          <p className="truncate text-[12px] text-wg-ink-muted">
+        {statusLine && (
+          <p className="mt-0.5 truncate text-[12px] text-wg-ink-secondary" title={statusLine}>
             {statusLine}
-            {statusLine && enteredStageAt && " · "}
-            {enteredStageAt && `Entrou ${formatRelativeDayTime(enteredStageAt)}`}
           </p>
+        )}
+        {enteredStageAt && (
+          <p className="truncate text-[12px] text-wg-ink-muted">Entrou nesta etapa {formatRelativeDayTime(enteredStageAt)}</p>
         )}
       </div>
 
       {canManage && (
-        <div className="grid w-full grid-cols-[auto_auto_minmax(0,1fr)] gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+        <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:max-w-[60%]">
           {flow.lost && (
             <Button variant="danger" icon={pending === "reject" ? undefined : UserX} loading={pending === "reject"} disabled={busy} onClick={onOpenReject}>
               Reprovar
             </Button>
           )}
 
-          {flow.status === "OPEN" && (
-            <Button
-              variant="secondary"
-              icon={ChevronsRight}
-              disabled={busy || !onKeep}
-              onClick={onKeep ?? undefined}
-              title={onKeep ? "Mantém na etapa atual e abre o próximo candidato (J)" : "Não há próximo candidato na fila"}
-            >
-              Manter
-              <span className="sr-only"> na etapa e ver o próximo candidato</span>
-            </Button>
-          )}
-
-          {flow.status === "OPEN" && flow.next && (
+          {next && (
             <Button
               variant="primary"
               disabled={busy}
-              onClick={() => onChangeStage(flow.next as FlowStage, "advance")}
+              onClick={() => onChangeStage(next, "advance")}
               aria-busy={pending === "advance" || undefined}
-              className="max-w-full"
+              title={`Avançar para ${next.name}`}
+              className="min-w-0 flex-1 !shrink sm:flex-initial"
             >
               {pending === "advance" && <Loader2 className="animate-spin" aria-hidden />}
-              <span className="truncate">
-                {pending === "advance" ? (
-                  "Movendo…"
-                ) : (
-                  <>
-                    Avançar<span className="hidden sm:inline"> para {flow.next.name}</span>
-                    <span className="sr-only sm:hidden"> para {flow.next.name}</span>
-                  </>
-                )}
-              </span>
+              <span className="truncate">{pending === "advance" ? "Movendo…" : `Avançar para ${next.name}`}</span>
               {pending !== "advance" && <ArrowRight aria-hidden />}
             </Button>
           )}
@@ -131,13 +115,16 @@ export function CandidateStageBar({ data, flow, canManage, pending, enteredStage
               loading={pending === "resume"}
               disabled={busy}
               onClick={() => onChangeStage(flow.resumeTo as FlowStage, "resume")}
-              className="col-span-2"
+              title={`${flow.status === "LOST" ? "Reabrir" : "Retomar"} em ${flow.resumeTo.name}`}
+              className="min-w-0 flex-1 !shrink sm:flex-initial"
             >
-              {flow.status === "LOST" ? `Reabrir em ${flow.resumeTo.name}` : `Retomar em ${flow.resumeTo.name}`}
+              <span className="truncate">
+                {flow.status === "LOST" ? `Reabrir em ${flow.resumeTo.name}` : `Retomar em ${flow.resumeTo.name}`}
+              </span>
             </Button>
           )}
         </div>
       )}
     </section>
   );
-}
+});

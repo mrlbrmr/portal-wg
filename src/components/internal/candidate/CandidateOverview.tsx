@@ -1,17 +1,17 @@
 "use client";
 
-import { ArrowRight, Check, ExternalLink, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Pencil, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StageBadge, StatusBadge } from "@/components/ui/StatusBadge";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { AI_FIT_BAND_META, MATCH_BASIS_HINT, type AiAnalysis } from "@/lib/recruitment/ai-analysis";
 import { formatExperience } from "@/lib/recruitment/candidate-presentation";
 import { CandidateEditForm, type CandidateProfilePatch } from "./CandidateEditForm";
 import { ApplicationDetails, CandidateContact } from "./CandidateSummary";
 import { ResumeCard } from "./ResumeCard";
-import { Missing, Section } from "./Section";
+import { Section } from "./Section";
 import { formatCurrencyBRL, type CandidateDetail, type LinkedAdmission } from "./types";
 
 interface Props {
@@ -34,24 +34,27 @@ interface Props {
   onSaveProfile: (patch: CandidateProfilePatch) => void;
   onInvalid: (message: string) => void;
   admission: LinkedAdmission | null;
-  onCopy: (label: "E-mail" | "Telefone", value: string) => void;
+  onCopy: (label: "E-mail" | "Telefone", value: string) => Promise<boolean>;
 }
+
+const linkAction =
+  "inline-flex items-center gap-1 rounded-control text-meta font-medium text-wg-green-dark underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50";
 
 /**
  * Visão geral orientada à decisão: primeiro a aderência e o que sustenta a leitura
- * (resumo, fatos-chave, competências, pontos fortes/atenção); depois currículo, contato
- * e dados administrativos. Tudo vem da candidatura e da análise existente — o que não
- * existe aparece como "Não informado" ou simplesmente não aparece.
+ * (fatos-chave, competências, pontos fortes/atenção); depois currículo, contato e dados
+ * administrativos. Tudo vem da candidatura e da análise existente — dado ausente fica
+ * discreto ou some, nunca com o mesmo peso de um dado preenchido.
  */
 export function CandidateOverview(props: Props) {
   const { data, analysis, wide } = props;
 
   const decision = (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <MatchSummary {...props} />
-      <KeyFacts data={data} analysis={analysis} />
+      <KeyFacts data={data} analysis={analysis} canManage={props.canManage} onEdit={props.onEdit} />
       <Skills data={data} analysis={analysis} />
-      {analysis && <Highlights analysis={analysis} onOpenEvaluations={props.onOpenEvaluations} />}
+      {analysis && <Highlights analysis={analysis} />}
     </div>
   );
 
@@ -100,97 +103,119 @@ export function CandidateOverview(props: Props) {
 
 // ── Aderência ────────────────────────────────────────────────────────────────
 
-function MatchSummary({ data, analysis, analysisLoading, canManage, analyzing, onAnalyze, onOpenEvaluations }: Props) {
-  if (analysisLoading && !analysis) {
-    return (
-      <div className="rounded-card bg-wg-bg/70 px-4 py-3.5" aria-busy="true" aria-label="Carregando aderência">
-        <Skeleton className="h-3 w-28" />
-        <Skeleton className="mt-2 h-7 w-16" />
-        <Skeleton className="mt-3 h-4 w-full" />
-      </div>
-    );
-  }
+const MATCH_BOX = "rounded-card bg-wg-bg/70 px-4 py-3";
 
-  const label = (
+function MatchLabel() {
+  return (
     <p className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-wg-ink-muted">
       Aderência ao perfil
       <InfoHint text={MATCH_BASIS_HINT} label="Como a aderência é calculada" align="left" />
     </p>
   );
+}
 
-  if (!analysis || analysis.score === null) {
-    const isPdf = data.resumeName?.toLowerCase().endsWith(".pdf");
+function MatchSummary({ data, analysis, analysisLoading, canManage, analyzing, onAnalyze, onOpenEvaluations }: Props) {
+  if (analysisLoading && !analysis) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-wg-bg/70 px-4 py-3.5">
-        <div>
-          {label}
-          <p className="mt-1 text-body text-wg-ink-muted">
-            {!data.resumeName
-              ? "Sem currículo anexado — a aderência não pode ser calculada."
-              : !isPdf
-              ? "A análise automática só lê currículos em PDF."
-              : "Aderência ainda não calculada para este currículo."}
-          </p>
-        </div>
-        {canManage && isPdf && (
-          <Button size="sm" variant="secondary" icon={Sparkles} loading={analyzing} onClick={onAnalyze}>
-            {analyzing ? "Analisando…" : "Analisar currículo"}
-          </Button>
-        )}
+      <div className={MATCH_BOX} aria-busy="true" aria-label="Carregando aderência">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="mt-2 h-6 w-48" />
       </div>
     );
   }
 
+  // Antes da análise: uma faixa baixa, com o motivo e o CTA na mesma linha.
+  if (!analysis || analysis.score === null) {
+    const isPdf = !!data.resumeName?.toLowerCase().endsWith(".pdf");
+    const canAnalyze = canManage && isPdf;
+    return (
+      <section aria-label="Aderência ao perfil" className={cn(MATCH_BOX, "flex flex-wrap items-center gap-x-4 gap-y-2")}>
+        <div className="min-w-0 flex-1 basis-56">
+          <MatchLabel />
+          <p className="mt-0.5 text-body font-medium text-wg-ink">
+            {!data.resumeName
+              ? "Sem currículo anexado."
+              : !isPdf
+              ? "A análise automática só lê currículos em PDF."
+              : "Ainda não analisamos este currículo."}
+          </p>
+          {canAnalyze && (
+            <p className="text-[12px] text-wg-ink-muted">Analise para ver compatibilidade, competências e pontos de atenção.</p>
+          )}
+        </div>
+        {canAnalyze && (
+          <Button size="sm" variant="secondary" icon={Sparkles} loading={analyzing} onClick={onAnalyze}>
+            {analyzing ? "Analisando…" : "Analisar currículo"}
+          </Button>
+        )}
+      </section>
+    );
+  }
+
+  // Depois da análise: número, leitura descritiva, critérios atendidos (reais) e o caminho
+  // para os fundamentos.
   const band = analysis.band ? AI_FIT_BAND_META[analysis.band] : null;
   const pct = Math.max(0, Math.min(100, analysis.score));
+  const met = analysis.criteria.filter((c) => c.status === "MEETS").map((c) => c.criterion);
 
   return (
-    <section aria-label="Aderência ao perfil" className="rounded-card bg-wg-bg/70 px-4 py-3.5">
-      <div className="flex flex-wrap items-start gap-x-5 gap-y-2">
-        <div className="shrink-0">
-          {label}
-          <p className="mt-1 font-sora text-[28px] font-semibold leading-none tabular-nums text-wg-ink">{pct}%</p>
-        </div>
-        <div className="min-w-[180px] flex-1 pt-1">
-          {band && (
-            <StatusBadge tone={band.tone} hint={band.hint}>
-              {band.label}
-            </StatusBadge>
-          )}
-          <div
-            role="meter"
-            aria-label="Aderência ao perfil"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E3EADA]"
-          >
-            <div className="h-full rounded-full bg-wg-green-dark/70" style={{ width: `${pct}%` }} />
-          </div>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[12px] text-wg-ink-muted">
-            <span>Análise de {formatDate(analysis.analyzedAt)}</span>
-            {analysis.engine && <span>· IA: {analysis.engine}</span>}
-            <span aria-hidden>·</span>
-            <button
-              type="button"
-              onClick={onOpenEvaluations}
-              className="font-medium text-wg-green-dark underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50"
-            >
-              Ver fundamentos
-            </button>
-          </p>
-        </div>
+    <section aria-label="Aderência ao perfil" className={cn(MATCH_BOX, "animate-in fade-in-0 duration-200")}>
+      <div className="flex items-start justify-between gap-3">
+        <MatchLabel />
+        <p className="shrink-0 text-[11.5px] text-wg-ink-muted">
+          {formatDate(analysis.analyzedAt)}
+          {analysis.engine && ` · IA: ${analysis.engine}`}
+        </p>
       </div>
-      {analysis.profileSummary && (
-        <p className="mt-3 border-t border-wg-border-lighter pt-3 text-body text-wg-ink-secondary">{analysis.profileSummary}</p>
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <p className="font-sora text-[26px] font-semibold leading-none tabular-nums text-wg-ink">{pct}%</p>
+        {band && <p className="min-w-0 text-body text-wg-ink-secondary">{band.summary}</p>}
+      </div>
+      <div
+        role="meter"
+        aria-label="Aderência ao perfil"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="mt-2 h-1 overflow-hidden rounded-full bg-[#E3EADA]"
+      >
+        <div className="h-full rounded-full bg-wg-green-dark/70" style={{ width: `${pct}%` }} />
+      </div>
+      {met.length > 0 && (
+        <ul className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Critérios da vaga atendidos">
+          {met.map((c) => (
+            <li
+              key={c}
+              className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[12px] text-wg-ink-secondary shadow-[inset_0_0_0_1px_#DCE8CC]"
+            >
+              <Check className="h-3 w-3 text-success" aria-hidden />
+              {c}
+            </li>
+          ))}
+        </ul>
       )}
+      {analysis.profileSummary && <p className="mt-2.5 text-meta text-wg-ink-secondary">{analysis.profileSummary}</p>}
+      <button type="button" onClick={onOpenEvaluations} className={cn(linkAction, "mt-2")}>
+        Ver análise completa
+        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+      </button>
     </section>
   );
 }
 
 // ── Fatos-chave ──────────────────────────────────────────────────────────────
 
-function KeyFacts({ data, analysis }: { data: CandidateDetail; analysis: AiAnalysis | null }) {
+function KeyFacts({
+  data,
+  analysis,
+  canManage,
+  onEdit,
+}: {
+  data: CandidateDetail;
+  analysis: AiAnalysis | null;
+  canManage: boolean;
+  onEdit: () => void;
+}) {
   const cv = data.cv_profile;
   const years = typeof cv?.experienceYears === "number" ? cv.experienceYears : analysis?.profile.experienceYears ?? null;
   const experience = formatExperience(years)?.replace(" de exp.", "") ?? null;
@@ -206,25 +231,53 @@ function KeyFacts({ data, analysis }: { data: CandidateDetail; analysis: AiAnaly
       value: data.availablePresential === null ? null : data.availablePresential ? "Aceita presencial" : "Não aceita presencial",
     },
   ];
+  const filled = facts.filter((f) => f.value);
+  const missing = facts.filter((f) => !f.value).map((f) => f.label);
+
+  // Nada preenchido: uma linha, não quatro cards de "Não informado".
+  if (filled.length === 0) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-dashed border-wg-border-light px-3 py-2">
+        <p className="text-meta text-wg-ink-muted">Informações profissionais não preenchidas.</p>
+        {canManage && (
+          <Button size="sm" variant="tertiary" icon={Pencil} onClick={onEdit}>
+            Editar dados
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {facts.map((f) => (
-        <div key={f.label} className="min-w-0 rounded-control bg-wg-bg/60 px-3 py-2">
-          <dt className="text-[11.5px] text-wg-ink-muted">{f.label}</dt>
-          <dd className="mt-0.5 min-w-0">
-            <span className="block truncate text-body font-medium text-wg-ink" title={f.value ?? undefined}>
-              {f.value ?? <Missing />}
-            </span>
-            {f.sub && (
-              <span className="block truncate text-[11.5px] text-wg-ink-muted" title={f.sub}>
-                {f.sub}
+    <div>
+      <dl
+        className={cn(
+          "grid grid-cols-2 gap-2",
+          filled.length >= 4 ? "sm:grid-cols-4" : filled.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"
+        )}
+      >
+        {filled.map((f) => (
+          <div key={f.label} className="min-w-0 rounded-control bg-wg-bg/60 px-3 py-2">
+            <dt className="text-[11.5px] text-wg-ink-muted">{f.label}</dt>
+            <dd className="mt-0.5 min-w-0">
+              <span className="block truncate text-body font-medium text-wg-ink" title={f.value ?? undefined}>
+                {f.value}
               </span>
-            )}
-          </dd>
-        </div>
-      ))}
-    </dl>
+              {f.sub && (
+                <span className="block truncate text-[11.5px] text-wg-ink-muted" title={f.sub}>
+                  {f.sub}
+                </span>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {missing.length > 0 && (
+        <p className="mt-1.5 text-[12px] text-wg-ink-muted">
+          Não informado: {missing.join(" · ")}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -236,8 +289,9 @@ function Skills({ data, analysis }: { data: CandidateDetail; analysis: AiAnalysi
   if (skills.length === 0) return null;
   return (
     <section aria-labelledby="qv-skills">
-      <h3 id="qv-skills" className="mb-2 text-[13px] font-semibold text-wg-ink">
+      <h3 id="qv-skills" className="mb-1.5 text-[13px] font-semibold text-wg-ink">
         Competências identificadas
+        <span className="ml-1.5 text-[12px] font-normal text-wg-ink-muted">extraídas do currículo</span>
       </h3>
       <ul className="flex flex-wrap gap-1.5">
         {skills.map((s) => (
@@ -246,45 +300,20 @@ function Skills({ data, analysis }: { data: CandidateDetail; analysis: AiAnalysi
           </li>
         ))}
       </ul>
-      <p className="mt-1.5 text-[11.5px] text-wg-ink-muted">Extraídas do currículo automaticamente — confira no arquivo.</p>
     </section>
   );
 }
 
 // ── Pontos fortes × atenção ──────────────────────────────────────────────────
 
-const MAX_HIGHLIGHTS = 4;
+const MAX_HIGHLIGHTS = 3;
 
-function Highlights({ analysis, onOpenEvaluations }: { analysis: AiAnalysis; onOpenEvaluations: () => void }) {
-  // Com critérios avaliados, os rótulos curtos dos requisitos são mais escaneáveis que
-  // as frases longas; sem eles (análises antigas), usa pontos fortes/lacunas do texto.
-  const useCriteria = analysis.criteria.length > 0;
-  const strengths = useCriteria
-    ? analysis.criteria.filter((c) => c.status === "MEETS").map((c) => c.criterion)
-    : analysis.strengths;
-  const attention = useCriteria
-    ? analysis.criteria
-        .filter((c) => c.status !== "MEETS")
-        .map((c) => (c.status === "PARTIAL" ? `${c.criterion}: atende em parte` : `${c.criterion}: não identificado no currículo`))
-    : analysis.gaps;
-  if (strengths.length === 0 && attention.length === 0) return null;
-
-  const more = Math.max(0, strengths.length - MAX_HIGHLIGHTS) + Math.max(0, attention.length - MAX_HIGHLIGHTS);
-
+function Highlights({ analysis }: { analysis: AiAnalysis }) {
+  if (analysis.strengths.length === 0 && analysis.gaps.length === 0) return null;
   return (
-    <section aria-label="Pontos fortes e pontos de atenção">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <HighlightList title="Pontos fortes" items={strengths} kind="strength" />
-        <HighlightList title="Pontos de atenção" items={attention} kind="attention" />
-      </div>
-      <button
-        type="button"
-        onClick={onOpenEvaluations}
-        className="mt-2 inline-flex items-center gap-1 text-meta font-medium text-wg-green-dark underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50"
-      >
-        {more > 0 ? `Ver análise completa (+${more})` : "Ver análise completa"}
-        <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-      </button>
+    <section aria-label="Pontos fortes e pontos de atenção" className="grid gap-4 sm:grid-cols-2">
+      <HighlightList title="Pontos fortes" items={analysis.strengths} kind="strength" />
+      <HighlightList title="Pontos de atenção" items={analysis.gaps} kind="attention" />
     </section>
   );
 }
@@ -293,7 +322,7 @@ function HighlightList({ title, items, kind }: { title: string; items: string[];
   const Icon = kind === "strength" ? Check : TriangleAlert;
   return (
     <div className="min-w-0">
-      <h3 className="mb-1.5 text-[13px] font-semibold text-wg-ink">{title}</h3>
+      <h3 className="mb-1 text-[13px] font-semibold text-wg-ink">{title}</h3>
       {items.length === 0 ? (
         <p className="text-meta text-wg-ink-muted">{kind === "strength" ? "Nenhum identificado." : "Nenhum ponto de atenção."}</p>
       ) : (
@@ -326,7 +355,7 @@ function AdmissionSection({ admission }: { admission: LinkedAdmission }) {
           href={`/admissoes/${admission.id}`}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 text-meta font-semibold text-wg-green-dark hover:underline"
+          className="inline-flex items-center gap-1 rounded-control text-meta font-semibold text-wg-green-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50"
         >
           Ver admissão
           <ExternalLink className="h-3 w-3" aria-hidden />

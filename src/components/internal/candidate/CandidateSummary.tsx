@@ -1,54 +1,85 @@
 "use client";
 
-import { Copy, Pencil } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Copy, MessageCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import { DataRow, Missing, Section } from "./Section";
-import { candidateLocation, formatDateAtTime, formatPhoneMask, type CandidateDetail } from "./types";
+import { candidateLocation, formatDateAtTime, formatPhoneMask, whatsappUrl, type CandidateDetail } from "./types";
 
-/** "Contato": valor clicável (mailto/tel) + copiar com rótulo acessível. */
+const iconAction =
+  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-wg-ink-muted transition-colors hover:bg-wg-hover-light hover:text-wg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50";
+
+/** Copiar com confirmação no próprio botão ("Copiado") — o toast do painel confirma também. */
+function CopyButton({ label, onCopy }: { label: string; onCopy: () => Promise<boolean> }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        if (!(await onCopy())) return;
+        setCopied(true);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setCopied(false), 1600);
+      }}
+      aria-label={copied ? "Copiado" : `Copiar ${label}`}
+      title={copied ? "Copiado" : `Copiar ${label}`}
+      className={iconAction}
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-success" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+    </button>
+  );
+}
+
+/** "Contato": e-mail (mailto) e telefone (tel) clicáveis, copiar e WhatsApp quando o número é válido. */
 export function CandidateContact({
   data,
   onCopy,
 }: {
   data: CandidateDetail;
-  onCopy: (label: "E-mail" | "Telefone", value: string) => void;
+  onCopy: (label: "E-mail" | "Telefone", value: string) => Promise<boolean>;
 }) {
   const phoneDigits = data.phone.replace(/\D/g, "");
-  const rows: Array<{ label: "E-mail" | "Telefone"; display: string; href: string; copy: string } | null> = [
-    data.email ? { label: "E-mail", display: data.email, href: `mailto:${data.email}`, copy: data.email } : null,
-    phoneDigits
-      ? { label: "Telefone", display: formatPhoneMask(data.phone), href: `tel:+55${phoneDigits}`, copy: formatPhoneMask(data.phone) }
-      : null,
-  ];
+  const phone = formatPhoneMask(data.phone);
+  const wa = whatsappUrl(data.phone);
+  const link = "min-w-0 truncate rounded text-wg-ink underline-offset-2 hover:text-wg-green-dark hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50";
 
   return (
     <Section title="Contato">
-      <dl className="divide-y divide-wg-border-lighter/70">
-        {rows.map((r, i) =>
-          r ? (
-            <DataRow key={r.label} label={r.label}>
-              <span className="flex min-w-0 items-center gap-1">
-                <a href={r.href} className="min-w-0 truncate text-wg-ink underline-offset-2 hover:text-wg-green-dark hover:underline">
-                  {r.display}
-                </a>
-                <button
-                  type="button"
-                  onClick={() => onCopy(r.label, r.copy)}
-                  aria-label={`Copiar ${r.label.toLowerCase()}`}
-                  title={`Copiar ${r.label.toLowerCase()}`}
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-wg-ink-muted transition-colors hover:bg-wg-hover-light hover:text-wg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50"
-                >
-                  <Copy className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              </span>
-            </DataRow>
+      <dl>
+        <DataRow label="E-mail">
+          {data.email ? (
+            <span className="flex min-w-0 items-center gap-0.5">
+              <a href={`mailto:${data.email}`} className={link} title={`Escrever para ${data.email}`}>
+                {data.email}
+              </a>
+              <CopyButton label="e-mail" onCopy={() => onCopy("E-mail", data.email)} />
+            </span>
           ) : (
-            <DataRow key={i} label={i === 0 ? "E-mail" : "Telefone"}>
-              <Missing />
-            </DataRow>
-          )
-        )}
+            <Missing />
+          )}
+        </DataRow>
+        <DataRow label="Telefone">
+          {phoneDigits ? (
+            <span className="flex min-w-0 items-center gap-0.5">
+              <a href={`tel:+55${phoneDigits}`} className={link} title={`Ligar para ${phone}`}>
+                {phone}
+              </a>
+              <CopyButton label="telefone" onCopy={() => onCopy("Telefone", phone)} />
+              {wa && (
+                <a href={wa} target="_blank" rel="noopener noreferrer" aria-label="Abrir conversa no WhatsApp" title="WhatsApp" className={iconAction}>
+                  <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+                </a>
+              )}
+            </span>
+          ) : (
+            <Missing />
+          )}
+        </DataRow>
       </dl>
     </Section>
   );
@@ -78,7 +109,7 @@ export function ApplicationDetails({
         )
       }
     >
-      <dl className="divide-y divide-wg-border-lighter/70">
+      <dl>
         <DataRow label="Localização">{location ?? <Missing />}</DataRow>
         <DataRow label="Origem">
           {source}

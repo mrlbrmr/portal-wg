@@ -217,11 +217,11 @@ export function ManualAssessments({ applicationId, assessments, canManage, onCha
       ) : assessments.error && items.length === 0 ? (
         <p className="text-body text-danger-fg">Não foi possível carregar as avaliações.</p>
       ) : items.length === 0 ? (
-        !formOpen && <p className="text-body text-wg-ink-muted">Nenhuma entrevista ou avaliação registrada.</p>
+        !formOpen && <p className="text-meta text-wg-ink-muted">Nenhuma avaliação registrada.</p>
       ) : (
-        <ul className="divide-y divide-wg-border-lighter/70">
+        <ul className="space-y-1">
           {items.map((a) => (
-            <li key={a.id} className="group py-2">
+            <li key={a.id} className="group py-1.5">
               <div className="flex items-start gap-3">
                 <ClipboardCheck className="mt-0.5 h-4 w-4 shrink-0 text-wg-ink-muted" aria-hidden />
                 <div className="min-w-0 flex-1">

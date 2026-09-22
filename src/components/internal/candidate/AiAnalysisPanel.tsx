@@ -47,7 +47,7 @@ export function AiAnalysisPanel({ analysis, loading, jobCriteria, canManage, res
   const isPdf = !!resumeName?.toLowerCase().endsWith(".pdf");
   const analyzeButton = canManage && isPdf && (
     <Button size="sm" variant="tertiary" icon={analysis ? RefreshCw : Sparkles} loading={analyzing} onClick={onAnalyze}>
-      {analyzing ? "Analisando…" : analysis ? "Reanalisar" : "Analisar com IA"}
+      {analyzing ? "Analisando…" : analysis ? "Reanalisar" : "Analisar currículo"}
     </Button>
   );
 
@@ -68,10 +68,10 @@ export function AiAnalysisPanel({ analysis, loading, jobCriteria, canManage, res
       <Section title="Análise de currículo" action={analyzeButton}>
         <p className="text-body text-wg-ink-muted">
           {!resumeName
-            ? "Sem currículo anexado — não há o que analisar."
+            ? "Sem currículo anexado."
             : !isPdf
-            ? "A análise por IA só lê currículos em PDF. Substitua o arquivo para analisar."
-            : "Este currículo ainda não foi analisado."}
+            ? "A análise automática só lê currículos em PDF."
+            : "Currículo ainda não analisado."}
         </p>
         {jobCriteria.length > 0 && <JobCriteriaReference criteria={jobCriteria} />}
       </Section>
@@ -126,12 +126,12 @@ export function AiAnalysisPanel({ analysis, loading, jobCriteria, canManage, res
       <div className="mt-4">
         <h4 className="mb-1 text-[12px] font-medium text-wg-ink-muted">Critérios avaliados</h4>
         {analysis.criteria.length > 0 ? (
-          <ul className="divide-y divide-wg-border-lighter/70">
+          <ul className="space-y-0.5">
             {analysis.criteria.map((c) => {
               const meta = AI_CRITERION_META[c.status];
               const Icon = CRITERION_ICON[c.status];
               return (
-                <li key={c.criterion} className="py-1.5">
+                <li key={c.criterion} className="rounded-control px-2 py-1 -mx-2 transition-colors hover:bg-wg-bg/70">
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="min-w-0 text-body text-wg-ink">{c.criterion}</span>
                     <span className={cn("inline-flex shrink-0 items-center gap-1 text-meta font-medium", TONE_TEXT[meta.tone])}>
@@ -139,7 +139,9 @@ export function AiAnalysisPanel({ analysis, loading, jobCriteria, canManage, res
                       {meta.label}
                     </span>
                   </div>
-                  {expanded && c.evidence && <p className="mt-0.5 text-[12px] text-wg-ink-muted">{c.evidence}</p>}
+                  {expanded && c.evidence && (
+                    <p className="mt-0.5 text-[12px] text-wg-ink-muted animate-in fade-in-0 duration-200">{c.evidence}</p>
+                  )}
                 </li>
               );
             })}
@@ -172,8 +174,7 @@ export function AiAnalysisPanel({ analysis, loading, jobCriteria, canManage, res
       )}
 
       <p className="mt-3 text-[11.5px] text-wg-ink-muted">
-        Leitura automática do currículo frente aos requisitos da vaga. “Não identificado” significa que o currículo não
-        menciona — confira o arquivo antes de decidir.
+        “Não identificado” = o currículo não menciona. Confira o arquivo antes de decidir.
       </p>
     </Section>
   );
@@ -206,9 +207,9 @@ function BulletList({ title, items, kind }: { title: string; items: string[]; ki
 function JobCriteriaReference({ criteria, note }: { criteria: string[]; note?: string }) {
   return (
     <div className="mt-2">
-      <ul className="divide-y divide-wg-border-lighter/70">
+      <ul className="space-y-0.5">
         {criteria.map((c) => (
-          <li key={c} className="flex items-baseline justify-between gap-3 py-1.5">
+          <li key={c} className="flex items-baseline justify-between gap-3 py-1">
             <span className="min-w-0 text-body text-wg-ink">{c}</span>
             <span className="inline-flex shrink-0 items-center gap-1 text-meta text-wg-ink-muted">
               <CircleDashed className="h-3.5 w-3.5" aria-hidden />

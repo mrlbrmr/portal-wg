@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ notify }}>
       {children}
 
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-full max-w-xs flex-col gap-2">
+      <div data-toast-stack className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-full max-w-xs flex-col gap-2 transition-[bottom] duration-200">
         {toasts.map((t) => (
           <ToastCard key={t.id} toast={t} onClose={() => dismiss(t.id)} />
         ))}

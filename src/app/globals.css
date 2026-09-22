@@ -183,3 +183,8 @@
     padding-right: calc(var(--quickview-width, 0px) + 1.5rem);
   }
 }
+
+/* Com o Quick View aberto, os avisos sobem acima da barra de decisão (altura medida em JS). */
+html[data-quickview-open] [data-toast-stack] {
+  bottom: calc(var(--quickview-footer-height, 0px) + 1rem);
+}

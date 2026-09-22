@@ -635,6 +635,8 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
   const queueNav = {
     index: queuePos.index,
     total: queuePos.total,
+    prevId: queuePos.prevId,
+    nextId: queuePos.nextId,
     onPrev: queuePos.prevId ? () => setDetailId(queuePos.prevId) : null,
     onNext: queuePos.nextId ? () => setDetailId(queuePos.nextId) : null,
   };
@@ -651,6 +653,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
         score={d?.score}
         signals={signals}
         selected={selectedIds.has(c.id)}
+        active={c.id === detailId}
         selectionActive={selectedIds.size > 0}
         menuItems={menuFor(c)}
         stageAction={cardActionFor(c)}
@@ -734,6 +737,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
               onToggleSelect={toggleSelect}
               onToggleAll={toggleAll}
               onOpen={openCandidate}
+              activeId={detailId}
             />
           )
         ) : columns.length === 0 ? (

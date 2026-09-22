@@ -33,6 +33,8 @@ interface Props {
   onToggleSelect: (id: string) => void;
   onToggleAll: (ids: string[], select: boolean) => void;
   onOpen: (id: string) => void;
+  /** Candidato aberto no Quick View. */
+  activeId?: string | null;
 }
 
 /** Cabeçalhos ordenáveis: cada coluna alterna entre as duas direções da sua ordenação. */
@@ -47,7 +49,7 @@ const SORTABLE: Record<string, [CandidateSortKey, CandidateSortKey]> = {
  * Visão analítica: uma linha por candidato, colunas escaneáveis e ordenáveis. Mostra só
  * colunas com dado real (não há responsável por candidatura — o recrutador é da vaga).
  */
-export function CandidateList({ rows, stageById, sort, onSortChange, selected, onToggleSelect, onToggleAll, onOpen }: Props) {
+export function CandidateList({ rows, stageById, sort, onSortChange, selected, onToggleSelect, onToggleAll, onOpen, activeId = null }: Props) {
   const ids = rows.map((r) => r.candidate.id);
   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
   const someSelected = !allSelected && ids.some((id) => selected.has(id));
@@ -114,6 +116,7 @@ export function CandidateList({ rows, stageById, sort, onSortChange, selected, o
                 row={r}
                 stage={stageById.get(r.candidate.stageId)}
                 selected={selected.has(r.candidate.id)}
+                active={r.candidate.id === activeId}
                 onToggleSelect={onToggleSelect}
                 onOpen={onOpen}
               />
@@ -129,12 +132,14 @@ function CandidateListRow({
   row: { candidate: c, score, signals, menuItems },
   stage,
   selected,
+  active,
   onToggleSelect,
   onOpen,
 }: {
   row: ListRow;
   stage: PipelineStage | undefined;
   selected: boolean;
+  active: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
@@ -143,12 +148,14 @@ function CandidateListRow({
 
   return (
     <tr
+      aria-current={active ? "true" : undefined}
       onClick={(e) => {
         if (!(e.target as HTMLElement).closest("a, button, input, [role='menu']")) onOpen(c.id);
       }}
       className={cn(
         "cursor-pointer border-b border-wg-border-lighter text-[13px] transition-colors last:border-b-0",
-        selected ? "bg-[#F4F8EC]" : "hover:bg-[#FAFBF7]"
+        selected ? "bg-[#F4F8EC]" : active ? "bg-[#F8FBF3]" : "hover:bg-[#FAFBF7]",
+        active && "shadow-[inset_3px_0_0_#4F6930]"
       )}
     >
       <td className="py-2.5 pl-4 pr-1 align-middle">

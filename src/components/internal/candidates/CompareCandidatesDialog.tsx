@@ -139,7 +139,7 @@ export function CompareCandidatesDialog({ open, entries, stageById, onClose, onO
                       </p>
                       <div className="mt-0.5 flex gap-2 text-[12px]">
                         <button type="button" onClick={() => onOpen(c.id)} className="font-medium text-wg-green-dark hover:underline">
-                          Abrir ficha
+                          Abrir candidato
                         </button>
                         {entries.length > 2 && (
                           <button type="button" onClick={() => onRemove(c.id)} className="text-wg-ink-muted hover:text-wg-ink hover:underline">

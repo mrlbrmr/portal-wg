@@ -90,6 +90,7 @@ export function CandidateQuickView({
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
 
   const ws = useCandidateWorkspace(applicationId);
   const { data } = ws;
@@ -226,6 +227,24 @@ export function CandidateQuickView({
     };
   }, [open, split, expanded, layout.width]);
 
+  // Altura REAL da barra de decisão (muda com o conteúdo e a largura): os avisos (toasts)
+  // sobem acima dela e a área rolável reserva o mesmo espaço ao rolar até um campo focado.
+  useLayoutEffect(() => {
+    const el = footerRef.current;
+    if (!open || !el) return;
+    const root = document.documentElement;
+    const apply = () => root.style.setProperty("--quickview-footer-height", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    apply();
+    root.dataset.quickviewOpen = "";
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
+    ro?.observe(el);
+    return () => {
+      ro?.disconnect();
+      delete root.dataset.quickviewOpen;
+      root.style.removeProperty("--quickview-footer-height");
+    };
+  }, [open]);
+
   // Foco: entra no painel ao abrir e volta para quem abriu ao fechar.
   useEffect(() => {
     if (!open) return;
@@ -266,6 +285,14 @@ export function CandidateQuickView({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, dialog, handleClose]);
+
+  // Com o candidato atual carregado, adianta os vizinhos da fila: J/K fica instantâneo.
+  const { prefetch } = ws;
+  useEffect(() => {
+    if (!data || data.id !== applicationId) return;
+    prefetch(nav.nextId);
+    prefetch(nav.prevId);
+  }, [data, applicationId, nav.nextId, nav.prevId, prefetch]);
 
   // ── Derivados ──
   const flow = useMemo(
@@ -444,15 +471,19 @@ export function CandidateQuickView({
     }
   };
 
-  const copy = (label: "E-mail" | "Telefone", value: string) => {
+  const copy = async (label: "E-mail" | "Telefone", value: string) => {
     if (!navigator.clipboard) {
       notify("error", "Não foi possível copiar neste navegador.");
-      return;
+      return false;
     }
-    navigator.clipboard
-      .writeText(value)
-      .then(() => notify("success", `${label} copiado.`))
-      .catch(() => notify("error", "Não foi possível copiar."));
+    try {
+      await navigator.clipboard.writeText(value);
+      notify("success", `${label} copiado.`);
+      return true;
+    } catch {
+      notify("error", "Não foi possível copiar.");
+      return false;
+    }
   };
 
   const selectTab = (t: Tab) => {
@@ -543,7 +574,7 @@ export function CandidateQuickView({
           analyzing={analyzing}
           onAnalyze={() => void runAnalysis()}
         />
-        <div className={cn(wide ? "border-l border-wg-border-lighter pl-8" : "border-t border-wg-border-lighter")}>
+        <div className={cn(wide ? "border-l border-wg-border-lighter pl-8" : "mt-5 border-t border-wg-border-lighter pt-4")}>
           <CandidateTests
             applicationId={data.id}
             sessions={ws.sessions}
@@ -658,12 +689,7 @@ export function CandidateQuickView({
             </button>
           );
         })}
-        <div className="ml-auto flex shrink-0 items-center gap-4 pl-3">
-          <span className="hidden items-center text-[11.5px] text-wg-ink-muted/80 xl:inline-flex" aria-hidden>
-            <kbd className="rounded border border-wg-border-light bg-wg-bg px-1 font-sans">J</kbd>
-            <kbd className="ml-0.5 rounded border border-wg-border-light bg-wg-bg px-1 font-sans">K</kbd>
-            <span className="ml-1">navegar</span>
-          </span>
+        <div className="ml-auto flex shrink-0 items-center pl-3">
           <FullProfileAction expanded={split ? expanded : null} onToggleExpand={() => setExpanded((v) => !v)} />
         </div>
       </div>
@@ -674,18 +700,21 @@ export function CandidateQuickView({
         role="tabpanel"
         aria-labelledby={`${titleId}-tab-${tab}`}
         tabIndex={-1}
-        className="flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 focus:outline-none sm:px-5"
+        className="flex-1 scroll-pb-6 overflow-y-auto overscroll-contain px-4 pb-8 pt-4 focus:outline-none sm:px-5"
       >
-        <div className={cn(expanded && "mx-auto max-w-[1400px]")}>{body}</div>
+        {/* Troca de candidato/aba: entrada discreta, só do conteúdo (cabeçalho e rodapé ficam). */}
+        <div key={`${applicationId}:${tab}:${data ? "data" : "loading"}`} className={cn("animate-in fade-in-0 duration-150", expanded && "mx-auto max-w-[1400px]")}>
+          {body}
+        </div>
       </div>
 
       <CandidateStageBar
+        ref={footerRef}
         data={data}
         flow={flow}
         canManage={canManage}
         pending={pending}
         enteredStageAt={enteredStageAt}
-        onKeep={nav.onNext}
         onChangeStage={(stage, kind) => void changeStage(stage, kind)}
         onOpenReject={() => setDialog("reject")}
       />

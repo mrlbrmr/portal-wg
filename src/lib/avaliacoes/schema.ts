@@ -9,6 +9,47 @@ export type QuestionType = z.infer<typeof questionTypeEnum>
 export const bigFiveDimensionEnum = z.enum(['O', 'C', 'E', 'A', 'N'])
 export type BigFiveDimension = z.infer<typeof bigFiveDimensionEnum>
 
+/**
+ * Tipo da avaliação — decide o que a interface mostra (nota, critério, correção, perfil).
+ * Persistido em `assessment_templates."assessmentType"`, DERIVADO por trigger no banco a
+ * partir de `kind` + `questions` (migração 20260922180000). Esta função é o espelho em TS:
+ * usada na pré-visualização do editor e como fallback se a coluna vier vazia.
+ */
+export const assessmentTypeEnum = z.enum(['TECHNICAL_OBJECTIVE', 'TECHNICAL_MIXED', 'BEHAVIORAL'])
+export type AssessmentType = z.infer<typeof assessmentTypeEnum>
+
+export const gradingModeEnum = z.enum(['AUTO', 'HYBRID', 'MANUAL', 'NONE'])
+export type GradingMode = z.infer<typeof gradingModeEnum>
+
+/** Questões sem gabarito automático — exigem correção manual num teste técnico. */
+export function isManualQuestion(q: { type: string }): boolean {
+  return q.type === 'SHORT_TEXT' || q.type === 'SCALE_LIKERT'
+}
+
+export function classifyTemplate(
+  kind: string,
+  questions: ReadonlyArray<{ type: string }>,
+): { assessmentType: AssessmentType; gradingMode: GradingMode } {
+  if (kind === 'PERSONALITY_BIG5') return { assessmentType: 'BEHAVIORAL', gradingMode: 'NONE' }
+  const manual = questions.filter(isManualQuestion).length
+  if (manual === 0) return { assessmentType: 'TECHNICAL_OBJECTIVE', gradingMode: 'AUTO' }
+  return { assessmentType: 'TECHNICAL_MIXED', gradingMode: manual < questions.length ? 'HYBRID' : 'MANUAL' }
+}
+
+/** Tipo efetivo: a coluna do banco quando existe; senão, a mesma regra calculada aqui. */
+export function resolveAssessmentType(t: {
+  assessmentType?: string | null
+  kind: string
+  questions?: ReadonlyArray<{ type: string }> | null
+}): AssessmentType {
+  const parsed = assessmentTypeEnum.safeParse(t.assessmentType)
+  if (parsed.success) return parsed.data
+  return classifyTemplate(t.kind, t.questions ?? []).assessmentType
+}
+
+/** Nota mínima padrão quando o teste técnico não define uma (a mesma usada na pontuação). */
+export const DEFAULT_PASSING_SCORE = 60
+
 export const questionSchema = z.object({
   id: z.string().uuid(),
   type: questionTypeEnum,
@@ -36,7 +77,13 @@ export type TemplateInput = z.infer<typeof templateInputSchema>
 export const KIND_LABELS: Record<TemplateKind, string> = {
   SCREENING: 'Triagem',
   TECHNICAL: 'Técnico',
-  PERSONALITY_BIG5: 'Personalidade (Big Five)',
+  PERSONALITY_BIG5: 'Comportamental (Big Five)',
+}
+
+export const SUBTYPE_LABELS: Record<string, string> = {
+  PORTUGUESE: 'Português',
+  EXCEL: 'Excel',
+  CUSTOM: 'Personalizado',
 }
 
 export const KIND_COLORS: Record<TemplateKind, string> = {

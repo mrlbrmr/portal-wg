@@ -151,7 +151,7 @@ export function pipelineSummary(
 export const STAGE_IDLE_WARNING_DAYS: number | null = 7;
 
 /** Situação do teste de uma candidatura que está numa etapa TEST. */
-export type TestStatus = "NOT_SENT" | "AWAITING" | "PENDING_REVIEW" | "PASS" | "FAIL";
+export type TestStatus = "NOT_SENT" | "AWAITING" | "PENDING_REVIEW" | "PASS" | "FAIL" | "RESULT_READY";
 
 export type SignalIcon = "test" | "calendar" | "clock" | "file" | "brain";
 
@@ -180,9 +180,11 @@ export interface SignalInput {
 const TEST_SIGNAL: Record<TestStatus, Omit<CandidateSignal, "key" | "icon">> = {
   NOT_SENT: { label: "Teste não enviado", tone: "warning", attention: true, hint: "Etapa de teste sem link enviado ao candidato." },
   AWAITING: { label: "Aguardando teste", tone: "info", attention: false, hint: "Link enviado; o candidato ainda não respondeu." },
-  PENDING_REVIEW: { label: "Teste para corrigir", tone: "warning", attention: true, hint: "Teste respondido aguardando correção do RH." },
-  PASS: { label: "Teste aprovado", tone: "success", attention: false },
-  FAIL: { label: "Teste reprovado", tone: "neutral", attention: false },
+  PENDING_REVIEW: { label: "Aguardando correção", tone: "warning", attention: true, hint: "Teste técnico com questões dissertativas para o RH corrigir." },
+  PASS: { label: "Aprovado no critério", tone: "success", attention: false },
+  FAIL: { label: "Abaixo do critério", tone: "neutral", attention: false },
+  // Avaliação comportamental: sem nota nem correção — o perfil fica disponível ao concluir.
+  RESULT_READY: { label: "Resultado disponível", tone: "success", attention: false, hint: "Avaliação comportamental concluída; o perfil está disponível." },
 };
 
 /** Data de calendário de uma entrevista. As datas só-dia são gravadas em UTC (00h/12h). */

@@ -110,8 +110,9 @@ export function buildCandidateTimeline(input: TimelineInput): CandidateEvent[] {
   });
 
   for (const a of input.assessments ?? []) {
-    // Big Five respondido gera uma avaliação automática — o evento já vem da sessão.
-    if (a.kind === "PERSONALITY_TEST" && a.evaluator === "Automático") continue;
+    // Teste online respondido (Big Five ou técnico) gera uma avaliação automática — o
+    // evento já vem da sessão ("Teste concluído").
+    if ((a.kind === "PERSONALITY_TEST" || a.kind === "TECHNICAL_TEST") && a.evaluator === "Automático") continue;
     if (a.kind === "AI_FIT" && a.source === "AI") {
       events.push({
         id: `assessment-${a.id}`,

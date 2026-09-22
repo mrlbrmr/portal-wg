@@ -7,6 +7,37 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-22 (noite) — Avaliações: Banco de testes · Aplicações · Resultados
+
+Reestruturação do módulo de Avaliações. Migração `20260922180000_assessment_types.sql` **aplicada**.
+
+- **Tipo da avaliação explícito** (`assessment_templates."assessmentType"` = `TECHNICAL_OBJECTIVE |
+  TECHNICAL_MIXED | BEHAVIORAL` + `"gradingMode"` = `AUTO | HYBRID | MANUAL | NONE`). DERIVADOS por trigger
+  a partir de `kind` + `questions` (nunca enviados pela app) — não divergem quando alguém acrescenta uma
+  dissertativa. Espelho em TS: `classifyTemplate()` / `resolveAssessmentType()` em `src/lib/avaliacoes/schema.ts`.
+  A UI decide pelo tipo, nunca pelo nome do teste.
+- **Comportamental (Big Five) não tem outcome:** sem nota, aprovação, reprovação ou correção. Trigger em
+  `assessment_sessions` zera `outcome` de sessão comportamental (vale até para código antigo). Backfill limpou
+  o `PENDING_REVIEW` das 13 sessões Big Five — era isso que fazia o Dashboard mostrar "13 avaliações aguardando
+  revisão" (falso alarme).
+- **Valor do Big Five NÃO é percentil:** é média das respostas (1–5) ÷ 5 × 100 (faixa 20–100; 60 = neutro), sem
+  norma populacional. A UI mostra o número sem "%" e explica a escala. Faixas (`big-five.ts`): < 50 baixa,
+  50–69 moderada, ≥ 70 elevada. Textos de interpretação e "pontos para explorar na entrevista" em linguagem
+  probabilística, sem score geral/ranking/recomendação.
+- **Correção manual de dissertativas** (novo): `POST /api/assessment-sessions/[id]/grade` recalcula a nota final
+  com o mesmo `scoreSession()` do envio; grava `gradedAt/gradedBy` e espelha em `application_assessments`.
+  Enquanto houver dissertativa sem pontos: `outcome = PENDING_REVIEW` ("Aguardando correção") + resultado parcial.
+- **Início do preenchimento:** `POST /api/avaliacao/[token]/start` no 1º item respondido → status "Em andamento"
+  e "Tempo de preenchimento". Antes o submit gravava `startedAt = submittedAt` (sessões antigas não têm duração).
+- **Telas:** sidebar Avaliações → Banco de testes · **Aplicações** (nova, `/avaliacoes/aplicacoes`) · Resultados.
+  Banco: colunas Critério ("≥ 70%" × "Perfil dimensional") e Aplicações, menu ••• (Visualizar, Editar, Duplicar,
+  Ver aplicações, Arquivar/Ativar com confirmação). Resultado individual em `/avaliacoes/resultados/[id]`.
+- **Vocabulário único** (`src/lib/avaliacoes/presentation.ts`): Kanban, Quick View, Dashboard e as três telas usam
+  os mesmos rótulos ("Resultado disponível", "Aguardando correção", "Aprovado no critério", "Abaixo do critério").
+- **Bug corrigido:** o PATCH do template descartava `isActive` (o zod removia a chave) — "Desativar" parecia
+  funcionar mas não gravava. Agora aceita `isActive`.
+- Testes: `src/lib/avaliacoes/avaliacoes.test.ts` (classificação, pontuação/correção, status, faixas Big Five).
+
 ## Sessão de 2026-09-22 (tarde) — Polimento do Quick View
 
 Refinamento sem mudar a estrutura (split view, abas, J/K e rodapé mantidos). Sem migração, sem API nova.
@@ -763,7 +794,11 @@ Tabela `assessment_templates` (migração `20260722000001_assessment_templates.s
   (inclui geração de questões por IA via `@anthropic-ai/sdk`).
 - Ponte com o funil: uma etapa de tipo **TEST** no Kanban de candidatos vincula-se a um template (commit `75e6f72`).
 
-### Fase 2 — Fluxo de sessão/candidato (PENDENTE — próximo passo)
+> **Atualização 2026-09-22:** as Fases 2 e 3 já foram feitas (sessões por token, badge no Kanban) e o módulo
+> foi reestruturado em Banco de testes · Aplicações · Resultados — ver a sessão de 2026-09-22 (noite) no topo.
+> O texto abaixo é o planejamento original, mantido como histórico.
+
+### Fase 2 — Fluxo de sessão/candidato (FEITA — ver atualização acima)
 Definida em comentário na própria migração da Fase 1: *"O fluxo de sessão/candidato vem na Fase 2."*
 Escopo previsto (a implementar):
 1. Tabela(s) de **sessão de avaliação** por candidato/vaga + **respostas**.

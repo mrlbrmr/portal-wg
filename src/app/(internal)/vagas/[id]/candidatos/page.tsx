@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MODALITY_LABELS } from "@/lib/utils";
 import { JOB_LIFECYCLE_META, jobLifecycle } from "@/lib/recruitment/job-presentation";
 import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/candidate-presentation";
+import { resolveAssessmentType } from "@/lib/avaliacoes/schema";
 import type { CvProfile } from "@/lib/ai/cv-analyzer";
 import type { Metadata } from "next";
 
@@ -96,7 +97,12 @@ export default async function CandidatosPage({ params }: Props) {
   // Wave 2: todas as queries restantes em paralelo (dependem apenas da wave 1)
   type TemplateRow = { id: string; name: string; kind: string };
   type MetaItem = { id: string; name: string };
-  type SessRow = { applicationId: string; outcome: string | null; submittedAt: string | null };
+  type SessRow = {
+    applicationId: string;
+    outcome: string | null;
+    submittedAt: string | null;
+    template: { assessmentType: string | null; kind: string } | null;
+  };
   type AiRow = { applicationId: string; score: number };
   type HistoryRow = { applicationId: string; stageId: string | null; changedAt: string };
 
@@ -108,9 +114,10 @@ export default async function CandidatosPage({ params }: Props) {
     supabase.from("job_stage_config").select("stageId").eq("jobId", id)
       .then((r) => r.data as Array<{ stageId: string }> | null),
     testAppIds.length > 0
-      ? supabase.from("assessment_sessions").select("applicationId, outcome, submittedAt")
+      ? supabase.from("assessment_sessions")
+          .select("applicationId, outcome, submittedAt, template:assessment_templates(assessmentType, kind)")
           .in("applicationId", testAppIds).order("createdAt", { ascending: false })
-          .then((r) => r.data as SessRow[] | null)
+          .then((r) => r.data as unknown as SessRow[] | null)
       : null,
     allAppIds.length > 0
       ? supabase.from("application_assessments")
@@ -165,17 +172,22 @@ export default async function CandidatosPage({ params }: Props) {
       : allStages;
 
   // Situação do teste (só para quem está numa etapa TEST), pela sessão mais recente:
-  // sem sessão → não enviado; sessão aberta → aguardando; respondida → resultado.
+  // sem sessão → não enviado; sessão aberta → aguardando; respondida → resultado. O que
+  // "resultado" significa depende do TIPO: comportamental nunca é corrigido nem aprovado.
   const testStatusByApp = new Map<string, TestStatus>();
   for (const s of sessData ?? []) {
     if (testStatusByApp.has(s.applicationId)) continue;
+    const behavioral =
+      resolveAssessmentType({ assessmentType: s.template?.assessmentType, kind: s.template?.kind ?? "" }) === "BEHAVIORAL";
     testStatusByApp.set(
       s.applicationId,
       !s.submittedAt
         ? "AWAITING"
-        : s.outcome === "PASS" || s.outcome === "FAIL"
+        : behavioral
+        ? "RESULT_READY"
+        : s.outcome === "PASS" || s.outcome === "FAIL" || s.outcome === "PENDING_REVIEW"
         ? s.outcome
-        : "PENDING_REVIEW"
+        : "RESULT_READY"
     );
   }
   for (const appId of testAppIds) {

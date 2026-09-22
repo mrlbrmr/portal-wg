@@ -23,6 +23,7 @@ import {
   User,
   ExternalLink,
   Inbox,
+  Send,
 } from "lucide-react";
 import type { ElementType } from "react";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,7 @@ export default function InternalSidebar({ role, name, pendingRequests = 0, onNav
 
   const avaliacoesSub: NavLink[] = [
     { href: "/avaliacoes/banco", label: "Banco de testes", icon: BookOpen },
+    { href: "/avaliacoes/aplicacoes", label: "Aplicações", icon: Send },
     { href: "/avaliacoes/resultados", label: "Resultados", icon: BarChart3 },
   ];
 

@@ -69,11 +69,13 @@ export default async function DashboardPage() {
       .order("createdAt", { ascending: false })
       .limit(6),
     supabase.from("job_requests").select("status").in("status", ["PENDING_HR", "PENDING_APPROVAL", "RETURNED"]),
-    supabase.from("assessment_sessions").select("id", { count: "exact", head: true }).eq("outcome", "PENDING_REVIEW"),
+    // Só teste técnico com dissertativa pendente — comportamental nunca tem outcome (trigger no banco).
+    supabase.from("assessment_sessions").select("id", { count: "exact", head: true }).eq("outcome", "PENDING_REVIEW").is("invalidadoEm", null),
     supabase
       .from("assessment_sessions")
       .select("id", { count: "exact", head: true })
       .is("submittedAt", null)
+      .is("invalidadoEm", null)
       .or(`expiresAt.is.null,expiresAt.gt.${nowIso}`),
   ]);
 
@@ -143,12 +145,12 @@ export default async function DashboardPage() {
     },
     reviewTests > 0 && {
       key: "avaliacoes",
-      href: "/avaliacoes/resultados",
+      href: "/avaliacoes/resultados?situacao=AWAITING_GRADING",
       icon: FlaskConical,
       tone: "info" as const,
       count: reviewTests,
-      title: plural(reviewTests, "avaliação aguardando revisão", "avaliações aguardando revisão"),
-      description: "Testes respondidos que precisam de correção manual",
+      title: plural(reviewTests, "teste aguardando correção", "testes aguardando correção"),
+      description: "Testes técnicos com questões dissertativas para corrigir",
     },
     staleJobs > 0 && {
       key: "paradas",
@@ -224,7 +226,7 @@ export default async function DashboardPage() {
     },
     waitingTests > 0 && {
       key: "testes",
-      href: "/avaliacoes/resultados",
+      href: "/avaliacoes/aplicacoes",
       icon: FlaskConical,
       tone: "neutral" as const,
       count: waitingTests,

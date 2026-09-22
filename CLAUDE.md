@@ -72,8 +72,15 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **E-mail transacional:** `src/lib/email.ts` (Resend) — sem `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
   nada é enviado (só loga). Templates em `src/lib/email-templates.ts`. Avisos ao RH: nova
   solicitação de vaga e formulário de admissão enviado (`src/lib/admissao/notify-submitted.ts`).
-- **Avaliações / Testes:** `src/app/(internal)/avaliacoes/banco`, `src/lib/avaliacoes/**`
-  (Fase 1 = Banco de Testes, **feito**; **Fase 2 = fluxo de sessão/candidato, PENDENTE** — ver doc)
+- **Avaliações / Testes:** `src/app/(internal)/avaliacoes/{banco,aplicacoes,resultados}`, `src/lib/avaliacoes/**`,
+  página pública `src/app/avaliacao/[token]`.
+  - **A UI decide pelo TIPO, nunca pelo nome do teste:** `assessment_templates."assessmentType"`
+    (`TECHNICAL_OBJECTIVE | TECHNICAL_MIXED | BEHAVIORAL`) e `"gradingMode"` são derivados por trigger de
+    `kind` + `questions` (espelho: `classifyTemplate()`/`resolveAssessmentType()` em `schema.ts`).
+  - **Comportamental (Big Five) nunca tem nota, aprovação, reprovação nem correção** (trigger zera `outcome`).
+    O valor por dimensão NÃO é percentil (média 1–5 → 20–100); textos em `big-five.ts`.
+  - Rótulos/status únicos em `presentation.ts`; pontuação e correção manual em `scoring.ts` (puro, testado).
+    Vocabulário: "Teste técnico", "Avaliação comportamental", "Resultado disponível", "Aguardando correção".
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`
 
 ## Design System do painel (ler antes de criar UI)

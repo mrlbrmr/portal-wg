@@ -3,7 +3,10 @@ import { auth } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { templateInputSchema } from '@/lib/avaliacoes/schema'
-import { ZodError } from 'zod'
+import { z, ZodError } from 'zod'
+
+// Edição parcial + arquivar/ativar (isActive não faz parte do input de criação).
+const patchSchema = templateInputSchema.partial().extend({ isActive: z.boolean().optional() })
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -30,7 +33,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try { body = await request.json() } catch { return NextResponse.json({ error: 'JSON inválido.' }, { status: 400 }) }
 
   let input
-  try { input = templateInputSchema.partial().parse(body) } catch (e) {
+  try { input = patchSchema.parse(body) } catch (e) {
     if (e instanceof ZodError) return NextResponse.json({ error: e.errors }, { status: 422 })
     throw e
   }

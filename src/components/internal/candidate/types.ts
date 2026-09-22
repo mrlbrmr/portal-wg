@@ -73,7 +73,7 @@ export interface TestSession {
   id: string;
   token: string;
   templateId: string;
-  template: { name: string; kind: string; estimatedMin: number | null } | null;
+  template: { name: string; kind: string; assessmentType?: string | null; estimatedMin: number | null } | null;
   expiresAt: string | null;
   startedAt: string | null;
   submittedAt: string | null;

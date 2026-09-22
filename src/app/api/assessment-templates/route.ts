@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   let query = supabase
     .from('assessment_templates')
-    .select('id, name, description, kind, subtype, estimatedMin, passingScore, isActive, createdAt, createdById')
+    .select('id, name, description, kind, subtype, assessmentType, estimatedMin, passingScore, isActive, createdAt, createdById')
     .order('createdAt', { ascending: false })
 
   if (!inactive) query = query.eq('isActive', true)

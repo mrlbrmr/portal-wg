@@ -22,11 +22,11 @@ export default async function AvaliacaoPage({ params }: { params: Promise<{ toke
 
   const { data: sess } = await supabase
     .from('assessment_sessions')
-    .select('id, submittedAt, expiresAt, templateId, applicationId, score, outcome')
+    .select('id, submittedAt, expiresAt, templateId, applicationId, score, outcome, invalidadoEm')
     .eq('token', token)
     .maybeSingle()
 
-  if (!sess) {
+  if (!sess || sess.invalidadoEm) {
     return (
       <Banner
         icon={<AlertTriangle className="w-10 h-10 text-red-400" />}

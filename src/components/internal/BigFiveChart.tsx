@@ -1,5 +1,8 @@
 "use client"
 
+// Valores do Big Five: média das respostas na escala (20–100, 60 = neutro). NÃO são
+// percentuais nem percentis — por isso os rótulos não levam "%". Ver lib/avaliacoes/big-five.ts.
+
 export type BigFiveScores = {
   O: number | null
   C: number | null
@@ -73,12 +76,12 @@ export function BigFiveRadar({ scores, size = 280 }: RadarProps) {
         return <line key={i} x1={cx} y1={cy} x2={end.x.toFixed(2)} y2={end.y.toFixed(2)} stroke="#e9d5ff" strokeWidth={1} />
       })}
 
-      {/* Grid % labels on C axis (i=1, -18°) */}
+      {/* Grid labels on C axis (i=1, -18°) */}
       {[25, 50, 75].map((pct) => {
         const p = polar(cx, cy, R * (pct / 100), -18)
         return (
           <text key={pct} x={(p.x + 4).toFixed(2)} y={(p.y + 3).toFixed(2)} fontSize={7} fill="#a78bfa" fontWeight="500">
-            {pct}%
+            {pct}
           </text>
         )
       })}
@@ -108,7 +111,7 @@ export function BigFiveRadar({ scores, size = 280 }: RadarProps) {
               {d.key}
             </text>
             <text x={lp.x.toFixed(2)} y={(lp.y + extraY + 6).toFixed(2)} textAnchor={anchor} fontSize={11} fontWeight="700" fill="#5b21b6">
-              {scores[d.key] !== null && scores[d.key] !== undefined ? `${scores[d.key]}%` : '—'}
+              {scores[d.key] !== null && scores[d.key] !== undefined ? scores[d.key] : '—'}
             </text>
           </g>
         )
@@ -132,7 +135,7 @@ export function BigFiveBars({ scores }: { scores: BigFiveScores }) {
                 <span className="text-[10px] text-gray-400 ml-1">({d.key})</span>
               </div>
               <span className="text-xs font-bold" style={{ color: d.color }}>
-                {val !== null && val !== undefined ? `${val}%` : '—'}
+                {val !== null && val !== undefined ? val : '—'}
               </span>
             </div>
             <div className="h-2 bg-gray-100 rounded-full overflow-hidden">

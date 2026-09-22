@@ -1,12 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Check, ChevronUp, Copy, ExternalLink, Plus, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BarChart3, Check, ChevronUp, Copy, ExternalLink, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge, type Tone } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/ToastProvider";
-import { BigFiveBars, BigFiveMini, BigFiveRadar, type BigFiveScores } from "@/components/internal/BigFiveChart";
+import { BigFiveBars, BigFiveRadar } from "@/components/internal/BigFiveChart";
+import { parseBigFive } from "@/lib/avaliacoes/big-five";
+import { resolveAssessmentType } from "@/lib/avaliacoes/schema";
+import {
+  APPLICATION_STATUS,
+  RESULT_SITUATION,
+  applicationStatus,
+  isBehavioral,
+  resultSituation,
+} from "@/lib/avaliacoes/presentation";
 import { formatDate } from "@/lib/utils";
 import { Section } from "./Section";
 import type { Loadable, TestSession } from "./types";
@@ -27,24 +37,14 @@ interface Props {
   onChanged: () => void;
 }
 
-function bigFiveScores(breakdown: Record<string, unknown> | null | undefined): BigFiveScores | null {
-  const bf = (breakdown as { bigFive?: Record<string, number | null> } | null)?.bigFive;
-  if (!bf) return null;
-  return { O: bf.O ?? null, C: bf.C ?? null, E: bf.E ?? null, A: bf.A ?? null, N: bf.N ?? null };
-}
+const sessionType = (s: TestSession) =>
+  resolveAssessmentType({ assessmentType: s.template?.assessmentType, kind: s.template?.kind ?? "" });
 
+/** Mesmo vocabulário de Avaliações → Aplicações/Resultados (decidido pelo tipo do teste). */
 function sessionStatus(s: TestSession): { label: string; tone: Tone } {
-  if (s.submittedAt) {
-    // Big Five gera PENDING_REVIEW por design (sem nota de corte), mas o perfil está concluído.
-    if (s.outcome === "PENDING_REVIEW" && s.template?.kind === "PERSONALITY_BIG5") return { label: "Concluído", tone: "success" };
-    if (s.outcome === "PASS") return { label: "Aprovado", tone: "success" };
-    if (s.outcome === "FAIL") return { label: "Reprovado", tone: "danger" };
-    if (s.outcome === "PENDING_REVIEW") return { label: "Aguardando correção", tone: "warning" };
-    return { label: "Respondido", tone: "info" };
-  }
-  if (s.startedAt) return { label: "Em andamento", tone: "info" };
-  if (s.expiresAt && new Date(s.expiresAt) < new Date()) return { label: "Expirado", tone: "neutral" };
-  return { label: "Aguardando resposta", tone: "warning" };
+  const type = sessionType(s);
+  if (s.submittedAt) return RESULT_SITUATION[resultSituation(s, type)];
+  return APPLICATION_STATUS[applicationStatus(s, type)];
 }
 
 /**
@@ -169,7 +169,8 @@ export function CandidateTests({ applicationId, sessions, canManage, defaultTemp
         <ul className="space-y-1">
           {items.map((s) => {
             const status = sessionStatus(s);
-            const bf = s.template?.kind === "PERSONALITY_BIG5" ? bigFiveScores(s.scoreBreakdown) : null;
+            const behavioral = isBehavioral(sessionType(s));
+            const bf = behavioral ? parseBigFive(s.scoreBreakdown) : null;
             const isOpen = expandedId === s.id;
             return (
               <li key={s.id} className="py-1.5">
@@ -178,10 +179,9 @@ export function CandidateTests({ applicationId, sessions, canManage, defaultTemp
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="truncate text-body font-medium text-wg-ink">{s.template?.name ?? "Teste removido"}</span>
                       <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-                      {s.score !== null && (
-                        <span className="text-meta font-semibold tabular-nums text-wg-ink">{Math.round(s.score)}/100</span>
+                      {!behavioral && s.score !== null && (
+                        <span className="text-meta font-semibold tabular-nums text-wg-ink">{Math.round(s.score)}%</span>
                       )}
-                      {s.submittedAt && bf && <BigFiveMini scores={bf} />}
                     </div>
                     <p className="mt-0.5 text-[12px] text-wg-ink-muted">
                       Enviado em {formatDate(s.createdAt)}
@@ -240,19 +240,29 @@ export function CandidateTests({ applicationId, sessions, canManage, defaultTemp
                     ) : s.score !== null ? (
                       <div>
                         <div className="mb-1 flex justify-between text-meta">
-                          <span className="text-wg-ink-muted">Pontuação</span>
-                          <span className="font-semibold tabular-nums text-wg-ink">{Math.round(s.score)}/100</span>
+                          <span className="text-wg-ink-muted">Nota</span>
+                          <span className="font-semibold tabular-nums text-wg-ink">{Math.round(s.score)}%</span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-[#E3EADA]">
                           <div className="h-full rounded-full bg-wg-green-dark/70" style={{ width: `${Math.max(0, Math.min(100, s.score))}%` }} />
                         </div>
                       </div>
+                    ) : !behavioral && s.outcome === "PENDING_REVIEW" ? (
+                      <p className="text-meta text-warning-fg">Há questões dissertativas aguardando correção.</p>
                     ) : (
-                      <p className="text-meta text-wg-ink-muted">Sem pontuação automática para este teste.</p>
+                      <p className="text-meta text-wg-ink-muted">Sem nota automática para este teste.</p>
                     )}
-                    {s.outcome === "PENDING_REVIEW" && s.template?.kind !== "PERSONALITY_BIG5" && (
-                      <p className="mt-2 text-meta text-warning-fg">Aguardando correção manual.</p>
-                    )}
+                    <Link
+                      href={`/avaliacoes/resultados/${s.id}`}
+                      className="mt-3 inline-flex items-center gap-1 text-meta font-medium text-wg-green-dark hover:underline"
+                    >
+                      {behavioral
+                        ? "Ver perfil comportamental"
+                        : !behavioral && s.outcome === "PENDING_REVIEW" && canManage
+                        ? "Corrigir dissertativas"
+                        : "Abrir resultado completo"}
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                    </Link>
                   </div>
                 )}
               </li>

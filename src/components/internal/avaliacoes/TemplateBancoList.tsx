@@ -1,25 +1,38 @@
 "use client"
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Database, Search, FlaskConical, BookOpen, Brain, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
-import { KIND_LABELS, KIND_COLORS, type TemplateKind } from '@/lib/avaliacoes/schema'
-import { RepositoryModal } from './RepositoryModal'
+import {
+  Archive, ArchiveRestore, Copy, Database, Eye, FlaskConical, MoreHorizontal, Pencil, Plus, Send,
+} from 'lucide-react'
+import { resolveAssessmentType, type AssessmentType } from '@/lib/avaliacoes/schema'
+import { criterionLabel, isBehavioral, itemsLabel, templateCategory } from '@/lib/avaliacoes/presentation'
 import { PageHeader } from '@/components/internal/PageHeader'
-import { cn } from '@/lib/utils'
+import { Button, ButtonLink, buttonVariants } from '@/components/ui/Button'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
+import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/DropdownMenu'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { useToast } from '@/components/ui/ToastProvider'
+import { cn, normalizeText } from '@/lib/utils'
+import { RepositoryModal } from './RepositoryModal'
+import { CellSub, FilterSelect, SearchField, rowClass, tableShell, tdClass, thClass } from './ui'
 
-interface TemplateRow {
+export interface TemplateRow {
   id: string
   name: string
   description: string | null
   kind: string
   subtype: string | null
+  assessmentType: string | null
   estimatedMin: number | null
   passingScore: number | null
   isActive: boolean
   createdAt: string
-  questions: unknown[]
+  questions: Array<{ type: string }>
+  /** Quantas vezes o teste foi enviado a candidatos. */
+  applications: number
 }
 
 interface Props {
@@ -27,193 +40,232 @@ interface Props {
   canManage: boolean
 }
 
-const KIND_ICONS: Record<TemplateKind, typeof FlaskConical> = {
-  SCREENING: FlaskConical,
-  TECHNICAL: BookOpen,
-  PERSONALITY_BIG5: Brain,
-}
-
-const COLOR_CLASSES: Record<string, { bg: string; text: string }> = {
-  blue:   { bg: 'bg-blue-50',   text: 'text-blue-700' },
-  orange: { bg: 'bg-orange-50', text: 'text-orange-700' },
-  purple: { bg: 'bg-purple-50', text: 'text-purple-700' },
-}
+type CategoryFilter = 'ALL' | 'TECHNICAL' | 'BEHAVIORAL'
 
 export function TemplateBancoList({ templates: initial, canManage }: Props) {
   const router = useRouter()
+  const { notify } = useToast()
   const [templates, setTemplates] = useState(initial)
-  const [search, setSearch]       = useState('')
-  const [kindFilter, setKindFilter] = useState<string>('ALL')
-  const [showInactive, setShowInactive] = useState(false)
-  const [showRepo, setShowRepo]   = useState(false)
-  const [toggling, setToggling]   = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<CategoryFilter>('ALL')
+  const [showArchived, setShowArchived] = useState(false)
+  const [showRepo, setShowRepo] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [confirmArchive, setConfirmArchive] = useState<TemplateRow | null>(null)
 
-  const filtered = templates.filter((t) => {
-    if (!showInactive && !t.isActive) return false
-    if (kindFilter !== 'ALL' && t.kind !== kindFilter) return false
-    if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  })
+  const rows = useMemo(
+    () => templates.map((t) => ({ ...t, type: resolveAssessmentType(t) as AssessmentType })),
+    [templates],
+  )
+  const archivedCount = rows.filter((t) => !t.isActive).length
 
-  async function toggleActive(id: string, current: boolean) {
-    setToggling(id)
+  const filtered = useMemo(() => {
+    const q = normalizeText(search)
+    return rows.filter((t) => {
+      if (!showArchived && !t.isActive) return false
+      if (category === 'BEHAVIORAL' && !isBehavioral(t.type)) return false
+      if (category === 'TECHNICAL' && isBehavioral(t.type)) return false
+      if (q && !normalizeText(`${t.name} ${t.description ?? ''}`).includes(q)) return false
+      return true
+    })
+  }, [rows, search, category, showArchived])
+
+  async function setActive(t: TemplateRow, isActive: boolean) {
+    setBusyId(t.id)
     try {
-      const res = await fetch(`/api/assessment-templates/${id}`, {
+      const res = await fetch(`/api/assessment-templates/${t.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !current }),
+        body: JSON.stringify({ isActive }),
       })
-      if (res.ok) {
-        setTemplates((prev) => prev.map((t) => t.id === id ? { ...t, isActive: !current } : t))
-      }
+      if (!res.ok) throw new Error()
+      setTemplates((prev) => prev.map((x) => (x.id === t.id ? { ...x, isActive } : x)))
+      notify('success', isActive ? `"${t.name}" foi reativado.` : `"${t.name}" foi arquivado.`)
+    } catch {
+      notify('error', 'Não foi possível atualizar o teste. Tente novamente.')
     } finally {
-      setToggling(null)
+      setBusyId(null)
     }
   }
+
+  async function duplicate(t: TemplateRow) {
+    setBusyId(t.id)
+    try {
+      const res = await fetch(`/api/assessment-templates/${t.id}/duplicate`, { method: 'POST' })
+      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string }
+      if (!res.ok || !data.id) throw new Error(data.error)
+      notify('success', 'Cópia criada. Ajuste o que precisar e salve.')
+      router.push(`/avaliacoes/banco/${data.id}`)
+    } catch (e) {
+      notify('error', (e as Error).message || 'Não foi possível duplicar o teste.')
+      setBusyId(null)
+    }
+  }
+
+  function menuItems(t: TemplateRow): DropdownMenuItem[] {
+    const items: DropdownMenuItem[] = [
+      { label: 'Visualizar', icon: Eye, href: `/avaliacoes/banco/${t.id}?modo=visualizar` },
+    ]
+    if (canManage) {
+      items.push(
+        { label: 'Editar', icon: Pencil, href: `/avaliacoes/banco/${t.id}` },
+        { label: 'Duplicar', icon: Copy, onSelect: () => duplicate(t) },
+      )
+    }
+    items.push({ label: 'Ver aplicações', icon: Send, href: `/avaliacoes/aplicacoes?teste=${t.id}` })
+    if (canManage) {
+      items.push(
+        { type: 'separator' },
+        t.isActive
+          ? { label: 'Arquivar', icon: Archive, danger: true, onSelect: () => setConfirmArchive(t) }
+          : { label: 'Ativar', icon: ArchiveRestore, onSelect: () => setActive(t, true) },
+      )
+    }
+    return items
+  }
+
+  const hasFilter = search !== '' || category !== 'ALL'
 
   return (
     <div>
       <PageHeader
-        title="Banco de Testes"
-        subtitle="Templates de avaliação reutilizáveis entre vagas"
+        title="Banco de testes"
+        subtitle="Testes técnicos e avaliações comportamentais reutilizáveis entre vagas."
         action={
           canManage ? (
             <>
-              <button
-                onClick={() => setShowRepo(true)}
-                className="inline-flex items-center gap-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 py-2.5 px-4 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                <Database className="w-4 h-4" /> Importar do repositório
-              </button>
-              <Link
-                href="/avaliacoes/banco/novo"
-                className="inline-flex items-center gap-2 text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-lg shadow-sm transition-opacity hover:opacity-90"
-              >
-                <Plus className="w-4 h-4" /> Novo teste
-              </Link>
+              <Button variant="secondary" icon={Database} onClick={() => setShowRepo(true)}>
+                Importar do repositório
+              </Button>
+              <ButtonLink href="/avaliacoes/banco/novo" variant="primary" icon={Plus}>
+                Novo teste
+              </ButtonLink>
             </>
           ) : undefined
         }
       />
 
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar teste..."
-            className="pl-9 pr-3 py-2 text-sm bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-wg-green/30 w-52 shadow-sm"
-          />
-        </div>
-        <select
-          value={kindFilter}
-          onChange={(e) => setKindFilter(e.target.value)}
-          className="text-sm bg-white border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wg-green/30 shadow-sm"
-        >
-          <option value="ALL">Todos os tipos</option>
-          <option value="SCREENING">Triagem</option>
-          <option value="TECHNICAL">Técnico</option>
-          <option value="PERSONALITY_BIG5">Personalidade (Big Five)</option>
-        </select>
-        {canManage && (
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <SearchField value={search} onChange={setSearch} placeholder="Buscar teste..." className="max-w-sm" />
+        <FilterSelect<CategoryFilter>
+          label="Categoria"
+          value={category}
+          onChange={setCategory}
+          options={[
+            { value: 'ALL', label: 'Todas' },
+            { value: 'TECHNICAL', label: 'Técnico' },
+            { value: 'BEHAVIORAL', label: 'Comportamental' },
+          ]}
+        />
+        {archivedCount > 0 && (
+          <label className="ml-auto flex cursor-pointer select-none items-center gap-2 text-meta text-wg-ink-muted">
             <input
               type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="rounded"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="h-4 w-4 rounded accent-wg-green-dark"
             />
-            Mostrar inativos
+            Mostrar arquivados ({archivedCount})
           </label>
         )}
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
-          <FlaskConical className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Nenhum teste encontrado</p>
-          <p className="text-sm text-gray-400 mt-1">
-            {templates.length === 0
-              ? 'Crie seu primeiro teste ou importe do repositório.'
-              : 'Ajuste os filtros para ver outros resultados.'}
-          </p>
+        <div className={tableShell}>
+          <EmptyState
+            icon={FlaskConical}
+            title="Nenhum teste encontrado."
+            description={
+              templates.length === 0
+                ? 'Crie o primeiro teste ou importe um modelo pronto do repositório.'
+                : 'Ajuste a busca ou os filtros para ver outros testes.'
+            }
+            action={
+              templates.length === 0 && canManage ? (
+                <ButtonLink href="/avaliacoes/banco/novo" variant="primary" icon={Plus}>
+                  Novo teste
+                </ButtonLink>
+              ) : hasFilter ? (
+                <Button variant="secondary" onClick={() => { setSearch(''); setCategory('ALL') }}>
+                  Limpar filtros
+                </Button>
+              ) : undefined
+            }
+          />
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/50">
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Nome</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Tipo</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Questões</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Tempo</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Mín. %</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</th>
-                <th className="px-4 py-3" />
+        <div className={tableShell}>
+          <table className="w-full text-body">
+            <thead className="border-b border-wg-border-lighter bg-[#FAFCF6]">
+              <tr>
+                <th scope="col" className={thClass}>Teste</th>
+                <th scope="col" className={cn(thClass, 'hidden md:table-cell')}>Categoria</th>
+                <th scope="col" className={cn(thClass, 'hidden lg:table-cell')}>Questões</th>
+                <th scope="col" className={cn(thClass, 'hidden lg:table-cell')}>Duração</th>
+                <th scope="col" className={cn(thClass, 'hidden md:table-cell')}>Critério</th>
+                <th scope="col" className={cn(thClass, 'hidden sm:table-cell text-right')}>Aplicações</th>
+                <th scope="col" className={thClass}>Status</th>
+                <th scope="col" className={cn(thClass, 'w-12')}><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-wg-border-lighter">
               {filtered.map((t) => {
-                const kind  = t.kind as TemplateKind
-                const Icon  = KIND_ICONS[kind] ?? FlaskConical
-                const color = COLOR_CLASSES[KIND_COLORS[kind] ?? 'blue']
+                const cat = templateCategory(t.kind, t.subtype)
+                const items = itemsLabel(t.type, t.questions ?? [])
                 return (
-                  <tr key={t.id} className={cn('border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors', !t.isActive && 'opacity-50')}>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900 truncate max-w-xs">{t.name}</div>
-                      {t.description && (
-                        <div className="text-xs text-gray-400 truncate max-w-xs mt-0.5">{t.description}</div>
+                  <tr key={t.id} className={cn(rowClass, !t.isActive && 'text-wg-ink-muted')}>
+                    <td className={cn(tdClass, 'min-w-[200px]')}>
+                      <Link
+                        href={`/avaliacoes/banco/${t.id}?modo=visualizar`}
+                        className={cn('font-semibold hover:underline', t.isActive ? 'text-wg-ink' : 'text-wg-ink-muted')}
+                      >
+                        {t.name}
+                      </Link>
+                      <CellSub>
+                        {/* Em telas pequenas as colunas ocultas viram uma linha de apoio. */}
+                        <span className="md:hidden">
+                          {cat.primary}
+                          {cat.secondary && ` · ${cat.secondary}`} · {items.count} · {criterionLabel(t.type, t.passingScore)}
+                        </span>
+                        <span className="hidden md:line-clamp-1 md:max-w-md" title={t.description ?? undefined}>{t.description ?? items.count}</span>
+                      </CellSub>
+                    </td>
+                    <td className={cn(tdClass, 'hidden md:table-cell whitespace-nowrap')}>
+                      <div className="text-wg-ink-secondary">{cat.primary}</div>
+                      {cat.secondary && <CellSub>{cat.secondary}</CellSub>}
+                    </td>
+                    <td className={cn(tdClass, 'hidden lg:table-cell whitespace-nowrap')}>
+                      <div className="tabular-nums text-wg-ink-secondary">{items.count}</div>
+                      {items.detail && <CellSub>{items.detail}</CellSub>}
+                    </td>
+                    <td className={cn(tdClass, 'hidden lg:table-cell whitespace-nowrap tabular-nums text-wg-ink-secondary')}>
+                      {t.estimatedMin ? `${t.estimatedMin} min` : <span className="text-wg-ink-muted">—</span>}
+                    </td>
+                    <td className={cn(tdClass, 'hidden md:table-cell whitespace-nowrap text-wg-ink-secondary')}>
+                      {criterionLabel(t.type, t.passingScore)}
+                    </td>
+                    <td className={cn(tdClass, 'hidden sm:table-cell text-right tabular-nums')}>
+                      {t.applications > 0 ? (
+                        <Link href={`/avaliacoes/aplicacoes?teste=${t.id}`} className="font-medium text-wg-ink-secondary hover:underline">
+                          {t.applications}
+                        </Link>
+                      ) : (
+                        <span className="text-wg-ink-muted">0</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', color.bg, color.text)}>
-                        <Icon className="w-3 h-3" />
-                        {KIND_LABELS[kind]}
-                        {t.subtype && <span className="opacity-70">· {t.subtype}</span>}
-                      </span>
+                    <td className={tdClass}>
+                      {t.isActive ? <StatusBadge tone="success">Ativo</StatusBadge> : <StatusBadge tone="neutral">Arquivado</StatusBadge>}
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-600">
-                      {Array.isArray(t.questions) ? t.questions.length : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {t.estimatedMin ? (
-                        <span className="inline-flex items-center gap-1 text-gray-600">
-                          <Clock className="w-3.5 h-3.5" /> {t.estimatedMin} min
-                        </span>
-                      ) : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-center text-gray-600">
-                      {t.passingScore != null ? `${t.passingScore}%` : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {t.isActive
-                        ? <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 rounded-full px-2 py-0.5"><CheckCircle2 className="w-3 h-3" /> Ativo</span>
-                        : <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5"><XCircle className="w-3 h-3" /> Inativo</span>
-                      }
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/avaliacoes/banco/${t.id}`}
-                          className="text-xs text-wg-green-dark font-medium hover:underline"
-                        >
-                          {canManage ? 'Editar' : 'Ver'}
-                        </Link>
-                        {canManage && (
-                          <button
-                            onClick={() => toggleActive(t.id, t.isActive)}
-                            disabled={toggling === t.id}
-                            className="text-xs text-gray-400 hover:text-gray-700 transition-colors disabled:opacity-50"
-                          >
-                            {toggling === t.id
-                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              : t.isActive ? 'Desativar' : 'Ativar'
-                            }
-                          </button>
-                        )}
-                      </div>
+                    <td className={cn(tdClass, 'text-right')}>
+                      <DropdownMenu
+                        portal
+                        ariaLabel={`Ações do teste ${t.name}`}
+                        title="Ações"
+                        disabled={busyId === t.id}
+                        trigger={<MoreHorizontal aria-hidden />}
+                        triggerClassName={buttonVariants({ variant: 'tertiary', size: 'icon-sm' })}
+                        items={menuItems(t)}
+                      />
                     </td>
                   </tr>
                 )
@@ -222,6 +274,24 @@ export function TemplateBancoList({ templates: initial, canManage }: Props) {
           </table>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmArchive !== null}
+        title="Arquivar teste?"
+        message={
+          confirmArchive
+            ? `"${confirmArchive.name}" deixa de aparecer para envio. Aplicações e resultados já existentes continuam disponíveis, e você pode reativá-lo quando quiser.`
+            : ''
+        }
+        confirmLabel="Arquivar"
+        variant="warning"
+        onCancel={() => setConfirmArchive(null)}
+        onConfirm={() => {
+          const t = confirmArchive
+          setConfirmArchive(null)
+          if (t) void setActive(t, false)
+        }}
+      />
 
       {showRepo && (
         <RepositoryModal

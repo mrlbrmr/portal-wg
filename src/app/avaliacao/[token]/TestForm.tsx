@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Clock, CheckCircle2, AlertCircle, Loader2, ChevronRight } from "lucide-react"
 import type { Question } from "@/lib/avaliacoes/schema"
 
@@ -24,7 +24,7 @@ type Answers = Record<string, string>
 
 interface ResultData {
   score: number | null
-  outcome: "PASS" | "FAIL" | "PENDING_REVIEW"
+  outcome: "PASS" | "FAIL" | "PENDING_REVIEW" | null
   scoreBreakdown: Record<string, unknown>
 }
 
@@ -180,7 +180,7 @@ function ResultScreen({ result, passingScore }: { result: ResultData; passingSco
                 <div key={dim}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="font-medium text-gray-700">{label}</span>
-                    <span className="text-gray-500">{val !== null ? `${val}%` : "—"}</span>
+                    <span className="text-gray-500 tabular-nums">{val !== null ? val : "—"}</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div
@@ -244,6 +244,7 @@ export function TestForm({ token, sessionId, candidateName, template }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ResultData | null>(null)
   const [confirmed, setConfirmed] = useState(false)
+  const startedRef = useRef(false)
 
   const questions = template.questions
   const totalAnswered = questions.filter((q) => {
@@ -252,6 +253,11 @@ export function TestForm({ token, sessionId, candidateName, template }: Props) {
   }).length
 
   function setAnswer(qId: string, val: string) {
+    // Primeiro item respondido = início do preenchimento (status "Em andamento" no RH).
+    if (!startedRef.current) {
+      startedRef.current = true
+      fetch(`/api/avaliacao/${token}/start`, { method: "POST" }).catch(() => {})
+    }
     setAnswers((prev) => ({ ...prev, [qId]: val }))
   }
 

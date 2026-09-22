@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scoreSession } from '@/lib/avaliacoes/scoring'
-import type { Question } from '@/lib/avaliacoes/schema'
+import { resolveAssessmentType, type Question } from '@/lib/avaliacoes/schema'
+import { BIG_FIVE_INFO } from '@/lib/avaliacoes/big-five'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -15,13 +16,6 @@ const TEMPLATE_KIND_TO_ASSESSMENT_KIND: Record<string, string> = {
   PERSONALITY_BIG5: 'PERSONALITY_TEST',
 }
 
-// Mapeamento de outcome interno para assessment outcome.
-// PENDING_REVIEW omitido: testes de personalidade não têm aprovação/reprovação.
-const OUTCOME_MAP: Record<string, string> = {
-  PASS: 'PASS',
-  FAIL: 'FAIL',
-}
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
@@ -32,11 +26,11 @@ export async function POST(
   // Busca a sessão pelo token
   const { data: sess } = await supabase
     .from('assessment_sessions')
-    .select('id, applicationId, templateId, submittedAt, expiresAt')
+    .select('id, applicationId, templateId, submittedAt, startedAt, expiresAt, invalidadoEm')
     .eq('token', token)
     .maybeSingle()
 
-  if (!sess) {
+  if (!sess || sess.invalidadoEm) {
     return NextResponse.json({ error: 'Link inválido' }, { status: 404 })
   }
 
@@ -61,7 +55,7 @@ export async function POST(
   // Busca o template com questões
   const { data: template } = await supabase
     .from('assessment_templates')
-    .select('id, name, kind, passingScore, questions')
+    .select('id, name, kind, assessmentType, passingScore, questions')
     .eq('id', sess.templateId)
     .maybeSingle()
 
@@ -70,17 +64,22 @@ export async function POST(
   }
 
   const questions = (template.questions as Question[]) ?? []
+  const assessmentType = resolveAssessmentType({
+    assessmentType: template.assessmentType as string | null,
+    kind: template.kind as string,
+    questions,
+  })
   const { score, outcome, scoreBreakdown } = scoreSession(
     questions,
     parsed.data.answers,
     template.passingScore as number | null,
-    template.kind as string,
+    assessmentType,
   )
 
   const now = new Date().toISOString()
 
-  // Atualiza a sessão
-  const { error: sessError } = await supabase
+  // Atualiza a sessão. `submittedAt is null` no WHERE evita envio duplo concorrente.
+  const { data: updated, error: sessError } = await supabase
     .from('assessment_sessions')
     .update({
       answers: parsed.data.answers,
@@ -88,39 +87,49 @@ export async function POST(
       score,
       outcome,
       scoreBreakdown,
-      startedAt: now, // marca startedAt se ainda não estava
+      // startedAt = primeiro item respondido (POST /start). Sem ele, marca o envio.
+      startedAt: (sess.startedAt as string | null) ?? now,
     })
     .eq('id', sess.id)
+    .is('submittedAt', null)
+    .select('id')
+    .maybeSingle()
 
   if (sessError) {
     return NextResponse.json({ error: 'Erro ao salvar respostas' }, { status: 500 })
   }
-
-  // Registra em application_assessments para aparecer no Quick View do candidato
-  const bigFive = scoreBreakdown?.bigFive as Record<string, number | null> | undefined
-  const summaryParts: string[] = [`Teste online: ${template.name as string}`]
-  if (bigFive) {
-    const dimLabels: Record<string, string> = { O: 'Abertura', C: 'Conscienciosidade', E: 'Extroversão', A: 'Amabilidade', N: 'Neuroticismo' }
-    summaryParts.push(
-      Object.entries(bigFive)
-        .filter(([, v]) => v !== null)
-        .map(([d, v]) => `${dimLabels[d]}: ${v}%`)
-        .join(' · ')
-    )
+  if (!updated) {
+    return NextResponse.json({ error: 'Avaliação já enviada' }, { status: 409 })
   }
 
-  await supabase.from('application_assessments').insert({
-    applicationId: sess.applicationId,
-    kind: TEMPLATE_KIND_TO_ASSESSMENT_KIND[template.kind as string] ?? 'OTHER',
-    source: 'HUMAN',
-    title: template.name as string,
-    score: score ?? null,
-    outcome: outcome ? OUTCOME_MAP[outcome] : null,
-    summary: summaryParts.join('\n'),
-    evaluator: 'Automático',
-    occurredAt: now,
-    metadata: { sessionId: sess.id, scoreBreakdown },
-  })
+  // Registra em application_assessments para aparecer no histórico do candidato.
+  if (sess.applicationId) {
+    const summaryParts: string[] = [`Teste online: ${template.name as string}`]
+    if (scoreBreakdown.bigFive) {
+      const bf = scoreBreakdown.bigFive
+      summaryParts.push(
+        BIG_FIVE_INFO.filter((d) => bf[d.key] !== null && bf[d.key] !== undefined)
+          .map((d) => `${d.label}: ${bf[d.key]}`)
+          .join(' · ')
+      )
+    } else if (outcome === 'PENDING_REVIEW') {
+      summaryParts.push('Aguardando correção das questões dissertativas.')
+    }
 
-  return NextResponse.json({ score, outcome, scoreBreakdown })
+    await supabase.from('application_assessments').insert({
+      applicationId: sess.applicationId,
+      kind: TEMPLATE_KIND_TO_ASSESSMENT_KIND[template.kind as string] ?? 'OTHER',
+      source: 'HUMAN',
+      title: template.name as string,
+      score: score ?? null,
+      // Só PASS/FAIL viram outcome: comportamental não tem, dissertativa pendente ainda não tem.
+      outcome: outcome === 'PASS' || outcome === 'FAIL' ? outcome : null,
+      summary: summaryParts.join('\n'),
+      evaluator: 'Automático',
+      occurredAt: now,
+      metadata: { sessionId: sess.id, scoreBreakdown },
+    })
+  }
+
+  return NextResponse.json({ score, outcome, assessmentType, scoreBreakdown })
 }

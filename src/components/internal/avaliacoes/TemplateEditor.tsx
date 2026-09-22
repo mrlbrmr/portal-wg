@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Loader2, Sparkles, Database, Eye, EyeOff } from 'lucide-react'
-import { KIND_LABELS, type TemplateKind, type Question } from '@/lib/avaliacoes/schema'
+import { ArrowLeft, Save, Loader2, Sparkles, Database, Eye, EyeOff, Pencil } from 'lucide-react'
+import { KIND_LABELS, SUBTYPE_LABELS, classifyTemplate, type TemplateKind, type Question } from '@/lib/avaliacoes/schema'
+import { ASSESSMENT_TYPE_DETAIL, GRADING_MODE_LABEL, criterionLabel, itemsLabel } from '@/lib/avaliacoes/presentation'
+import { ButtonLink } from '@/components/ui/Button'
 import { QuestionEditor } from './QuestionEditor'
 import { AIGenerateModal } from './AIGenerateModal'
 import { RepositoryModal } from './RepositoryModal'
@@ -26,6 +28,8 @@ interface Props {
   mode: 'create' | 'edit'
   template?: TemplateData
   canManage?: boolean
+  /** Aberto por "Visualizar": somente leitura, com atalho para editar (admin). */
+  viewOnly?: boolean
 }
 
 type ActiveTab = 'manual' | 'ai' | 'repository'
@@ -35,7 +39,7 @@ const SUBTYPES: Record<string, string[]> = {
   TECHNICAL: ['PORTUGUESE', 'EXCEL', 'CUSTOM'],
 }
 
-export function TemplateEditor({ mode, template, canManage = true }: Props) {
+export function TemplateEditor({ mode, template, canManage = true, viewOnly = false }: Props) {
   const router = useRouter()
 
   const [name, setName]               = useState(template?.name ?? '')
@@ -53,7 +57,10 @@ export function TemplateEditor({ mode, template, canManage = true }: Props) {
   const [error, setError]             = useState<string | null>(null)
   const [previewMode, setPreviewMode] = useState(false)
 
-  const readonly = !canManage
+  const readonly = !canManage || viewOnly
+  const classification = classifyTemplate(kind, questions)
+  const behavioral = classification.assessmentType === 'BEHAVIORAL'
+  const items = itemsLabel(classification.assessmentType, questions)
 
   async function save() {
     if (!name.trim()) { setError('O nome é obrigatório.'); return }
@@ -66,7 +73,8 @@ export function TemplateEditor({ mode, template, canManage = true }: Props) {
         subtype: subtype || null,
         description: description || null,
         estimatedMin: estimatedMin !== '' ? estimatedMin : null,
-        passingScore: passingScore !== '' ? passingScore : null,
+        // Comportamental não tem nota de corte (o banco também zera por trigger).
+        passingScore: !behavioral && passingScore !== '' ? passingScore : null,
         instructions: instructions || null,
         questions,
       }
@@ -95,7 +103,7 @@ export function TemplateEditor({ mode, template, canManage = true }: Props) {
       <div className="flex items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <Link href="/avaliacoes/banco" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800">
-            <ArrowLeft className="w-4 h-4" /> Banco de Testes
+            <ArrowLeft className="w-4 h-4" /> Banco de testes
           </Link>
           <span className="text-gray-300">/</span>
           <span className="text-sm text-gray-700 font-medium">{mode === 'create' ? 'Novo teste' : (template?.name ?? '')}</span>
@@ -109,7 +117,12 @@ export function TemplateEditor({ mode, template, canManage = true }: Props) {
             {previewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             {previewMode ? 'Editar' : 'Pré-visualizar'}
           </button>
-          {canManage && (
+          {viewOnly && canManage && template && (
+            <ButtonLink href={`/avaliacoes/banco/${template.id}`} variant="primary" icon={Pencil}>
+              Editar
+            </ButtonLink>
+          )}
+          {!readonly && (
             <button
               onClick={save}
               disabled={saving}
@@ -164,7 +177,7 @@ export function TemplateEditor({ mode, template, canManage = true }: Props) {
                   className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wg-green/30 disabled:bg-gray-50"
                 >
                   <option value="">— Selecione —</option>
-                  {SUBTYPES[kind].map((s) => <option key={s} value={s}>{s}</option>)}
+                  {SUBTYPES[kind].map((s) => <option key={s} value={s}>{SUBTYPE_LABELS[s] ?? s}</option>)}
                 </select>
               </div>
             )}
@@ -192,6 +205,7 @@ export function TemplateEditor({ mode, template, canManage = true }: Props) {
                   className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wg-green/30 disabled:bg-gray-50"
                 />
               </div>
+              {!behavioral && (
               <div className="flex-1">
                 <label className="block text-xs font-medium text-gray-500 mb-1">Nota mínima (%)</label>
                 <input
@@ -199,9 +213,11 @@ export function TemplateEditor({ mode, template, canManage = true }: Props) {
                   value={passingScore}
                   onChange={(e) => setPassingScore(e.target.value === '' ? '' : Number(e.target.value))}
                   disabled={readonly}
+                  placeholder="60"
                   className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-wg-green/30 disabled:bg-gray-50"
                 />
               </div>
+              )}
             </div>
 
             <div>
@@ -217,8 +233,22 @@ export function TemplateEditor({ mode, template, canManage = true }: Props) {
             </div>
           </div>
 
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-xs text-blue-700 leading-relaxed">
-            <strong className="font-semibold">Total:</strong> {questions.length} questões · peso total: {questions.reduce((s, q) => s + (q.weight ?? 1), 0)}
+          {/* Tipo derivado das questões — o mesmo que o banco grava (assessmentType/gradingMode). */}
+          <div className="rounded-card border border-wg-border-lighter bg-white p-4 text-meta">
+            <p className="font-semibold text-wg-ink">{ASSESSMENT_TYPE_DETAIL[classification.assessmentType]}</p>
+            <p className="mt-1 text-wg-ink-muted">{GRADING_MODE_LABEL[classification.gradingMode]}.</p>
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+              <dt className="text-wg-ink-muted">{behavioral ? 'Itens' : 'Questões'}</dt>
+              <dd className="text-right tabular-nums text-wg-ink-secondary">{items.count.replace(/ .*/, '')}{items.detail ? ` · ${items.detail}` : ''}</dd>
+              <dt className="text-wg-ink-muted">Critério</dt>
+              <dd className="text-right text-wg-ink-secondary">{criterionLabel(classification.assessmentType, passingScore === '' ? null : passingScore)}</dd>
+              {!behavioral && (
+                <>
+                  <dt className="text-wg-ink-muted">Peso total</dt>
+                  <dd className="text-right tabular-nums text-wg-ink-secondary">{questions.reduce((s, q) => s + (q.weight ?? 1), 0)}</dd>
+                </>
+              )}
+            </dl>
           </div>
         </div>
 

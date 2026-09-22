@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Loader2, Search, Users, X, CheckCircle2, MapPin, Briefcase } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
+import { buttonVariants } from "@/components/ui/Button";
 
 interface TalentoItem {
   id: string;
@@ -116,10 +117,11 @@ export function IncluirTalentoModal({ jobId }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE8CC] bg-white px-4 py-2.5 text-sm font-semibold text-[#1A2213] transition-colors hover:bg-[#EEF4E3]"
+        title="Incluir um candidato do banco de talentos nesta vaga"
+        className={buttonVariants({ variant: "secondary" })}
       >
-        <Users className="h-4 w-4 text-[#4F6930]" />
-        Incluir do Banco
+        <Users aria-hidden />
+        Banco de talentos
       </button>
 
       {open && createPortal(

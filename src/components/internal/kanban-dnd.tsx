@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type HTMLAttributes, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from "react";
 import {
   PointerSensor,
   KeyboardSensor,
@@ -31,10 +31,23 @@ export function useKanbanSensors() {
 interface ColumnProps {
   id: string;
   children: ReactNode;
+  /**
+   * Substitui o visual padrão da coluna (largura, fundo). Estilize o realce de "soltar
+   * aqui" com `data-[over]:` — o atributo é marcado enquanto um card paira sobre ela.
+   */
+  className?: string;
 }
 
-export function KanbanColumn({ id, children }: ColumnProps) {
+export function KanbanColumn({ id, children, className }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
+
+  if (className) {
+    return (
+      <div ref={setNodeRef} data-over={isOver || undefined} className={className}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -44,6 +57,47 @@ export function KanbanColumn({ id, children }: ColumnProps) {
       }`}
     >
       {children}
+    </div>
+  );
+}
+
+/** Props da alça de arraste por teclado (Espaço/Enter para pegar, setas para mover). */
+export type DragHandleProps = HTMLAttributes<HTMLElement> & {
+  ref: (el: HTMLElement | null) => void;
+};
+
+interface SurfaceProps {
+  id: string;
+  draggable: boolean;
+  className?: string;
+  children: (state: { isDragging: boolean; handleProps: DragHandleProps | null }) => ReactNode;
+}
+
+/**
+ * Card sortável "superfície": o card inteiro inicia o arraste com o ponteiro (com folga de
+ * 6px, então cliques em botões internos continuam funcionando) e o teclado usa uma alça
+ * dedicada, entregue ao render via `handleProps`. O visual fica todo a cargo de quem usa.
+ */
+export function KanbanSortableSurface({ id, draggable, className = "", children }: SurfaceProps) {
+  const { setNodeRef, setActivatorNodeRef, listeners, attributes, isDragging, transform, transition } =
+    useSortable({ id, disabled: !draggable });
+  // O dnd-kit tipa os listeners como Function genérica.
+  const onPointerDown = listeners?.onPointerDown as PointerEventHandler<HTMLDivElement> | undefined;
+  const onKeyDown = listeners?.onKeyDown as KeyboardEventHandler<HTMLElement> | undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      onPointerDown={draggable ? onPointerDown : undefined}
+      className={className}
+    >
+      {children({
+        isDragging,
+        handleProps: draggable
+          ? { ...attributes, onKeyDown, ref: setActivatorNodeRef }
+          : null,
+      })}
     </div>
   );
 }

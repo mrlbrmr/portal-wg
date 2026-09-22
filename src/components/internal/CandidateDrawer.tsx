@@ -15,10 +15,10 @@ import {
 } from "@/lib/recruitment/candidate-stage-flow";
 import { AssessmentsSection } from "@/components/internal/AssessmentsSection";
 import { TestSessionsSection } from "@/components/internal/TestSessionsSection";
-import type { KanbanStage } from "@/components/internal/KanbanBoard";
+import type { PipelineStage as KanbanStage } from "@/components/internal/candidates/types";
 import { CandidateHeader, type StageActionKind } from "@/components/internal/candidate/CandidateHeader";
 import { ResumeCard } from "@/components/internal/candidate/ResumeCard";
-import { ApplicationData, CandidateContact } from "@/components/internal/candidate/CandidateSummary";
+import { ApplicationData, CandidateContact, CandidateExperience } from "@/components/internal/candidate/CandidateSummary";
 import { CandidateEditForm, type CandidateProfilePatch } from "@/components/internal/candidate/CandidateEditForm";
 import { ScreeningCriteria } from "@/components/internal/candidate/ScreeningCriteria";
 import { TeamNotes } from "@/components/internal/candidate/TeamNotes";
@@ -349,7 +349,7 @@ export function CandidateDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative flex h-full w-full flex-col bg-white shadow-[-10px_0_34px_rgba(26,34,19,.14)] animate-in slide-in-from-right duration-200 sm:max-w-[600px] xl:max-w-[660px]"
+        className="relative flex h-full w-full flex-col bg-white shadow-[-10px_0_34px_rgba(26,34,19,.14)] animate-in slide-in-from-right duration-200 sm:max-w-[600px] lg:max-w-[min(780px,max(600px,44vw))]"
       >
         <CandidateHeader
           data={data}
@@ -450,6 +450,7 @@ export function CandidateDrawer({
                   <CandidateContact data={data} onCopy={copy} />
                 </>
               )}
+              <CandidateExperience data={data} />
               <ScreeningCriteria criteria={data.screeningCriteria} />
               <TeamNotes
                 saved={data.notes ?? ""}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode, type Ref } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -8,7 +8,12 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+  type SortingStrategy,
+} from "@dnd-kit/sortable";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SearchBar } from "@/components/internal/SearchBar";
@@ -16,7 +21,9 @@ import {
   KanbanColumn,
   KanbanSortableCard,
   KanbanCardOverlay,
+  KanbanSortableSurface,
   useKanbanSensors,
+  type DragHandleProps,
 } from "@/components/internal/kanban-dnd";
 
 export interface KanbanColumnDef {
@@ -35,7 +42,20 @@ export interface KanbanColumnDef {
 /** API entregue a cada card renderizado (ex.: pedir exclusão do item). */
 export interface KanbanCardApi {
   requestDelete: (id: string) => void;
+  /**
+   * Estado de arraste do card — só no cardVariant "surface", em que o próprio card
+   * desenha a alça de teclado e o visual de "sendo arrastado".
+   */
+  drag?: {
+    isDragging: boolean;
+    /** true no clone flutuante (DragOverlay). */
+    isOverlay: boolean;
+    handleProps: DragHandleProps | null;
+  };
 }
+
+/** Estratégia nula: com ordenação externa ativa, arrastar na coluna não embaralha os cards. */
+const noSortingStrategy: SortingStrategy = () => null;
 
 interface Props<T> {
   initialItems: T[];
@@ -74,6 +94,28 @@ interface Props<T> {
    * Recebe a nova lista de IDs (coluna completa) e a chave da coluna.
    */
   onReorder?: (ids: string[], columnKey: string) => Promise<void>;
+  // ── Personalização visual (opcional; sem ela o quadro fica como sempre foi) ──
+  /**
+   * "surface": o card inteiro é a área de arraste e o renderCard desenha todo o visual
+   * (recebe api.drag). "default": card branco padrão com alça à esquerda.
+   */
+  cardVariant?: "default" | "surface";
+  /** Cabeçalho próprio da coluna (recebe a quantidade de cards visíveis). */
+  renderColumnHeader?: (col: KanbanColumnDef, count: number) => ReactNode;
+  /** Estado vazio próprio da coluna. */
+  renderEmpty?: (col: KanbanColumnDef) => ReactNode;
+  /**
+   * "external": a ordem dos cards vem pronta do pai (ex.: ordenar por aderência) — a
+   * ordem manual salva é ignorada e reordenar arrastando fica desligado.
+   */
+  orderMode?: "manual" | "external";
+  /** Chamado depois que uma mudança de coluna é persistida com sucesso. */
+  onMoved?: (id: string, toColumn: string) => void;
+  /** Ref do contêiner com rolagem horizontal (setas de navegação, sombras de borda). */
+  scrollerRef?: Ref<HTMLDivElement>;
+  boardClassName?: string;
+  columnClassName?: string;
+  columnBodyClassName?: string;
 }
 
 /**
@@ -104,6 +146,15 @@ export function KanbanBoardShell<T>({
   confirmDelete,
   onBeforeMove,
   onReorder,
+  cardVariant = "default",
+  renderColumnHeader,
+  renderEmpty,
+  orderMode = "manual",
+  onMoved,
+  scrollerRef,
+  boardClassName,
+  columnClassName,
+  columnBodyClassName,
 }: Props<T>) {
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
@@ -114,6 +165,27 @@ export function KanbanBoardShell<T>({
   const [columnOrderOverrides, setColumnOrderOverrides] = useState<Record<string, string[]>>({});
   const { notify } = useToast();
   const sensors = useKanbanSensors();
+
+  // Quando o servidor confirma a nova coluna (router.refresh), o override otimista sai de
+  // cena: a partir daí vale o dado real, inclusive se outra tela mover o item de novo.
+  useEffect(() => {
+    setOverrides((o) => {
+      const keys = Object.keys(o);
+      if (keys.length === 0) return o;
+      const byId = new Map(initialItems.map((it) => [getId(it), it]));
+      let changed = false;
+      const next = { ...o };
+      for (const k of keys) {
+        const it = byId.get(k);
+        if (it && getColumn(it) === o[k]) {
+          delete next[k];
+          changed = true;
+        }
+      }
+      return changed ? next : o;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialItems]);
 
   const items = useMemo(() => {
     const base =
@@ -135,7 +207,7 @@ export function KanbanBoardShell<T>({
   /** Retorna os items de uma coluna respeitando a ordem customizada (se houver). */
   function getColumnItems(colKey: string): T[] {
     const colItems = visibleItems.filter((it) => getColumn(it) === colKey);
-    const order = columnOrderOverrides[colKey];
+    const order = orderMode === "manual" ? columnOrderOverrides[colKey] : undefined;
     if (!order) return colItems;
     const idToItem = new Map(colItems.map((it) => [getId(it), it]));
     const ordered: T[] = [];
@@ -214,6 +286,7 @@ export function KanbanBoardShell<T>({
       }
       const label = columns.find((c) => c.key === toColumn)?.label ?? toColumn;
       notify("success", moveSuccess(item, label));
+      onMoved?.(id, toColumn);
     } catch {
       revert();
       notify("error", "Erro de conexão. Tente novamente.");
@@ -221,7 +294,7 @@ export function KanbanBoardShell<T>({
   }
 
   function reorderWithin(activeId: string, overId: string, columnKey: string) {
-    if (!onReorder) return;
+    if (!onReorder || orderMode !== "manual") return;
     const colItems = getColumnItems(columnKey);
     const ids = colItems.map((it) => getId(it));
     const fromIndex = ids.indexOf(activeId);
@@ -294,36 +367,64 @@ export function KanbanBoardShell<T>({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-3.5 overflow-x-auto pb-4">
+        <div ref={scrollerRef} className={boardClassName ?? "flex gap-3.5 overflow-x-auto pb-4"}>
           {columns.map((col) => {
             const colItems = getColumnItems(col.key);
             const colIds = colItems.map((it) => getId(it));
             return (
-              <KanbanColumn key={col.key} id={col.key}>
-                <div className="flex items-center gap-2 px-3.5 py-3 min-w-0">
-                  <span className="text-[13px] font-semibold text-[#1A2213] leading-snug break-words flex-1 min-w-0">
-                    {col.label}
-                  </span>
-                  <span className="text-[10px] font-bold text-[#55614A] bg-[#E8EEE1] rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1.5 shrink-0 tabular-nums">
-                    {colItems.length}
-                  </span>
-                </div>
+              <KanbanColumn key={col.key} id={col.key} className={columnClassName}>
+                {renderColumnHeader ? (
+                  renderColumnHeader(col, colItems.length)
+                ) : (
+                  <div className="flex items-center gap-2 px-3.5 py-3 min-w-0">
+                    <span className="text-[13px] font-semibold text-[#1A2213] leading-snug break-words flex-1 min-w-0">
+                      {col.label}
+                    </span>
+                    <span className="text-[10px] font-bold text-[#55614A] bg-[#E8EEE1] rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1.5 shrink-0 tabular-nums">
+                      {colItems.length}
+                    </span>
+                  </div>
+                )}
 
-                <SortableContext items={colIds} strategy={verticalListSortingStrategy}>
-                  <div className="p-2.5 flex flex-col gap-2 min-h-[120px] overflow-y-auto max-h-[calc(100vh-300px)]">
-                    {colItems.length === 0 && (
-                      <p className="text-xs text-gray-500 text-center py-6">{emptyLabel}</p>
+                <SortableContext
+                  items={colIds}
+                  strategy={orderMode === "manual" ? verticalListSortingStrategy : noSortingStrategy}
+                >
+                  <div
+                    className={
+                      columnBodyClassName ??
+                      "p-2.5 flex flex-col gap-2 min-h-[120px] overflow-y-auto max-h-[calc(100vh-300px)]"
+                    }
+                  >
+                    {colItems.length === 0 &&
+                      (renderEmpty ? (
+                        renderEmpty(col)
+                      ) : (
+                        <p className="text-xs text-gray-500 text-center py-6">{emptyLabel}</p>
+                      ))}
+                    {colItems.map((it) =>
+                      cardVariant === "surface" ? (
+                        <KanbanSortableSurface
+                          key={getId(it)}
+                          id={getId(it)}
+                          draggable={canManage}
+                          className={cardClassName}
+                        >
+                          {({ isDragging, handleProps }) =>
+                            renderCard(it, { ...cardApi, drag: { isDragging, isOverlay: false, handleProps } })
+                          }
+                        </KanbanSortableSurface>
+                      ) : (
+                        <KanbanSortableCard
+                          key={getId(it)}
+                          id={getId(it)}
+                          draggable={canManage}
+                          className={cardClassName}
+                        >
+                          {renderCard(it, cardApi)}
+                        </KanbanSortableCard>
+                      )
                     )}
-                    {colItems.map((it) => (
-                      <KanbanSortableCard
-                        key={getId(it)}
-                        id={getId(it)}
-                        draggable={canManage}
-                        className={cardClassName}
-                      >
-                        {renderCard(it, cardApi)}
-                      </KanbanSortableCard>
-                    ))}
                   </div>
                 </SortableContext>
               </KanbanColumn>
@@ -335,11 +436,19 @@ export function KanbanBoardShell<T>({
           {activeId
             ? (() => {
                 const item = items.find((it) => getId(it) === activeId);
-                return item ? (
+                if (!item) return null;
+                if (cardVariant === "surface") {
+                  return (
+                    <div className={cardClassName}>
+                      {renderCard(item, { ...cardApi, drag: { isDragging: false, isOverlay: true, handleProps: null } })}
+                    </div>
+                  );
+                }
+                return (
                   <KanbanCardOverlay draggable={canManage} className={cardClassName}>
                     {renderCard(item, cardApi)}
                   </KanbanCardOverlay>
-                ) : null;
+                );
               })()
             : null}
         </DragOverlay>

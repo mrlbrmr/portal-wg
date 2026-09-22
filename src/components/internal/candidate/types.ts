@@ -30,6 +30,13 @@ export interface CandidateDetail {
   candidateState: string | null;
   availablePresential: boolean | null;
   salaryExpectation: number | null;
+  /** Perfil extraído do currículo por IA (null = currículo ainda não lido). */
+  cv_profile: {
+    experienceYears?: number | null;
+    education?: string | null;
+    lastPosition?: string | null;
+    skills?: string[];
+  } | null;
   stageHistory: StageHistoryEntry[];
   /** Recrutador responsável pela VAGA (jobs.responsible) — não há responsável por candidatura. */
   jobResponsible: string | null;

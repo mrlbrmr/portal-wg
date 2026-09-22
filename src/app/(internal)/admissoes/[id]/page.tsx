@@ -20,7 +20,7 @@ import { getAdmissionConfig } from "@/lib/admissao/queries";
 import { loadFormConfig } from "@/lib/admissao/form-config-loader";
 import { DIGITAL_FORM_EXPIRY_DAYS } from "@/lib/admissao/form-config";
 import { digitalFormState, daysUntilStart } from "@/lib/admissao/overview";
-import { sectionStatus } from "@/lib/admissao/document-status";
+import { needsAttention, sectionStatus } from "@/lib/admissao/document-status";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { formatRelativeTime } from "@/lib/utils";
 import {
@@ -110,6 +110,10 @@ interface AdmissionDetail {
     uploadedById: string | null;
     aiStatus: string | null;
     aiReason: string | null;
+    reviewStatus: string | null;
+    reviewReason: string | null;
+    reviewedById: string | null;
+    reviewedAt: string | null;
   }>;
 }
 
@@ -133,7 +137,7 @@ export default async function AdmissaoDetalhePage({
          company:admission_companies(name),
          branch:admission_branches(name),
          stage:admission_stages(name, color, isFinal),
-         attachments:admission_attachments(id, fileName, mimeType, sizeBytes, createdAt, documentTypeId, uploadedById, aiStatus, aiReason)`
+         attachments:admission_attachments(id, fileName, mimeType, sizeBytes, createdAt, documentTypeId, uploadedById, aiStatus, aiReason, reviewStatus, reviewReason, reviewedById, reviewedAt)`
       )
       .eq("id", id)
       .is("deletedAt", null)
@@ -175,6 +179,10 @@ export default async function AdmissaoDetalhePage({
       documentTypeId: a.documentTypeId,
       aiStatus: a.aiStatus,
       aiReason: a.aiReason,
+      reviewStatus: a.reviewStatus,
+      reviewReason: a.reviewReason,
+      reviewedByName: a.reviewedById ? (userMap.get(a.reviewedById) ?? null) : null,
+      reviewedAt: a.reviewedAt ? new Date(a.reviewedAt).toISOString() : null,
       uploadedByName: a.uploadedById ? (userMap.get(a.uploadedById) ?? null) : null,
     }));
 
@@ -183,11 +191,12 @@ export default async function AdmissaoDetalhePage({
   const stagePct = stageIdx >= 0 && config.stages.length ? Math.round(((stageIdx + 1) / config.stages.length) * 100) : 0;
   const requiredTypes = documentTypes.filter((d) => d.required);
   const missingRequired = requiredTypes.filter((dt) => !attachments.some((a) => a.documentTypeId === dt.id));
-  // Documento "a revisar" = o arquivo MAIS RECENTE da categoria foi sinalizado pela IA.
-  const docsToReview = documentTypes.filter((dt) => {
-    const st = sectionStatus(attachments.filter((a) => a.documentTypeId === dt.id), dt.required);
-    return st === "NEEDS_REVIEW" || st === "AI_REJECTED";
-  });
+  // Estado da categoria = arquivo MAIS RECENTE (a decisão do RH prevalece sobre a IA).
+  const docStatus = (dt: { id: string; required: boolean }) =>
+    sectionStatus(attachments.filter((a) => a.documentTypeId === dt.id), dt.required);
+  const docsToReview = documentTypes.filter((dt) => needsAttention(docStatus(dt)));
+  const docsRejected = docsToReview.filter((dt) => docStatus(dt) === "HR_REJECTED");
+  const docsAiFlagged = docsToReview.filter((dt) => docStatus(dt) !== "HR_REJECTED");
   const formState = digitalFormState(admission, now);
   const startDays = admission.startDate ? daysUntilStart(admission.startDate.slice(0, 10), now) : null;
   const isFinal = !!admission.stage?.isFinal;
@@ -217,11 +226,18 @@ export default async function AdmissaoDetalhePage({
         text: `${missingRequired.length} ${missingRequired.length === 1 ? "documento obrigatório pendente" : "documentos obrigatórios pendentes"}: ${missingRequired.map((d) => d.name).join(", ")}.`,
         href: "?aba=documentos",
       });
-    if (docsToReview.length > 0)
+    if (docsAiFlagged.length > 0)
       pendencies.push({
         key: "review",
         tone: "warning",
-        text: `${docsToReview.map((d) => d.name).join(", ")}: ${docsToReview.length === 1 ? "precisa" : "precisam"} de revisão após a validação automática.`,
+        text: `${docsAiFlagged.map((d) => d.name).join(", ")}: ${docsAiFlagged.length === 1 ? "precisa" : "precisam"} de revisão do RH.`,
+        href: "?aba=documentos",
+      });
+    if (docsRejected.length > 0)
+      pendencies.push({
+        key: "rejected",
+        tone: "danger",
+        text: `${docsRejected.map((d) => d.name).join(", ")}: ${docsRejected.length === 1 ? "recusado" : "recusados"} pelo RH — peça um novo envio ao candidato.`,
         href: "?aba=documentos",
       });
     if (formState === "WAITING") pendencies.push({ key: "form", tone: "info", text: "Formulário admissional enviado ao candidato, aguardando preenchimento." });

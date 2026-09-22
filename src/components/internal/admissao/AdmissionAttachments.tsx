@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, useCallback, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Download, Trash2, FileText, Eye, X, FilePlus2, FolderOpen, Sparkles } from "lucide-react";
+import { Upload, Download, Trash2, FileText, Eye, X, FilePlus2, FolderOpen, Sparkles, Check, XCircle, Undo2, CheckCheck } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -11,8 +11,9 @@ import { Button, buttonVariants } from "@/components/ui/Button";
 import { QuickFilterChips } from "@/components/ui/FilterPopover";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { ActionResult } from "@/lib/admissao/actions";
-import { updateAttachmentCategory, deleteAttachment, revalidateAttachmentsWithAI } from "@/lib/admissao/actions";
-import { DOCUMENT_STATUS_META, fileStatus, sectionStatus, type DocumentStatus } from "@/lib/admissao/document-status";
+import { updateAttachmentCategory, deleteAttachment, revalidateAttachmentsWithAI, reviewAttachments } from "@/lib/admissao/actions";
+import { DOCUMENT_STATUS_META, fileStatus, needsAttention, sectionStatus, type DocumentStatus } from "@/lib/admissao/document-status";
+import { RejectDocumentModal } from "./RejectDocumentModal";
 import { cn } from "@/lib/utils";
 
 const UNCATEGORIZED = "__uncategorized__";
@@ -26,6 +27,11 @@ export interface AttachmentView {
   documentTypeId: string | null;
   aiStatus?: string | null;
   aiReason?: string | null;
+  /** Decisão manual do RH — prevalece sobre o parecer da IA. */
+  reviewStatus?: string | null;
+  reviewReason?: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
   /** Nome de quem enviou (quando registrado). */
   uploadedByName?: string | null;
 }
@@ -86,6 +92,8 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
   const [dragOver, setDragOver] = useState(false);
   const [filter, setFilter] = useState<DocFilter>("todos");
   const [toDelete, setToDelete] = useState<AttachmentView | null>(null);
+  const [toReject, setToReject] = useState<Section | null>(null);
+  const [confirmApproveAll, setConfirmApproveAll] = useState(false);
 
   const [previewItem, setPreviewItem] = useState<AttachmentView | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
@@ -207,11 +215,20 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
   const reqTotal = requiredTypes.length;
   const reqPct = reqTotal > 0 ? Math.round((requiredDone / reqTotal) * 100) : 0;
   const pendingCount = sections.filter((s) => s.status === "PENDING").length;
-  const reviewCount = sections.filter((s) => s.status === "NEEDS_REVIEW" || s.status === "AI_REJECTED").length;
+  const reviewCount = sections.filter((s) => needsAttention(s.status)).length;
+  const aiFlaggedCount = sections.filter((s) => s.status === "NEEDS_REVIEW" || s.status === "AI_REJECTED").length;
+  // Arquivos ainda sem decisão do RH (alvo do "Aprovar todos").
+  const undecidedFiles = sections.flatMap((s) => s.files).filter((f) => !f.reviewStatus);
+
+  function review(section: Section, decision: "approved" | "rejected" | null, reason?: string) {
+    const ids = (decision === null ? section.files.filter((f) => f.reviewStatus) : section.files).map((f) => f.id);
+    const msg = decision === "approved" ? "Documento aprovado." : decision === "rejected" ? "Documento recusado." : "Decisão desfeita.";
+    run(() => reviewAttachments(admissionId, ids, decision, reason), msg);
+  }
 
   const visibleSections = sections.filter((s) =>
     filter === "pendentes"
-      ? s.status === "PENDING" || s.status === "NEEDS_REVIEW" || s.status === "AI_REJECTED"
+      ? s.status === "PENDING" || needsAttention(s.status)
       : filter === "enviados"
         ? s.files.length > 0
         : true
@@ -247,16 +264,28 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
               <p className="mt-0.5 text-meta text-wg-ink-muted">Nenhum documento obrigatório configurado.</p>
             )}
           </div>
-          {canManage && reviewCount > 0 && (
+          {canManage && undecidedFiles.length > 0 && (
             <Button
               size="sm"
               variant="secondary"
+              icon={CheckCheck}
+              disabled={isPending}
+              onClick={() => setConfirmApproveAll(true)}
+              title="Aprova manualmente todos os documentos enviados que ainda não têm decisão do RH"
+            >
+              Aprovar todos
+            </Button>
+          )}
+          {canManage && aiFlaggedCount > 0 && (
+            <Button
+              size="sm"
+              variant="tertiary"
               icon={Sparkles}
               disabled={isPending}
               onClick={revalidateAll}
-              title="Refaz a validação automática dos documentos que ainda não foram aprovados pela IA"
+              title="Refaz a validação automática dos documentos sem decisão do RH que ainda não foram aprovados pela IA"
             >
-              {isPending ? "Validando…" : "Validar novamente com IA"}
+              {isPending ? "Processando…" : "Validar novamente com IA"}
             </Button>
           )}
           <QuickFilterChips<DocFilter>
@@ -365,6 +394,43 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
                       <StatusBadge tone={meta.tone} hint={meta.hint} className="ml-auto">
                         {meta.label}
                       </StatusBadge>
+                      {canManage && s.files.length > 0 && (s.status === "HR_APPROVED" || s.status === "HR_REJECTED" ? (
+                        <Button
+                          size="sm"
+                          variant="tertiary"
+                          icon={Undo2}
+                          disabled={isPending}
+                          onClick={() => review(s, null)}
+                          aria-label={`Desfazer decisão — ${s.name}`}
+                        >
+                          Desfazer
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={Check}
+                            disabled={isPending}
+                            onClick={() => review(s, "approved")}
+                            aria-label={`Aprovar — ${s.name}`}
+                            className="text-success-fg"
+                          >
+                            Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="tertiary"
+                            icon={XCircle}
+                            disabled={isPending}
+                            onClick={() => setToReject(s)}
+                            aria-label={`Recusar — ${s.name}`}
+                            className="hover:bg-danger-bg hover:text-danger-fg"
+                          >
+                            Recusar
+                          </Button>
+                        </>
+                      ))}
                       {canManage && s.key !== UNCATEGORIZED && (
                         <Button
                           size="sm"
@@ -382,7 +448,7 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
                     {s.files.length > 0 && (
                       <ul className="mt-2 flex flex-col gap-1.5">
                         {s.files.map((f) => {
-                          const fs = DOCUMENT_STATUS_META[fileStatus(f.aiStatus)];
+                          const fs = DOCUMENT_STATUS_META[fileStatus(f)];
                           return (
                             <li
                               key={f.id}
@@ -398,10 +464,22 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
                                   {f.uploadedByName ? ` por ${f.uploadedByName}` : ""}
                                   {f.sizeBytes ? ` · ${formatSize(f.sizeBytes)}` : ""}
                                 </p>
-                                {f.aiReason && (fs.tone === "warning" || fs.tone === "danger") && (
-                                  <p className={cn("mt-1 text-[12px]", fs.tone === "danger" ? "text-danger-fg" : "text-warning-fg")}>
-                                    <span className="font-semibold">Motivo:</span> {f.aiReason}
+                                {f.reviewStatus ? (
+                                  <p className={cn("mt-1 text-[12px]", f.reviewStatus === "rejected" ? "text-danger-fg" : "text-success-fg")}>
+                                    <span className="font-semibold">
+                                      {f.reviewStatus === "rejected" ? "Recusado" : "Aprovado"}
+                                      {f.reviewedByName ? ` por ${f.reviewedByName}` : " pelo RH"}
+                                      {f.reviewedAt ? ` em ${formatSentAt(f.reviewedAt)}` : ""}
+                                    </span>
+                                    {f.reviewReason ? ` — ${f.reviewReason}` : ""}
                                   </p>
+                                ) : (
+                                  f.aiReason &&
+                                  (fs.tone === "warning" || fs.tone === "danger") && (
+                                    <p className={cn("mt-1 text-[12px]", fs.tone === "danger" ? "text-danger-fg" : "text-warning-fg")}>
+                                      <span className="font-semibold">IA:</span> {f.aiReason}
+                                    </p>
+                                  )
                                 )}
                               </div>
                               {canManage && (
@@ -477,6 +555,32 @@ export function AdmissionAttachments({ admissionId, canManage, attachments, docu
           if (f) run(() => deleteAttachment(admissionId, f.id), "Documento removido.");
         }}
         onCancel={() => setToDelete(null)}
+      />
+
+      <ConfirmModal
+        isOpen={confirmApproveAll}
+        variant="warning"
+        title="Aprovar todos os documentos?"
+        message={`${undecidedFiles.length} ${undecidedFiles.length === 1 ? "arquivo sem decisão será aprovado" : "arquivos sem decisão serão aprovados"} em seu nome. Confira os documentos antes — dá para desfazer um a um depois.`}
+        confirmLabel="Aprovar todos"
+        onConfirm={() => {
+          setConfirmApproveAll(false);
+          run(
+            () => reviewAttachments(admissionId, undecidedFiles.map((f) => f.id), "approved"),
+            "Documentos aprovados."
+          );
+        }}
+        onCancel={() => setConfirmApproveAll(false)}
+      />
+
+      <RejectDocumentModal
+        documentName={toReject?.name ?? null}
+        onConfirm={(reason) => {
+          const s = toReject;
+          setToReject(null);
+          if (s) review(s, "rejected", reason);
+        }}
+        onCancel={() => setToReject(null)}
       />
 
       {/* Modal de pré-visualização */}

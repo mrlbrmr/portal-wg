@@ -12,6 +12,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
+import { KANBAN_COLUMN_TYPE, kanbanKeyboardCoordinates } from "./kanban-keyboard";
 
 /**
  * Primitivas de Kanban sobre @dnd-kit, compartilhadas pelos quadros de
@@ -20,11 +21,14 @@ import { GripVertical } from "lucide-react";
  * internos totalmente clicáveis e dá suporte a teclado (acessibilidade).
  */
 
-/** Sensores padrão: ponteiro (com folga p/ não roubar cliques) + teclado. */
+/**
+ * Sensores padrão: ponteiro (com folga p/ não roubar cliques) + teclado
+ * (← → trocam de coluna, ↑ ↓ andam entre os cards — ver kanban-keyboard.ts).
+ */
 export function useKanbanSensors() {
   return useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor, { coordinateGetter: kanbanKeyboardCoordinates })
   );
 }
 
@@ -39,7 +43,7 @@ interface ColumnProps {
 }
 
 export function KanbanColumn({ id, children, className }: ColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({ id, data: { type: KANBAN_COLUMN_TYPE } });
 
   if (className) {
     return (

@@ -19,19 +19,17 @@ export default async function NovaVagaPage() {
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Nova vaga</h1>
-      <p className="text-sm text-gray-500 mb-6">
+    <div className="max-w-3xl">
+      <h1 className="font-sora text-2xl font-semibold tracking-tight text-wg-ink md:text-page-title">Nova vaga</h1>
+      <p className="mb-6 mt-1 text-meta text-wg-ink-muted">
         Para abrir uma vaga a partir de um pedido de gestor, use o módulo de{" "}
-        <Link href="/solicitacoes" className="text-wg-green-dark font-semibold underline">
+        <Link href="/solicitacoes" className="font-semibold text-wg-green-dark underline">
           Solicitações
         </Link>{" "}
         — assim a contratação passa pela validação do RH e pela aprovação antes de virar
         processo seletivo.
       </p>
-      <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6">
-        <JobForm currentUserName={session.user.name} />
-      </div>
+      <JobForm currentUserName={session.user.name} />
     </div>
   );
 }

@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       ["Gestor requisitante", payload.requesterName],
       ["Área / Departamento", payload.department],
       ["Empresa / Unidade", payload.location],
-      ["Quantidade de vagas", String(payload.openings)],
+      ["Número de posições", String(payload.openings)],
       ["Motivo da abertura", JOB_REQUEST_REASON_LABELS[payload.reasonType]],
       ...(payload.replacedEmployee
         ? ([["Colaborador substituído", payload.replacedEmployee]] as Array<[string, string]>)

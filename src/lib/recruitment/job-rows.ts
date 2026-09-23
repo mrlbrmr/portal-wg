@@ -23,6 +23,8 @@ type JobDbRow = {
   createdAt: string;
   updatedAt: string;
   closingDate: string | null;
+  openings: number | null;
+  openPositions: number | null;
 };
 
 export async function loadJobRows(supabase: SupabaseClient, { limit = 200 } = {}): Promise<JobRow[]> {
@@ -30,7 +32,7 @@ export async function loadJobRows(supabase: SupabaseClient, { limit = 200 } = {}
     supabase
       .from("jobs")
       .select(
-        "id, title, city, state, isTalentPool, modality, contractType, department, openingReason, responsible, status, slug, createdAt, updatedAt, closingDate"
+        "id, title, city, state, isTalentPool, modality, contractType, department, openingReason, responsible, status, slug, createdAt, updatedAt, closingDate, openings, openPositions"
       )
       .order("createdAt", { ascending: false })
       .limit(limit),
@@ -97,6 +99,10 @@ export async function loadJobRows(supabase: SupabaseClient, { limit = 200 } = {}
       openedAt: iso(openedAtByJob.get(job.id) ?? job.createdAt),
       statusChangedAt: iso(statusChangedAtByJob.get(job.id) ?? job.updatedAt),
       closingDate: job.closingDate ? iso(job.closingDate) : null,
+      // openings/openPositions são mantidos por trigger a partir de job_positions.
+      positionsTotal: job.isTalentPool ? null : job.openings ?? null,
+      positionsFilled:
+        job.isTalentPool || job.openings == null ? null : Math.max(0, job.openings - (job.openPositions ?? job.openings)),
     };
   });
 }

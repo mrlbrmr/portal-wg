@@ -33,6 +33,50 @@ export const JOB_STAGE_META: Record<JobProcessStage, { label: string; color: str
 
 const OPEN_STATUSES = new Set(["ACTIVE", "SCREENING", "INTERVIEW", "ADMISSION"]);
 
+/**
+ * STATUS DO PROCESSO SELETIVO, como aparece na página da vaga (um valor do enum por
+ * opção — o banco não muda). O preenchimento das posições é OUTRA dimensão
+ * (src/lib/jobs/positions.ts): "Entrevistas" + "1 de 2 posições preenchidas".
+ */
+export const JOB_PROCESS_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Rascunho",
+  ACTIVE: "Recebendo candidaturas",
+  SCREENING: "Triagem",
+  INTERVIEW: "Entrevistas",
+  ADMISSION: "Admissão",
+  PAUSED: "Pausada",
+  CLOSED: "Cancelada",
+  FILLED: "Encerrada",
+};
+
+export interface JobStatusOption {
+  value: string;
+  label: string;
+  hint: string;
+}
+
+/** Opções do seletor de status, agrupadas pela visibilidade no portal. */
+export const JOB_STATUS_OPTION_GROUPS: Array<{ label: string; options: JobStatusOption[] }> = [
+  {
+    label: "No portal (aceita candidaturas)",
+    options: [
+      { value: "ACTIVE", label: "Recebendo candidaturas", hint: "Publicada, início do processo." },
+      { value: "SCREENING", label: "Triagem", hint: "Publicada; RH analisando currículos." },
+      { value: "INTERVIEW", label: "Entrevistas", hint: "Publicada; candidatos em entrevista." },
+      { value: "ADMISSION", label: "Admissão", hint: "Publicada; finalistas em admissão." },
+    ],
+  },
+  {
+    label: "Fora do portal",
+    options: [
+      { value: "DRAFT", label: "Rascunho", hint: "Em preparação — só no painel." },
+      { value: "PAUSED", label: "Pausada", hint: "Fora do ar temporariamente." },
+      { value: "FILLED", label: "Encerrada", hint: "Processo concluído — posições preenchidas." },
+      { value: "CLOSED", label: "Cancelada", hint: "Processo cancelado sem contratação." },
+    ],
+  },
+];
+
 export function jobLifecycle(status: string): JobLifecycle {
   if (OPEN_STATUSES.has(status)) return "OPEN";
   if (status === "DRAFT" || status === "PAUSED" || status === "FILLED" || status === "CLOSED") return status;

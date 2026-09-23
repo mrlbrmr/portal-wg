@@ -381,7 +381,7 @@ export function JobRequestFormFields({
             />
           </Field>
 
-          <Field label="Quantidade de vagas" htmlFor="jr-openings" required error={errors.openings}>
+          <Field label="Número de posições (profissionais)" htmlFor="jr-openings" required error={errors.openings}>
             <>
               <input
                 id="jr-openings"

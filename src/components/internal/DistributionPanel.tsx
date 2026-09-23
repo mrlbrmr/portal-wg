@@ -2,8 +2,11 @@
 
 import { useState, useTransition } from "react";
 import type { DistributionChannel, PublicationStatus } from "@/types/domain";
-import { Megaphone, Copy, Check, ExternalLink, Loader2 } from "lucide-react";
+import { Check, Copy, ExternalLink, FlaskConical, Rss, Send, Share2 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Panel } from "@/components/ui/Panel";
+import { Button, buttonVariants } from "@/components/ui/Button";
+import { StatusBadge, type Tone } from "@/components/ui/StatusBadge";
 import { CHANNELS, CHANNEL_KIND_LABEL } from "@/lib/distribution/channels";
 import { publishChannelAction, unpublishChannelAction } from "@/lib/distribution/actions";
 
@@ -23,29 +26,34 @@ interface Props {
   announcementText: string;
 }
 
-const STATUS_LABEL: Record<PublicationStatus, string> = {
-  NOT_PUBLISHED: "Não divulgado",
-  PENDING: "Em andamento",
-  PUBLISHED: "Divulgado",
-  FAILED: "Falhou",
-  REMOVED: "Retirado",
+const STATUS_META: Record<PublicationStatus, { label: string; tone: Tone }> = {
+  NOT_PUBLISHED: { label: "Não divulgado", tone: "neutral" },
+  PENDING: { label: "Em andamento", tone: "warning" },
+  PUBLISHED: { label: "Divulgado", tone: "success" },
+  FAILED: { label: "Falhou", tone: "danger" },
+  REMOVED: { label: "Retirado", tone: "neutral" },
 };
 
-const STATUS_CLASS: Record<PublicationStatus, string> = {
-  NOT_PUBLISHED: "bg-gray-100 text-gray-500",
-  PENDING: "bg-amber-100 text-amber-700",
-  PUBLISHED: "bg-wg-green/15 text-wg-green-dark",
-  FAILED: "bg-red-100 text-red-700",
-  REMOVED: "bg-gray-200 text-gray-600",
-};
+const KIND_ICON = { manual: Share2, feed: Rss, api: Send } as const;
 
-export function DistributionPanel({
-  jobId,
-  jobUrl,
-  isPublic,
-  publications,
-  announcementText,
-}: Props) {
+function formatWhen(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * Canais de divulgação da vaga. Cada linha mostra: nome, tipo de integração, status,
+ * última ação (quando houver) e a ação possível. Feeds (Google/Indeed) são passivos:
+ * entram sozinhos enquanto a vaga está publicada no portal.
+ */
+export function DistributionPanel({ jobId, jobUrl, isPublic, publications, announcementText }: Props) {
   const { notify } = useToast();
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
@@ -79,158 +87,115 @@ export function DistributionPanel({
   }
 
   return (
-    <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-1">
-        <Megaphone className="w-4 h-4 text-wg-green-dark" />
-        <h2 className="text-sm font-semibold text-gray-900">Divulgação</h2>
-      </div>
-      <p className="text-xs text-gray-500 mb-4">
-        Divulgue esta vaga nos canais externos. Cada canal mostra seu status.
-      </p>
-
+    <Panel
+      title="Canais de divulgação"
+      description="Onde esta vaga aparece além do portal. Feeds entram automaticamente enquanto a vaga está publicada."
+      flush
+    >
       {!isPublic && (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          Publique a vaga (status <strong>Ativa</strong>) para habilitar a divulgação.
-        </div>
+        <p className="mx-5 mb-3 rounded-control border border-warning-border bg-warning-bg px-3 py-2 text-meta text-warning-fg">
+          A vaga não está publicada no portal. Mude o status para <strong>Recebendo candidaturas</strong> (ou outra etapa no portal) para
+          habilitar a divulgação.
+        </p>
       )}
 
-      <div className="space-y-2">
+      <ul className="divide-y divide-wg-border-lighter border-t border-wg-border-lighter">
         {CHANNELS.map((c) => {
           const pub = byChannel.get(c.channel);
           const status: PublicationStatus = pub?.status ?? "NOT_PUBLISHED";
           const isBusy = busyChannel === c.channel && isPending;
           const isPublished = status === "PUBLISHED";
-          // Canais de feed (Google/Indeed) são passivos: entram automaticamente
-          // quando a vaga está pública, sem ação manual.
           const isFeed = c.kind === "feed" && c.implemented;
           const feedActive = isFeed && isPublic;
+          const KindIcon = KIND_ICON[c.kind];
+          const badge = !c.implemented
+            ? { label: "Em breve", tone: "neutral" as Tone }
+            : isFeed
+              ? feedActive
+                ? { label: "Ativo automaticamente", tone: "success" as Tone }
+                : { label: "Aguardando publicação", tone: "neutral" as Tone }
+              : STATUS_META[status];
+          const lastAction = formatWhen(pub?.postedAt ?? null);
 
           return (
-            <div
-              key={c.channel}
-              className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-200 px-3 py-2.5"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-800">{c.label}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">
+            <li key={c.channel} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5">
+              <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-control bg-wg-bg text-wg-ink-muted">
+                <KindIcon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1 basis-56">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-body font-semibold text-wg-ink">{c.label}</span>
+                  <span className="rounded bg-neutral-bg px-1.5 py-px text-[10.5px] font-semibold uppercase tracking-wide text-neutral-fg">
                     {CHANNEL_KIND_LABEL[c.kind]}
                   </span>
+                  <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">{c.description}</p>
-                {pub?.lastError && status === "FAILED" && (
-                  <p className="text-xs text-red-600 mt-1">{pub.lastError}</p>
-                )}
+                <p className="mt-0.5 text-meta text-wg-ink-muted">{c.description}</p>
+                {lastAction && !isFeed && <p className="mt-0.5 text-meta text-wg-ink-muted">Última ação: {lastAction}</p>}
+                {pub?.lastError && status === "FAILED" && <p className="mt-1 text-meta text-danger-fg">{pub.lastError}</p>}
               </div>
 
-              <span
-                className={`shrink-0 text-[11px] font-medium rounded-full px-2 py-0.5 ${
-                  isFeed
-                    ? feedActive
-                      ? STATUS_CLASS.PUBLISHED
-                      : STATUS_CLASS.NOT_PUBLISHED
-                    : STATUS_CLASS[status]
-                }`}
-              >
-                {isFeed
-                  ? feedActive
-                    ? "Ativo (automático)"
-                    : "Aguardando publicação"
-                  : STATUS_LABEL[status]}
-              </span>
-
-              <div className="flex items-center gap-1.5 shrink-0">
-                {!c.implemented ? (
-                  <span className="text-[11px] font-medium text-gray-400 bg-gray-100 rounded-full px-2.5 py-1">
-                    Em breve
-                  </span>
-                ) : isFeed ? (
+              <div className="flex shrink-0 items-center gap-1.5">
+                {!c.implemented ? null : isFeed ? (
                   c.channel === "INDEED" ? (
                     <a
                       href="/api/feed/indeed.xml"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                      className={buttonVariants({ variant: "secondary", size: "sm" })}
                       title="Ver o feed XML enviado ao Indeed"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" /> Ver feed
+                      <ExternalLink aria-hidden /> Ver feed
                     </a>
                   ) : (
                     <a
                       href={`https://search.google.com/test/rich-results?url=${encodeURIComponent(jobUrl)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                      className={buttonVariants({ variant: "secondary", size: "sm" })}
                       title="Validar os dados estruturados no Google"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" /> Testar
+                      <FlaskConical aria-hidden /> Testar
                     </a>
                   )
                 ) : c.channel === "MANUAL" ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={copyText}
-                      disabled={!isPublic}
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 px-2.5 py-1.5 rounded-lg transition-colors"
-                    >
-                      {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <Button size="sm" variant="secondary" icon={copied ? Check : Copy} onClick={copyText} disabled={!isPublic}>
                       Copiar anúncio
-                    </button>
+                    </Button>
                     {isPublished ? (
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() =>
-                          runChannel(
-                            c.channel,
-                            () => unpublishChannelAction(jobId, c.channel),
-                            "Marcado como não divulgado."
-                          )
-                        }
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-red-600 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                      <Button
+                        size="sm"
+                        variant="tertiary"
+                        loading={isBusy}
+                        onClick={() => runChannel(c.channel, () => unpublishChannelAction(jobId, c.channel), "Marcado como não divulgado.")}
                       >
-                        {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                         Remover
-                      </button>
+                      </Button>
                     ) : (
-                      <button
-                        type="button"
-                        disabled={!isPublic || isBusy}
-                        onClick={() =>
-                          runChannel(
-                            c.channel,
-                            () => publishChannelAction(jobId, c.channel),
-                            "Marcado como divulgado."
-                          )
-                        }
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-black bg-wg-green hover:bg-wg-green-bright disabled:opacity-40 px-2.5 py-1.5 rounded-lg transition-colors"
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        loading={isBusy}
+                        disabled={!isPublic}
+                        onClick={() => runChannel(c.channel, () => publishChannelAction(jobId, c.channel), "Marcado como divulgado.")}
                       >
-                        {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                         Marcar divulgado
-                      </button>
+                      </Button>
                     )}
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={!isPublic || isBusy}
+                  <Button
+                    size="sm"
+                    variant={isPublished ? "secondary" : "primary"}
+                    loading={isBusy}
+                    disabled={!isPublic}
                     onClick={() =>
-                      runChannel(
-                        c.channel,
-                        () => publishChannelAction(jobId, c.channel),
-                        isPublished ? "Republicado." : "Divulgado."
-                      )
+                      runChannel(c.channel, () => publishChannelAction(jobId, c.channel), isPublished ? "Republicado." : "Divulgado.")
                     }
-                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40 ${
-                      isPublished
-                        ? "text-gray-700 bg-gray-100 hover:bg-gray-200"
-                        : "text-black bg-wg-green hover:bg-wg-green-bright"
-                    }`}
                   >
-                    {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                     {isPublished ? "Republicar" : "Divulgar"}
-                  </button>
+                  </Button>
                 )}
 
                 {pub?.externalUrl && (
@@ -238,17 +203,18 @@ export function DistributionPanel({
                     href={pub.externalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1.5 text-gray-400 hover:text-wg-green-dark rounded"
-                    title="Abrir"
+                    className={buttonVariants({ variant: "tertiary", size: "icon-sm" })}
+                    title="Abrir publicação"
+                    aria-label={`Abrir publicação no ${c.label}`}
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink aria-hidden />
                   </a>
                 )}
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ul>
+    </Panel>
   );
 }

@@ -152,10 +152,15 @@ export async function POST(req: NextRequest) {
   const supabase = createAdminClient();
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, status, slug")
+    .select("id, status, slug, closingDate")
     .eq("id", jobId)
     .maybeSingle();
-  if (!job || !isPublicJobStatus(job.status)) {
+  // Encerramento das inscrições: depois da data a vaga some do portal (jobs-query) e a API
+  // também recusa — um formulário aberto antes do prazo não é aceito depois dele.
+  const inscriptionsClosed = job?.closingDate
+    ? new Date(job.closingDate as string).getTime() < Date.now()
+    : false;
+  if (!job || !isPublicJobStatus(job.status) || inscriptionsClosed) {
     return NextResponse.json(
       { error: "Esta vaga não está aberta para inscrição pelo portal." },
       { status: 404 }

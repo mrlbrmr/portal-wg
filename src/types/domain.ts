@@ -143,7 +143,14 @@ export interface Job {
   workSchedule: string | null;
   salaryRange: string | null;
   salary: number | null;
+  /** false = salário só interno (o portal não divulga). */
+  salaryPublic: boolean;
+  /** Posições ativas — DERIVADO de job_positions por trigger (não editar direto). */
   openings: number | null;
+  /** Posições em aberto — DERIVADO de job_positions por trigger. */
+  openPositions: number | null;
+  /** Snapshot do escopo aprovado na solicitação de origem (ver src/lib/jobs/approved-scope.ts). */
+  approvedScope: Record<string, unknown> | null;
   highlightBenefit: string | null;
   responsible: string | null;
   hiringManager: string | null;

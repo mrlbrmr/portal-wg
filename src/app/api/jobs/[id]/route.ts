@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { Modality, ContractType, JobStatus, JobRequestReason } from "@/types/domain";
 import { generateSlug, isPublicJobStatus } from "@/lib/utils";
+import { salaryColumns, salaryStateFromJob } from "@/lib/jobs/salary";
+import { diffJobFields } from "@/lib/jobs/field-changes";
+import { PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
 
 function richText(minChars: number, message: string) {
   return z
@@ -27,8 +30,16 @@ const updateJobSchema = z.object({
   desiredRequirements: z.string().optional().nullable(),
   benefits: z.string().optional().nullable(),
   workSchedule: z.string().optional().nullable(),
+  // Remuneração: modelo novo (salaryMode + salary + salaryPublic → salaryRange derivado).
+  salaryMode: z.enum(["DEFINED", "TO_AGREE"]).optional(),
+  salaryPublic: z.boolean().optional(),
+  // Modelo antigo (salaryRange enviado direto) segue aceito para clientes antigos.
   salaryRange: z.string().optional().nullable(),
   salary: z.number().positive().optional().nullable(),
+  /**
+   * Aceito por compatibilidade e IGNORADO: o número de posições é derivado de
+   * job_positions e só muda pelas ações "Adicionar posição" / "Cancelar posição".
+   */
   openings: z.number().int().positive().optional().nullable(),
   highlightBenefit: z.string().optional().nullable(),
   responsible: z.string().optional().nullable(),
@@ -37,6 +48,8 @@ const updateJobSchema = z.object({
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
   status: z.nativeEnum(JobStatus).optional(),
+  /** Motivo informado ao alterar um dado do escopo aprovado (vai para o histórico). */
+  changeReason: z.string().max(500).optional().nullable(),
 });
 
 export async function GET(
@@ -47,7 +60,13 @@ export async function GET(
   const session = await auth();
   const supabase = await createClient();
 
-  const { data: job } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
+  // Sem sessão: só colunas públicas (nada de salário interno, gestor ou escopo aprovado).
+  const { data: jobRaw } = await supabase
+    .from("jobs")
+    .select(session ? "*" : PUBLIC_JOB_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  const job = jobRaw as unknown as { status: string } | null;
 
   if (!job) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
 
@@ -80,23 +99,77 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, hiringDeadline, title, city, ...rest } = parsed.data;
+  const {
+    closingDate,
+    hiringDeadline,
+    title,
+    city,
+    openings: _ignoredOpenings,
+    salaryMode,
+    salaryPublic,
+    salary,
+    salaryRange,
+    changeReason,
+    ...rest
+  } = parsed.data;
+  void _ignoredOpenings;
 
   const supabase = await createClient();
+  const actorName = session.user.name ?? session.user.email ?? "Admin";
 
-  // Buscar estado atual para rastrear mudança de status e regenerar slug
-  const { data: current } = await supabase
-    .from("jobs")
-    .select("title, city, status")
-    .eq("id", id)
-    .maybeSingle();
-  if (!current) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
+  // Estado atual: status (histórico), slug, salário e os campos auditados.
+  const { data: currentRaw } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
+  if (!currentRaw) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
+  const current = currentRaw as Record<string, unknown> & {
+    title: string;
+    city: string | null;
+    status: string;
+    isTalentPool: boolean;
+    salary: number | string | null;
+    salaryRange: string | null;
+    salaryPublic: boolean | null;
+  };
+
+  // Vaga específica → banco de talentos: não pode haver contratado ocupando posição.
+  const becomingTalentPool = rest.isTalentPool === true && !current.isTalentPool;
+  const becomingSpecific = rest.isTalentPool === false && current.isTalentPool;
+  if (becomingTalentPool) {
+    const { count } = await supabase
+      .from("job_positions")
+      .select("id", { count: "exact", head: true })
+      .eq("jobId", id)
+      .eq("status", "FILLED");
+    if ((count ?? 0) > 0) {
+      return NextResponse.json(
+        { error: "Esta vaga tem posições preenchidas e não pode virar banco de talentos." },
+        { status: 409 }
+      );
+    }
+  }
+
+  // Remuneração → colunas (salaryRange é o texto público derivado).
+  let salaryUpdate: Record<string, unknown> = {};
+  if (salaryMode !== undefined) {
+    const prev = salaryStateFromJob(current);
+    salaryUpdate = { ...salaryColumns({
+      mode: salaryMode,
+      salary: salary ?? null,
+      salaryPublic: salaryPublic ?? prev.salaryPublic,
+      legacyText: prev.legacyText,
+    }) };
+  } else {
+    if (salary !== undefined) salaryUpdate.salary = salary;
+    if (salaryRange !== undefined) salaryUpdate.salaryRange = salaryRange;
+    if (salaryPublic !== undefined) salaryUpdate.salaryPublic = salaryPublic;
+  }
 
   // Regenerar slug se título ou cidade mudaram (city pode ser null p/ banco de talentos)
   let slugUpdate: { slug: string } | undefined;
-  if (title !== undefined || city !== undefined) {
+  const titleChanged = title !== undefined && title !== current.title;
+  const cityChanged = city !== undefined && city !== current.city;
+  if (titleChanged || cityChanged) {
     const newTitle = title ?? current.title;
-    const newCity = city !== undefined ? city : (current.city as string | null);
+    const newCity = city !== undefined ? city : current.city;
     const baseSlug = generateSlug(newTitle, newCity);
     let slug = baseSlug;
     let counter = 1;
@@ -115,11 +188,11 @@ export async function PATCH(
 
   const updateData: Record<string, unknown> = {
     ...rest,
+    ...salaryUpdate,
     ...(title !== undefined ? { title } : {}),
     ...(city !== undefined ? { city } : {}),
     ...slugUpdate,
     // responsibilities e requiredRequirements são nullable desde 20260811000000.
-    // null passa direto; sem override necessário.
     ...(closingDate !== undefined
       ? { closingDate: closingDate ? new Date(closingDate).toISOString() : null }
       : {}),
@@ -130,8 +203,7 @@ export async function PATCH(
 
   // Nada a atualizar: devolve o estado atual (evita update vazio no PostgREST).
   if (Object.keys(updateData).length === 0) {
-    const { data: job } = await supabase.from("jobs").select("*").eq("id", id).single();
-    return NextResponse.json(job);
+    return NextResponse.json(currentRaw);
   }
 
   const { data: job, error } = await supabase
@@ -150,14 +222,72 @@ export async function PATCH(
     await supabase.from("job_status_history").insert({
       jobId: id,
       status: parsed.data.status,
-      changedBy: session.user.name ?? session.user.email ?? "Admin",
+      changedBy: actorName,
     });
+  }
+
+  // Alterações relevantes de campos → um evento na linha do tempo da vaga.
+  const changes = diffJobFields(current, updateData);
+  if (changes.length > 0) {
+    await supabase.from("job_events").insert({
+      jobId: id,
+      type: "FIELDS_UPDATED",
+      reason: changeReason?.trim() || null,
+      data: { changes },
+      actorUserId: session.user.id,
+      actorName,
+    });
+  }
+
+  // Tipo de oportunidade: posições acompanham a mudança (nunca são apagadas).
+  if (becomingTalentPool) {
+    const { data: open } = await supabase
+      .from("job_positions")
+      .select("id, positionNumber")
+      .eq("jobId", id)
+      .eq("status", "OPEN");
+    for (const p of (open ?? []) as Array<{ id: string; positionNumber: number }>) {
+      await supabase
+        .from("job_positions")
+        .update({
+          status: "CANCELLED",
+          cancelledAt: new Date().toISOString(),
+          cancelledBy: actorName,
+          cancelReason: "Vaga convertida em banco de talentos",
+        })
+        .eq("id", p.id)
+        .eq("status", "OPEN");
+      await supabase.from("job_events").insert({
+        jobId: id,
+        positionId: p.id,
+        type: "POSITION_CANCELLED",
+        reason: "Vaga convertida em banco de talentos",
+        data: { number: p.positionNumber },
+        actorUserId: session.user.id,
+        actorName,
+      });
+    }
+  } else if (becomingSpecific) {
+    const { count } = await supabase
+      .from("job_positions")
+      .select("id", { count: "exact", head: true })
+      .eq("jobId", id)
+      .neq("status", "CANCELLED");
+    if ((count ?? 0) === 0) {
+      await supabase.rpc("job_position_add", {
+        p_job_id: id,
+        p_reason: "Banco de talentos convertido em vaga específica",
+        p_actor_user_id: session.user.id,
+        p_actor_name: actorName,
+      });
+    }
   }
 
   revalidatePath("/");
   revalidatePath("/vagas/gerenciar");
   revalidatePath("/dashboard");
   revalidatePath(`/vagas/${id}`);
+  revalidatePath(`/vagas/${id}/editar`);
   if (job.slug) revalidatePath(`/vagas/${job.slug}`);
 
   return NextResponse.json(job);
@@ -174,7 +304,7 @@ export async function DELETE(
   }
 
   const supabase = await createClient();
-  // job_status_history / applications caem por ON DELETE CASCADE (FK no schema).
+  // job_status_history / applications / job_positions / job_events caem por ON DELETE CASCADE.
   const { error } = await supabase.from("jobs").delete().eq("id", id);
   if (error) {
     return NextResponse.json({ error: "Erro ao excluir vaga" }, { status: 500 });

@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { Modality, ContractType, JobStatus, JobRequestReason } from "@/types/domain";
 import { generateSlug } from "@/lib/utils";
-import { applyJobFilters, onlyPublicVisible } from "@/lib/jobs-query";
+import { applyJobFilters, onlyPublicVisible, PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
 import { rateLimit } from "@/lib/rate-limit";
+import { salaryColumns } from "@/lib/jobs/salary";
 
 function richText(minChars: number, message: string) {
   return z
@@ -32,7 +33,11 @@ const jobSchema = z
   workSchedule: z.string().optional(),
   salaryRange: z.string().optional(),
   salary: z.number().positive().optional().nullable(),
-  openings: z.number().int().positive().optional(),
+  // Remuneração no modelo novo (salaryRange passa a ser derivado — ver src/lib/jobs/salary.ts).
+  salaryMode: z.enum(["DEFINED", "TO_AGREE"]).optional(),
+  salaryPublic: z.boolean().optional(),
+  /** Número de posições com que a vaga nasce (#01..#N, criadas por trigger no banco). */
+  openings: z.number().int().positive().max(999).optional(),
   highlightBenefit: z.string().optional(),
   responsible: z.string().optional(),
   hiringManager: z.string().optional(),
@@ -65,7 +70,8 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
   const offset = (page - 1) * limit;
 
-  let q = supabase.from("jobs").select("*", { count: "exact" });
+  // Público recebe só as colunas públicas; o painel (sessão) recebe a linha inteira.
+  let q = supabase.from("jobs").select(session ? "*" : PUBLIC_JOB_COLUMNS, { count: "exact" });
 
   if (!session) {
     // Portal público: status "aberto" (ACTIVE/Triagem/Entrevistas/Admissão) e no prazo.
@@ -123,7 +129,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { closingDate, hiringDeadline, title, city = null, ...rest } = parsed.data;
+  const { closingDate, hiringDeadline, title, city = null, salaryMode, salaryPublic, ...rest } = parsed.data;
+  if (salaryMode !== undefined) {
+    Object.assign(
+      rest,
+      salaryColumns({ mode: salaryMode, salary: rest.salary ?? null, salaryPublic: salaryPublic ?? true, legacyText: null })
+    );
+  } else if (salaryPublic !== undefined) {
+    Object.assign(rest, { salaryPublic });
+  }
+  // Banco de talentos não tem posições.
+  if (rest.isTalentPool) delete rest.openings;
 
   const supabase = await createClient();
 
@@ -154,11 +170,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erro ao criar vaga" }, { status: 500 });
   }
 
-  await supabase.from("job_status_history").insert({
-    jobId: job.id,
-    status: job.status,
-    changedBy: session.user.name ?? session.user.email ?? "Sistema",
-  });
+  const actorName = session.user.name ?? session.user.email ?? "Sistema";
+  await Promise.all([
+    supabase.from("job_status_history").insert({ jobId: job.id, status: job.status, changedBy: actorName }),
+    supabase.from("job_events").insert({
+      jobId: job.id,
+      type: "JOB_CREATED",
+      data: { source: "manual", positions: job.isTalentPool ? null : job.openings },
+      actorUserId: session.user.id,
+      actorName,
+    }),
+  ]);
 
   // O vínculo solicitação ↔ vaga NÃO é fechado aqui: a vaga originada de uma solicitação
   // nasce dentro de create_job_from_request() (transacional), que já grava os dois lados.

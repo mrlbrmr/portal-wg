@@ -46,7 +46,7 @@ const CARD_FIELDS: { key: CardFieldKey; label: string; icon: LucideIcon }[] = [
   { key: "showWorkSchedule", label: "Jornada / horário", icon: Clock },
   { key: "showSalary", label: "Salário", icon: Wallet },
   { key: "showHighlightBenefit", label: "Benefício destaque", icon: Star },
-  { key: "showOpenings", label: "Quantidade de vagas", icon: Users },
+  { key: "showOpenings", label: "Vagas em aberto (posições restantes)", icon: Users },
 ];
 
 const APPEARANCE_KEYS = ["jobsSectionTitle", "jobsSectionSubtitle", "showFilters", "showJobCounter"] as const;
@@ -72,6 +72,9 @@ const SAMPLE_JOB: Job = {
   salaryRange: "R$ 3.200,00",
   salary: 3200,
   openings: 2,
+  openPositions: 2,
+  salaryPublic: true,
+  approvedScope: null,
   highlightBenefit: "Vale-alimentação",
   responsible: null,
   hiringManager: null,

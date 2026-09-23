@@ -74,7 +74,7 @@ const STANDARD_FIELDS: Array<{ section: string; label: string; type: FieldType; 
   { section: "Dados da solicitação", label: "Empresa / Unidade", type: "text", required: true },
   { section: "Dados da solicitação", label: "Gestor requisitante", type: "text", required: true },
   { section: "Dados da solicitação", label: "E-mail do gestor", type: "email", required: true },
-  { section: "Dados da solicitação", label: "Quantidade de vagas", type: "number", required: true },
+  { section: "Dados da solicitação", label: "Número de posições (profissionais)", type: "number", required: true },
   { section: "Motivo da contratação", label: "Motivo da abertura", type: "select", required: true },
   { section: "Motivo da contratação", label: "Colaborador substituído", type: "text", note: "Quando o motivo é substituição", required: true },
   { section: "Motivo da contratação", label: "Justificativa da contratação", type: "textarea", required: true },

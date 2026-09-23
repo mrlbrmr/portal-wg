@@ -30,6 +30,10 @@ export interface JobRow {
   /** Última mudança de status — usada como data de encerramento em vagas encerradas. */
   statusChangedAt: string; // ISO
   closingDate: string | null; // ISO — fim das inscrições, se definido
+  /** Posições ativas (null em banco de talentos). Derivado de job_positions. */
+  positionsTotal?: number | null;
+  /** Posições já preenchidas. */
+  positionsFilled?: number | null;
 }
 
 /** Estado dos filtros combináveis da tela de vagas. "" = sem filtro. */

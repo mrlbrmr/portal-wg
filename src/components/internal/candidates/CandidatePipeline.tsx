@@ -34,7 +34,7 @@ import type { ActiveChip, FilterSection } from "@/components/ui/FilterPopover";
 import type { KanbanCardApi, KanbanColumnDef } from "@/components/internal/KanbanBoardShell";
 import { CandidateQuickView } from "@/components/internal/candidate/CandidateQuickView";
 import { InterviewModal } from "@/components/internal/InterviewModal";
-import { AdmissionLinkModal, type AdmissionMeta } from "@/components/internal/AdmissionLinkModal";
+import { AdmissionLinkModal, type AdmissionMeta, type AdmissionPosition } from "@/components/internal/AdmissionLinkModal";
 import { MoveStageDialog } from "@/components/internal/candidate/MoveStageDialog";
 import { RejectionDialog, buildRejectionNote } from "@/components/internal/candidate/RejectionDialog";
 import { CandidateCard, type StageAction } from "./CandidateCard";
@@ -65,6 +65,8 @@ interface Props {
   jobId: string;
   jobTitle?: string;
   admissionMeta?: AdmissionMeta | null;
+  /** Posições da vaga (null = banco de talentos, sem posições). A contratação ocupa uma. */
+  positions?: AdmissionPosition[] | null;
 }
 
 const VIEW_STORAGE_KEY = "wg:vaga-candidatos:view";
@@ -113,7 +115,7 @@ function sortCandidates(list: PipelineCandidate[], sort: CandidateSortKey, deriv
  * regras de antes: gate de admissão ao mover para Admissão/Contratado, análise de IA em
  * segundo plano, envio de teste, registro de entrevista, exclusão LGPD com confirmação.
  */
-export function CandidatePipeline({ applications, stages, canManage, jobId, jobTitle, admissionMeta }: Props) {
+export function CandidatePipeline({ applications, stages, canManage, jobId, jobTitle, admissionMeta, positions = null }: Props) {
   const router = useRouter();
   const { notify } = useToast();
 
@@ -887,6 +889,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
             : null
         }
         meta={admissionMeta ?? null}
+        positions={positions}
         onClose={() => setPendingAdmission(null)}
         onSuccess={handleAdmissionSuccess}
       />

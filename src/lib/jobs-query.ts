@@ -36,3 +36,14 @@ export function onlyPublicVisible(q: any): any {
     .in("status", PUBLIC_JOB_STATUSES as readonly string[])
     .or(`closingDate.is.null,closingDate.gte.${now}`);
 }
+
+/**
+ * Colunas que o portal PÚBLICO pode ler. Nunca use `select("*")` no público: a vaga tem
+ * dados internos (salário interno quando "não divulgar", recrutador, gestor solicitante,
+ * escopo aprovado da solicitação) que não podem chegar ao navegador do candidato.
+ * O salário público é `salaryRange` (derivado em src/lib/jobs/salary.ts).
+ */
+export const PUBLIC_JOB_COLUMNS =
+  "id, code, title, slug, department, company, city, state, isTalentPool, modality, contractType, " +
+  "description, responsibilities, requiredRequirements, desiredRequirements, benefits, workSchedule, " +
+  "salaryRange, openings, openPositions, highlightBenefit, closingDate, status, createdAt, updatedAt";

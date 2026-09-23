@@ -22,7 +22,7 @@ export async function POST(
     .select(
       "title, department, company, city, state, modality, contractType, description, " +
         "responsibilities, requiredRequirements, desiredRequirements, benefits, " +
-        "workSchedule, salaryRange, openings, highlightBenefit, responsible"
+        "workSchedule, salaryRange, salary, salaryPublic, openings, highlightBenefit, responsible, isTalentPool"
     )
     .eq("id", id)
     .maybeSingle();
@@ -57,11 +57,19 @@ export async function POST(
     return NextResponse.json({ error: "Erro ao duplicar vaga" }, { status: 500 });
   }
 
-  await supabase.from("job_status_history").insert({
-    jobId: newJob.id,
-    status: "DRAFT",
-    changedBy: session.user.name ?? "Admin",
-  });
+  // A cópia nasce com o mesmo número de posições ATIVAS da original (trigger no banco),
+  // todas em aberto — contratados e histórico não são copiados.
+  const actorName = session.user.name ?? "Admin";
+  await Promise.all([
+    supabase.from("job_status_history").insert({ jobId: newJob.id, status: "DRAFT", changedBy: actorName }),
+    supabase.from("job_events").insert({
+      jobId: newJob.id,
+      type: "JOB_CREATED",
+      data: { source: "duplicate", duplicatedFrom: id, positions: newJob.isTalentPool ? null : newJob.openings },
+      actorUserId: session.user.id,
+      actorName,
+    }),
+  ]);
 
   revalidatePath("/vagas/gerenciar");
   revalidatePath("/dashboard");

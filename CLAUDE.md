@@ -28,6 +28,7 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - Lint: `npm run lint` — ⚠️ abre setup interativo de ESLint se não configurado; prefira o type-check.
 - **Testes:** `npm test` — runner `node:test` nativo via `tsx` (sem dependência extra).
   Hoje cobre a máquina de estados da solicitação de vaga (`src/lib/job-requests/workflow.test.ts`).
+- **Teste de banco:** `npm run test:db` — cenários das posições contra o banco real, em transação com ROLLBACK.
 
 ## Deploy
 - **Push em `master` → deploy de produção automático na Vercel** (integração GitHub; não há `vercel.json` nem `.vercel/`).
@@ -45,6 +46,16 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Admissões:** `src/app/(internal)/admissoes/**`, `src/lib/admissao/**`, `src/components/internal/admissao/**`
 - **Modelos de checklist:** `.../admissoes/configuracoes/modelos`, `src/lib/admissao/template-actions.ts`, `checklist.ts`
 - **ATS / Vagas:** `src/app/(internal)/vagas/**` (kanban de candidatos, funil configurável)
+- **Página da vaga + Posições:** `/vagas/[id]/editar?tab=visao|descricao|processo|divulgacao|historico`
+  (`src/components/internal/job/**`, regras puras em `src/lib/jobs/**`). **Vaga = processo seletivo;
+  posição = cada contratação** (`job_positions`: OPEN/FILLED/CANCELLED). Nunca crie uma vaga por posição.
+  - `jobs.openings`/`jobs.openPositions` são **derivados por trigger** — nunca escreva direto; o número de
+    posições muda só por `job_position_add/_cancel` (server actions em `src/lib/jobs/position-actions.ts`).
+  - Contratar = `job_position_fill` (modal do pipeline → `POST /api/admissoes` com `jobPositionId`);
+    desistência = `job_position_release`. Cancelar/liberar nunca apaga; tudo vai para `job_events`.
+  - `jobs.approvedScope` = snapshot do que a solicitação aprovou (comparação em `approved-scope.ts`).
+  - Salário: `salaryRange` (lido por portal/feeds) é DERIVADO de `salary` + `salaryPublic` (`salary.ts`).
+  - Público: use `PUBLIC_JOB_COLUMNS` (`src/lib/jobs-query.ts`), nunca `select("*")`.
 - **Quick View do candidato** (abre ao lado do pipeline da vaga): `src/components/internal/candidate/CandidateQuickView.tsx`
   (split view no desktop, J/K, barra de decisão). Anotações por autor em `application_notes`
   (`/api/applications/[id]/notes`); `applications.notes` = "anotações anteriores" + motivo de reprovação.

@@ -7,6 +7,49 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-23 (noite) — Página da vaga reformulada + Posições da vaga
+
+Migração **aplicada** (aditiva): `20260923200000_job_positions.sql`.
+
+- **Conceito:** vaga = processo seletivo; **posição** = cada contratação dentro dele
+  (`Solicitação → aprovação → Vaga → Posições #01..#N → contratados`). Nunca uma vaga por posição, nunca
+  pipeline por posição: descrição, candidatos e funil são da vaga.
+- **Banco:** `job_positions` (OPEN | FILLED | CANCELLED, candidatura/admissão que ocupa, snapshot do nome) e
+  `job_events` (linha do tempo: criação, posições, alterações de campos, migração). Status continua em
+  `job_status_history`. `jobs.openings` (total ativo) e `jobs.openPositions` (em aberto) são **derivados por
+  trigger** — feeds/export/portal seguem lendo `openings`. Toda mutação por função com `for update`:
+  `job_position_add | _cancel | _fill | _release` (regras: posição ocupada não recebe outro; candidato não ocupa
+  duas; vaga específica mantém ≥1 posição; cancelar/liberar nunca apaga). Trigger cria #01..#N em QUALQUER
+  criação de vaga (solicitação, "Nova vaga", duplicar); banco de talentos não tem posições.
+- **Solicitação → vaga:** `create_job_from_request()` agora grava `openings` = quantidade aprovada (mín. 1) e
+  `jobs.approvedScope` (snapshot do escopo aprovado — a solicitação pode ser reeditada depois; o snapshot não) +
+  evento JOB_CREATED com a REQ. Comparação aprovado × atual em `src/lib/jobs/approved-scope.ts`.
+- **Backfill:** 28 vagas → 28 posições; 14 preenchidas por inferência (candidaturas em etapa WON/ADMISSION, na
+  ordem em que entraram na etapa, até o limite de posições; admissão ligada por `sourceApplicationId`). Onde não
+  dava para inferir (ex.: VAG-0019 encerrada sem contratado, VAG-0009 com 2 posições e 1 contratado) a posição
+  ficou em aberto — nada foi inventado. `updatedAt` das vagas não foi tocado.
+- **Contratação:** o modal do pipeline ("Contratar …", antigo "Iniciar admissão") pede a posição; `POST
+  /api/admissoes` com `jobPositionId` preenche via `job_position_fill` e desfaz a admissão (soft delete) se a
+  posição foi ocupada no meio do caminho. Posições sem modal (contratados antigos, etapa sem automação):
+  "Vincular contratado" no card. Desistência: "Liberar posição" (motivo obrigatório; admissão não é apagada).
+  Todas preenchidas + vaga publicada → oferece "Encerrar vaga" / "Manter publicada" (nunca encerra sozinho).
+- **Página `/vagas/[id]/editar`:** cabeçalho fixo (compacta ao rolar) + abas com deep-link `?tab=`
+  (`visao | descricao | processo | divulgacao | historico`, em `src/lib/jobs/tabs.ts`), 2 colunas (main + resumo).
+  Rascunho controlado único (trocar de aba não perde nada), aviso de saída, Ctrl+S, confirmação ao alterar campo
+  do escopo aprovado (motivo vai para o histórico). Componentes em `src/components/internal/job/`; "Nova vaga"
+  usa os mesmos campos (`JobFields.tsx`).
+- **Salário:** valor interno × divulgação separados (`jobs.salaryPublic`); `salaryRange` (o que portal/feeds
+  leem) passou a ser DERIVADO em `src/lib/jobs/salary.ts`. Corrige bug antigo: o salário numérico nunca aparecia
+  no portal.
+- **Privacidade:** portal e GETs públicos não usam mais `select("*")` — `PUBLIC_JOB_COLUMNS` em
+  `src/lib/jobs-query.ts` (antes o salário interno, recrutador e gestor iam no payload público).
+- **Inscrições:** a API de candidatura também recusa depois de `closingDate` (antes só a página escondia).
+- **Testes:** `src/lib/jobs/*.test.ts` (regras puras) e `npm run test:db` (cenários 1–10 contra o banco, em
+  transação com ROLLBACK; com o arquivo da migração como 2º argumento valida também o backfill).
+- **Rótulos:** "Quantidade de vagas" → "Número de posições" (solicitação, detalhe, e-mail, regras críticas).
+
+---
+
 ## Sessão de 2026-09-23 (tarde) — Banco de Talentos vira CRM de talentos
 
 Migrações **aplicadas** (todas aditivas): `20260923180000_talent_crm.sql`, `20260923180001_talent_crm_facets.sql`,

@@ -1,66 +1,143 @@
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import type { Job, JobStatusHistory, JobPublication } from "@/types/domain";
+import type { Job, JobPublication } from "@/types/domain";
 import { redirect, notFound } from "next/navigation";
-import JobForm from "@/components/internal/JobForm";
-import { JOB_STATUS_LABELS, formatDateTime, isPublicJobStatus } from "@/lib/utils";
-import {
-  DistributionPanel,
-  type PublicationView,
-} from "@/components/internal/DistributionPanel";
+import type { PublicationView } from "@/components/internal/DistributionPanel";
 import { buildAnnouncementText, jobPublicUrl } from "@/lib/distribution/dispatch";
+import { JobWorkspace } from "@/components/internal/job/JobWorkspace";
+import { isJobTab } from "@/lib/jobs/tabs";
+import type { PipelineData, PipelineStageCount } from "@/components/internal/job/JobPanels";
+import type { HireCandidate } from "@/components/internal/job/JobPositionsCard";
+import type { JobPosition } from "@/lib/jobs/positions";
+import type { JobEventRow, StatusHistoryRow } from "@/lib/jobs/history";
+import { pipelineGroup, type PipelineGroup } from "@/lib/recruitment/candidate-presentation";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = await createClient();
   const { data } = await supabase.from("jobs").select("title").eq("id", id).single();
-  return { title: data?.title ? `${data.title} — Editar — RH` : "Editar Vaga — RH" };
+  return { title: data?.title ? `${data.title} — Vaga — RH` : "Vaga — RH" };
 }
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
-export default async function EditarVagaPage({ params }: Props) {
-  const { id } = await params;
+type StageRow = { id: string; name: string; color: string; kind: string; hideFromBoard: boolean | null };
+type OriginRow = { id: string; code: string | null; requester_name: string | null; status: string } | null;
+
+/**
+ * Página de gestão da vaga (processo seletivo): abas Visão geral · Descrição · Processo
+ * seletivo · Divulgação · Histórico. Tudo é carregado em UMA rodada de consultas paralelas
+ * (sem N+1): a vaga com histórico/publicações/solicitação embutidos, as posições, os
+ * eventos, as etapas e só `id, stageId, fullName` das candidaturas (para os contadores).
+ */
+export default async function EditarVagaPage({ params, searchParams }: Props) {
+  const [{ id }, { tab }] = await Promise.all([params, searchParams]);
   const session = await auth();
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = await createClient();
-  const { data: jobRaw } = await supabase
-    .from("jobs")
-    .select("*, statusHistory:job_status_history(*), publications:job_publications(*)")
-    .eq("id", id)
-    .order("changedAt", { referencedTable: "job_status_history", ascending: false })
-    .limit(20, { referencedTable: "job_publications" })
-    .maybeSingle();
-  const job = jobRaw as unknown as
+  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select(
+        "*, statusHistory:job_status_history(id, status, changedBy, changedAt), publications:job_publications(*), origin:job_requests!jobs_requestId_fkey(id, code, requester_name, status)"
+      )
+      .eq("id", id)
+      .limit(20, { referencedTable: "job_publications" })
+      .maybeSingle(),
+    supabase
+      .from("job_positions")
+      .select(
+        "id, positionNumber, status, applicationId, admissionId, candidateName, expectedStartDate, filledAt, filledBy, cancelledAt, cancelledBy, cancelReason"
+      )
+      .eq("jobId", id)
+      .order("positionNumber", { ascending: true }),
+    supabase
+      .from("job_events")
+      .select("id, type, positionId, reason, data, actorName, createdAt")
+      .eq("jobId", id)
+      .order("createdAt", { ascending: false })
+      .limit(300),
+    supabase.from("applications").select("id, stageId, fullName").eq("jobId", id),
+    supabase
+      .from("application_stages")
+      .select("id, name, color, kind, hideFromBoard")
+      .eq("active", true)
+      .order("sortOrder", { ascending: true }),
+    supabase.from("job_stage_config").select("stageId").eq("jobId", id),
+  ]);
+
+  const jobRaw = jobRes.data as unknown as
     | (Job & {
-        statusHistory: JobStatusHistory[];
-        // supabase-js devolve timestamps como string (não Date do Prisma)
+        statusHistory: StatusHistoryRow[];
         publications: (Omit<JobPublication, "postedAt"> & { postedAt: string | null })[];
+        origin: OriginRow;
       })
     | null;
-  if (!job) notFound();
+  if (!jobRaw) notFound();
+  const { statusHistory, publications: pubs, origin: originRow, ...job } = jobRaw;
 
-  // Solicitação que autorizou esta contratação. Vagas legadas (anteriores ao fluxo de
-  // aprovação) não têm requestId — e continuam funcionando normalmente.
-  let originRequest: { id: string; code: string | null; requesterName: string | null } | null =
-    null;
-  if (job.requestId) {
-    const { data: req } = await supabase
-      .from("job_requests")
-      .select("id, code, requester_name")
-      .eq("id", job.requestId)
-      .maybeSingle();
-    if (req) {
-      const r = req as { id: string; code: string | null; requester_name: string | null };
-      originRequest = { id: r.id, code: r.code, requesterName: r.requester_name };
-    }
+  const positions = (positionsRes.data ?? []) as JobPosition[];
+  const events = (eventsRes.data ?? []) as JobEventRow[];
+  const apps = (appsRes.data ?? []) as Array<{ id: string; stageId: string; fullName: string }>;
+
+  // Etapas: as configuradas para a vaga (job_stage_config) ou, sem configuração, todas.
+  const allStages = (stagesRes.data ?? []) as StageRow[];
+  const configured = new Set(((stageConfigRes.data ?? []) as Array<{ stageId: string }>).map((r) => r.stageId));
+  const jobStages = configured.size > 0 ? allStages.filter((s) => configured.has(s.id)) : allStages;
+  const flow = jobStages.map((s) => ({ ...s, hideFromBoard: s.hideFromBoard ?? false }));
+  const stageById = new Map(allStages.map((s) => [s.id, s]));
+
+  const countByStage = new Map<string, number>();
+  for (const a of apps) countByStage.set(a.stageId, (countByStage.get(a.stageId) ?? 0) + 1);
+
+  const groups: Record<PipelineGroup, number> = { NEW: 0, IN_PROCESS: 0, FINALIST: 0, CLOSED: 0 };
+  for (const a of apps) {
+    const s = stageById.get(a.stageId);
+    groups[pipelineGroup(s ? { ...s, hideFromBoard: s.hideFromBoard ?? false } : undefined, flow)]++;
   }
+  const stages: PipelineStageCount[] = flow.map((s) => ({
+    id: s.id,
+    name: s.name,
+    color: s.color,
+    kind: s.kind,
+    hidden: s.hideFromBoard,
+    count: countByStage.get(s.id) ?? 0,
+  }));
+  // "Em entrevistas" só quando o funil tem etapas de entrevista (pelo nome configurado).
+  const interviewStageIds = flow.filter((s) => /entrevista/i.test(s.name) && s.kind !== "LOST").map((s) => s.id);
+  const pipeline: PipelineData = {
+    total: apps.length,
+    groups,
+    stages,
+    interviewCount: interviewStageIds.length
+      ? interviewStageIds.reduce((n, sid) => n + (countByStage.get(sid) ?? 0), 0)
+      : null,
+  };
 
-  const isPublic = isPublicJobStatus(job.status);
+  // Quem pode ser vinculado manualmente a uma posição: candidatos em etapa de
+  // admissão/contratado que ainda não ocupam posição desta vaga.
+  const occupied = new Set(positions.filter((p) => p.status === "FILLED" && p.applicationId).map((p) => p.applicationId));
+  const hireCandidates: HireCandidate[] = apps
+    .filter((a) => {
+      const k = stageById.get(a.stageId)?.kind;
+      return (k === "ADMISSION" || k === "WON") && !occupied.has(a.id);
+    })
+    .map((a) => ({ applicationId: a.id, fullName: a.fullName, stageName: stageById.get(a.stageId)?.name ?? "" }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
+
+  const publications: PublicationView[] = pubs.map((p) => ({
+    channel: p.channel,
+    status: p.status,
+    externalUrl: p.externalUrl,
+    lastError: p.lastError,
+    postedAt: p.postedAt ?? null,
+  }));
+
   const announcementText = buildAnnouncementText({
     id: job.id,
     title: job.title,
@@ -75,69 +152,26 @@ export default async function EditarVagaPage({ params }: Props) {
     highlightBenefit: job.highlightBenefit,
     url: jobPublicUrl(job.slug ?? job.id),
   });
-  const publications: PublicationView[] = job.publications.map((p) => ({
-    channel: p.channel,
-    status: p.status,
-    externalUrl: p.externalUrl,
-    lastError: p.lastError,
-    postedAt: p.postedAt ?? null,
-  }));
-
-  const statusBadge: Record<string, string> = {
-    DRAFT: "bg-blue-100 text-blue-700",
-    ACTIVE: "bg-wg-green/15 text-wg-green-dark",
-    SCREENING: "bg-amber-100 text-amber-700",
-    INTERVIEW: "bg-purple-100 text-purple-700",
-    ADMISSION: "bg-cyan-100 text-cyan-700",
-    PAUSED: "bg-orange-100 text-orange-700",
-    CLOSED: "bg-gray-200 text-gray-600",
-  };
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Editar vaga</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        {job.code ? `${job.code} · ` : ""}
-        Configuração do processo seletivo (divulgação, etapas e prazos).
-      </p>
-      <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 mb-6">
-        <JobForm
-          job={job}
-          currentUserName={session.user.name}
-          originRequest={originRequest}
-        />
-      </div>
-
-      <div className="mb-6">
-        <DistributionPanel
-          jobId={job.id}
-          jobUrl={jobPublicUrl(job.slug ?? job.id)}
-          isPublic={isPublic}
-          publications={publications}
-          announcementText={announcementText}
-        />
-      </div>
-
-      {job.statusHistory.length > 0 && (
-        <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-            Histórico de status
-          </h2>
-          <div className="flex flex-col gap-3">
-            {job.statusHistory.map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge[entry.status] ?? "bg-gray-200 text-gray-600"}`}>
-                    {JOB_STATUS_LABELS[entry.status] ?? entry.status}
-                  </span>
-                  <span className="text-gray-500">por {entry.changedBy}</span>
-                </div>
-                <span className="text-xs text-gray-500">{formatDateTime(entry.changedAt)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <JobWorkspace
+      key={job.id}
+      initialTab={isJobTab(tab) ? tab : "visao"}
+      data={{
+        job: job as Job,
+        positions,
+        events,
+        statusHistory,
+        publications,
+        origin: originRow
+          ? { id: originRow.id, code: originRow.code, requesterName: originRow.requester_name, status: originRow.status }
+          : null,
+        pipeline,
+        hireCandidates,
+        announcementText,
+        jobUrl: jobPublicUrl(job.slug ?? job.id),
+      }}
+    />
   );
 }
+

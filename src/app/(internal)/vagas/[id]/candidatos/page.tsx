@@ -12,6 +12,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MODALITY_LABELS } from "@/lib/utils";
 import { JOB_LIFECYCLE_META, jobLifecycle } from "@/lib/recruitment/job-presentation";
+import { progressLabel, summarizePositions } from "@/lib/jobs/positions";
+import type { AdmissionPosition } from "@/components/internal/AdmissionLinkModal";
 import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/candidate-presentation";
 import { resolveAssessmentType } from "@/lib/avaliacoes/schema";
 import type { CvProfile } from "@/lib/ai/cv-analyzer";
@@ -45,8 +47,8 @@ export default async function CandidatosPage({ params }: Props) {
   ]);
   if (!job) notFound();
 
-  // applications (com avaliações embutidas) + stages em paralelo
-  const [{ data: applications, error: applicationsError }, { data: stagesData }] = await Promise.all([
+  // applications (com avaliações embutidas) + stages + posições da vaga em paralelo
+  const [{ data: applications, error: applicationsError }, { data: stagesData }, { data: positionsData }] = await Promise.all([
     supabase
       .from("applications")
       .select(
@@ -60,7 +62,15 @@ export default async function CandidatosPage({ params }: Props) {
       .select("id, name, color, kind, templateId, hideFromBoard, automations")
       .eq("active", true)
       .order("sortOrder", { ascending: true }),
+    supabase
+      .from("job_positions")
+      .select("id, positionNumber, status, candidateName")
+      .eq("jobId", id)
+      .order("positionNumber", { ascending: true }),
   ]);
+  // Banco de talentos não tem posições: o modal de contratação não pede posição.
+  const positions = job.isTalentPool ? null : ((positionsData ?? []) as AdmissionPosition[]);
+  const positionsSummary = positions ? summarizePositions(positions) : null;
 
   // Valores derivados da wave 1
   const rawStages = (stagesData ?? []) as Array<{
@@ -313,6 +323,13 @@ export default async function CandidatosPage({ params }: Props) {
             {meta.join(" · ")}
             {job.responsible && <> · Recrutador: <span className="text-wg-ink-secondary">{job.responsible}</span></>}
           </p>
+          {positionsSummary && positionsSummary.total > 0 && (
+            <p className="mt-0.5 text-meta text-wg-ink-muted">
+              <Link href={`/vagas/${job.id}/editar#posicoes`} className="font-medium text-wg-ink-secondary hover:underline">
+                {progressLabel(positionsSummary)}
+              </Link>
+            </p>
+          )}
           {originRequest && (
             <p className="mt-0.5 text-meta text-wg-ink-muted">
               Solicitação{" "}
@@ -371,6 +388,7 @@ export default async function CandidatosPage({ params }: Props) {
           jobId={job.id}
           jobTitle={job.title}
           admissionMeta={admissionMeta}
+          positions={positions}
         />
       )}
     </div>

@@ -5,7 +5,7 @@ import { createAnonClient } from "@/lib/supabase/anon";
 import { DEFAULT_CONFIG, type HomepageConfigData } from "@/lib/homepage-config";
 import type { Job } from "@/types/domain";
 import { PUBLIC_JOB_STATUSES } from "@/lib/utils";
-import { applyJobFilters, onlyPublicVisible } from "@/lib/jobs-query";
+import { applyJobFilters, onlyPublicVisible, PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
 import JobFilters from "@/components/public/JobFilters";
 import { LoadMoreJobs } from "@/components/public/LoadMoreJobs";
 import { AnimateIn } from "@/components/ui/AnimateIn";
@@ -52,7 +52,7 @@ export default async function HomePage({
 
   const supabase = createAnonClient();
 
-  let listQuery = supabase.from("jobs").select("*", { count: "exact" });
+  let listQuery = supabase.from("jobs").select(PUBLIC_JOB_COLUMNS, { count: "exact" });
   listQuery = onlyPublicVisible(listQuery);
   listQuery = applyJobFilters(listQuery, params);
 

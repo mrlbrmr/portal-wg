@@ -248,7 +248,7 @@ export function JobRequestDetail({
               </>
             }
           />
-          <Row label="Quantidade de vagas" value={request.openings} />
+          <Row label="Número de posições" value={request.openings} />
         </dl>
       </Card>
 

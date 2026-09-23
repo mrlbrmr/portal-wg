@@ -321,7 +321,7 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
                   <th className="px-4 py-3 hidden md:table-cell">Unidade</th>
                   <th className="px-4 py-3 hidden lg:table-cell">Gestor</th>
                   <th className="px-4 py-3 hidden xl:table-cell">Motivo</th>
-                  <th className="px-4 py-3 text-center">Qtd.</th>
+                  <th className="px-4 py-3 text-center" title="Número de posições">Posições</th>
                   <th className="px-4 py-3 hidden xl:table-cell">Data desejada</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 hidden lg:table-cell">Aprovador</th>

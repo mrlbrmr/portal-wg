@@ -25,6 +25,8 @@ const CARD_CLASS = `block bg-wg-card border border-wg-border rounded-[20px] p-6 
 export default memo(function JobCard({ job, config, preview = false }: Props) {
   const isNew = Date.now() - new Date(job.createdAt as Date | string).getTime() < SEVEN_DAYS_MS;
   const hasLocation = Boolean(job.city && job.state);
+  // Posições em aberto; vagas sem posições (banco de talentos) não mostram contador.
+  const remainingOpenings = job.openPositions ?? job.openings ?? 0;
 
   const body = (
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -117,11 +119,11 @@ export default memo(function JobCard({ job, config, preview = false }: Props) {
               </span>
             )}
 
-            {/* Quantidade de vagas */}
-            {config.showOpenings && job.openings && job.openings > 0 && (
+            {/* Posições ainda em aberto (as já preenchidas não contam para o candidato) */}
+            {config.showOpenings && remainingOpenings > 0 && (
               <span className="flex items-center gap-1 text-xs text-wg-gray">
                 <Users className="w-3 h-3 flex-shrink-0" />
-                {job.openings} {job.openings === 1 ? "vaga" : "vagas"}
+                {remainingOpenings} {remainingOpenings === 1 ? "vaga" : "vagas"}
               </span>
             )}
           </div>

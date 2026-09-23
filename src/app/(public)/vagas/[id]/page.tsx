@@ -11,6 +11,7 @@ import { ShareButton } from "@/components/public/ShareButton";
 import { ApplicationForm } from "@/components/public/ApplicationForm";
 import type { Metadata } from "next";
 import { cache } from "react";
+import { PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
 
 export const revalidate = 60;
 
@@ -22,7 +23,7 @@ const findJob = cache(async (slugOrId: string): Promise<Job | null> => {
   const supabase = createAnonClient();
   const { data } = await supabase
     .from("jobs")
-    .select("*")
+    .select(PUBLIC_JOB_COLUMNS)
     .in("status", PUBLIC_JOB_STATUSES as readonly string[])
     .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
     .limit(1);

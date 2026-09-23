@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Briefcase, SearchX, Plus, Users, CalendarDays, Clock3, UserRound, Eye } from "lucide-react";
+import { Briefcase, BriefcaseBusiness, SearchX, Plus, Users, CalendarDays, Clock3, UserRound, Eye } from "lucide-react";
 import {
   CONTRACT_TYPE_LABELS,
   MODALITY_LABELS,
@@ -603,6 +603,18 @@ function JobListItem({ job, canManage }: { job: Enriched; canManage: boolean }) 
               <Clock3 className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
               Atualizada {formatRelativeTime(job.lastActivityAt)}
             </span>
+            {job.positionsTotal != null && job.positionsTotal > 0 && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1",
+                  job.positionsFilled === job.positionsTotal && "font-medium text-success-fg"
+                )}
+                title="Posições preenchidas / posições da vaga"
+              >
+                <BriefcaseBusiness className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
+                {job.positionsFilled ?? 0}/{job.positionsTotal} {job.positionsTotal === 1 ? "posição preenchida" : "posições preenchidas"}
+              </span>
+            )}
           </p>
 
           {job.reasons.length > 0 && (

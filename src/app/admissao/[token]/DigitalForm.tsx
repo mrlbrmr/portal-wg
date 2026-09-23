@@ -165,7 +165,7 @@ function YesNo({
 }
 
 function FileUpload({
-  docKey, label, required, token, files, onAddFile, onUpdateFile, onRemoveFile,
+  docKey, label, required, token, files, onAddFile, onUpdateFile, onRemoveFile, preview = false,
 }: {
   docKey: string
   label: string
@@ -175,11 +175,17 @@ function FileUpload({
   onAddFile: (key: string, item: UploadState) => void
   onUpdateFile: (key: string, id: string, patch: Partial<UploadState>) => void
   onRemoveFile: (key: string, id: string) => void
+  /** Pré-visualização do RH: o arquivo é só listado, nunca enviado. */
+  preview?: boolean
 }) {
   const ref = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
     const id = Math.random().toString(36).slice(2, 10)
+    if (preview) {
+      onAddFile(docKey, { id, status: 'done', fileName: file.name })
+      return
+    }
     onAddFile(docKey, { id, status: 'uploading' })
 
     // Fotos do celular são grandes demais para a função serverless (~4,5 MB).
@@ -319,8 +325,17 @@ function StepBar({ current }: { current: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function DigitalForm({
-  token, candidateName, config,
-}: { token: string; candidateName: string; config: FormConfig }) {
+  token, candidateName, config, preview = false,
+}: {
+  token: string
+  candidateName: string
+  config: FormConfig
+  /**
+   * Pré-visualização nas Configurações: mesma tela do candidato, mas sem upload, sem
+   * envio e sem travar a navegação entre os passos nas validações.
+   */
+  preview?: boolean
+}) {
   const [step, setStep]           = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted]  = useState(false)
@@ -424,6 +439,11 @@ export function DigitalForm({
   }
 
   function handleNext() {
+    if (preview) {
+      setErrors({})
+      setStep(s => s + 1)
+      return
+    }
     if (step === 0 && !validateStep0()) return
     if (step === 1 && !validateStep1()) return
     if (step === 2 && !validateStep2()) return
@@ -457,6 +477,10 @@ export function DigitalForm({
   }
 
   async function handleSubmit() {
+    if (preview) {
+      setSubmitted(true)
+      return
+    }
     setSubmitting(true)
     setSubmitError(null)
     try {
@@ -729,6 +753,7 @@ export function DigitalForm({
                 label={doc.label}
                 required={doc.required}
                 token={token}
+                preview={preview}
                 files={uploads[doc.key] ?? []}
                 onAddFile={addFile}
                 onUpdateFile={updateFile}

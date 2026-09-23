@@ -2,7 +2,8 @@ import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { JobRequestForm } from "@/components/public/JobRequestForm";
-import { DEFAULT_FORM_CONFIG } from "@/lib/form-config-defaults";
+import { JobRequestIntro } from "@/components/job-requests/JobRequestIntro";
+import { loadJobRequestFormConfig } from "@/lib/job-requests/form-config-loader";
 import { JOB_REQUEST_REASON_LABELS } from "@/lib/job-requests/constants";
 import type { FormConfig } from "@/types/form-config";
 
@@ -11,19 +12,8 @@ import type { FormConfig } from "@/types/form-config";
 export const dynamic = "force-dynamic";
 
 async function loadConfig(): Promise<FormConfig> {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("job_request_form_config")
-    .select("title, description, fields")
-    .eq("id", "singleton")
-    .maybeSingle();
-
-  if (!data) return DEFAULT_FORM_CONFIG;
-  return {
-    title: data.title ?? DEFAULT_FORM_CONFIG.title,
-    description: data.description ?? DEFAULT_FORM_CONFIG.description,
-    fields: Array.isArray(data.fields) ? data.fields : DEFAULT_FORM_CONFIG.fields,
-  };
+  const { title, description, fields } = await loadJobRequestFormConfig();
+  return { title, description, fields };
 }
 
 // O fluxo antigo gravava o MOTIVO da abertura em jobs.department; sem este filtro esses
@@ -98,23 +88,7 @@ export default async function SolicitarVagaPage() {
 
       {/* Conteúdo */}
       <div className="max-w-3xl mx-auto px-6 py-12">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-3">
-          {config.title}
-        </h1>
-        {config.description && (
-          <p className="text-sm text-gray-600 mb-4">{config.description}</p>
-        )}
-
-        <div className="mb-10 rounded-lg border border-wg-green/30 bg-wg-green/5 px-4 py-3">
-          <p className="text-sm font-semibold text-wg-green-dark">
-            Isto é uma solicitação, não a vaga.
-          </p>
-          <p className="text-xs text-gray-600 mt-0.5">
-            Você está registrando uma necessidade de contratação. O RH valida o pedido e
-            encaminha para aprovação; o processo seletivo é aberto depois, com a divulgação
-            e as etapas definidas pelo time de Gente &amp; Gestão.
-          </p>
-        </div>
+        <JobRequestIntro title={config.title} description={config.description} />
 
         <JobRequestForm
           config={config}

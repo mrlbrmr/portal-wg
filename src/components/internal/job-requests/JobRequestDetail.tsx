@@ -28,6 +28,7 @@ import {
   type WorkflowActor,
 } from "@/lib/job-requests/workflow";
 import type { FormFieldConfig } from "@/types/form-config";
+import { formatExtraValue } from "@/lib/job-requests/extra-fields";
 import type { JobRequestRow } from "@/types/job-requests";
 
 interface Props {
@@ -282,7 +283,7 @@ export function JobRequestDetail({
         <Card title="Informações complementares">
           <dl className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
             {extraFields.map((f) => (
-              <Row key={f.id} label={f.label} value={request.extraData[f.key]} />
+              <Row key={f.id} label={f.label} value={formatExtraValue(f, request.extraData[f.key])} />
             ))}
           </dl>
         </Card>

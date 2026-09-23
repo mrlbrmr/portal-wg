@@ -10,7 +10,8 @@
 
 import { useCallback, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import type { FormFieldConfig, ShowCondition } from "@/types/form-config";
+import type { FormFieldConfig } from "@/types/form-config";
+import { BOOLEAN_OPTIONS, isFieldVisible, parseMulti, serializeMulti } from "@/lib/job-requests/extra-fields";
 import type { ContractType, JobRequestReason, Modality } from "@/types/domain";
 import {
   CONTRACT_TYPE_LABELS,
@@ -158,11 +159,97 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 
 // ─── Perguntas complementares (formulário configurável) ──────────────────────
 
-function evaluateCondition(c: ShowCondition, values: Record<string, string>): boolean {
-  const actual = (values[c.fieldKey] ?? "").trim();
-  if (c.operator === "is") return actual === c.value;
-  if (c.operator === "is_not") return actual !== c.value;
-  return true;
+const choiceClass =
+  "flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 transition-colors has-[:checked]:border-wg-green has-[:checked]:bg-wg-green/10 hover:border-wg-green/60";
+
+/** Uma pergunta complementar, conforme o tipo configurado pelo RH. */
+export function ExtraFieldInput({
+  field,
+  value,
+  onChange,
+  describedBy,
+}: {
+  field: FormFieldConfig;
+  value: string;
+  onChange: (value: string) => void;
+  describedBy?: string;
+}) {
+  const id = `jr-extra-${field.key}`;
+  switch (field.type) {
+    case "select":
+      return (
+        <Select id={id} value={value} onChange={onChange}>
+          <option value="">Selecione…</option>
+          {(field.options ?? []).map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </Select>
+      );
+    case "multiselect": {
+      const selected = parseMulti(value);
+      return (
+        <div id={id} role="group" aria-label={field.label} aria-describedby={describedBy} className="grid gap-2 sm:grid-cols-2">
+          {(field.options ?? []).map((o) => (
+            <label key={o} className={choiceClass}>
+              <input
+                type="checkbox"
+                checked={selected.includes(o)}
+                onChange={(e) =>
+                  onChange(serializeMulti(e.target.checked ? [...selected, o] : selected.filter((x) => x !== o)))
+                }
+                className="h-4 w-4 accent-wg-green"
+              />
+              {o}
+            </label>
+          ))}
+        </div>
+      );
+    }
+    case "boolean":
+      return (
+        <div id={id} role="radiogroup" aria-label={field.label} aria-describedby={describedBy} className="flex gap-2">
+          {BOOLEAN_OPTIONS.map((o) => (
+            <label key={o} className={`${choiceClass} min-w-[96px] justify-center`}>
+              <input
+                type="radio"
+                name={id}
+                value={o}
+                checked={value === o}
+                onChange={() => onChange(o)}
+                className="h-4 w-4 accent-wg-green"
+              />
+              {o}
+            </label>
+          ))}
+        </div>
+      );
+    case "textarea":
+      return (
+        <textarea
+          id={id}
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder}
+          aria-describedby={describedBy}
+          className={`${inputClass} resize-y`}
+        />
+      );
+    default:
+      return (
+        <input
+          id={id}
+          type={field.type === "email" ? "email" : field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder}
+          aria-describedby={describedBy}
+          className={inputClass}
+        />
+      );
+  }
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -458,57 +545,29 @@ export function JobRequestFormFields({
         >
           <div className="grid md:grid-cols-2 gap-4">
             {extraFields.map((field) => {
-              const visible = !field.showWhen || evaluateCondition(field.showWhen, values.extraData);
-              if (!visible) return null;
+              if (!isFieldVisible(field, values.extraData, extraFields)) return null;
               const value = values.extraData[field.key] ?? "";
+              const wide = field.type === "textarea" || field.type === "multiselect";
+              const hintId = field.helpText ? `jr-extra-${field.key}-hint` : undefined;
               return (
                 <Field
                   key={field.id}
                   label={field.label}
-                  htmlFor={`jr-extra-${field.key}`}
+                  htmlFor={field.type === "multiselect" || field.type === "boolean" ? undefined : `jr-extra-${field.key}`}
                   required={field.required}
                   error={errors[field.key]}
-                  className={field.type === "textarea" ? "md:col-span-2" : ""}
+                  className={wide ? "md:col-span-2" : ""}
                 >
-                  {field.type === "select" ? (
-                    <Select
-                      id={`jr-extra-${field.key}`}
-                      value={value}
-                      onChange={(v) => setExtra(field.key, v)}
-                    >
-                      <option value="" />
-                      {(field.options ?? []).map((o) => (
-                        <option key={o} value={o}>
-                          {o}
-                        </option>
-                      ))}
-                    </Select>
-                  ) : field.type === "textarea" ? (
-                    <textarea
-                      id={`jr-extra-${field.key}`}
-                      rows={3}
-                      value={value}
-                      onChange={(e) => setExtra(field.key, e.target.value)}
-                      placeholder={field.placeholder}
-                      className={`${inputClass} resize-y`}
-                    />
-                  ) : (
-                    <input
-                      id={`jr-extra-${field.key}`}
-                      type={
-                        field.type === "email"
-                          ? "email"
-                          : field.type === "number"
-                            ? "number"
-                            : field.type === "date"
-                              ? "date"
-                              : "text"
-                      }
-                      value={value}
-                      onChange={(e) => setExtra(field.key, e.target.value)}
-                      placeholder={field.placeholder}
-                      className={inputClass}
-                    />
+                  <ExtraFieldInput
+                    field={field}
+                    value={value}
+                    onChange={(v) => setExtra(field.key, v)}
+                    describedBy={hintId}
+                  />
+                  {field.helpText && !errors[field.key] && (
+                    <p id={hintId} className="text-xs text-gray-500 mt-1">
+                      {field.helpText}
+                    </p>
                   )}
                 </Field>
               );

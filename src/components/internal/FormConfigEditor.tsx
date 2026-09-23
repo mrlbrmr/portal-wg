@@ -1,657 +1,760 @@
 "use client";
 
-import { useState, useCallback } from "react";
+// Editor do formulário de SOLICITAÇÃO DE VAGA (Configurações › Solicitação de vaga).
+// Campos padrão são estruturais (colunas de job_requests) e só aparecem para consulta;
+// o RH edita a apresentação e os CAMPOS ADICIONAIS (→ job_requests.extra_data).
+
+import { useMemo, useState } from "react";
 import {
-  Loader2,
-  CheckCircle2,
-  ChevronUp,
-  ChevronDown,
-  Trash2,
-  Edit2,
-  Plus,
-  X,
-  Type,
   AlignLeft,
-  ListOrdered,
-  GripVertical,
+  ArrowDown,
+  ArrowUp,
+  CalendarDays,
+  CheckSquare,
+  ChevronDown,
+  Copy,
   ExternalLink,
   Eye,
-  Zap,
-  Mail,
   Hash,
-  CalendarDays,
+  ListChecks,
+  ListOrdered,
+  Lock,
+  Mail,
+  MoreHorizontal,
+  Plus,
+  ToggleLeft,
+  Trash2,
+  Type,
+  X,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
+import { Panel } from "@/components/ui/Panel";
+import { Button, buttonVariants } from "@/components/ui/Button";
+import { DropdownMenu } from "@/components/ui/DropdownMenu";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Toggle } from "@/components/ui/Toggle";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { Dialog } from "@/components/ui/Dialog";
 import { cn } from "@/lib/utils";
-import type { FormConfig, FormFieldConfig, FieldType, ShowCondition } from "@/types/form-config";
+import { SortableList } from "@/components/internal/settings/SortableList";
+import { SettingsSaveBar, useSettingsDraft, type SaveResult } from "@/components/internal/settings/SettingsSaveBar";
+import { SettingsField, settingsInputClass, settingsSelectClass } from "@/components/internal/settings/fields";
+import {
+  EMPTY_JOB_REQUEST_FORM,
+  JobRequestFormFields,
+  type JobRequestFormValues,
+} from "@/components/job-requests/JobRequestFormFields";
+import { JobRequestIntro } from "@/components/job-requests/JobRequestIntro";
+import {
+  FIELD_TYPES,
+  FIELD_TYPE_LABELS,
+  canBeConditionSource,
+  conditionValues,
+  hasOptions,
+} from "@/lib/job-requests/extra-fields";
+import type { FieldType, FormConfig, FormFieldConfig, ShowCondition } from "@/types/form-config";
 
-interface Props {
-  initialConfig: FormConfig;
-}
-
-const inputClass =
-  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
-
-const FIELD_TYPE_ICONS: Record<FieldType, typeof Type> = {
+const FIELD_TYPE_ICONS: Record<FieldType, LucideIcon> = {
   text: Type,
   textarea: AlignLeft,
   select: ListOrdered,
-  email: Mail,
+  multiselect: CheckSquare,
+  boolean: ToggleLeft,
   number: Hash,
   date: CalendarDays,
+  email: Mail,
 };
 
-const FIELD_TYPE_LABELS: Record<FieldType, string> = {
-  text: "Texto curto",
-  textarea: "Texto longo",
-  select: "Seleção",
-  email: "E-mail",
-  number: "Número",
-  date: "Data",
-};
-
-const OPERATOR_LABELS: Record<string, string> = {
-  is: "é igual a",
-  is_not: "é diferente de",
-};
+// Espelha os campos fixos de src/components/job-requests/JobRequestFormFields.tsx
+// (colunas estruturadas de job_requests — não podem ser removidas nem alteradas aqui).
+const STANDARD_FIELDS: Array<{ section: string; label: string; type: FieldType; note?: string; required: boolean }> = [
+  { section: "Dados da solicitação", label: "Título da vaga", type: "text", required: true },
+  { section: "Dados da solicitação", label: "Área / Departamento", type: "text", required: true },
+  { section: "Dados da solicitação", label: "Empresa / Unidade", type: "text", required: true },
+  { section: "Dados da solicitação", label: "Gestor requisitante", type: "text", required: true },
+  { section: "Dados da solicitação", label: "E-mail do gestor", type: "email", required: true },
+  { section: "Dados da solicitação", label: "Quantidade de vagas", type: "number", required: true },
+  { section: "Motivo da contratação", label: "Motivo da abertura", type: "select", required: true },
+  { section: "Motivo da contratação", label: "Colaborador substituído", type: "text", note: "Quando o motivo é substituição", required: true },
+  { section: "Motivo da contratação", label: "Justificativa da contratação", type: "textarea", required: true },
+  { section: "Motivo da contratação", label: "Data desejada para admissão", type: "date", required: true },
+  { section: "Condições da vaga", label: "Tipo de contratação", type: "select", required: true },
+  { section: "Condições da vaga", label: "Modalidade", type: "select", required: true },
+  { section: "Condições da vaga", label: "Horário / Jornada de trabalho", type: "text", required: false },
+];
 
 function genId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export function FormConfigEditor({ initialConfig }: Props) {
-  const [config, setConfig] = useState<FormConfig>(initialConfig);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [addingField, setAddingField] = useState(false);
+async function persist(config: FormConfig): Promise<SaveResult> {
+  const res = await fetch("/api/form-config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (res.ok) return { ok: true };
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  return { ok: false, error: body.error };
+}
 
-  const markDirty = () => setSaved(false);
+export function FormConfigEditor({ initialConfig }: { initialConfig: FormConfig }) {
+  const draft = useSettingsDraft(initialConfig, persist);
+  const config = draft.value;
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [standardOpen, setStandardOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [removing, setRemoving] = useState<FormFieldConfig | null>(null);
 
-  const updateTitle = useCallback((title: string) => {
-    setConfig((c) => ({ ...c, title }));
-    markDirty();
-  }, []);
+  const setConfig = draft.setValue;
+  const fields = config.fields;
 
-  const updateDescription = useCallback((description: string) => {
-    setConfig((c) => ({ ...c, description }));
-    markDirty();
-  }, []);
-
-  const updateField = useCallback((id: string, patch: Partial<FormFieldConfig>) => {
-    setConfig((c) => ({
-      ...c,
-      fields: c.fields.map((f) => (f.id === id ? { ...f, ...patch } : f)),
-    }));
-    markDirty();
-  }, []);
-
-  const removeField = useCallback((id: string) => {
-    setConfig((c) => ({ ...c, fields: c.fields.filter((f) => f.id !== id) }));
-    if (editingId === id) setEditingId(null);
-    markDirty();
-  }, [editingId]);
-
-  const moveField = useCallback((id: string, dir: -1 | 1) => {
-    setConfig((c) => {
-      const idx = c.fields.findIndex((f) => f.id === id);
-      if (idx < 0) return c;
-      const next = idx + dir;
-      if (next < 0 || next >= c.fields.length) return c;
-      const fields = [...c.fields];
-      [fields[idx], fields[next]] = [fields[next], fields[idx]];
-      return { ...c, fields };
-    });
-    markDirty();
-  }, []);
-
-  const addField = useCallback((type: FieldType) => {
-    const id = genId();
-    const newField: FormFieldConfig = {
-      id,
-      key: `campo_${id}`,
-      label: FIELD_TYPE_LABELS[type],
-      type,
-      required: false,
-      placeholder: "",
-      options: type === "select" ? [] : undefined,
-    };
-    setConfig((c) => ({ ...c, fields: [...c.fields, newField] }));
-    setEditingId(id);
-    setAddingField(false);
-    markDirty();
-  }, []);
-
-  async function handleSave() {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await fetch("/api/form-config", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setSaveError(body?.error ?? "Erro ao salvar.");
-        return;
-      }
-      setSaved(true);
-    } catch {
-      setSaveError("Erro de conexão.");
-    } finally {
-      setSaving(false);
-    }
+  function updateField(id: string, patch: Partial<FormFieldConfig>) {
+    setConfig((c) => ({ ...c, fields: c.fields.map((f) => (f.id === id ? { ...f, ...patch } : f)) }));
   }
 
-  // Fields that can be used as condition sources (select fields with options)
-  const selectFields = config.fields.filter(
-    (f) => f.type === "select" && (f.options?.length ?? 0) > 0
-  );
+  function addField(type: FieldType) {
+    const id = genId();
+    const field: FormFieldConfig = {
+      id,
+      key: `campo_${id}`,
+      label: "Nova pergunta",
+      type,
+      required: false,
+      options: hasOptions(type) ? ["Opção 1"] : undefined,
+    };
+    setConfig((c) => ({ ...c, fields: [...c.fields, field] }));
+    setExpanded(id);
+  }
+
+  function duplicateField(src: FormFieldConfig) {
+    const id = genId();
+    setConfig((c) => {
+      const i = c.fields.findIndex((f) => f.id === src.id);
+      const copy: FormFieldConfig = { ...structuredClone(src), id, key: `campo_${id}`, label: `${src.label} (cópia)` };
+      const next = [...c.fields];
+      next.splice(i + 1, 0, copy);
+      return { ...c, fields: next };
+    });
+    setExpanded(id);
+  }
+
+  function moveField(id: string, dir: -1 | 1) {
+    setConfig((c) => {
+      const i = c.fields.findIndex((f) => f.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= c.fields.length) return c;
+      const next = [...c.fields];
+      [next[i], next[j]] = [next[j], next[i]];
+      return { ...c, fields: next };
+    });
+  }
+
+  function dependentsOf(field: FormFieldConfig) {
+    return fields.filter((f) => f.showWhen?.fieldKey === field.key);
+  }
+
+  function removeField(field: FormFieldConfig) {
+    setConfig((c) => ({
+      ...c,
+      // Perguntas que dependiam desta passam a aparecer sempre (condição removida).
+      fields: c.fields
+        .filter((f) => f.id !== field.id)
+        .map((f) => (f.showWhen?.fieldKey === field.key ? { ...f, showWhen: undefined } : f)),
+    }));
+    if (expanded === field.id) setExpanded(null);
+  }
+
+  function requestRemove(field: FormFieldConfig) {
+    if (dependentsOf(field).length > 0) setRemoving(field);
+    else removeField(field);
+  }
+
+  const titleError = !config.title.trim() ? "Informe o título do formulário." : null;
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
-      <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-          Cabeçalho do formulário
-        </h2>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
-          <input
-            type="text"
-            value={config.title}
-            onChange={(e) => updateTitle(e.target.value)}
-            className={inputClass}
-            placeholder="Ex: Abertura de Vaga | WG Baterias"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-          <textarea
-            value={config.description}
-            onChange={(e) => updateDescription(e.target.value)}
-            rows={2}
-            className={`${inputClass} resize-none`}
-            placeholder="Texto de orientação para os gestores"
-          />
-        </div>
+    <>
+      <div className="mb-4 flex flex-wrap justify-end gap-2">
         <a
           href="/solicitar-vaga"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-wg-green font-medium hover:underline"
+          className={buttonVariants({ variant: "tertiary" })}
         >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Abrir formulário público
+          <ExternalLink aria-hidden /> Abrir formulário publicado
         </a>
-      </section>
+        <Button variant="secondary" icon={Eye} onClick={() => setPreviewOpen(true)}>
+          Visualizar como gestor
+        </Button>
+      </div>
 
-      {/* Campos */}
-      <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
-            Campos ({config.fields.length})
-          </h2>
-        </div>
+      <div className="space-y-5">
+        <Panel title="Apresentação" description="Título e texto exibidos no topo do formulário.">
+          <div className="grid gap-4 md:grid-cols-2">
+            <SettingsField id="jr-cfg-title" label="Título" required error={titleError}>
+              <input
+                id="jr-cfg-title"
+                type="text"
+                maxLength={160}
+                value={config.title}
+                onChange={(e) => setConfig((c) => ({ ...c, title: e.target.value }))}
+                aria-invalid={!!titleError}
+                className={settingsInputClass}
+                placeholder="Ex.: Solicitação de Vaga | WG Baterias"
+              />
+            </SettingsField>
+            <SettingsField id="jr-cfg-desc" label="Texto de apresentação" className="md:col-span-2">
+              <textarea
+                id="jr-cfg-desc"
+                rows={3}
+                maxLength={1000}
+                value={config.description}
+                onChange={(e) => setConfig((c) => ({ ...c, description: e.target.value }))}
+                className={cn(settingsInputClass, "resize-y")}
+                placeholder="Orientação para os gestores"
+              />
+            </SettingsField>
+          </div>
+        </Panel>
 
-        <ul className="divide-y divide-gray-100">
-          {config.fields.map((field, idx) => {
-            const Icon = FIELD_TYPE_ICONS[field.type];
-            const isEditing = editingId === field.id;
-            const hasCondition = !!field.showWhen;
-
-            return (
-              <li key={field.id}>
-                {/* Row */}
-                <div className="flex items-center gap-3 px-5 py-3">
-                  <GripVertical className="w-4 h-4 text-gray-300 shrink-0" />
-                  <div className="w-7 h-7 rounded-md bg-wg-green/10 flex items-center justify-center shrink-0">
-                    <Icon className="w-3.5 h-3.5 text-wg-green-dark" />
-                  </div>
-                  <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-gray-800">{field.label}</span>
-                    <span className="text-xs text-gray-400">{FIELD_TYPE_LABELS[field.type]}</span>
-                    {field.required && (
-                      <span className="text-xs text-red-500 font-medium">obrigatório</span>
-                    )}
-                    {hasCondition && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">
-                        <Zap className="w-3 h-3" />
-                        condicional
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => moveField(field.id, -1)}
-                      disabled={idx === 0}
-                      className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                      title="Mover para cima"
-                    >
-                      <ChevronUp className="w-3.5 h-3.5 text-gray-500" />
-                    </button>
-                    <button
-                      onClick={() => moveField(field.id, 1)}
-                      disabled={idx === config.fields.length - 1}
-                      className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors"
-                      title="Mover para baixo"
-                    >
-                      <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
-                    </button>
-                    <button
-                      onClick={() => setEditingId(isEditing ? null : field.id)}
-                      className={cn(
-                        "p-1.5 rounded transition-colors",
-                        isEditing
-                          ? "bg-wg-green/15 text-wg-green-dark"
-                          : "hover:bg-gray-100 text-gray-500"
-                      )}
-                      title="Editar campo"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => removeField(field.id)}
-                      className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                      title="Remover campo"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Inline editor */}
-                {isEditing && (
-                  <div className="px-5 pb-5 pt-1 bg-gray-50 border-t border-gray-100 space-y-4">
-                    {/* Label + Type */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Rótulo do campo
-                        </label>
-                        <input
-                          type="text"
-                          value={field.label}
-                          onChange={(e) => updateField(field.id, { label: e.target.value })}
-                          className={inputClass}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Tipo de campo
-                        </label>
-                        <select
-                          value={field.type}
-                          onChange={(e) =>
-                            updateField(field.id, {
-                              type: e.target.value as FieldType,
-                              options:
-                                e.target.value === "select" ? field.options ?? [] : undefined,
-                            })
-                          }
-                          className={inputClass}
-                        >
-                          <option value="text">Texto curto</option>
-                          <option value="textarea">Texto longo</option>
-                          <option value="select">Seleção (dropdown)</option>
-                          <option value="email">E-mail</option>
-                          <option value="number">Número</option>
-                          <option value="date">Data</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Placeholder */}
-                    {field.type !== "select" && (
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Placeholder
-                        </label>
-                        <input
-                          type="text"
-                          value={field.placeholder ?? ""}
-                          onChange={(e) =>
-                            updateField(field.id, { placeholder: e.target.value })
-                          }
-                          className={inputClass}
-                          placeholder="Texto de exemplo dentro do campo"
-                        />
-                      </div>
-                    )}
-
-                    {/* Required */}
-                    <label className="flex items-center gap-2 cursor-pointer w-fit">
-                      <input
-                        type="checkbox"
-                        checked={field.required}
-                        onChange={(e) => updateField(field.id, { required: e.target.checked })}
-                        className="w-4 h-4 accent-wg-green rounded"
-                      />
-                      <span className="text-xs font-medium text-gray-700">Campo obrigatório</span>
-                    </label>
-
-                    {/* Options for select */}
-                    {field.type === "select" && (
-                      <OptionsEditor
-                        options={field.options ?? []}
-                        onChange={(opts) => updateField(field.id, { options: opts })}
-                      />
-                    )}
-
-                    {/* Conditional logic (When/Then) */}
-                    <ConditionalEditor
-                      field={field}
-                      allFields={config.fields}
-                      selectFields={selectFields}
-                      onChange={(showWhen) => updateField(field.id, { showWhen })}
-                    />
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-
-        {/* Adicionar campo */}
-        <div className="px-5 py-4 border-t border-gray-100">
-          {addingField ? (
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs text-gray-500 self-center mr-1">Adicionar:</span>
-              {(["text", "textarea", "select", "email", "number", "date"] as FieldType[]).map((type) => {
-                const Icon = FIELD_TYPE_ICONS[type];
+        {/* ── Campos padrão (estruturais) ── */}
+        <section className="rounded-card border border-wg-border-lighter bg-white">
+          <button
+            type="button"
+            onClick={() => setStandardOpen((o) => !o)}
+            aria-expanded={standardOpen}
+            aria-controls="jr-standard-fields"
+            className="flex w-full items-center justify-between gap-3 rounded-card px-5 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50"
+          >
+            <span>
+              <span className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-sora text-section-title text-wg-ink">Campos padrão</span>
+                <span className="text-meta text-wg-ink-muted">{STANDARD_FIELDS.length} campos</span>
+              </span>
+              <span className="mt-0.5 flex items-center gap-1.5 text-meta text-wg-ink-muted">
+                <Lock className="h-3.5 w-3.5" aria-hidden />
+                Sempre presentes na solicitação — usados na aprovação, nos filtros e no histórico.
+              </span>
+            </span>
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-wg-ink-muted transition-transform", standardOpen && "rotate-180")} aria-hidden />
+          </button>
+          {standardOpen && (
+            <ul id="jr-standard-fields" className="divide-y divide-wg-border-lighter border-t border-wg-border-lighter">
+              {STANDARD_FIELDS.map((f) => {
+                const Icon = FIELD_TYPE_ICONS[f.type];
                 return (
-                  <button
-                    key={type}
-                    onClick={() => addField(type)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:border-wg-green hover:text-wg-green-dark transition-colors"
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {FIELD_TYPE_LABELS[type]}
-                  </button>
+                  <li key={f.label} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2.5">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-wg-bg text-wg-ink-muted">
+                      <Icon className="h-3.5 w-3.5" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="text-body font-medium text-wg-ink">{f.label}</span>
+                      <span className="ml-2 text-label text-wg-ink-muted">{FIELD_TYPE_LABELS[f.type]}</span>
+                      {f.note && <span className="ml-2 text-label text-wg-ink-muted">· {f.note}</span>}
+                    </span>
+                    <span className="text-label text-wg-ink-muted">{f.required ? "Obrigatório" : "Opcional"}</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-wg-border-light bg-wg-bg px-2 py-0.5 text-[11px] font-medium text-wg-ink-muted">
+                      <Lock className="h-3 w-3" aria-hidden /> Campo estrutural
+                    </span>
+                  </li>
                 );
               })}
-              <button
-                onClick={() => setAddingField(false)}
-                className="p-1.5 rounded hover:bg-gray-100 text-gray-400"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setAddingField(true)}
-              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-wg-green-dark transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Adicionar campo
-            </button>
+            </ul>
           )}
-        </div>
-      </section>
+        </section>
 
-      {/* Salvar */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors text-sm"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Salvando...
-            </>
+        {/* ── Campos adicionais ── */}
+        <section className="rounded-card border border-wg-border-lighter bg-white" aria-labelledby="jr-extra-title">
+          <header className="flex flex-wrap items-start justify-between gap-3 px-5 pb-3 pt-4">
+            <div>
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <h2 id="jr-extra-title" className="font-sora text-section-title text-wg-ink">
+                  Campos adicionais
+                </h2>
+                <span className="text-meta text-wg-ink-muted">({fields.length})</span>
+              </div>
+              <p className="mt-0.5 text-meta text-wg-ink-muted">
+                Adicione perguntas complementares aos campos padrão da solicitação. As respostas aparecem na tela da solicitação.
+              </p>
+            </div>
+            {fields.length > 0 && <AddFieldMenu onAdd={addField} />}
+          </header>
+
+          {fields.length === 0 ? (
+            <EmptyState
+              icon={ListChecks}
+              title="Nenhum campo adicional"
+              description="Adicione perguntas específicas que seus gestores deverão responder ao solicitar uma nova vaga."
+              action={<AddFieldMenu onAdd={addField} />}
+              className="border-t border-wg-border-lighter"
+            />
           ) : (
-            "Salvar configuração"
+            <SortableList
+              label="Campos adicionais"
+              items={fields}
+              getId={(f) => f.id}
+              getLabel={(f) => `Pergunta ${f.label}`}
+              onReorder={(next) => setConfig((c) => ({ ...c, fields: next }))}
+              className="divide-y divide-wg-border-lighter border-t border-wg-border-lighter"
+              renderItem={(field, { handle, index }) => (
+                <FieldRow
+                  field={field}
+                  fields={fields}
+                  index={index}
+                  handle={handle}
+                  expanded={expanded === field.id}
+                  onToggle={() => setExpanded((cur) => (cur === field.id ? null : field.id))}
+                  onChange={(patch) => updateField(field.id, patch)}
+                  onDuplicate={() => duplicateField(field)}
+                  onMove={(dir) => moveField(field.id, dir)}
+                  onRemove={() => requestRemove(field)}
+                />
+              )}
+            />
           )}
-        </button>
-        {saved && !saveError && (
-          <span className="flex items-center gap-1.5 text-sm text-wg-green font-medium">
-            <CheckCircle2 className="w-4 h-4" />
-            Salvo!
-          </span>
-        )}
-        {saveError && <span className="text-sm text-red-500">{saveError}</span>}
+        </section>
       </div>
+
+      <SettingsSaveBar
+        isDirty={draft.isDirty}
+        isSaving={draft.isSaving}
+        savedAt={draft.savedAt}
+        onSave={draft.save}
+        onDiscard={draft.discard}
+      />
+
+      <ConfirmModal
+        isOpen={!!removing}
+        title="Excluir esta pergunta?"
+        message={
+          removing
+            ? `“${removing.label}” controla a exibição de ${dependentsOf(removing).length} outra(s) pergunta(s). Ao excluí-la, essas perguntas passam a aparecer sempre.`
+            : ""
+        }
+        confirmLabel="Excluir pergunta"
+        onConfirm={() => {
+          if (removing) removeField(removing);
+          setRemoving(null);
+        }}
+        onCancel={() => setRemoving(null)}
+      />
+
+      <ManagerPreview open={previewOpen} onClose={() => setPreviewOpen(false)} config={config} />
+    </>
+  );
+}
+
+// ─── Menu "Adicionar campo" ──────────────────────────────────────────────────
+
+function AddFieldMenu({ onAdd }: { onAdd: (type: FieldType) => void }) {
+  return (
+    <DropdownMenu
+      trigger={
+        <>
+          <Plus aria-hidden /> Adicionar campo
+        </>
+      }
+      triggerClassName={buttonVariants({ variant: "primary" })}
+      align="right"
+      items={FIELD_TYPES.map((t) => ({ label: FIELD_TYPE_LABELS[t], icon: FIELD_TYPE_ICONS[t], onSelect: () => onAdd(t) }))}
+    />
+  );
+}
+
+// ─── Linha de um campo adicional ─────────────────────────────────────────────
+
+function FieldRow({
+  field,
+  fields,
+  index,
+  handle,
+  expanded,
+  onToggle,
+  onChange,
+  onDuplicate,
+  onMove,
+  onRemove,
+}: {
+  field: FormFieldConfig;
+  fields: FormFieldConfig[];
+  index: number;
+  handle: React.ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  onChange: (patch: Partial<FormFieldConfig>) => void;
+  onDuplicate: () => void;
+  onMove: (dir: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const Icon = FIELD_TYPE_ICONS[field.type];
+  const panelId = `jr-field-${field.id}`;
+  const source = field.showWhen ? fields.find((f) => f.key === field.showWhen!.fieldKey) : undefined;
+  const missingOptions = hasOptions(field.type) && (field.options?.length ?? 0) === 0;
+
+  return (
+    <div className="bg-white">
+      <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4">
+        {handle}
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-wg-sidebar text-wg-green-dark">
+          <Icon className="h-3.5 w-3.5" aria-hidden />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={expanded}
+            aria-controls={panelId}
+            className="min-w-0 truncate rounded-sm text-left text-body font-semibold text-wg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50"
+          >
+            {field.label || "Pergunta sem nome"}
+          </button>
+          <span className="text-label text-wg-ink-muted">{FIELD_TYPE_LABELS[field.type]}</span>
+          {field.required && (
+            <span className="rounded-full bg-neutral-bg px-2 py-0.5 text-[11px] font-semibold text-neutral-fg">Obrigatório</span>
+          )}
+          {field.showWhen && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-[11px] font-semibold text-warning-fg">
+              <Zap className="h-3 w-3" aria-hidden /> Condicional
+            </span>
+          )}
+          {missingOptions && <span className="text-label font-medium text-danger-fg">Sem opções</span>}
+        </div>
+
+        <DropdownMenu
+          ariaLabel={`Mais ações da pergunta ${field.label}`}
+          title="Mais ações"
+          trigger={<MoreHorizontal className="h-4 w-4" aria-hidden />}
+          triggerClassName={buttonVariants({ variant: "tertiary", size: "icon-sm" })}
+          portal
+          items={[
+            { label: "Duplicar", icon: Copy, onSelect: onDuplicate },
+            { label: "Mover para cima", icon: ArrowUp, onSelect: () => onMove(-1), disabled: index === 0 },
+            { label: "Mover para baixo", icon: ArrowDown, onSelect: () => onMove(1), disabled: index === fields.length - 1 },
+            { type: "separator" },
+            { label: "Excluir", icon: Trash2, danger: true, onSelect: onRemove },
+          ]}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          aria-label={expanded ? `Recolher ${field.label}` : `Editar ${field.label}`}
+          title={expanded ? "Recolher" : "Editar"}
+          className={buttonVariants({ variant: "tertiary", size: "icon-sm" })}
+        >
+          <ChevronDown className={cn("transition-transform", expanded && "rotate-180")} aria-hidden />
+        </button>
+      </div>
+
+      {expanded && (
+        <div id={panelId} className="space-y-4 border-t border-wg-border-lighter bg-wg-bg/50 px-4 py-4 sm:pl-[76px]">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+            <SettingsField id={`${panelId}-label`} label="Pergunta" required>
+              <input
+                id={`${panelId}-label`}
+                autoFocus={field.label === "Nova pergunta"}
+                onFocus={(e) => field.label === "Nova pergunta" && e.currentTarget.select()}
+                value={field.label}
+                maxLength={200}
+                onChange={(e) => onChange({ label: e.target.value })}
+                aria-invalid={!field.label.trim()}
+                className={settingsInputClass}
+              />
+            </SettingsField>
+            <SettingsField id={`${panelId}-type`} label="Tipo">
+              <select
+                id={`${panelId}-type`}
+                value={field.type}
+                onChange={(e) => {
+                  const type = e.target.value as FieldType;
+                  onChange({
+                    type,
+                    options: hasOptions(type) ? (field.options?.length ? field.options : ["Opção 1"]) : undefined,
+                  });
+                }}
+                className={settingsSelectClass}
+              >
+                {FIELD_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {FIELD_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </SettingsField>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <SettingsField id={`${panelId}-help`} label="Texto de ajuda" hint="Aparece abaixo do campo, em cinza.">
+              <input
+                id={`${panelId}-help`}
+                value={field.helpText ?? ""}
+                maxLength={300}
+                onChange={(e) => onChange({ helpText: e.target.value || undefined })}
+                className={settingsInputClass}
+                placeholder="Opcional"
+              />
+            </SettingsField>
+            {!hasOptions(field.type) && field.type !== "boolean" && (
+              <SettingsField id={`${panelId}-ph`} label="Exemplo dentro do campo" hint="Texto de exemplo (placeholder).">
+                <input
+                  id={`${panelId}-ph`}
+                  value={field.placeholder ?? ""}
+                  maxLength={200}
+                  onChange={(e) => onChange({ placeholder: e.target.value || undefined })}
+                  className={settingsInputClass}
+                  placeholder="Opcional"
+                />
+              </SettingsField>
+            )}
+          </div>
+
+          <div className="max-w-md rounded-control border border-wg-border-lighter bg-white px-3">
+            <Toggle
+              label="Resposta obrigatória"
+              description={field.showWhen ? "Só é exigida quando a pergunta estiver visível." : undefined}
+              checked={field.required}
+              onChange={() => onChange({ required: !field.required })}
+            />
+          </div>
+
+          {hasOptions(field.type) && (
+            <OptionsEditor
+              id={`${panelId}-opts`}
+              options={field.options ?? []}
+              onChange={(options) => onChange({ options })}
+            />
+          )}
+
+          <ConditionEditor field={field} fields={fields} source={source} onChange={(showWhen) => onChange({ showWhen })} />
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Options Editor ───────────────────────────────────────────────────────────
+// ─── Opções (Seleção / Múltipla escolha) ────────────────────────────────────
 
-function OptionsEditor({
-  options,
-  onChange,
-}: {
-  options: string[];
-  onChange: (opts: string[]) => void;
-}) {
+function OptionsEditor({ id, options, onChange }: { id: string; options: string[]; onChange: (o: string[]) => void }) {
   const [newOpt, setNewOpt] = useState("");
+  const duplicate = newOpt.trim() && options.includes(newOpt.trim());
 
-  function addOption() {
-    const val = newOpt.trim();
-    if (!val || options.includes(val)) return;
-    onChange([...options, val]);
+  function add() {
+    const v = newOpt.trim();
+    if (!v || options.includes(v)) return;
+    onChange([...options, v]);
     setNewOpt("");
   }
 
   return (
-    <div>
-      <label className="block text-xs font-medium text-gray-600 mb-2">Opções do dropdown</label>
-      <ul className="space-y-1.5 mb-2">
-        {options.map((opt, idx) => (
-          <li key={idx} className="flex items-center gap-2">
+    <fieldset>
+      <legend className="mb-1.5 text-label font-semibold text-wg-ink-secondary">Opções de resposta</legend>
+      {options.length === 0 && (
+        <p className="mb-2 text-label font-normal text-danger-fg">Adicione ao menos uma opção.</p>
+      )}
+      <ul className="space-y-1.5">
+        {options.map((opt, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <label htmlFor={`${id}-${i}`} className="sr-only">
+              Opção {i + 1}
+            </label>
             <input
-              type="text"
+              id={`${id}-${i}`}
               value={opt}
-              onChange={(e) => {
-                const next = [...options];
-                next[idx] = e.target.value;
-                onChange(next);
-              }}
-              className={`${inputClass} flex-1`}
+              maxLength={120}
+              onChange={(e) => onChange(options.map((o, j) => (j === i ? e.target.value : o)))}
+              className={cn(settingsInputClass, "max-w-md")}
             />
             <button
-              onClick={() => onChange(options.filter((_, i) => i !== idx))}
-              className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+              type="button"
+              onClick={() => onChange(options.filter((_, j) => j !== i))}
+              aria-label={`Remover opção ${opt || i + 1}`}
+              title="Remover opção"
+              className={buttonVariants({ variant: "tertiary", size: "icon-sm" })}
             >
-              <X className="w-3.5 h-3.5" />
+              <X aria-hidden />
             </button>
           </li>
         ))}
       </ul>
-      <div className="flex gap-2">
+      <div className="mt-2 flex max-w-md gap-2">
+        <label htmlFor={`${id}-new`} className="sr-only">
+          Nova opção
+        </label>
         <input
-          type="text"
+          id={`${id}-new`}
           value={newOpt}
+          maxLength={120}
           onChange={(e) => setNewOpt(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              addOption();
+              add();
             }
           }}
-          placeholder="Nova opção..."
-          className={`${inputClass} flex-1`}
+          placeholder="Nova opção…"
+          className={settingsInputClass}
         />
-        <button
-          onClick={addOption}
-          className="px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:border-wg-green hover:text-wg-green-dark transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <Button variant="secondary" icon={Plus} onClick={add} disabled={!newOpt.trim() || !!duplicate}>
+          Adicionar
+        </Button>
       </div>
-    </div>
+      {duplicate && <p className="mt-1 text-label font-normal text-danger-fg">Essa opção já existe.</p>}
+    </fieldset>
   );
 }
 
-// ─── Conditional Logic Editor (When/Then) ────────────────────────────────────
+// ─── Condição de exibição (SE … ENTÃO mostrar) ───────────────────────────────
 
-interface ConditionalEditorProps {
+function ConditionEditor({
+  field,
+  fields,
+  source,
+  onChange,
+}: {
   field: FormFieldConfig;
-  allFields: FormFieldConfig[];
-  selectFields: FormFieldConfig[];
-  onChange: (showWhen: ShowCondition | undefined) => void;
-}
+  fields: FormFieldConfig[];
+  source: FormFieldConfig | undefined;
+  onChange: (c: ShowCondition | undefined) => void;
+}) {
+  const candidates = useMemo(
+    () => fields.filter((f) => f.id !== field.id && canBeConditionSource(f) && f.showWhen?.fieldKey !== field.key),
+    [fields, field.id, field.key]
+  );
+  const idBase = `cond-${field.id}`;
 
-function ConditionalEditor({ field, selectFields, onChange }: ConditionalEditorProps) {
-  const hasCondition = !!field.showWhen;
-
-  // Select fields excluding self
-  const candidates = selectFields.filter((f) => f.id !== field.id);
-
-  function addCondition() {
-    if (candidates.length === 0) return;
-    const src = candidates[0];
-    onChange({
-      fieldKey: src.key,
-      operator: "is",
-      value: src.options?.[0] ?? "",
-    });
-  }
-
-  function removeCondition() {
-    onChange(undefined);
-  }
-
-  function patchCondition(patch: Partial<ShowCondition>) {
-    if (!field.showWhen) return;
-    onChange({ ...field.showWhen, ...patch });
-  }
-
-  // When source field changes, reset value to first option of new field
-  function handleSourceChange(key: string) {
-    const src = candidates.find((f) => f.key === key);
-    onChange({
-      fieldKey: key,
-      operator: field.showWhen?.operator ?? "is",
-      value: src?.options?.[0] ?? "",
-    });
-  }
-
-  const sourceField = candidates.find((f) => f.key === field.showWhen?.fieldKey);
-
-  return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50 border-b border-gray-200">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
-          <Zap className="w-3.5 h-3.5 text-amber-500" />
-          Automação (ocultar / mostrar)
-        </div>
-        {!hasCondition ? (
-          <button
-            onClick={addCondition}
-            disabled={candidates.length === 0}
-            title={candidates.length === 0 ? "Adicione um campo de seleção primeiro" : undefined}
-            className="inline-flex items-center gap-1 text-xs text-wg-green font-medium hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+  if (!field.showWhen) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-dashed border-wg-border-light bg-white px-3 py-2.5">
+        <p className="flex items-center gap-1.5 text-meta text-wg-ink-muted">
+          <Zap className="h-3.5 w-3.5" aria-hidden />
+          {candidates.length === 0
+            ? "Para exibir esta pergunta só em certos casos, crie antes uma pergunta de Seleção, Múltipla escolha ou Sim / Não."
+            : "Esta pergunta aparece sempre."}
+        </p>
+        {candidates.length > 0 && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={Plus}
+            onClick={() =>
+              onChange({ fieldKey: candidates[0].key, operator: "is", value: conditionValues(candidates[0])[0] ?? "" })
+            }
           >
-            <Plus className="w-3 h-3" />
-            Adicionar regra
-          </button>
-        ) : (
-          <button
-            onClick={removeCondition}
-            className="text-xs text-red-500 hover:underline"
-          >
-            Remover regra
-          </button>
+            Mostrar só quando…
+          </Button>
         )}
       </div>
+    );
+  }
 
-      {!hasCondition ? (
-        <div className="px-4 py-3 text-xs text-gray-400">
-          {candidates.length === 0
-            ? "Para adicionar automações, crie primeiro um campo de seleção com opções."
-            : "Este campo aparece sempre. Adicione uma regra para exibi-lo apenas em condições específicas."}
-        </div>
-      ) : (
-        <div className="px-4 py-3 space-y-3">
-          {/* When */}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Quando
-            </p>
-            <div className="flex flex-wrap gap-2 items-center">
-              {/* Source field */}
-              <select
-                value={field.showWhen?.fieldKey ?? ""}
-                onChange={(e) => handleSourceChange(e.target.value)}
-                className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-wg-green/40 focus:border-wg-green"
-              >
-                {candidates.map((f) => (
-                  <option key={f.key} value={f.key}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
+  const values = source ? conditionValues(source) : [];
 
-              {/* Operator */}
-              <select
-                value={field.showWhen?.operator ?? "is"}
-                onChange={(e) =>
-                  patchCondition({ operator: e.target.value as "is" | "is_not" })
-                }
-                className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-wg-green/40 focus:border-wg-green"
-              >
-                {Object.entries(OPERATOR_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+  return (
+    <fieldset className="rounded-control border border-warning-border bg-white p-3">
+      <legend className="flex items-center gap-1.5 px-1 text-label font-semibold text-wg-ink-secondary">
+        <Zap className="h-3.5 w-3.5 text-warning" aria-hidden /> Regra de exibição
+      </legend>
+      <div className="flex flex-wrap items-center gap-2 text-meta text-wg-ink-secondary">
+        <span className="font-semibold">SE</span>
+        <label htmlFor={`${idBase}-src`} className="sr-only">
+          Pergunta
+        </label>
+        <select
+          id={`${idBase}-src`}
+          value={field.showWhen.fieldKey}
+          onChange={(e) => {
+            const src = candidates.find((f) => f.key === e.target.value);
+            onChange({ fieldKey: e.target.value, operator: field.showWhen!.operator, value: src ? conditionValues(src)[0] ?? "" : "" });
+          }}
+          className={cn(settingsSelectClass, "w-auto max-w-[260px] py-1.5")}
+        >
+          {!source && <option value={field.showWhen.fieldKey}>Pergunta removida</option>}
+          {candidates.map((f) => (
+            <option key={f.key} value={f.key}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+        <label htmlFor={`${idBase}-op`} className="sr-only">
+          Operador
+        </label>
+        <select
+          id={`${idBase}-op`}
+          value={field.showWhen.operator}
+          onChange={(e) => onChange({ ...field.showWhen!, operator: e.target.value as ShowCondition["operator"] })}
+          className={cn(settingsSelectClass, "w-auto py-1.5")}
+        >
+          <option value="is">{source?.type === "multiselect" ? "inclui" : "for"}</option>
+          <option value="is_not">{source?.type === "multiselect" ? "não inclui" : "não for"}</option>
+        </select>
+        <label htmlFor={`${idBase}-val`} className="sr-only">
+          Valor
+        </label>
+        <select
+          id={`${idBase}-val`}
+          value={field.showWhen.value}
+          onChange={(e) => onChange({ ...field.showWhen!, value: e.target.value })}
+          className={cn(settingsSelectClass, "w-auto max-w-[220px] py-1.5")}
+        >
+          {values.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+        <span className="font-semibold">ENTÃO</span> mostrar esta pergunta.
+      </div>
+      <div className="mt-2 flex justify-end">
+        <Button variant="tertiary" size="sm" icon={X} onClick={() => onChange(undefined)}>
+          Remover regra
+        </Button>
+      </div>
+    </fieldset>
+  );
+}
 
-              {/* Value */}
-              {sourceField && (sourceField.options?.length ?? 0) > 0 ? (
-                <select
-                  value={field.showWhen?.value ?? ""}
-                  onChange={(e) => patchCondition({ value: e.target.value })}
-                  className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-wg-green/40 focus:border-wg-green"
-                >
-                  {sourceField.options!.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={field.showWhen?.value ?? ""}
-                  onChange={(e) => patchCondition({ value: e.target.value })}
-                  placeholder="Valor..."
-                  className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-wg-green/40 focus:border-wg-green w-28"
-                />
-              )}
-            </div>
-          </div>
+// ─── Visualizar como gestor ──────────────────────────────────────────────────
 
-          {/* Then */}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              Então
-            </p>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-wg-green/10 border border-wg-green/30">
-                <Eye className="w-3.5 h-3.5 text-wg-green-dark" />
-                <span className="text-xs font-medium text-wg-green-dark">Mostrar este campo</span>
-              </div>
-              <span className="text-xs text-gray-400">
-                (oculto por padrão)
-              </span>
-            </div>
-          </div>
+function ManagerPreview({ open, onClose, config }: { open: boolean; onClose: () => void; config: FormConfig }) {
+  // Estado local e descartável: nada do que é digitado aqui é salvo ou enviado.
+  const [values, setValues] = useState<JobRequestFormValues>(EMPTY_JOB_REQUEST_FORM);
 
-          {/* Preview of the rule */}
-          {field.showWhen && sourceField && (
-            <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs text-amber-800">
-              <span className="font-semibold">Regra:</span> Quando &ldquo;
-              {sourceField.label}&rdquo; {OPERATOR_LABELS[field.showWhen.operator]} &ldquo;
-              {field.showWhen.value}&rdquo;, mostrar &ldquo;{field.label}&rdquo;
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+  return (
+    <Dialog
+      open={open}
+      onClose={() => {
+        setValues(EMPTY_JOB_REQUEST_FORM);
+        onClose();
+      }}
+      size="xl"
+      title="Visualizar como gestor"
+      description="Pré-visualização com as alterações atuais, inclusive as ainda não salvas. Nada do que for preenchido aqui é enviado."
+      footer={
+        <Button variant="secondary" onClick={onClose}>
+          Fechar pré-visualização
+        </Button>
+      }
+    >
+      <div className="mx-auto max-w-3xl py-4">
+        <JobRequestIntro title={config.title || "Título do formulário"} description={config.description} />
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
+          <JobRequestFormFields
+            values={values}
+            onChange={(p) => setValues((v) => ({ ...v, ...p }))}
+            extraFields={config.fields}
+          />
+          <button
+            type="button"
+            disabled
+            title="Indisponível na pré-visualização"
+            className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-wg-green px-6 py-3 text-sm font-semibold text-white opacity-60"
+          >
+            Enviar solicitação &rarr;
+          </button>
+        </form>
+      </div>
+    </Dialog>
   );
 }

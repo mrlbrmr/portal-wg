@@ -17,6 +17,8 @@ import {
 } from "./service";
 import { jobRequestPayloadSchema, type JobRequestPayload } from "./schema";
 import { currentActor } from "./service";
+import { validateExtraData } from "./extra-fields";
+import { loadJobRequestFormConfig } from "./form-config-loader";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -122,6 +124,19 @@ export async function createJobRequestInternal(
       error: "Revise os campos destacados.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
+  }
+
+  // Rascunho pode ficar incompleto; ao enviar, as perguntas obrigatórias visíveis valem.
+  if (!asDraft) {
+    const { fields } = await loadJobRequestFormConfig();
+    const extraErrors = validateExtraData(fields, parsed.data.extraData);
+    if (Object.keys(extraErrors).length > 0) {
+      return {
+        ok: false,
+        error: "Revise os campos destacados.",
+        fieldErrors: Object.fromEntries(Object.entries(extraErrors).map(([k, v]) => [k, [v]])),
+      };
+    }
   }
 
   const res = await createJobRequestUseCase({

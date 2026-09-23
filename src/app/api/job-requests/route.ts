@@ -17,6 +17,7 @@ import { isValidEmail, rhInboxEmail, sendEmail } from "@/lib/email";
 import { jobRequestReceivedEmail } from "@/lib/email-templates";
 import { createJobRequest } from "@/lib/job-requests/service";
 import { jobRequestPayloadSchema } from "@/lib/job-requests/schema";
+import { validateExtraData } from "@/lib/job-requests/extra-fields";
 import {
   CONTRACT_TYPE_LABELS,
   JOB_REQUEST_REASON_LABELS,
@@ -60,13 +61,9 @@ export async function POST(req: NextRequest) {
   }
   const payload = parsed.data;
 
-  // Perguntas complementares obrigatórias ainda valem.
+  // Perguntas complementares obrigatórias ainda valem (só as visíveis pelas condições).
   const extraFields = await loadExtraFields();
-  const extraErrors: Record<string, string> = {};
-  for (const field of extraFields) {
-    const val = (payload.extraData[field.key] ?? "").trim();
-    if (field.required && !val) extraErrors[field.key] = `${field.label} é obrigatório`;
-  }
+  const extraErrors = validateExtraData(extraFields, payload.extraData);
   if (Object.keys(extraErrors).length > 0) {
     return NextResponse.json({ fieldErrors: extraErrors }, { status: 422 });
   }

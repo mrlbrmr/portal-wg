@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { UserRole } from "@/types/domain";
 import { rateLimit } from "@/lib/rate-limit";
+import { logActivity } from "@/lib/activity/log";
+import { roleLabel } from "@/lib/access/roles";
 
 const createUserSchema = z.object({
   name: z.string().min(2, "Nome obrigatório"),
@@ -91,6 +93,15 @@ export async function POST(req: NextRequest) {
     await supabase.from("users").delete().eq("id", user.id);
     return NextResponse.json({ error: "Erro ao criar credenciais de acesso." }, { status: 500 });
   }
+
+  await logActivity(supabase, {
+    action: "USER_CREATED",
+    entity: "USER",
+    entityId: user.id,
+    userId: session.user.id,
+    description: `Conta criada com perfil ${roleLabel(role)}`,
+    metadata: { to: roleLabel(role), subjectName: name, email },
+  });
 
   return NextResponse.json(user, { status: 201 });
 }

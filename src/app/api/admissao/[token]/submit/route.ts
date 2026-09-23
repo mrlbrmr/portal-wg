@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logActivity } from '@/lib/activity/log'
 import { deleteAdmissionAttachment } from '@/lib/admissao/storage'
 import { notifyAdmissionSubmitted } from '@/lib/admissao/notify-submitted'
 import { z } from 'zod'
@@ -87,6 +88,16 @@ export async function POST(
     console.error('[admissao-submit]', error)
     return NextResponse.json({ error: 'Erro ao salvar dados.' }, { status: 500 })
   }
+
+  await logActivity(supabase, {
+    action: 'FORM_SUBMITTED',
+    entity: 'ADMISSION',
+    entityId: admission.id as string,
+    admissionId: admission.id as string,
+    userId: null,
+    description: 'Formulário admissional enviado pelo candidato',
+    metadata: { subjectName: d.fullName },
+  })
 
   // Remove anexos abandonados (docs que deixaram de ser exigidos após mudança de
   // resposta). Restrito à própria admissão. Falha aqui não invalida o envio.

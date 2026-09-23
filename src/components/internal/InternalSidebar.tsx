@@ -91,7 +91,7 @@ export default function InternalSidebar({ role, name, pendingRequests = 0, onNav
     { href: "/admissoes",              label: "Admissões",    icon: ClipboardCheck },
     { href: "/admissoes/calendario",   label: "Calendário",   icon: Calendar },
     { href: "/admissoes/relatorios",   label: "Relatórios",   icon: BarChart3 },
-    { href: "/admissoes/historico",    label: "Histórico",    icon: History },
+    { href: "/admissoes/historico",    label: "Atividades",   icon: History },
   ];
 
   const systemLinks: NavLink[] = isAdmin

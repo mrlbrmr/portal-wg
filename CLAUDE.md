@@ -45,6 +45,16 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 ## Mapa de módulos (`src/app/(internal)` = interno · `src/app/(public)` = público)
 - **Admissões:** `src/app/(internal)/admissoes/**`, `src/lib/admissao/**`, `src/components/internal/admissao/**`
 - **Modelos de checklist:** `.../admissoes/configuracoes/modelos`, `src/lib/admissao/template-actions.ts`, `checklist.ts`
+- **Calendário** (`/admissoes/calendario`): eventos puros em `src/lib/admissao/calendar.ts` (testado). Experiência
+  desligada até definir `EXPERIENCE_CHECKPOINT_DAYS`; o banco não guarda horário.
+- **Relatórios** (`/admissoes/relatorios`): recorte/indicadores/alertas em `src/lib/admissao/reports.ts` (testado);
+  filtros na URL, os mesmos aceitos por `/api/admissoes/export`. Nunca mostre comparação/indicador sem base real.
+- **Atividades** (rota `/admissoes/historico`): feed unificado em `src/lib/activity/feed.ts`, tipos em `catalog.ts`.
+  Registre ações novas com `logActivity()` (`src/lib/activity/log.ts`, tabela `admission_activity_log`) e mapeie o
+  `action` em `ADMISSION_LOG_ACTIONS` — ação não mapeada não aparece.
+- **Usuários e acessos:** perfis/permissões em `src/lib/access/roles.ts` (ROLE + permissões adicionais; só
+  ADMIN_RH/VIEWER_RH são atribuíveis — papel novo exige migração do enum e das policies). Desativar usuário =
+  `ban_duration` no Supabase Auth (`PATCH /api/users/[id]`).
 - **ATS / Vagas:** `src/app/(internal)/vagas/**` (kanban de candidatos, funil configurável)
 - **Página da vaga + Posições:** `/vagas/[id]/editar?tab=visao|descricao|processo|divulgacao|historico`
   (`src/components/internal/job/**`, regras puras em `src/lib/jobs/**`). **Vaga = processo seletivo;
@@ -126,7 +136,9 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   `rounded-control` (8px) / `rounded-card` (12px), tipografia `text-page-title … text-label`.
 - Reutilize `src/components/ui/*`: `Button`/`ButtonLink`, `StatusBadge` (status) × `StageBadge`
   (etapa), `ProgressBar`, `CompactMetrics`, `Panel`, `ActionListItem`, `ActivityTimeline`,
-  `FilterPopover`/`ActiveFilterChips`/`QuickFilterChips`, `EmptyState`, `Skeleton`, `ConfirmModal`.
+  `FilterPopover`/`ActiveFilterChips`/`QuickFilterChips`, `EmptyState`, `Skeleton`, `ConfirmModal`,
+  `PageContainer` (1480px) + `PageHeader icon`, `FilterBar`/`FilterSelect`/`SearchField`, `table.ts`,
+  `SideDrawer`/`DetailList`, `MetricCard`, `UserAvatar`, `ColumnChart`/`BarList` (`charts.tsx`).
 - Status da vaga × etapa: sempre via `src/lib/recruitment/job-presentation.ts` (não use o enum cru).
   Alertas de vaga sempre com motivo (`src/lib/recruitment/attention.ts`); SLA em `sla.ts` (política
   ainda `null`). Sentence case nos textos ("Nova vaga"), sem emoji como ícone (use lucide).

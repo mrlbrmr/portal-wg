@@ -1,165 +1,367 @@
 import type { Metadata } from "next";
-import { BarChart3, Users, TrendingUp, Building2, FileSpreadsheet, CheckCircle } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  BarChart3,
+  Building2,
+  CheckCircle2,
+  CircleCheck,
+  FileSpreadsheet,
+  FileWarning,
+  Stethoscope,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { DashboardCard } from "@/components/internal/DashboardCard";
+import { getAdmissionConfig } from "@/lib/admissao/queries";
+import { needsAttention, sectionStatus } from "@/lib/admissao/document-status";
+import {
+  activeReportFilterCount,
+  attentionItems,
+  countBy,
+  monthlySeries,
+  parseReportFilters,
+  REPORT_PERIODS,
+  reportFiltersToQuery,
+  summarizeReport,
+  type AttentionItem,
+  type ReportAdmission,
+} from "@/lib/admissao/reports";
+import { PageHeader } from "@/components/internal/PageHeader";
+import { PageContainer } from "@/components/ui/PageContainer";
+import { MetricCard } from "@/components/ui/MetricCard";
+import { Panel, panelLinkClass } from "@/components/ui/Panel";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ButtonLink, buttonVariants } from "@/components/ui/Button";
+import { BarList, ColumnChart } from "@/components/ui/charts";
+import { TONE_DOT } from "@/components/ui/StatusBadge";
+import { ReportFiltersBar } from "@/components/internal/admissao/ReportFiltersBar";
+import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Relatórios de Admissões — RH" };
+export const metadata: Metadata = { title: "Relatórios — RH" };
 
-function Bars({
-  title,
-  rows,
-  total,
+async function loadReportRows(): Promise<{ rows: ReportAdmission[]; error: boolean }> {
+  const supabase = await createClient();
+  const [admissionsRes, docTypesRes, attachmentsRes] = await Promise.all([
+    supabase
+      .from("admissions")
+      .select(
+        `id, fullName, createdAt, companyId, branchId, positionId, responsibleId, stageId, startDate, medicalExamDate,
+         digitalFormToken, digitalFormExpiresAt, digitalFormSubmittedAt,
+         position:admission_positions(name), company:admission_companies(name),
+         branch:admission_branches(name), stage:admission_stages(name, color, isFinal)`
+      )
+      .is("deletedAt", null)
+      .limit(5000),
+    supabase.from("admission_document_types").select("id, required"),
+    supabase
+      .from("admission_attachments")
+      .select("admissionId, documentTypeId, aiStatus, reviewStatus, createdAt")
+      .not("documentTypeId", "is", null)
+      .limit(50000),
+  ]);
+  if (admissionsRes.error) return { rows: [], error: true };
+
+  const docTypes = (docTypesRes.data ?? []) as Array<{ id: string; required: boolean }>;
+  const required = docTypes.filter((d) => d.required);
+  // admissão → tipo de documento → arquivos
+  const files = new Map<string, Map<string, Array<{ aiStatus: string | null; reviewStatus: string | null; createdAt: string }>>>();
+  for (const f of (attachmentsRes.data ?? []) as Array<{
+    admissionId: string;
+    documentTypeId: string;
+    aiStatus: string | null;
+    reviewStatus: string | null;
+    createdAt: string;
+  }>) {
+    let byType = files.get(f.admissionId);
+    if (!byType) files.set(f.admissionId, (byType = new Map()));
+    const arr = byType.get(f.documentTypeId) ?? [];
+    arr.push(f);
+    byType.set(f.documentTypeId, arr);
+  }
+
+  const rows = ((admissionsRes.data ?? []) as unknown as Array<{
+    id: string;
+    fullName: string;
+    createdAt: string;
+    companyId: string | null;
+    branchId: string | null;
+    positionId: string | null;
+    responsibleId: string | null;
+    stageId: string | null;
+    startDate: string | null;
+    medicalExamDate: string | null;
+    digitalFormToken: string | null;
+    digitalFormExpiresAt: string | null;
+    digitalFormSubmittedAt: string | null;
+    position: { name: string } | null;
+    company: { name: string } | null;
+    branch: { name: string } | null;
+    stage: { name: string; color: string; isFinal: boolean } | null;
+  }>).map<ReportAdmission>((a) => {
+    const byType = files.get(a.id);
+    return {
+      id: a.id,
+      fullName: a.fullName,
+      createdAt: new Date(a.createdAt).toISOString(),
+      companyId: a.companyId,
+      companyName: a.company?.name ?? null,
+      branchId: a.branchId,
+      branchName: a.branch?.name ?? null,
+      positionId: a.positionId,
+      positionName: a.position?.name ?? null,
+      responsibleId: a.responsibleId,
+      stageId: a.stageId,
+      stageName: a.stage?.name ?? null,
+      stageColor: a.stage?.color ?? null,
+      isFinal: !!a.stage?.isFinal,
+      startDate: a.startDate?.slice(0, 10) ?? null,
+      examDate: a.medicalExamDate?.slice(0, 10) ?? null,
+      digitalFormToken: !!a.digitalFormToken,
+      digitalFormExpiresAt: a.digitalFormExpiresAt,
+      digitalFormSubmittedAt: a.digitalFormSubmittedAt,
+      requiredDocsTotal: required.length,
+      requiredDocsDone: required.filter((d) => (byType?.get(d.id)?.length ?? 0) > 0).length,
+      docsToReview: docTypes.filter((d) => {
+        const list = byType?.get(d.id);
+        return !!list?.length && needsAttention(sectionStatus(list, d.required));
+      }).length,
+    };
+  });
+  return { rows, error: false };
+}
+
+function plural(n: number, one: string, many: string) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+export default async function RelatoriosPage({
+  searchParams,
 }: {
-  title: string;
-  rows: { name: string; count: number; color?: string }[];
-  total: number;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  const [params, config, { rows, error }] = await Promise.all([searchParams, getAdmissionConfig(), loadReportRows()]);
+  const filters = parseReportFilters(params);
+  const now = new Date();
+  const s = summarizeReport(rows, filters, now);
+  const cohort = s.cohort;
+  const attention = attentionItems(cohort, now);
+  const query = reportFiltersToQuery(filters);
+  const period = REPORT_PERIODS.find((p) => p.value === filters.period)!;
+
+  const stageOrder = new Map(config.stages.map((st, i) => [st.id, i]));
+  const byStage = countBy(cohort, (r) => ({
+    key: r.stageId ?? "none",
+    label: r.stageName ?? "Sem etapa",
+    color: r.stageColor ?? "#B5BEAA",
+  })).sort((a, b) => (stageOrder.get(a.key) ?? 999) - (stageOrder.get(b.key) ?? 999));
+  const byCompany = countBy(cohort, (r) => ({ key: r.companyId ?? "none", label: r.companyName ?? "Sem empresa" }));
+  const byBranch = countBy(cohort, (r) => ({ key: r.branchId ?? "none", label: r.branchName ?? "Sem filial" }));
+  const byPosition = countBy(cohort, (r) => ({ key: r.positionId ?? "none", label: r.positionName ?? "Sem cargo" }));
+  const months = monthlySeries(cohort, filters, now);
+  const since = s.dataSince ? new Date(s.dataSince).toLocaleDateString("pt-BR") : null;
+
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
-      <h2 className="text-base font-semibold text-gray-900 mb-4">{title}</h2>
-      {rows.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">Sem dados.</p>
-      ) : (
-        <div className="space-y-2.5">
-          {rows.map((r) => {
-            const pct = total > 0 ? (r.count / total) * 100 : 0;
-            return (
-              <div key={r.name}>
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="flex items-center gap-2 truncate">
-                    {r.color && (
-                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
-                    )}
-                    <span className="truncate text-gray-700">{r.name}</span>
-                  </span>
-                  <span className="text-gray-400 text-xs">{r.count}</span>
-                </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${pct}%`, backgroundColor: r.color ?? "#5b8c3e" }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+    <PageContainer>
+      <PageHeader
+        className="mb-0"
+        icon={BarChart3}
+        title="Relatórios"
+        subtitle="Indicadores e análise dos processos de admissão."
+        action={
+          <a
+            href={`/api/admissoes/export${query ? `?${query}` : ""}`}
+            className={buttonVariants({ variant: "primary" })}
+            title="Baixa as admissões do recorte atual em planilha"
+          >
+            <FileSpreadsheet aria-hidden />
+            Exportar Excel
+          </a>
+        }
+      />
+
+      <div className="flex flex-col gap-2">
+        <ReportFiltersBar
+          filters={filters}
+          companies={config.companies}
+          branches={config.branches}
+          positions={config.positions}
+          users={config.users}
+        />
+        <p className="text-[12.5px] text-wg-ink-muted">
+          {plural(cohort.length, "admissão", "admissões")} no recorte · o período considera a data de abertura da admissão
+          {filters.period === "tudo" && since ? ` (dados desde ${since})` : ""}.
+        </p>
+      </div>
+
+      {error ? (
+        <div role="alert" className="rounded-card border border-danger-border bg-danger-bg px-4 py-3 text-body text-danger-fg">
+          Não foi possível carregar os dados dos relatórios agora. Atualize a página em instantes.
         </div>
+      ) : cohort.length === 0 ? (
+        <div className="rounded-card border border-wg-border-lighter bg-white">
+          <EmptyState
+            icon={BarChart3}
+            title="Não existem dados suficientes para este filtro."
+            description="Nenhuma admissão foi aberta no recorte selecionado."
+            action={
+              activeReportFilterCount(filters) > 0 ? (
+                <ButtonLink href="/admissoes/relatorios" variant="secondary" size="sm">
+                  Limpar filtros
+                </ButtonLink>
+              ) : undefined
+            }
+          />
+        </div>
+      ) : (
+        <>
+          <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <MetricCard
+              label="Admissões ativas"
+              value={s.active}
+              icon={Users}
+              tone="info"
+              context={s.activeWithIssues > 0 ? `${s.activeWithIssues} com pendência para o RH` : s.active > 0 ? "Nenhuma com pendência" : undefined}
+              hint="Admissões do recorte que ainda não chegaram à etapa de conclusão."
+              href="/admissoes"
+            />
+            <MetricCard
+              label="Admissões concluídas"
+              value={s.completed}
+              icon={CheckCircle2}
+              tone="success"
+              context={s.created > 0 ? `${Math.round((s.completed / s.created) * 100)}% do recorte` : undefined}
+              hint="Admissões do recorte na etapa final da jornada."
+            />
+            <MetricCard
+              label="Novas admissões"
+              value={s.created}
+              icon={TrendingUp}
+              tone="neutral"
+              comparison={s.createdDeltaPct !== null ? { deltaPct: s.createdDeltaPct, label: period.compareLabel, goodWhenUp: null } : null}
+              context={
+                s.createdDeltaPct === null
+                  ? filters.period === "tudo"
+                    ? since
+                      ? `Desde ${since}`
+                      : undefined
+                    : "Sem base para comparar com o período anterior"
+                  : undefined
+              }
+              hint="Admissões abertas no período. A comparação só aparece quando há dados em todo o período anterior."
+            />
+            <MetricCard
+              label="Filiais com admissão"
+              value={s.branches}
+              icon={Building2}
+              tone="neutral"
+              context={config.branches.length ? `de ${plural(config.branches.length, "filial ativa", "filiais ativas")}` : undefined}
+            />
+            <MetricCard
+              label="Pendências documentais"
+              value={s.docsPending}
+              icon={FileWarning}
+              tone={s.docsPending > 0 ? "warning" : "neutral"}
+              context={
+                s.docsPending > 0
+                  ? [s.docsMissing ? `${s.docsMissing} com obrigatórios faltando` : null, s.docsToReview ? `${s.docsToReview} para conferir` : null]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : "Documentação em dia"
+              }
+              hint="Admissões em andamento com documento obrigatório não enviado ou aguardando conferência."
+              href={s.docsMissing > 0 ? "/admissoes?filtro=documentos" : undefined}
+            />
+            <MetricCard
+              label="ASO sem agendamento"
+              value={s.examPending}
+              icon={Stethoscope}
+              tone={s.examPendingSoon > 0 ? "danger" : s.examPending > 0 ? "warning" : "neutral"}
+              context={s.examPendingSoon > 0 ? `${s.examPendingSoon} com início em até 7 dias` : s.examPending === 0 ? "Todos agendados" : undefined}
+              hint="Admissões em andamento sem data de exame médico (ASO) cadastrada."
+            />
+          </section>
+
+          <div className="grid gap-4 xl:grid-cols-3">
+            <Panel
+              className="xl:col-span-2"
+              title="Admissões por mês"
+              meta={`${months.length} ${months.length === 1 ? "mês" : "meses"}`}
+              description="Quantidade de admissões abertas em cada mês."
+            >
+              <ColumnChart data={months} unit={["admissão", "admissões"]} ariaLabel="Admissões abertas por mês" />
+            </Panel>
+            <AttentionPanel items={attention} />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Panel title="Por etapa" meta={plural(cohort.length, "admissão", "admissões")}>
+              <BarList data={byStage} total={cohort.length} />
+            </Panel>
+            <Panel title="Por empresa">
+              <BarList data={byCompany} total={cohort.length} maxItems={6} />
+            </Panel>
+            <Panel title="Por filial">
+              <BarList data={byBranch} total={cohort.length} maxItems={6} />
+            </Panel>
+            <Panel title="Por cargo">
+              <BarList data={byPosition} total={cohort.length} maxItems={6} />
+            </Panel>
+          </div>
+
+          <p className="text-[12px] text-wg-ink-muted">
+            Tempo médio de admissão e cumprimento de prazo ainda não são exibidos: dependem do histórico de etapas, que
+            passou a ser registrado agora, e de uma meta de prazo definida pelo RH.
+          </p>
+        </>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
-export default async function RelatoriosPage() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("admissions")
-    .select(
-      "createdAt, stage:admission_stages(name, color, isFinal), company:admission_companies(name), branch:admission_branches(name)"
-    )
-    .is("deletedAt", null)
-    .limit(2000);
-  const admissions = (data ?? []) as unknown as Array<{
-    createdAt: string;
-    stage: { name: string; color: string; isFinal: boolean } | null;
-    company: { name: string } | null;
-    branch: { name: string } | null;
-  }>;
-
-  const concluidas = admissions.filter((a) => a.stage?.isFinal === true);
-  const ativas     = admissions.filter((a) => !a.stage?.isFinal);
-
-  const now = new Date();
-  const start30 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
-  const last30 = admissions.filter((a) => new Date(a.createdAt) >= start30).length;
-
-  const agg = (pick: (a: (typeof admissions)[number]) => { name: string; color?: string } | null) => {
-    const map = new Map<string, { name: string; count: number; color?: string }>();
-    for (const a of admissions) {
-      const v = pick(a);
-      const name = v?.name ?? "—";
-      const cur = map.get(name) ?? { name, count: 0, color: v?.color };
-      cur.count += 1;
-      map.set(name, cur);
-    }
-    return [...map.values()].sort((x, y) => y.count - x.count);
-  };
-
-  const total = admissions.length;
-
-  const byStage = agg((a) => (a.stage ? { name: a.stage.name, color: a.stage.color } : { name: "Sem etapa" }));
-  const byCompany = agg((a) => ({ name: a.company?.name ?? "Sem empresa" }));
-  const byBranch = agg((a) => ({ name: a.branch?.name ?? "Sem filial" }));
-
-  // Últimos 6 meses
-  const months: { key: string; label: string; count: number }[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push({
-      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      label: d.toLocaleDateString("pt-BR", { month: "short" }),
-      count: 0,
-    });
-  }
-  for (const a of admissions) {
-    const d = new Date(a.createdAt);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const m = months.find((x) => x.key === key);
-    if (m) m.count += 1;
-  }
-  const maxMonth = Math.max(1, ...months.map((m) => m.count));
-
+function AttentionPanel({ items }: { items: AttentionItem[] }) {
+  const total = new Set(items.flatMap((i) => i.ids)).size;
   return (
-    <div className="max-w-6xl">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" /> Relatórios
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Visão geral dos processos de admissão.</p>
-        </div>
-        <a
-          href="/api/admissoes/export"
-          className="inline-flex items-center gap-2 bg-wg-green hover:bg-wg-green-bright text-black font-semibold px-4 py-2.5 rounded-full text-sm transition-colors shrink-0"
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          Exportar Excel
-        </a>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <DashboardCard label="Admissões ativas" value={ativas.length} icon={Users} />
-        <DashboardCard label="Admissões concluídas" value={concluidas.length} icon={CheckCircle} />
-        <DashboardCard
-          label="Últimos 30 dias"
-          value={last30}
-          icon={TrendingUp}
-          hint="Novas admissões"
-        />
-        <DashboardCard label="Filiais com admissão" value={byBranch.length} icon={Building2} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Bars title="Admissões por etapa" rows={byStage} total={total} />
-
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Admissões por mês (últimos 6)</h2>
-          <div className="flex items-end gap-2 h-40">
-            {months.map((m) => (
-              <div key={m.key} className="flex-1 flex flex-col items-center gap-1">
-                <div className="text-xs text-gray-400">{m.count}</div>
-                <div
-                  className="w-full bg-wg-green/80 rounded-t transition-all"
-                  style={{ height: `${(m.count / maxMonth) * 100}%`, minHeight: m.count > 0 ? 4 : 0 }}
-                />
-                <div className="text-xs text-gray-400 capitalize">{m.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <Bars title="Por empresa" rows={byCompany} total={total} />
-        <Bars title="Por filial" rows={byBranch} total={total} />
-      </div>
-    </div>
+    <Panel
+      title="Atenção necessária"
+      meta={total > 0 ? plural(total, "admissão", "admissões") : undefined}
+      description="Situações operacionais que pedem ação do RH."
+      flush
+    >
+      {items.length === 0 ? (
+        <EmptyState compact icon={CircleCheck} title="Nenhuma pendência operacional neste recorte." />
+      ) : (
+        <ul className="divide-y divide-wg-border-lighter">
+          {items.map((i) => {
+            const href = i.ids.length === 1 ? `/admissoes/${i.ids[0]}` : i.href;
+            return (
+              <li key={i.key} className="px-5 py-3">
+                <div className="flex items-start gap-2.5">
+                  <span aria-hidden className={cn("mt-[7px] h-2 w-2 shrink-0 rounded-full", TONE_DOT[i.tone])} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-body font-medium text-wg-ink">{i.text}</p>
+                    <p className="mt-0.5 truncate text-meta text-wg-ink-muted">
+                      {i.samples.map((sm, idx) => (
+                        <span key={sm.id}>
+                          {idx > 0 && ", "}
+                          <Link href={`/admissoes/${sm.id}`} className="rounded-sm hover:text-wg-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50">
+                            {sm.name.split(" ").slice(0, 2).join(" ")}
+                          </Link>
+                        </span>
+                      ))}
+                      {i.count > i.samples.length && ` e mais ${i.count - i.samples.length}`}
+                    </p>
+                  </div>
+                  <Link href={href} className={cn(panelLinkClass, "shrink-0")}>
+                    {i.ids.length === 1 ? "Abrir" : "Ver admissões"}
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Panel>
   );
 }

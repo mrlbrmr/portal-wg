@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import ExcelJS from "exceljs";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmissionSession } from "@/lib/admissao/permissions";
+import { parseReportFilters, periodWindow } from "@/lib/admissao/reports";
 
 // GET /api/admissoes/export — exporta as admissões ativas em .xlsx.
 // Leitura = qualquer usuário interno autenticado (mesma regra da listagem).
-export async function GET() {
+// Aceita os mesmos filtros dos Relatórios (?periodo=&empresa=&filial=&cargo=&resp=&status=);
+// sem parâmetros, exporta tudo como antes.
+export async function GET(req: NextRequest) {
   const access = await requireAdmissionSession();
   if (!access.ok) {
     return NextResponse.json(
@@ -14,9 +17,11 @@ export async function GET() {
     );
   }
 
+  const filters = parseReportFilters(Object.fromEntries(req.nextUrl.searchParams));
+  const { from } = periodWindow(filters.period, new Date());
+
   const supabase = await createClient();
-  const [admissionsRes, usersRes, requiredRes] = await Promise.all([
-    supabase
+  let admissionsQuery = supabase
       .from("admissions")
       .select(
         `fullName, cpf, email, phone, birthDate, responsibleId, managerName, startDate,
@@ -24,16 +29,25 @@ export async function GET() {
          position:admission_positions(name),
          company:admission_companies(name),
          branch:admission_branches(name),
-         stage:admission_stages(name),
+         stage:admission_stages(name, isFinal),
          attachments:admission_attachments(documentTypeId)`
       )
       .is("deletedAt", null)
-      .order("createdAt", { ascending: false }),
+      .order("createdAt", { ascending: false });
+  if (filters.company) admissionsQuery = admissionsQuery.eq("companyId", filters.company);
+  if (filters.branch) admissionsQuery = admissionsQuery.eq("branchId", filters.branch);
+  if (filters.position) admissionsQuery = admissionsQuery.eq("positionId", filters.position);
+  if (filters.responsible === "none") admissionsQuery = admissionsQuery.is("responsibleId", null);
+  else if (filters.responsible) admissionsQuery = admissionsQuery.eq("responsibleId", filters.responsible);
+  if (from) admissionsQuery = admissionsQuery.gte("createdAt", from.toISOString());
+
+  const [admissionsRes, usersRes, requiredRes] = await Promise.all([
+    admissionsQuery,
     supabase.from("users").select("id, name"),
     supabase.from("admission_document_types").select("id").eq("required", true),
   ]);
 
-  const admissions = (admissionsRes.data ?? []) as unknown as Array<{
+  const allAdmissions = (admissionsRes.data ?? []) as unknown as Array<{
     fullName: string;
     cpf: string | null;
     email: string | null;
@@ -52,9 +66,12 @@ export async function GET() {
     position: { name: string } | null;
     company: { name: string } | null;
     branch: { name: string } | null;
-    stage: { name: string } | null;
+    stage: { name: string; isFinal: boolean } | null;
     attachments: Array<{ documentTypeId: string | null }>;
   }>;
+  const admissions = filters.status
+    ? allAdmissions.filter((a) => (filters.status === "concluidas" ? a.stage?.isFinal : !a.stage?.isFinal))
+    : allAdmissions;
   const users = (usersRes.data ?? []) as Array<{ id: string; name: string }>;
   const requiredIds = ((requiredRes.data ?? []) as Array<{ id: string }>).map((d) => d.id);
 

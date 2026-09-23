@@ -79,7 +79,7 @@ function statusItem(entry: StatusHistoryRow, prev: StatusHistoryRow | undefined)
   return { ...base, kind: "status", title: "Status alterado", details: transition, tone: "info" };
 }
 
-function eventItem(e: JobEventRow): HistoryItem | null {
+export function eventItem(e: JobEventRow): HistoryItem | null {
   const d = e.data ?? {};
   const base = { id: `e-${e.id}`, at: e.createdAt, actor: e.actorName || null };
   const n = num(d.number);

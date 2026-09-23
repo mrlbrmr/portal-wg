@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { randomUUID } from 'crypto'
 import { DIGITAL_FORM_EXPIRY_DAYS } from '@/lib/admissao/form-config'
+import { logActivity } from '@/lib/activity/log'
 
 export async function POST(
   _req: NextRequest,
@@ -39,6 +40,18 @@ export async function POST(
     digitalFormToken:      token,
     digitalFormExpiresAt:  expiresAt.toISOString(),
   }).eq('id', id)
+
+  await logActivity(supabase, {
+    action: 'FORM_LINK_SENT',
+    entity: 'ADMISSION',
+    entityId: id,
+    admissionId: id,
+    userId: session.user.id,
+    description: admission.digitalFormToken
+      ? 'Novo link do formulário gerado (o anterior foi invalidado)'
+      : 'Link do formulário admissional gerado',
+    metadata: { expiresAt: expiresAt.toISOString(), subjectName: admission.fullName as string },
+  })
 
   const baseUrl  = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const formUrl  = `${baseUrl}/admissao/${token}`

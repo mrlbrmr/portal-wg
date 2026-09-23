@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import { EditUserForm } from "@/components/internal/EditUserForm";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, UserCog } from "lucide-react";
+import { PageHeader } from "@/components/internal/PageHeader";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Editar Usuário — RH" };
@@ -29,20 +30,19 @@ export default async function EditarUsuarioPage({ params }: Props) {
   if (!user) notFound();
 
   return (
-    <div className="max-w-lg">
-      <Link
-        href="/usuarios"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-wg-green-dark transition-colors mb-5"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        Voltar aos usuários
-      </Link>
-
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Editar usuário</h1>
-      <p className="text-sm text-gray-500 mb-6">{user.email}</p>
-
-      <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6">
-        <EditUserForm user={user} />
+    <div className="mx-auto w-full max-w-[1480px]">
+      <div className="max-w-xl">
+        <Link
+          href="/usuarios"
+          className="mb-4 inline-flex items-center gap-1 rounded-sm text-meta text-wg-ink-muted transition-colors hover:text-wg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+          Usuários
+        </Link>
+        <PageHeader icon={UserCog} title="Editar usuário" subtitle={user.email} />
+        <div className="rounded-card border border-wg-border-lighter bg-white p-6">
+          <EditUserForm user={user} />
+        </div>
       </div>
     </div>
   );

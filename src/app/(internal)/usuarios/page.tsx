@@ -1,40 +1,55 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { UserPlus, UsersRound } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { UserPlus, Pencil } from "lucide-react";
-import { formatDate } from "@/lib/utils";
-import { UserToggleActions } from "@/components/internal/UserToggleActions";
 import { PageHeader } from "@/components/internal/PageHeader";
 import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
-import type { Metadata } from "next";
+import { PageContainer } from "@/components/ui/PageContainer";
+import { CompactMetrics } from "@/components/ui/CompactMetrics";
+import { UsersTable, type UserRow } from "@/components/internal/users/UsersTable";
 
 export const metadata: Metadata = { title: "Usuários — RH" };
+
+/** Último login por e-mail, lido do Supabase Auth (onde vivem as credenciais). */
+async function lastSignIns(admin: ReturnType<typeof createAdminClient>): Promise<Map<string, string | null> | null> {
+  const map = new Map<string, string | null>();
+  for (let page = 1; page <= 10; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) return null;
+    for (const u of data.users) if (u.email) map.set(u.email.toLowerCase(), u.last_sign_in_at ?? null);
+    if (data.users.length < 200) break;
+  }
+  return map;
+}
 
 export default async function UsuariosPage() {
   const session = await auth();
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = createAdminClient();
-  const { data: usersData } = await supabase
-    .from("users")
-    .select("id, name, email, role, isApprover, active, createdAt")
-    .order("createdAt", { ascending: false });
-  const users = (usersData ?? []) as Array<{
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    isApprover: boolean;
-    active: boolean;
-    createdAt: string;
-  }>;
+  const [{ data: usersData, error }, signIns] = await Promise.all([
+    supabase.from("users").select("id, name, email, role, isApprover, active, createdAt").order("name", { ascending: true }),
+    lastSignIns(supabase),
+  ]);
+  const base = (usersData ?? []) as Array<Omit<UserRow, "lastSignInAt">>;
+  const users: UserRow[] = base.map((u) => ({
+    ...u,
+    isApprover: !!u.isApprover,
+    // Sem leitura do Auth → desconhecido ("Nunca acessou" seria afirmar demais).
+    lastSignInAt: signIns?.has(u.email.toLowerCase()) ? signIns.get(u.email.toLowerCase()) : undefined,
+  }));
+
+  const active = users.filter((u) => u.active);
+  const neverSigned = signIns ? active.filter((u) => u.lastSignInAt === null).length : 0;
 
   return (
-    <div className="max-w-3xl">
+    <PageContainer>
       <PageHeader
+        className="mb-0"
+        icon={UsersRound}
         title="Usuários"
-        subtitle="Contas de acesso ao painel interno"
+        subtitle="Gerencie contas, perfis e permissões de acesso ao portal."
         action={
           <PrimaryActionLink href="/usuarios/novo" icon={UserPlus}>
             Novo usuário
@@ -42,69 +57,32 @@ export default async function UsuariosPage() {
         }
       />
 
-      <div className="bg-white border border-gray-200 shadow-sm rounded-xl overflow-hidden">
-        {users.length === 0 ? (
-          <div className="py-12 text-center text-gray-500 text-sm">
-            Nenhum usuário cadastrado.
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between px-5 py-4 gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-gray-900">{user.name}</span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        user.role === "ADMIN_RH"
-                          ? "bg-wg-green/15 text-wg-green-dark"
-                          : "bg-gray-200 text-gray-600"
-                      }`}
-                    >
-                      {user.role === "ADMIN_RH" ? "Admin RH" : "Visualizador"}
-                    </span>
-                    {user.isApprover && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#FCF1DD] text-[#8A5B10] font-medium">
-                        Aprovador de vagas
-                      </span>
-                    )}
-                    {!user.active && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
-                        Inativo
-                      </span>
-                    )}
-                    {user.id === session?.user.id && (
-                      <span className="text-xs text-gray-500">(você)</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Criado em {formatDate(user.createdAt)}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {user.id !== session?.user.id && (
-                    <UserToggleActions
-                      userId={user.id}
-                      currentRole={user.role}
-                      isActive={user.active}
-                    />
-                  )}
-                  <Link
-                    href={user.id === session?.user.id ? "/perfil" : `/usuarios/${user.id}/editar`}
-                    className="inline-flex items-center gap-1 text-xs border border-gray-300 hover:border-wg-green text-gray-600 hover:text-wg-green-dark px-2.5 py-1.5 rounded-lg transition-colors"
-                    title="Editar"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    Editar
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+      {error ? (
+        <div role="alert" className="rounded-card border border-danger-border bg-danger-bg px-4 py-3 text-body text-danger-fg">
+          Não foi possível carregar os usuários agora. Atualize a página em instantes.
+        </div>
+      ) : (
+        <>
+          <CompactMetrics
+            total={{ value: active.length, label: active.length === 1 ? "usuário ativo" : "usuários ativos" }}
+            items={[
+              { label: "administradores", value: active.filter((u) => u.role === "ADMIN_RH").length },
+              { label: "visualizadores", value: active.filter((u) => u.role === "VIEWER_RH").length },
+              {
+                label: "aprovam solicitações",
+                value: active.filter((u) => u.isApprover).length,
+                hint: "Usuários com a permissão adicional de aprovar solicitações de vaga",
+              },
+              ...(neverSigned > 0 ? [{ label: "nunca acessaram", value: neverSigned, tone: "warning" as const }] : []),
+              { label: "desativados", value: users.length - active.length, tone: "neutral" as const },
+            ]}
+          />
+          <UsersTable users={users} currentUserId={session.user.id} signInsAvailable={!!signIns} />
+          {!signIns && (
+            <p className="text-[12px] text-wg-ink-muted">O último acesso não pôde ser consultado agora.</p>
+          )}
+        </>
+      )}
+    </PageContainer>
   );
 }

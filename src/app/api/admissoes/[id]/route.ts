@@ -3,6 +3,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { admissionSchema } from "@/lib/admissao/validation";
 import { admissionInputToData } from "@/lib/admissao/data";
+import { logActivity } from "@/lib/activity/log";
+import { logAdmissionChanges, snapshotAdmission } from "@/lib/activity/admission-changes";
 import {
   requireAdmissionWrite,
   requireAdmissionSession,
@@ -45,10 +47,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: first ?? "Dados inválidos" }, { status: 400 });
   }
 
+  const before = await snapshotAdmission(supabase, id);
   await supabase
     .from("admissions")
     .update({ ...admissionInputToData(parsed.data), updatedById: access.userId })
     .eq("id", id);
+  const after = await snapshotAdmission(supabase, id);
+  await logAdmissionChanges(supabase, { admissionId: id, userId: access.userId, before, after, source: "form" });
 
   revalidatePath("/admissoes");
   revalidatePath(`/admissoes/${id}/editar`);
@@ -70,7 +75,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("admissions")
-    .select("id")
+    .select("id, fullName")
     .eq("id", id)
     .is("deletedAt", null)
     .maybeSingle();
@@ -82,6 +87,15 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     .from("admissions")
     .update({ deletedAt: new Date().toISOString(), updatedById: access.userId })
     .eq("id", id);
+  await logActivity(supabase, {
+    action: "ADMISSION_DELETED",
+    entity: "ADMISSION",
+    entityId: id,
+    admissionId: id,
+    userId: access.userId,
+    description: "Admissão excluída",
+    metadata: { subjectName: (existing as { fullName?: string }).fullName },
+  });
 
   revalidatePath("/admissoes");
   return NextResponse.json({ ok: true }, { status: 200 });

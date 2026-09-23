@@ -50,7 +50,7 @@ export function NewUserForm() {
   const labelClass = "block text-sm font-medium text-gray-700 mb-1.5";
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white border border-gray-200 shadow-sm rounded-xl p-6 flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5 rounded-card border border-wg-border-lighter bg-white p-6">
       <div>
         <label className={labelClass}>Nome completo</label>
         <input name="name" type="text" required placeholder="Ex: Maria Silva" className={inputClass} />
@@ -75,10 +75,10 @@ export function NewUserForm() {
       </div>
 
       <div>
-        <label className={labelClass}>Papel</label>
+        <label className={labelClass}>Perfil</label>
         <select name="role" defaultValue="VIEWER_RH" className={inputClass}>
-          <option value="VIEWER_RH">Visualizador — só leitura</option>
-          <option value="ADMIN_RH">Admin RH — acesso total</option>
+          <option value="VIEWER_RH">Visualizador — somente leitura</option>
+          <option value="ADMIN_RH">Administrador RH — acesso completo</option>
         </select>
       </div>
 

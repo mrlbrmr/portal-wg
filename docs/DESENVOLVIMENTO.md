@@ -7,6 +7,47 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-23 (madrugada) — Calendário, Relatórios, Atividades e Usuários reformulados
+
+Sem migração. Reformulação de UX/UI das quatro páginas + registro de eventos que faltavam.
+
+- **Padrão de página:** `PageContainer` (1480px, gap 20px) + `PageHeader` com `icon`. Peças novas em
+  `src/components/ui/`: `FilterControls` (busca, select com prefixo, `FilterBar` que recolhe em telas
+  pequenas — promovidos de `avaliacoes/ui.tsx`, que reexporta), `table.ts`, `SideDrawer` + `DetailList`,
+  `MetricCard` (comparação só com base válida), `UserAvatar`, `charts.tsx` (`ColumnChart`, `BarList`).
+- **Calendário** (`/admissoes/calendario`): Mês | Semana | Lista, filtros (empresa, filial, tipo, responsável)
+  e estado na URL, resumo de hoje (ou "próximo evento"), drawer com ações compatíveis (abrir, reagendar ASO).
+  Regras puras em `src/lib/admissao/calendar.ts` (testado). Tipo "Prazo do formulário" = vencimento do link
+  digital não preenchido. **Vencimento de experiência está estruturado mas DESLIGADO**
+  (`EXPERIENCE_CHECKPOINT_DAYS = null`) até o RH definir os marcos (ex.: `[45, 90]`). Sem horário: o banco
+  só guarda datas.
+- **Relatórios** (`/admissoes/relatorios`): filtros globais na URL (período = data de abertura, empresa,
+  filial, cargo, responsável, situação), aplicados também no **Exportar Excel** (`/api/admissoes/export`
+  aceita os mesmos parâmetros; sem parâmetros exporta tudo). 6 indicadores reais, gráfico de colunas,
+  distribuições e "Atenção necessária" com links para os filtros da lista. Regras em
+  `src/lib/admissao/reports.ts` (testado). Comparação com período anterior só aparece quando o sistema
+  tinha dados em toda a janela anterior. **Não exibidos:** tempo médio e "dentro do prazo" (dependem do
+  histórico de etapas, que começou a ser gravado agora, e de `ADMISSION_TARGET_DAYS`).
+- **Atividades** (rota mantida `/admissoes/historico`; menu renomeado): feed unificado de
+  `admissions` (criação), `admission_activity_log`, `job_request_history`, `job_events` (sem
+  POSITIONS_MIGRATED), `job_status_history`, `application_stage_history` e `config_change_log`. Busca, filtros
+  no banco e paginação por cursor (timestamp em µs + ids do mesmo instante; validado em produção: 436
+  eventos, páginas de 7 = consulta única, sem duplicata). Catálogo de tipos em `src/lib/activity/catalog.ts`
+  (para um evento novo aparecer: gravar `action` e mapear em `ADMISSION_LOG_ACTIONS`).
+- **Eventos que passaram a ser gravados** (`src/lib/activity/log.ts`, nunca bloqueiam a operação):
+  etapa alterada / admissão concluída (Kanban e edição, com de→para), ASO atualizado, admissão editada
+  (campos de→para), excluída, link do formulário gerado, formulário enviado pelo candidato, usuário
+  criado/editado/perfil alterado/desativado/reativado/excluído (`entity = USER`).
+- **Usuários:** tabela com perfil, permissões adicionais, status, último acesso (`auth.users.last_sign_in_at`)
+  e menu "…" (editar, alterar perfil, desativar/reativar). Troca de perfil em 2 passos com o que a pessoa
+  ganha/perde. Catálogo de perfis/permissões em `src/lib/access/roles.ts` (ROLE + permissões adicionais;
+  Analista RH e Aprovador descritos mas **não atribuíveis** — exigem enum + funções nas policies RLS).
+- **Correções de backend:** `PATCH /api/users/[id]` agora grava `isApprover` (era validado e descartado) e
+  **desativar passa a bloquear o login** (`ban_duration` no Supabase Auth; antes `users.active` era só
+  visual). Nenhum usuário estava desativado, então não houve correção retroativa.
+
+---
+
 ## Sessão de 2026-09-23 (noite) — Página da vaga reformulada + Posições da vaga
 
 Migração **aplicada** (aditiva): `20260923200000_job_positions.sql`.

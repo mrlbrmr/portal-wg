@@ -133,17 +133,17 @@ export function EditUserForm({ user }: Props) {
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClass}>Papel</label>
+              <label className={labelClass}>Perfil</label>
               <select name="role" defaultValue={user.role} className={inputClass}>
-                <option value="VIEWER_RH" className="bg-white">Visualizador — só leitura</option>
-                <option value="ADMIN_RH" className="bg-white">Admin RH — acesso total</option>
+                <option value="VIEWER_RH" className="bg-white">Visualizador — somente leitura</option>
+                <option value="ADMIN_RH" className="bg-white">Administrador RH — acesso completo</option>
               </select>
             </div>
             <div>
               <label className={labelClass}>Status</label>
               <select name="active" defaultValue={String(user.active)} className={inputClass}>
                 <option value="true" className="bg-white">Ativo</option>
-                <option value="false" className="bg-white">Inativo</option>
+                <option value="false" className="bg-white">Desativado</option>
               </select>
             </div>
           </div>

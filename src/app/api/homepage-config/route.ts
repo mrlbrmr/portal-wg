@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_CONFIG } from "@/lib/homepage-config";
 import { z } from "zod";
+import { logConfigChange } from "@/lib/settings/audit";
 
 const homepageConfigSchema = z.object({
   showDepartment: z.boolean().optional(),
@@ -61,6 +62,14 @@ export async function PUT(req: NextRequest) {
   }
 
   revalidatePath("/");
+
+  // Os cards de vaga e a aparência da seção são páginas diferentes nas Configurações.
+  const touchesCards = Object.keys(parsed.data).some((k) => k.startsWith("show") && k !== "showFilters" && k !== "showJobCounter");
+  await logConfigChange(
+    session,
+    touchesCards ? "homepage.cards" : "homepage",
+    touchesCards ? "Informações exibidas nos cards de vaga" : "Aparência da seção de vagas"
+  );
 
   return NextResponse.json(config);
 }

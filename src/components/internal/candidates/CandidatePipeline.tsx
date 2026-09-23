@@ -24,6 +24,7 @@ import {
 } from "@/lib/recruitment/candidate-presentation";
 import { candidateStageFlow, type FlowStage } from "@/lib/recruitment/candidate-stage-flow";
 import { queuePosition } from "@/lib/recruitment/candidate-navigation";
+import { isAutomationOn } from "@/lib/selection-funnel/automations";
 import { useToast } from "@/components/ui/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -303,7 +304,8 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
   // ── Mudança de etapa (menu ⋯, diálogo) ──
   const handleBeforeMove = useCallback(
     (id: string, toStageId: string): boolean => {
-      if (admissionMeta && ["ADMISSION", "WON"].includes(stageById.get(toStageId)?.kind ?? "")) {
+      const target = stageById.get(toStageId);
+      if (admissionMeta && target && isAutomationOn(target, "openAdmission")) {
         setPendingAdmission({ candidateId: id, toStageId });
         return false;
       }
@@ -340,7 +342,11 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     try {
       const res = await patchApplication(id, { stageId: toStageId });
       if (!res.ok) throw new Error();
+      const body = (await res.json().catch(() => ({}))) as { automation?: { testLinkCreated?: boolean } };
       notify("success", `${c.fullName} movido para ${stageById.get(toStageId)?.name ?? "a nova etapa"}.`);
+      if (body.automation?.testLinkCreated) {
+        notify("info", "Link do teste gerado automaticamente — disponível na ficha do candidato.");
+      }
       router.refresh();
       return true;
     } catch {

@@ -7,26 +7,26 @@ import { getLastConfigChange } from "@/lib/settings/audit";
 import HomepageConfigForm from "@/components/internal/HomepageConfigForm";
 import { SettingsPage } from "@/components/internal/settings/SettingsPage";
 
-export const metadata: Metadata = { title: "Aparência da homepage — Configurações — RH" };
+export const metadata: Metadata = { title: "Exibição das vagas — Configurações — RH" };
 
-export default async function HomepageConfigPage() {
+export default async function JobCardConfigPage() {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = await createClient();
   const [{ data: config }, lastChange] = await Promise.all([
     supabase.from("homepage_config").select("*").eq("id", "singleton").maybeSingle(),
-    getLastConfigChange("homepage"),
+    getLastConfigChange("homepage.cards"),
   ]);
 
   return (
     <SettingsPage
-      breadcrumb={[{ label: "Portal de carreiras" }, { label: "Aparência da homepage" }]}
-      title="Aparência da homepage"
-      description="Defina o título da seção de vagas e os elementos exibidos na página inicial do portal."
+      breadcrumb={[{ label: "Portal de carreiras" }, { label: "Exibição das vagas" }]}
+      title="Exibição das vagas"
+      description="Escolha quais informações aparecem nos cards de vaga do portal de carreiras."
       lastChange={lastChange}
     >
-      <HomepageConfigForm mode="appearance" initialConfig={{ ...DEFAULT_CONFIG, ...(config ?? {}) }} />
+      <HomepageConfigForm mode="cards" initialConfig={{ ...DEFAULT_CONFIG, ...(config ?? {}) }} />
     </SettingsPage>
   );
 }

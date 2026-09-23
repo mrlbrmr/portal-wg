@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { deleteResume } from "@/lib/storage";
 import { extractScreeningCriteria } from "@/lib/recruitment/screening";
+import { runStageEntryAutomations, type AutomationReport } from "@/lib/selection-funnel/run-automations";
 
 // Rotas internas — leitura/mutação de candidatura.
 // LGPD: nenhuma dessas rotas é pública (protegidas por auth + middleware).
@@ -137,19 +138,26 @@ export async function PATCH(
     return NextResponse.json({ error: "Erro ao atualizar candidatura" }, { status: 500 });
   }
 
-  // Só registra no histórico quando a etapa realmente muda.
+  // Só registra no histórico (e roda as automações da etapa) quando a etapa realmente muda.
+  let automation: AutomationReport = {};
   if (parsed.data.stageId && parsed.data.stageId !== current.stageId) {
+    const actorName = session.user.name ?? session.user.email ?? "Admin";
     await supabase.from("application_stage_history").insert({
       applicationId: id,
       stageId: parsed.data.stageId,
-      changedBy: session.user.name ?? session.user.email ?? "Admin",
+      changedBy: actorName,
+    });
+    automation = await runStageEntryAutomations(supabase, {
+      applicationId: id,
+      stageId: parsed.data.stageId,
+      actorName,
     });
   }
 
   revalidatePath(`/vagas/${application.jobId}/candidatos`);
   revalidatePath("/dashboard");
 
-  return NextResponse.json({ ok: true, stageId: application.stageId, notes: application.notes });
+  return NextResponse.json({ ok: true, stageId: application.stageId, notes: application.notes, automation });
 }
 
 export async function DELETE(

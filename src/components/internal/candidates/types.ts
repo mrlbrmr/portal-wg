@@ -51,6 +51,8 @@ export interface PipelineStage {
   templateId?: string | null;
   templateName?: string | null;
   templateKind?: string | null;
+  /** JSON de application_stages.automations (ver src/lib/selection-funnel/automations.ts). */
+  automations?: unknown;
 }
 
 export type CandidateSortKey =

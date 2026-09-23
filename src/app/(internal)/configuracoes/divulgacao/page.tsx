@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { auth } from "@/lib/auth";
 import {
   isLinkedInConfigured,
@@ -9,14 +8,15 @@ import {
   getLinkedInConfig,
 } from "@/lib/distribution/linkedin";
 import { LinkedInConnection } from "@/components/internal/LinkedInConnection";
+import { SettingsPage } from "@/components/internal/settings/SettingsPage";
 
-export const metadata: Metadata = { title: "Divulgação — RH" };
+export const metadata: Metadata = { title: "LinkedIn — Configurações — RH" };
 
 const ERROR_MESSAGES: Record<string, string> = {
-  nao_configurado: "Integração do LinkedIn não configurada no servidor.",
-  state_invalido: "Falha de segurança na conexão (state inválido). Tente novamente.",
+  nao_configurado: "A integração com o LinkedIn ainda não foi habilitada. Fale com o responsável técnico.",
+  state_invalido: "A conexão não pôde ser confirmada por segurança. Tente conectar novamente.",
   sem_pagina_admin:
-    "Nenhuma página de empresa encontrada para este usuário. Você precisa ser administrador da página no LinkedIn.",
+    "Nenhuma página de empresa encontrada para este usuário. É preciso ser administrador da página no LinkedIn.",
 };
 
 export default async function DivulgacaoPage({
@@ -34,39 +34,31 @@ export default async function DivulgacaoPage({
   const cfg = conn ? getLinkedInConfig(conn) : {};
 
   return (
-    <div className="max-w-3xl">
-      <Link
-        href="/configuracoes"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" /> Configurações
-      </Link>
+    <SettingsPage
+      breadcrumb={[{ label: "Integrações" }, { label: "LinkedIn" }]}
+      title="LinkedIn"
+      description="Conecte a página da empresa para divulgar as vagas no LinkedIn."
+    >
+      <div className="max-w-3xl space-y-4">
+        {connected && (
+          <div role="status" className="flex items-center gap-2 rounded-control border border-success-border bg-success-bg px-3 py-2.5 text-meta text-success-fg">
+            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden /> LinkedIn conectado com sucesso.
+          </div>
+        )}
+        {error && (
+          <div role="alert" className="flex items-center gap-2 rounded-control border border-danger-border bg-danger-bg px-3 py-2.5 text-meta text-danger-fg">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+            {ERROR_MESSAGES[error] ?? "Não foi possível conectar ao LinkedIn. Tente novamente."}
+          </div>
+        )}
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Divulgação de vagas</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Conexões com canais externos usados para divulgar as vagas.
-        </p>
+        <LinkedInConnection
+          configured={configured}
+          connected={!!conn}
+          orgName={cfg.orgName ?? null}
+          expiresAt={conn?.expiresAt ? new Date(conn.expiresAt).toISOString() : null}
+        />
       </div>
-
-      {connected && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-wg-green/30 bg-wg-green/10 px-3 py-2.5 text-sm text-wg-green-dark">
-          <CheckCircle2 className="w-4 h-4" /> LinkedIn conectado com sucesso.
-        </div>
-      )}
-      {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          {ERROR_MESSAGES[error] ?? `Não foi possível conectar (${error}).`}
-        </div>
-      )}
-
-      <LinkedInConnection
-        configured={configured}
-        connected={!!conn}
-        orgName={cfg.orgName ?? null}
-        expiresAt={conn?.expiresAt ? new Date(conn.expiresAt).toISOString() : null}
-      />
-    </div>
+    </SettingsPage>
   );
 }

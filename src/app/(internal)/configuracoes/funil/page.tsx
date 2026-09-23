@@ -1,57 +1,64 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getLastConfigChange } from "@/lib/settings/audit";
+import { isStageKind } from "@/lib/selection-funnel/automations";
 import {
   FunnelStagesManager,
   type FunnelStage,
   type TemplateOption,
 } from "@/components/internal/FunnelStagesManager";
-import type { Metadata } from "next";
+import { SettingsPage } from "@/components/internal/settings/SettingsPage";
 
-export const metadata: Metadata = { title: "Funil de seleção — RH" };
+export const metadata: Metadata = { title: "Funil de seleção — Configurações — RH" };
+
+type StageRow = Omit<FunnelStage, "candidates" | "kind"> & { kind: string };
 
 export default async function FunilPage() {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = await createClient();
-  const [{ data: stagesData }, { data: templatesData }] = await Promise.all([
+  const [{ data: stagesData }, { data: templatesData }, lastChange] = await Promise.all([
     supabase
       .from("application_stages")
-      .select("id, name, color, sortOrder, kind, active, templateId")
+      .select("id, name, color, sortOrder, kind, active, templateId, hideFromBoard, automations")
       .order("sortOrder", { ascending: true }),
     supabase
       .from("assessment_templates")
       .select("id, name, kind")
       .eq("isActive", true)
       .order("name", { ascending: true }),
+    getLastConfigChange("funil"),
   ]);
 
-  const stages    = (stagesData   ?? []) as FunnelStage[];
+  const rows = (stagesData ?? []) as StageRow[];
+
+  // Candidatos em cada etapa AGORA (para avisar antes de desativar/excluir).
+  const counts = await Promise.all(
+    rows.map((s) =>
+      supabase.from("applications").select("id", { count: "exact", head: true }).eq("stageId", s.id)
+    )
+  );
+
+  const stages: FunnelStage[] = rows.map((s, i) => ({
+    ...s,
+    kind: isStageKind(s.kind) ? s.kind : "OPEN",
+    hideFromBoard: s.hideFromBoard ?? false,
+    automations: s.automations ?? {},
+    candidates: counts[i].count ?? 0,
+  }));
   const templates = (templatesData ?? []) as TemplateOption[];
 
   return (
-    <div>
-      <Link
-        href="/configuracoes"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-wg-green-dark transition-colors mb-4"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        Voltar às configurações
-      </Link>
-
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Funil de seleção</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Estas são as etapas (colunas) do Kanban de candidatos de <strong>todas</strong> as
-          vagas. Marque uma etapa como <strong>Contratado</strong> ou <strong>Reprovado</strong>{" "}
-          para as métricas do painel funcionarem.
-        </p>
-      </div>
-
+    <SettingsPage
+      breadcrumb={[{ label: "Recrutamento" }, { label: "Funil de seleção" }]}
+      title="Funil de seleção"
+      description="Configure as etapas utilizadas nos processos seletivos. As etapas de contratação e reprovação são utilizadas para calcular os indicadores de recrutamento."
+      lastChange={lastChange}
+    >
       <FunnelStagesManager stages={stages} templates={templates} />
-    </div>
+    </SettingsPage>
   );
 }

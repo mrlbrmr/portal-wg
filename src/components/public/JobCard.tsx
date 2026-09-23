@@ -10,20 +10,23 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 interface Props {
   job: Job;
   config: HomepageConfigData;
+  /**
+   * Pré-visualização (Configurações › Exibição das vagas): o mesmo card, sem link.
+   * Assim o preview nunca diverge do que o candidato vê.
+   */
+  preview?: boolean;
 }
 
-export default memo(function JobCard({ job, config }: Props) {
+const CARD_CLASS = `block bg-wg-card border border-wg-border rounded-[20px] p-6 md:p-7
+        hover:border-wg-green hover:-translate-y-1
+        hover:shadow-[0_8px_32px_rgba(144,203,70,0.13)]
+        transition-all duration-200 ease-spring group`;
+
+export default memo(function JobCard({ job, config, preview = false }: Props) {
   const isNew = Date.now() - new Date(job.createdAt as Date | string).getTime() < SEVEN_DAYS_MS;
   const hasLocation = Boolean(job.city && job.state);
 
-  return (
-    <Link
-      href={`/vagas/${job.slug ?? job.id}`}
-      className="block bg-wg-card border border-wg-border rounded-[20px] p-6 md:p-7
-        hover:border-wg-green hover:-translate-y-1
-        hover:shadow-[0_8px_32px_rgba(144,203,70,0.13)]
-        transition-all duration-200 ease-spring group"
-    >
+  const body = (
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex-1 min-w-0">
           {/* Cargo + badge Nova */}
@@ -135,6 +138,13 @@ export default memo(function JobCard({ job, config }: Props) {
           </span>
         </div>
       </div>
+  );
+
+  if (preview) return <div className={CARD_CLASS}>{body}</div>;
+
+  return (
+    <Link href={`/vagas/${job.slug ?? job.id}`} className={CARD_CLASS}>
+      {body}
     </Link>
   );
 });

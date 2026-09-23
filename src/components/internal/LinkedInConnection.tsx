@@ -1,9 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Linkedin, Loader2, CheckCircle2, Link2Off } from "lucide-react";
+import { Linkedin, CheckCircle2, Link2Off, PlugZap } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Button } from "@/components/ui/Button";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { disconnectLinkedInAction } from "@/lib/distribution/connection-actions";
 
 interface Props {
@@ -17,12 +20,14 @@ export function LinkedInConnection({ configured, connected, orgName, expiresAt }
   const router = useRouter();
   const { notify } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
 
   const expiresLabel = expiresAt
     ? new Date(expiresAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
     : null;
 
   function disconnect() {
+    setConfirming(false);
     startTransition(async () => {
       const res = await disconnectLinkedInAction();
       if (res.ok) {
@@ -35,50 +40,67 @@ export function LinkedInConnection({ configured, connected, orgName, expiresAt }
   }
 
   return (
-    <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-1">
-        <Linkedin className="w-4 h-4 text-[#0a66c2]" />
-        <h2 className="text-sm font-semibold text-gray-900">LinkedIn — página da empresa</h2>
-      </div>
-      <p className="text-xs text-gray-500 mb-4">
-        Conecte a página para publicar vagas automaticamente no feed da empresa.
-      </p>
-
-      {!configured ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
-          Integração ainda não configurada no servidor. Defina{" "}
-          <code className="font-mono">LINKEDIN_CLIENT_ID</code> e{" "}
-          <code className="font-mono">LINKEDIN_CLIENT_SECRET</code> nas variáveis de ambiente.
-        </div>
-      ) : connected ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm text-gray-700">
-            <CheckCircle2 className="w-4 h-4 text-wg-green-dark" />
-            <span>
-              Conectado{orgName ? ` — ${orgName}` : ""}
-              {expiresLabel && (
-                <span className="text-gray-400"> · sessão válida até {expiresLabel}</span>
-              )}
-            </span>
+    <section className="rounded-card border border-wg-border-lighter bg-white p-5" aria-labelledby="linkedin-title">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-control bg-[#E8F1FA] text-[#0a66c2]">
+            <Linkedin className="h-5 w-5" aria-hidden />
+          </span>
+          <div>
+            <h2 id="linkedin-title" className="text-record-title text-wg-ink">
+              Página da empresa no LinkedIn
+            </h2>
+            <p className="mt-0.5 text-meta text-wg-ink-muted">
+              Com a página conectada, as vagas podem ser publicadas no feed da empresa.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={disconnect}
-            disabled={isPending}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-red-600 border border-gray-200 hover:border-red-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2Off className="w-3.5 h-3.5" />}
-            Desconectar
-          </button>
         </div>
-      ) : (
-        <a
-          href="/api/distribution/linkedin/connect"
-          className="inline-flex items-center gap-2 bg-[#0a66c2] hover:bg-[#004182] text-white text-sm font-semibold px-4 py-2 rounded-full transition-colors"
-        >
-          <Linkedin className="w-4 h-4" /> Conectar LinkedIn
-        </a>
-      )}
-    </div>
+        {configured &&
+          (connected ? (
+            <StatusBadge tone="success">Conectado</StatusBadge>
+          ) : (
+            <StatusBadge tone="neutral">Não conectado</StatusBadge>
+          ))}
+      </div>
+
+      <div className="mt-4 border-t border-wg-border-lighter pt-4">
+        {!configured ? (
+          <div className="flex items-start gap-2 rounded-control border border-warning-border bg-warning-bg px-3 py-2.5 text-meta text-warning-fg">
+            <PlugZap className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            A integração com o LinkedIn ainda não foi habilitada neste ambiente. Fale com o responsável
+            técnico para ativá-la.
+          </div>
+        ) : connected ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-body text-wg-ink-secondary">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-success-fg" aria-hidden />
+              <span>
+                {orgName ?? "Página conectada"}
+                {expiresLabel && <span className="text-wg-ink-muted"> · conexão válida até {expiresLabel}</span>}
+              </span>
+            </p>
+            <Button variant="danger" icon={Link2Off} loading={isPending} onClick={() => setConfirming(true)}>
+              Desconectar
+            </Button>
+          </div>
+        ) : (
+          <a
+            href="/api/distribution/linkedin/connect"
+            className="inline-flex h-9 items-center gap-2 rounded-control bg-[#0a66c2] px-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#004182] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a66c2]/50"
+          >
+            <Linkedin className="h-4 w-4" aria-hidden /> Conectar LinkedIn
+          </a>
+        )}
+      </div>
+
+      <ConfirmModal
+        isOpen={confirming}
+        title="Desconectar o LinkedIn?"
+        message="As vagas deixarão de ser publicadas na página da empresa até que ela seja conectada de novo. As publicações já feitas continuam no LinkedIn."
+        confirmLabel="Desconectar"
+        onConfirm={disconnect}
+        onCancel={() => setConfirming(false)}
+      />
+    </section>
   );
 }

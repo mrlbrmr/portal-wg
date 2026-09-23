@@ -10,11 +10,12 @@ import { cn } from "@/lib/utils";
  * - secondary → ações auxiliares (Exportar, Editar, Filtros).
  * - tertiary  → ações discretas e menus de contexto (•••, Cancelar).
  * - danger    → ações destrutivas (sempre com confirmação).
+ * - destructive → confirmação final de uma ação destrutiva, dentro do diálogo (vermelho sólido).
  *
  * Alturas, paddings, radius, ícone e tipografia são fixos por tamanho — não sobrescreva
  * via className, exceto para layout (margem, largura).
  */
-export type ButtonVariant = "primary" | "secondary" | "tertiary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "tertiary" | "danger" | "destructive";
 export type ButtonSize = "sm" | "md" | "icon" | "icon-sm";
 
 const VARIANT: Record<ButtonVariant, string> = {
@@ -26,6 +27,8 @@ const VARIANT: Record<ButtonVariant, string> = {
     "bg-transparent text-wg-ink-muted border border-transparent hover:bg-wg-hover-light hover:text-wg-ink",
   danger:
     "bg-white text-danger-fg border border-danger-border hover:bg-danger-bg",
+  destructive:
+    "bg-danger text-white border border-danger hover:bg-danger-fg hover:border-danger-fg shadow-sm",
 };
 
 const SIZE: Record<ButtonSize, string> = {

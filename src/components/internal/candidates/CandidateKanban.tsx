@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   KanbanBoardShell,
   type KanbanCardApi,
@@ -34,6 +35,7 @@ const applyColumn = withStage;
 export function CandidateKanban({ items, columns, canManage, orderMode, onBeforeMove, onMoved, renderCard }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
+  const { notify } = useToast();
 
   const measure = useCallback(() => {
     const el = scrollerRef.current;
@@ -116,14 +118,27 @@ export function CandidateKanban({ items, columns, canManage, orderMode, onBefore
         getId={getId}
         getColumn={getColumn}
         applyColumn={applyColumn}
-        onMove={(id, stageId) =>
-          fetch(`/api/applications/${id}`, {
+        onMove={async (id, stageId) => {
+          const res = await fetch(`/api/applications/${id}`, {
             method: "PATCH",
             credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ stageId }),
-          })
-        }
+          });
+          // Automação da etapa (ver src/lib/selection-funnel/automations.ts).
+          if (res.ok) {
+            res
+              .clone()
+              .json()
+              .then((b: { automation?: { testLinkCreated?: boolean } }) => {
+                if (b.automation?.testLinkCreated) {
+                  notify("info", "Link do teste gerado automaticamente — disponível na ficha do candidato.");
+                }
+              })
+              .catch(() => {});
+          }
+          return res;
+        }}
         onMoved={onMoved}
         onReorder={async (ids) => {
           const res = await fetch("/api/applications/reorder", {

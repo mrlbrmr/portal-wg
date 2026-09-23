@@ -110,7 +110,7 @@ export const REGISTRIES: RegistryDef[] = [
     entity: "tag",
     href: "/configuracoes/cadastros/tags",
     title: "Tags",
-    description: "Etiquetas coloridas para organizar as admissões.",
+    description: "Etiquetas coloridas para organizar as admissões e o Banco de Talentos.",
     icon: Tag,
     singular: "tag",
     plural: "tags",

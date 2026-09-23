@@ -35,7 +35,10 @@ const SOURCES: Record<CatEntity, Array<{ table: string; column: string; label: [
   company: [{ table: "admissions", column: "companyId", label: ["admissão", "admissões"] }],
   branch: [{ table: "admissions", column: "branchId", label: ["admissão", "admissões"] }],
   documentType: [{ table: "admission_attachments", column: "documentTypeId", label: ["anexo", "anexos"] }],
-  tag: [{ table: "_AdmissionToAdmissionTag", column: "B", label: ["admissão", "admissões"] }],
+  tag: [
+    { table: "_AdmissionToAdmissionTag", column: "B", label: ["admissão", "admissões"] },
+    { table: "talento_tag_links", column: "tagId", label: ["talento", "talentos"] },
+  ],
   stage: [{ table: "admissions", column: "stageId", label: ["admissão", "admissões"] }],
 };
 

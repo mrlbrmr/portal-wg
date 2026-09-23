@@ -8,23 +8,12 @@ export function canReadTalentos(role?: string | null): boolean {
   return role === ADMIN_ROLE || role === VIEWER_ROLE;
 }
 
+/** Escrita no Banco de Talentos (tags, notas, status, segmentos, adicionar à vaga). */
 export function canWriteTalentos(role?: string | null): boolean {
   return role === ADMIN_ROLE;
 }
 
-export function canWriteNotes(role?: string | null): boolean {
-  return role === ADMIN_ROLE || role === VIEWER_ROLE;
-}
-
-export function canDeleteNotes(role?: string | null): boolean {
-  return role === ADMIN_ROLE;
-}
-
 export function canInvalidateSession(role?: string | null): boolean {
-  return role === ADMIN_ROLE;
-}
-
-export function canManageTags(role?: string | null): boolean {
   return role === ADMIN_ROLE;
 }
 

@@ -73,10 +73,10 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   if (sessErr) return NextResponse.json({ error: sessErr.message }, { status: 500 });
 
-  // TODO: enviar e-mail via Resend quando a página pública /teste/[token] for implementada
+  // Página pública do teste: /avaliacao/[token]. O envio ao candidato segue manual (link).
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
   return NextResponse.json(
-    { session, testeUrl: `${appUrl}/teste/${session.token}` },
+    { session, testeUrl: `${appUrl}/avaliacao/${session.token}` },
     { status: 201 },
   );
 }

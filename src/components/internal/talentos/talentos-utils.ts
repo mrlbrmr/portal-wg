@@ -1,21 +1,3 @@
-import type { TalentoStatus } from "@/lib/talentos/types";
-
-export const STATUS_LABELS: Record<TalentoStatus, string> = {
-  ATIVO:        "Ativo",
-  EM_PROCESSO:  "Em processo",
-  CONTRATADO:   "Contratado",
-  NAO_ADERENTE: "Não aderente",
-  ARQUIVADO:    "Arquivado",
-};
-
-export const STATUS_COLORS: Record<TalentoStatus, string> = {
-  ATIVO:        "bg-green-100 text-green-800",
-  EM_PROCESSO:  "bg-blue-100 text-blue-800",
-  CONTRATADO:   "bg-wg-green/20 text-wg-green-dark",
-  NAO_ADERENTE: "bg-orange-100 text-orange-800",
-  ARQUIVADO:    "bg-gray-100 text-gray-500",
-};
-
 // Paleta derivada dos tons verde/terra do WG — determinística por hash do nome
 export const AVATAR_PALETTE = [
   { bg: "#DCF1CA", fg: "#2F4E1A" },

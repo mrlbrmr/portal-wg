@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Loader2, Search, Users, X, CheckCircle2, MapPin, Briefcase } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { buttonVariants } from "@/components/ui/Button";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { SITUATION_META, type TalentSituation } from "@/lib/talentos/crm";
 
 interface TalentoItem {
   id: string;
@@ -15,18 +17,9 @@ interface TalentoItem {
   cidade: string | null;
   estado: string | null;
   cargoDesejado: string | null;
-  statusBanco: "ATIVO" | "EM_PROCESSO";
+  ultimoCargoCv: string | null;
+  situacao: TalentSituation;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  ATIVO: "Ativo",
-  EM_PROCESSO: "Em processo",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  ATIVO: "bg-emerald-100 text-emerald-700",
-  EM_PROCESSO: "bg-amber-100 text-amber-700",
-};
 
 interface Props {
   jobId: string;
@@ -155,7 +148,7 @@ export function IncluirTalentoModal({ jobId }: Props) {
                   autoFocus
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setSelected(null); setError(null); }}
-                  placeholder="Buscar por nome ou e-mail…"
+                  placeholder="Buscar por nome, e-mail, telefone, cargo ou tag…"
                   className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-wg-green focus:outline-none focus:ring-2 focus:ring-wg-green/30 transition-colors"
                 />
               </div>
@@ -170,7 +163,7 @@ export function IncluirTalentoModal({ jobId }: Props) {
                 </div>
               ) : talentos.length === 0 ? (
                 <div className="py-10 text-center text-sm text-gray-400">
-                  {search ? "Nenhum talento encontrado para essa busca." : "Nenhum talento ativo no banco."}
+                  {search ? "Nenhum talento encontrado para essa busca." : "Nenhum talento disponível no banco."}
                 </div>
               ) : (
                 <ul className="divide-y divide-gray-50">
@@ -190,9 +183,9 @@ export function IncluirTalentoModal({ jobId }: Props) {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm font-semibold text-gray-900">{t.nomeCompleto}</span>
-                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[t.statusBanco]}`}>
-                                  {STATUS_LABELS[t.statusBanco]}
-                                </span>
+                                <StatusBadge tone={SITUATION_META[t.situacao].tone} hint={SITUATION_META[t.situacao].hint}>
+                                  {SITUATION_META[t.situacao].label}
+                                </StatusBadge>
                               </div>
                               <p className="mt-0.5 truncate text-xs text-gray-500">{t.email}</p>
                               <div className="mt-1 flex flex-wrap items-center gap-3">
@@ -202,10 +195,10 @@ export function IncluirTalentoModal({ jobId }: Props) {
                                     {[t.cidade, t.estado].filter(Boolean).join("/")}
                                   </span>
                                 )}
-                                {t.cargoDesejado && (
+                                {(t.cargoDesejado || t.ultimoCargoCv) && (
                                   <span className="flex items-center gap-1 text-[11px] text-gray-400">
                                     <Briefcase className="h-3 w-3" />
-                                    {t.cargoDesejado}
+                                    {t.cargoDesejado ?? t.ultimoCargoCv}
                                   </span>
                                 )}
                               </div>

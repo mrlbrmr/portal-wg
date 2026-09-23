@@ -69,6 +69,15 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     salário direto na vaga), `cost_center` (a WG não usa) e `budget_status` (headcount é
     controlado fora do sistema). O gestor não informa nenhum desses no formulário.
   - `job_request_form_config` agora guarda só **perguntas complementares** (→ `extra_data`).
+- **Banco de Talentos (CRM):** `src/app/(internal)/talentos/**`, `src/lib/talentos/**`, `src/components/internal/talentos/**`.
+  **Talento (perfil) ≠ candidatura:** `talentos` 1 → N `applications.talentoId`; nunca duplique o perfil.
+  - Listagem = view `talentos_crm` (situação CALCULADA, resumo do histórico, coluna `busca`) + RPC
+    `talentos_crm_facets()`; filtros/ordem/página no servidor (`list.ts`), regras puras em `crm.ts` (testado).
+  - Situação: só Disponível/Indisponível e Arquivar são manuais; Em processo/Contratado vêm das candidaturas.
+  - Adicionar à vaga: `service.ts#addTalentsToJob` (sem candidatura duplicada; origem `BANCO_TALENTOS`).
+  - Tags = cadastro central `admission_tags` via `talento_tag_links` (`talento_tags` antigo não é usado).
+  - Mutações em `actions.ts`; ações relevantes registradas em `talento_audit_log` (histórico somente leitura).
+  - Drawer e `/talentos/[id]` usam o mesmo `TalentWorkspace`. Nada de score/"fit" no banco.
 - **E-mail transacional:** `src/lib/email.ts` (Resend) — sem `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
   nada é enviado (só loga). Templates em `src/lib/email-templates.ts`. Avisos ao RH: nova
   solicitação de vaga e formulário de admissão enviado (`src/lib/admissao/notify-submitted.ts`).

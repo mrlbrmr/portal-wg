@@ -7,6 +7,39 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-23 (tarde) — Banco de Talentos vira CRM de talentos
+
+Migrações **aplicadas** (todas aditivas): `20260923180000_talent_crm.sql`, `20260923180001_talent_crm_facets.sql`,
+`20260923180002_talent_crm_location_keys.sql`.
+
+- **Modelo:** o perfil (`talentos`) continua sendo 1 → N candidaturas (`applications.talentoId`). Adicionar à vaga
+  cria só a candidatura (origem `BANCO_TALENTOS`), nunca outro talento; duplicidade na vaga é checada por talento,
+  e-mail e CPF. Regra em `src/lib/talentos/service.ts#addTalentsToJob` (também usada pela rota `from-talento`).
+- **Situação do talento ≠ etapa da candidatura.** View `talentos_crm` calcula: Arquivado (manual) › Em processo
+  (candidatura em etapa OPEN/TEST/ADMISSION de vaga não encerrada) › Contratado (etapa WON) › Indisponível (manual)
+  › Disponível. O RH só edita Disponível/Indisponível e Arquivar/Restaurar; `statusBanco` deixou de receber
+  EM_PROCESSO/CONTRATADO (valores antigos seguem aceitos pelo CHECK).
+- **Listagem no servidor:** busca (sem acento; nome, e-mail, telefone, cargo, tags, vagas, habilidades do CV),
+  filtros (situação, tags com todas, UF, cidade normalizada, cargo, área, origem, vaga anterior, etapa alcançada,
+  datas, avaliação), ordenação e paginação pela view; opções e indicadores pela RPC `talentos_crm_facets()`.
+  Estado na URL. Regras puras em `src/lib/talentos/crm.ts` (testadas).
+- **Tags:** o banco passou a usar o cadastro central (`admission_tags`) via `talento_tag_links`; índice único
+  em `lower(btrim(name))` (Excel = excel). `talento_tags`/`talento_tag_assignments` ficaram sem uso (vazias) —
+  remover numa limpeza futura. Cadastros › Tags conta o uso em talentos.
+- **CRM:** favorito do perfil (compartilhado pela equipe), segmentos salvos (`talento_segments` guarda FILTROS),
+  anotações com autor/edição pelo autor (RLS), histórico de ações em `talento_audit_log` (equipe vê as ações de
+  CRM; acessos seguem só para admin). "Última atividade" mantida por triggers (candidatura, etapa, anotação,
+  avaliação concluída) + edição/status no app; abrir o perfil não conta.
+- **Drawer + perfil completo:** `TalentWorkspace` (Resumo · Histórico · Avaliações · Anotações · Arquivos, só as
+  abas com conteúdo) usado nos dois. Linha do tempo só com eventos reais (`timeline.ts`, testado).
+  "Abrir candidatura" usa `/vagas/[id]/candidatos?candidato=<id>` (abre o Quick View).
+- **Bugs corrigidos:** notas do perfil consultavam coluna inexistente (`autorNome`); "Baixar CV" usava o caminho
+  interno do storage (agora `/api/talentos/[id]/resume`, URL assinada); log de acesso nunca era gravado (faltava
+  await); `ultimaAtividadeEm` não mudava com novas candidaturas; link de reaplicar teste apontava para `/teste/`
+  (a página é `/avaliacao/`); invalidar teste falhava para sessões ligadas só pela candidatura; aba de testes
+  mostrava "Score" no Big Five.
+- **Pendente:** validação visual logada (o navegador de preview não tem sessão).
+
 ## Sessão de 2026-09-23 — Reformulação da área de Configurações
 
 Migração `20260923120000_settings_audit_and_stage_automations.sql` **aplicada** (aditiva: tabela

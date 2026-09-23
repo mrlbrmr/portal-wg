@@ -635,6 +635,19 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     lastQueueIndex.current = null;
     setDetailId(id);
   }, []);
+
+  // Link direto para uma candidatura (?candidato=<id>, ex.: "Abrir candidatura" no Banco de
+  // Talentos): abre o Quick View uma vez e limpa o parâmetro da URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("candidato");
+    if (!target) return;
+    if (applications.some((a) => a.id === target)) openCandidate(target);
+    params.delete("candidato");
+    const qs = params.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const liveQueue = queue.filter((id) => !deletedIds.has(id));
   const queuePos = queuePosition(liveQueue, detailId, lastQueueIndex.current);
   if (queuePos.index !== null) lastQueueIndex.current = queuePos.index - 1;

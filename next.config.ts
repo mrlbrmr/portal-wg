@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV === "development";
 
 const nextConfig: NextConfig = {
+  // Permite um 2º servidor de desenvolvimento na mesma pasta sem disputar o .next
+  // (ex.: NEXT_DIST_DIR=.next-preview). Em produção a variável não existe.
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // unpdf e pdf-parse precisam rodar em Node.js puro (não bundlados pelo webpack)
   serverExternalPackages: ["unpdf", "pdfjs-dist", "pdf-parse"],
   async headers() {

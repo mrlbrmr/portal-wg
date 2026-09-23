@@ -20,7 +20,7 @@ interface Props {
  * Exclusão de cadastro com verificação de uso:
  *  • sem uso → exclui;
  *  • em uso e com status → oferece DESATIVAR (histórico preservado);
- *  • tag em uso → oferece remover a tag das admissões e excluir;
+ *  • tag em uso → oferece remover a tag (admissões e talentos) e excluir;
  *  • tipo de documento em uso → não exclui (os anexos perderiam a categoria).
  */
 export function RegistryDeleteDialog({ entity, item, onClose }: Props) {
@@ -84,7 +84,7 @@ export function RegistryDeleteDialog({ entity, item, onClose }: Props) {
           )}
           {canDetach && (
             <Button variant="destructive" loading={pending} onClick={() => act("detach")}>
-              Remover das admissões e excluir
+              Remover a tag e excluir
             </Button>
           )}
         </>
@@ -117,7 +117,7 @@ export function RegistryDeleteDialog({ entity, item, onClose }: Props) {
             ))}
           {canDetach && (
             <p>
-              Excluir a tag a remove dessas admissões. Nenhuma admissão é apagada — só a etiqueta deixa de aparecer.
+              Excluir a tag a remove das admissões e talentos que a usam. Nenhum registro é apagado — só a etiqueta deixa de aparecer.
             </p>
           )}
           {blocked && (

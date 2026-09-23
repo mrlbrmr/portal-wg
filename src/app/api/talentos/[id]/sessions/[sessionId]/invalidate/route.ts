@@ -27,6 +27,19 @@ export async function POST(req: NextRequest, { params }: Params) {
   const supabase = await createClient();
   const now = new Date().toISOString();
 
+  // A sessão pertence ao talento diretamente (talentoId) ou por uma candidatura dele
+  // (testes enviados pelo pipeline da vaga nem sempre gravam talentoId).
+  const { data: owned } = await supabase
+    .from('assessment_sessions')
+    .select('id, talentoId, application:applications(talentoId)')
+    .eq('id', sessionId)
+    .maybeSingle();
+  const app = owned?.application as unknown as { talentoId: string | null } | Array<{ talentoId: string | null }> | null;
+  const ownerViaApp = (Array.isArray(app) ? app[0]?.talentoId : app?.talentoId) ?? null;
+  if (!owned || (owned.talentoId !== talentoId && ownerViaApp !== talentoId)) {
+    return NextResponse.json({ error: 'Sessão não encontrada ou não pertence a este talento' }, { status: 404 });
+  }
+
   const { data, error } = await supabase
     .from('assessment_sessions')
     .update({
@@ -35,7 +48,6 @@ export async function POST(req: NextRequest, { params }: Params) {
       motivoInvalidacao: parsed.data.motivo,
     })
     .eq('id', sessionId)
-    .eq('talentoId', talentoId)
     .select('id, talentoId, templateId, invalidadoEm')
     .single();
 

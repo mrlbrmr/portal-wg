@@ -82,6 +82,24 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   - Rótulos/status únicos em `presentation.ts`; pontuação e correção manual em `scoring.ts` (puro, testado).
     Vocabulário: "Teste técnico", "Avaliação comportamental", "Resultado disponível", "Aguardando correção".
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`
+  (`DigitalForm` tem modo `preview` — usado na aba Visualização das Configurações, sem upload/envio).
+  ⚠️ O documento do formulário é ligado ao cadastro "Tipos de documento" **pelo nome exato** (upload route).
+- **Configurações** (`src/app/(internal)/configuracoes/**`): mapa único de seções/páginas/cadastros em
+  `src/lib/settings/registry.ts` (home, breadcrumbs e navegação de Cadastros leem dele). Toda página usa
+  `SettingsPage` (breadcrumb + container 1180px + "Última alteração"); formulários usam
+  `useSettingsDraft` + `SettingsSaveBar` (estado sujo, Ctrl+S, aviso ao sair); listas usam `SortableList`
+  (dnd-kit acessível). Componentes em `src/components/internal/settings/`.
+  - **Histórico de alterações:** `config_change_log` via `logConfigChange()` (`src/lib/settings/audit.ts`) —
+    chame em toda ação que salva configuração.
+  - **Cadastros** (`/configuracoes/cadastros/<slug>`; "Categorias" redireciona): item EM USO nunca é excluído
+    (`src/lib/admissao/registry-usage.ts`) — cargos/empresas/filiais/etapas são desativados, tags só com
+    "desvincular", tipos de documento em uso ficam. Etapa de conclusão da admissão é ÚNICA (`setConclusionStage`).
+  - **Funil:** automações de entrada na etapa em `src/lib/selection-funnel/automations.ts` (puro, testado) +
+    `run-automations.ts` (servidor, chamado no PATCH da candidatura). Só existem as reais: abrir cadastro da
+    admissão e gerar link do teste. Remover etapa com candidatos exige mover para outra etapa; etapa com
+    histórico é desativada, nunca excluída.
+  - **Campos adicionais da solicitação:** regras em `src/lib/job-requests/extra-fields.ts` (visibilidade,
+    obrigatoriedade só se visível, múltipla escolha = JSON de string[] em `extra_data`).
 
 ## Design System do painel (ler antes de criar UI)
 - Tokens: cores semânticas `success/info/warning/danger/neutral` (`bg-*-bg text-*-fg`), radius

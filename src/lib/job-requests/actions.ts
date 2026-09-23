@@ -17,7 +17,7 @@ import {
 } from "./service";
 import { jobRequestPayloadSchema, type JobRequestPayload } from "./schema";
 import { currentActor } from "./service";
-import { validateExtraData } from "./extra-fields";
+import { pruneHiddenExtraData, validateExtraData } from "./extra-fields";
 import { loadJobRequestFormConfig } from "./form-config-loader";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -127,8 +127,9 @@ export async function createJobRequestInternal(
   }
 
   // Rascunho pode ficar incompleto; ao enviar, as perguntas obrigatórias visíveis valem.
+  const { fields } = await loadJobRequestFormConfig();
+  parsed.data.extraData = pruneHiddenExtraData(fields, parsed.data.extraData);
   if (!asDraft) {
-    const { fields } = await loadJobRequestFormConfig();
     const extraErrors = validateExtraData(fields, parsed.data.extraData);
     if (Object.keys(extraErrors).length > 0) {
       return {
@@ -173,6 +174,8 @@ export async function saveJobRequest(
     };
   }
 
+  const { fields } = await loadJobRequestFormConfig();
+  parsed.data.extraData = pruneHiddenExtraData(fields, parsed.data.extraData);
   const res = await updateJobRequestUseCase(id, parsed.data as JobRequestPayload, opts);
   if (!res.ok) {
     return {

@@ -11,6 +11,12 @@
 
 export type StageKind = "OPEN" | "WON" | "LOST" | "TEST" | "ADMISSION";
 
+/**
+ * Etapa de ENTRADA do funil: as rotas de candidatura gravam `stageId: "NEW"` fixo
+ * (api/applications, vagas/[id]/candidatos, from-talento). Não pode sair do quadro.
+ */
+export const ENTRY_STAGE_ID = "NEW";
+
 export const STAGE_KINDS: StageKind[] = ["OPEN", "TEST", "ADMISSION", "WON", "LOST"];
 
 export const STAGE_KIND_LABELS: Record<StageKind, string> = {

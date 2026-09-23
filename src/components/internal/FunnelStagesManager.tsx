@@ -42,6 +42,7 @@ import {
   type ActionResult,
 } from "@/lib/selection-funnel/config-actions";
 import {
+  ENTRY_STAGE_ID,
   STAGE_KINDS,
   STAGE_KIND_DESCRIPTIONS,
   STAGE_KIND_LABELS,
@@ -361,6 +362,7 @@ function StageRow(p: RowProps) {
   const s = p.stage;
   const panelId = `stage-config-${s.id}`;
   const activeAutomations = automationsFor(s.kind).filter((a) => isAutomationOn(s, a.key));
+  const isEntry = s.id === ENTRY_STAGE_ID;
 
   return (
     <div className={cn("bg-white", !s.active && "bg-wg-bg/60")}>
@@ -389,6 +391,7 @@ function StageRow(p: RowProps) {
             </button>
           )}
           <StageKindBadge kind={s.kind} />
+          {isEntry && <span className="text-label text-wg-ink-muted">Entrada das candidaturas</span>}
           {!s.active && (
             <span className="text-label font-medium text-wg-ink-muted">Desativada</span>
           )}
@@ -418,9 +421,15 @@ function StageRow(p: RowProps) {
         <button
           type="button"
           onClick={p.onToggleActive}
-          disabled={p.pending}
+          disabled={p.pending || (isEntry && s.active)}
           aria-label={s.active ? `Desativar etapa ${s.name}` : `Reativar etapa ${s.name}`}
-          title={s.active ? "Desativar (a etapa sai do funil de todas as vagas)" : "Reativar etapa"}
+          title={
+            isEntry && s.active
+              ? "Etapa de entrada: toda nova candidatura começa aqui"
+              : s.active
+                ? "Desativar (a etapa sai do funil de todas as vagas)"
+                : "Reativar etapa"
+          }
           className={buttonVariants({ variant: "tertiary", size: "icon-sm" })}
         >
           {s.active ? <Eye aria-hidden /> : <EyeOff aria-hidden />}
@@ -440,7 +449,14 @@ function StageRow(p: RowProps) {
             { label: "Mover para cima", icon: ArrowUp, onSelect: () => p.onMove(-1), disabled: p.index === 0 },
             { label: "Mover para baixo", icon: ArrowDown, onSelect: () => p.onMove(1), disabled: p.index === p.total - 1 },
             { type: "separator" },
-            { label: "Excluir", icon: Trash2, danger: true, onSelect: p.onDelete },
+            {
+              label: "Excluir",
+              icon: Trash2,
+              danger: true,
+              disabled: isEntry,
+              hint: isEntry ? "etapa de entrada" : undefined,
+              onSelect: p.onDelete,
+            },
           ]}
         />
 

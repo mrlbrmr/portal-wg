@@ -95,7 +95,7 @@ export function SettingsTabs<K extends string>({
               role="tab"
               id={tabId(baseId, key)}
               aria-selected={active}
-              aria-controls={tabPanelId(baseId, key)}
+              aria-controls={active ? tabPanelId(baseId, key) : undefined}
               tabIndex={active ? 0 : -1}
               onClick={() => onChange(key)}
               onKeyDown={(e) => onKeyDown(e, i)}

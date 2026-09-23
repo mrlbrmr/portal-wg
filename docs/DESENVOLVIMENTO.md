@@ -7,6 +7,39 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-23 — Reformulação da área de Configurações
+
+Migração `20260923120000_settings_audit_and_stage_automations.sql` **aplicada** (aditiva: tabela
+`config_change_log` + coluna `application_stages.automations jsonb default '{}'`).
+
+- **Padrão único:** `SettingsPage` (breadcrumb "Configurações › …", container 1180px, "Última alteração"),
+  `SettingsSaveBar` + `useSettingsDraft` (botão desabilitado sem alterações, "Descartar", Ctrl+S, toast,
+  rascunho mantido em erro, confirmação ao sair com alterações), `SortableList` (dnd-kit com teclado e
+  anúncios em PT), `Dialog` acessível, `Toggle` com `role="switch"`. Mapa das páginas em `src/lib/settings/registry.ts`.
+- **Home** reorganizada: Portal de carreiras · Recrutamento · Admissão · Cadastros · Integrações (até 3 cards por linha).
+- **Portal:** Homepage dividida em "Aparência da homepage" e "Exibição das vagas" (`/configuracoes/homepage/vagas`),
+  com preview ao vivo usando o próprio `JobCard` público (prop `preview`, vaga de exemplo só no cliente).
+- **Funil:** arrastar e soltar (substitui as setas; "Mover para cima/baixo" ficou no menu ⋯), badge de tipo,
+  configuração expansível (tipo, teste vinculado, cor, "mostrar como coluna" = `hideFromBoard`), menu Renomear/
+  Duplicar/Mover/Excluir. Remover etapa com candidatos exige escolher a etapa de destino (registrado no histórico
+  de cada candidato); etapa já usada é desativada, nunca excluída. **Automações** (só as reais): abrir cadastro da
+  admissão (Admissão/Contratado, padrão ligado = comportamento anterior) e gerar link do teste vinculado (Teste,
+  padrão desligado; o envio ao candidato continua manual — não há e-mail de teste).
+- **Solicitação de vaga:** "Campos padrão" (estruturais, recolhível) × "Campos adicionais" com estado vazio, novos
+  tipos (múltipla escolha, sim/não), texto de ajuda, arrastar e soltar e regra SE/ENTÃO. "Visualizar como gestor"
+  reaproveita `JobRequestIntro` + `JobRequestFormFields`. **Bug corrigido:** campo condicional oculto e obrigatório
+  bloqueava o envio público; e a criação interna não validava obrigatórias. Regras em `extra-fields.ts` (testado).
+- **Categorias → Cadastros:** uma URL por cadastro, tabela com busca/filtro/paginação e edição em diálogo.
+  Exclusão checa o uso (FKs eram SET NULL: excluir um cargo em uso deixava admissões sem cargo em silêncio).
+  Etapas da admissão com arrastar e soltar e **etapa de conclusão única** (antes: checkbox em todas as linhas).
+  Seletores do ATS passaram a ignorar cadastros inativos.
+- **Admissão Digital:** abas Conteúdo · Perguntas · Documentos · Regras · Visualização (`DigitalForm` com
+  `preview`). Aviso quando o nome do documento não bate com um tipo de documento (a classificação é pelo nome).
+  "Restaurar padrão" com confirmação. `revalidatePath` corrigido (apontava para a rota antiga).
+- **LinkedIn:** texto sem jargão técnico e confirmação ao desconectar.
+
+---
+
 ## Sessão de 2026-09-22 (noite) — Avaliações: Banco de testes · Aplicações · Resultados
 
 Reestruturação do módulo de Avaliações. Migração `20260922180000_assessment_types.sql` **aplicada**.

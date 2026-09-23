@@ -122,8 +122,13 @@ export function RegistryDeleteDialog({ entity, item, onClose }: Props) {
           )}
           {blocked && (
             <p>
-              A exclusão deixaria esses anexos sem categoria, por isso não é permitida. Renomeie o tipo de documento, se
-              precisar.
+              A exclusão deixaria esses anexos sem categoria, por isso não é permitida.
+            </p>
+          )}
+          {entity === "documentType" && (
+            <p className="text-meta text-wg-ink-muted">
+              Atenção: o Formulário de Admissão Digital classifica os anexos pelo nome exato do tipo de documento. Se
+              renomear um tipo, ajuste também o nome do documento no formulário.
             </p>
           )}
         </div>

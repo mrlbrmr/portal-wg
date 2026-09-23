@@ -40,7 +40,8 @@ export async function runStageEntryAutomations(
         .select("id, expiresAt")
         .eq("applicationId", input.applicationId)
         .eq("templateId", stage.templateId)
-        .is("submittedAt", null);
+        .is("submittedAt", null)
+        .is("invalidadoEm", null);
       const now = Date.now();
       const hasOpenLink = (pending ?? []).some(
         (s) => !s.expiresAt || new Date(s.expiresAt as string).getTime() > now

@@ -99,6 +99,23 @@ export function validateExtraData(
   return errors;
 }
 
+/**
+ * Remove respostas de perguntas que ficaram OCULTAS (o gestor respondeu e depois mudou
+ * a resposta que as exibia). Chaves que não são perguntas atuais são mantidas — podem
+ * ser respostas de perguntas antigas, já removidas do formulário.
+ */
+export function pruneHiddenExtraData(
+  fields: FormFieldConfig[],
+  values: Record<string, string>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(values)) {
+    const field = fields.find((f) => f.key === key);
+    if (!field || isFieldVisible(field, values, fields)) out[key] = value;
+  }
+  return out;
+}
+
 /** Resposta pronta para exibir na tela da solicitação. */
 export function formatExtraValue(field: FormFieldConfig, raw: string | undefined | null): string | null {
   if (!raw) return null;
@@ -144,8 +161,13 @@ export const jobRequestFormConfigSchema = z
       if (hasOptions(f.type) && (f.options?.length ?? 0) === 0) {
         ctx.addIssue({ code: "custom", message: `Adicione ao menos uma opção em “${f.label}”.` });
       }
-      if (f.showWhen && !cfg.fields.some((o) => o.key === f.showWhen!.fieldKey && o.id !== f.id)) {
-        ctx.addIssue({ code: "custom", message: `A condição de “${f.label}” aponta para uma pergunta que não existe mais.` });
+      if (f.showWhen) {
+        const source = cfg.fields.find((o) => o.key === f.showWhen!.fieldKey && o.id !== f.id);
+        if (!source) {
+          ctx.addIssue({ code: "custom", message: `A condição de “${f.label}” aponta para uma pergunta que não existe mais.` });
+        } else if (!conditionValues(source as FormFieldConfig).includes(f.showWhen.value)) {
+          ctx.addIssue({ code: "custom", message: `A condição de “${f.label}” usa uma resposta que não existe mais.` });
+        }
       }
     }
   });

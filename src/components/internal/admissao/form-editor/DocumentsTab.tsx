@@ -71,7 +71,8 @@ export function DocumentsTab({
   setExpanded: (key: string | null) => void;
 }) {
   const [removing, setRemoving] = useState<DocumentConfig | null>(null);
-  const typeNames = new Set(documentTypeNames.map((n) => n.trim().toLowerCase()));
+  // Mesma comparação do upload (src/app/api/admissao/[token]/upload/route.ts): nome EXATO.
+  const typeNames = new Set(documentTypeNames);
   const docs = config.documents;
 
   function updateDoc(key: string, patch: Partial<DocumentConfig>) {
@@ -139,7 +140,7 @@ export function DocumentsTab({
           className="divide-y divide-wg-border-lighter border-t border-wg-border-lighter"
           renderItem={(doc, { handle, index }) => {
             const open = expanded === doc.key;
-            const linked = typeNames.has(doc.label.trim().toLowerCase());
+            const linked = typeNames.has(doc.label);
             const panelId = `adm-doc-${doc.key}`;
             return (
               <div className="bg-white">

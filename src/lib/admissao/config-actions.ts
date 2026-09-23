@@ -100,6 +100,15 @@ export async function updateCategory(
   if (Object.keys(patch).length === 0) return { ok: true };
 
   const supabase = await createClient();
+  if (entity === "stage" && input.active === false) {
+    const { data: st } = await supabase.from("admission_stages").select("isFinal").eq("id", id).maybeSingle();
+    if (st?.isFinal) {
+      return { ok: false, error: "Esta é a etapa de conclusão. Escolha outra etapa de conclusão antes de desativá-la." };
+    }
+    if ((await countUsage(supabase, "stage", id)).total > 0) {
+      return { ok: false, error: "Há admissões nesta etapa. Use a opção de desativar para escolher para onde movê-las." };
+    }
+  }
   const { data: before } = await supabase.from(CATEGORY_TABLE[entity]).select("name").eq("id", id).maybeSingle();
   const { error } = await supabase.from(CATEGORY_TABLE[entity]).update(patch).eq("id", id);
   if (error) return { ok: false, error: patch.name ? DUPLICATE : "Não foi possível salvar." };

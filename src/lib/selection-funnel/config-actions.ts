@@ -7,7 +7,11 @@ import { revalidatePath } from "next/cache";
 import { auth, type Session } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logConfigChange } from "@/lib/settings/audit";
-import { AUTOMATIONS, isStageKind, type StageAutomations, type StageKind } from "./automations";
+import { AUTOMATIONS, ENTRY_STAGE_ID, isStageKind, type StageAutomations, type StageKind } from "./automations";
+import { runStageEntryAutomations } from "./run-automations";
+
+const ENTRY_STAGE_LOCKED =
+  "Esta é a etapa de entrada: toda nova candidatura começa nela. Ela pode ser renomeada, mas não desativada nem excluída.";
 
 export type { StageKind } from "./automations";
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -247,21 +251,26 @@ async function moveCandidates(
     .maybeSingle();
   if (!target || !target.active || toId === fromId) return { error: "Escolha uma etapa de destino ativa." };
 
-  const { data: apps } = await supabase.from("applications").select("id").eq("stageId", fromId);
-  const ids = (apps ?? []).map((r) => r.id as string);
-  if (ids.length === 0) return { moved: 0 };
-
-  const { error } = await supabase
+  // Um único UPDATE por etapa (sem lista de ids): move todos, sem o teto de 1.000 linhas.
+  const { data: moved, error } = await supabase
     .from("applications")
     .update({ stageId: toId, sort_order: null })
-    .in("id", ids)
-    .eq("stageId", fromId);
+    .eq("stageId", fromId)
+    .select("id");
   if (error) return { error: "Não foi possível mover os candidatos." };
+  const ids = (moved ?? []).map((r) => r.id as string);
+  if (ids.length === 0) return { moved: 0 };
 
   const changedBy = session.user.name ?? session.user.email ?? "Admin";
-  await supabase
-    .from("application_stage_history")
-    .insert(ids.map((applicationId) => ({ applicationId, stageId: toId, changedBy })));
+  for (let i = 0; i < ids.length; i += 500) {
+    await supabase
+      .from("application_stage_history")
+      .insert(ids.slice(i, i + 500).map((applicationId) => ({ applicationId, stageId: toId, changedBy })));
+  }
+  // As automações de entrada valem também para quem chega à etapa por essa migração.
+  for (const applicationId of ids) {
+    await runStageEntryAutomations(supabase, { applicationId, stageId: toId, actorName: changedBy });
+  }
   revalidatePath("/vagas", "layout");
   return { moved: ids.length };
 }
@@ -280,6 +289,7 @@ export async function removeStage(
 ): Promise<{ ok: true; outcome: RemovalOutcome; moved: number } | { ok: false; error: string }> {
   const a = await requireAdmin();
   if ("error" in a) return { ok: false, error: a.error };
+  if (id === ENTRY_STAGE_ID) return { ok: false, error: ENTRY_STAGE_LOCKED };
 
   const supabase = await createClient();
   const name = await stageName(supabase, id);
@@ -324,6 +334,7 @@ export async function setStageActive(
 ): Promise<ActionResult> {
   const a = await requireAdmin();
   if ("error" in a) return { ok: false, error: a.error };
+  if (!active && id === ENTRY_STAGE_ID) return { ok: false, error: ENTRY_STAGE_LOCKED };
 
   const supabase = await createClient();
   let moved = 0;

@@ -6,6 +6,7 @@ import {
   isFieldVisible,
   jobRequestFormConfigSchema,
   parseMulti,
+  pruneHiddenExtraData,
   serializeMulti,
   validateExtraData,
 } from "./extra-fields";
@@ -62,6 +63,20 @@ test("formatExtraValue formata múltipla escolha e data", () => {
   assert.equal(formatExtraValue(turno, serializeMulti(["Manhã", "Tarde"])), "Manhã, Tarde");
   assert.equal(formatExtraValue(f({ key: "d", type: "date" }), "2026-09-23"), "23/09/2026");
   assert.equal(formatExtraValue(cnh, ""), null);
+});
+
+test("pruneHiddenExtraData descarta respostas de perguntas ocultas e mantém chaves antigas", () => {
+  const out = pruneHiddenExtraData(fields, { cnh: "Não", categoria: "D", legado: "x" });
+  assert.deepEqual(out, { cnh: "Não", legado: "x" });
+});
+
+test("configuração rejeita regra com resposta que não existe mais", () => {
+  const res = jobRequestFormConfigSchema.safeParse({
+    title: "X",
+    description: "",
+    fields: [cnh, { ...categoria, showWhen: { fieldKey: "cnh", operator: "is", value: "Talvez" } }],
+  });
+  assert.equal(res.success, false);
 });
 
 test("configuração exige opções em seleção e condição válida", () => {

@@ -44,7 +44,8 @@ export function RegistryItemDialog({ entity, item, open, onClose }: Props) {
 
   const hasColor = entity === "tag" || entity === "stage";
   const hasRequired = entity === "documentType";
-  const hasActive = item?.active !== null && item !== null;
+  // Etapas têm fluxo próprio de desativação (etapa de conclusão, mover admissões) — botão olho.
+  const hasActive = item !== null && item.active !== null && entity !== "stage";
   const dirty =
     !item ||
     name.trim() !== item.name ||
@@ -101,7 +102,17 @@ export function RegistryItemDialog({ entity, item, open, onClose }: Props) {
       }
     >
       <form id={formId} onSubmit={submit} className="space-y-4" noValidate>
-        <SettingsField id={`${formId}-name`} label="Nome" required error={error}>
+        <SettingsField
+          id={`${formId}-name`}
+          label="Nome"
+          required
+          error={error}
+          hint={
+            entity === "documentType" && item
+              ? "O Formulário de Admissão Digital classifica os anexos pelo nome exato. Ao renomear, ajuste também o documento no formulário."
+              : undefined
+          }
+        >
           <input
             id={`${formId}-name`}
             value={name}

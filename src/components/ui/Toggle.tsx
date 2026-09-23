@@ -21,13 +21,13 @@ interface ToggleProps {
 export function Toggle({ checked, onChange, label, description, disabled = false, stateLabels, icon: Icon }: ToggleProps) {
   return (
     <label className={cn("group flex items-center justify-between gap-4 py-2.5", disabled ? "cursor-not-allowed" : "cursor-pointer")}>
-      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+      <span className="flex min-w-0 flex-1 items-start gap-2.5">
         {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0 text-wg-ink-muted" aria-hidden />}
-        <div className="min-w-0">
-          <span className="select-none text-body leading-snug text-wg-ink">{label}</span>
+        <span className="block min-w-0">
+          <span className="block select-none text-body leading-snug text-wg-ink">{label}</span>
           {description && <span className="mt-0.5 block text-meta text-wg-ink-muted">{description}</span>}
-        </div>
-      </div>
+        </span>
+      </span>
       {stateLabels && (
         <span className="w-14 shrink-0 text-right text-label text-wg-ink-muted" aria-hidden>
           {checked ? stateLabels[0] : stateLabels[1]}
@@ -41,7 +41,7 @@ export function Toggle({ checked, onChange, label, description, disabled = false
         disabled={disabled}
         className="peer sr-only"
       />
-      <div
+      <span
         className={cn(
           "relative h-[22px] w-10 shrink-0 rounded-full transition-colors duration-200",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-wg-green/50 peer-focus-visible:ring-offset-2",
@@ -56,7 +56,7 @@ export function Toggle({ checked, onChange, label, description, disabled = false
             checked ? "translate-x-[18px]" : "translate-x-0"
           )}
         />
-      </div>
+      </span>
     </label>
   );
 }

@@ -17,7 +17,7 @@ import { isValidEmail, rhInboxEmail, sendEmail } from "@/lib/email";
 import { jobRequestReceivedEmail } from "@/lib/email-templates";
 import { createJobRequest } from "@/lib/job-requests/service";
 import { jobRequestPayloadSchema } from "@/lib/job-requests/schema";
-import { validateExtraData } from "@/lib/job-requests/extra-fields";
+import { pruneHiddenExtraData, validateExtraData } from "@/lib/job-requests/extra-fields";
 import {
   CONTRACT_TYPE_LABELS,
   JOB_REQUEST_REASON_LABELS,
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
   if (Object.keys(extraErrors).length > 0) {
     return NextResponse.json({ fieldErrors: extraErrors }, { status: 422 });
   }
+  payload.extraData = pruneHiddenExtraData(extraFields, payload.extraData);
 
   // Gestor logado vira o solicitante de verdade (requested_by_user_id). Sem sessão o
   // pedido segue anônimo — os gestores da WG não têm login hoje.

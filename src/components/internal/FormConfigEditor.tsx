@@ -111,7 +111,27 @@ export function FormConfigEditor({ initialConfig }: { initialConfig: FormConfig 
   const fields = config.fields;
 
   function updateField(id: string, patch: Partial<FormFieldConfig>) {
-    setConfig((c) => ({ ...c, fields: c.fields.map((f) => (f.id === id ? { ...f, ...patch } : f)) }));
+    setConfig((c) => {
+      const before = c.fields.find((f) => f.id === id);
+      if (!before) return c;
+      const after = { ...before, ...patch };
+      return {
+        ...c,
+        fields: c.fields.map((f) => {
+          if (f.id === id) return after;
+          // Regras que dependem desta pergunta acompanham a mudança das opções:
+          // opção renomeada → a regra usa o novo nome; opção removida → a regra sai.
+          if (f.showWhen?.fieldKey !== before.key) return f;
+          if (!canBeConditionSource(after)) return { ...f, showWhen: undefined };
+          const valid = conditionValues(after);
+          if (valid.includes(f.showWhen.value)) return f;
+          const oldIdx = conditionValues(before).indexOf(f.showWhen.value);
+          const renamed =
+            oldIdx >= 0 && (before.options?.length ?? 0) === (after.options?.length ?? 0) ? valid[oldIdx] : undefined;
+          return { ...f, showWhen: renamed ? { ...f.showWhen, value: renamed } : undefined };
+        }),
+      };
+    });
   }
 
   function addField(type: FieldType) {

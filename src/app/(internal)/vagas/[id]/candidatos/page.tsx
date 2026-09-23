@@ -136,9 +136,9 @@ export default async function CandidatosPage({ params }: Props) {
       : null,
     hasAdmissionStage
       ? Promise.all([
-          supabase.from("admission_positions").select("id, name").order("sortOrder", { ascending: true }),
-          supabase.from("admission_companies").select("id, name").order("sortOrder", { ascending: true }),
-          supabase.from("admission_branches").select("id, name").order("sortOrder", { ascending: true }),
+          supabase.from("admission_positions").select("id, name").eq("active", true).order("sortOrder", { ascending: true }),
+          supabase.from("admission_companies").select("id, name").eq("active", true).order("sortOrder", { ascending: true }),
+          supabase.from("admission_branches").select("id, name").eq("active", true).order("sortOrder", { ascending: true }),
           supabase.from("admission_stages").select("id")
             .eq("name", "Envio do formulário admissional").eq("active", true).limit(1).maybeSingle(),
         ]).then(([posR, coR, brR, intakeR]) => ({

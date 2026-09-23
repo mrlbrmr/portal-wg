@@ -17,9 +17,9 @@ export async function GET() {
     { data: templates },
     { data: intakeStage },
   ] = await Promise.all([
-    supabase.from("admission_positions").select("id, name").order("sortOrder", { ascending: true }),
-    supabase.from("admission_companies").select("id, name").order("sortOrder", { ascending: true }),
-    supabase.from("admission_branches").select("id, name").order("sortOrder", { ascending: true }),
+    supabase.from("admission_positions").select("id, name").eq("active", true).order("sortOrder", { ascending: true }),
+    supabase.from("admission_companies").select("id, name").eq("active", true).order("sortOrder", { ascending: true }),
+    supabase.from("admission_branches").select("id, name").eq("active", true).order("sortOrder", { ascending: true }),
     supabase.from("admission_templates").select("id, name").order("name", { ascending: true }),
     supabase
       .from("admission_stages")

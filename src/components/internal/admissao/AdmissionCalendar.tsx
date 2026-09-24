@@ -638,7 +638,7 @@ function EventDrawer({
       footer={
         <>
           {canManage && ev.kind !== "birthday" && (
-            <ButtonLink href={`/admissoes/${a.id}/editar`} variant="secondary" icon={Pencil}>
+            <ButtonLink href={`/admissoes/${a.id}?aba=contratacao&editar=1`} variant="secondary" icon={Pencil}>
               {ev.kind === "exam" ? "Reagendar ASO" : ev.kind === "start" ? "Alterar data" : "Editar admissão"}
             </ButtonLink>
           )}

@@ -7,6 +7,45 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-24 — Central da admissão (ficha + edição unificadas)
+
+Sem migração. A ficha (`/admissoes/[id]`) e o formulário longo de edição (`/admissoes/[id]/editar`) viraram
+UMA página: a **Central da admissão**, em modo leitura por padrão e com edição por seção.
+
+- **Rotas:** `/admissoes/[id]?aba=visao-geral|dados|contratacao|documentos|recursos|historico` (aba na URL,
+  `?aba=documentos|dados|historico` antigos continuam valendo). `/admissoes/[id]/editar` agora só redireciona
+  para `?aba=contratacao&editar=1` (abre já em edição). Lista e Calendário apontam direto para a nova URL.
+- **Estrutura:** `src/components/internal/admissao/workspace/**` — `AdmissionWorkspace` (rascunho único entre
+  abas, edição por seção, salvar/descartar), `AdmissionHeader`, `AdmissionSidebar` (status, formulário,
+  pendências, progresso; fixa no desktop, blocos abaixo do cabeçalho no celular), `AdmissionFormStatus`
+  (substitui `DigitalAdmissionCard`), `AdmissionOverview`/`AdmissionProgress`, `AdmissionPersonalData`
+  ("Informado pelo candidato"), `AdmissionEmploymentData` (interno do RH + origem vaga/candidatura),
+  `AdmissionResources` (uniforme editável + benefícios do formulário), `AdmissionInternalNotes`
+  (`admissions.notes`), `AdmissionDeleteDialog` (digitar EXCLUIR). Removidos: `AdmissionDetailTabs`,
+  `AdmissionJourney`, `DigitalAdmissionCard`. `AdmissionForm` continua só na criação (`/admissoes/nova`).
+- **Regras puras (testadas):** `src/lib/admissao/workspace.ts` — progresso SÓ pelas etapas configuradas
+  (`admission_stages` + `isFinal`, sem segundo sistema de etapas), pendências derivadas de fatos (início
+  vencido, início em ≤7 dias sem ASO, ASO depois do início, documentos, formulário, CPF inválido, sem data/
+  etapa), rascunho ↔ payload do PATCH e validação (CPF/telefone/nascimento só quando alterados).
+  `src/lib/admissao/history.ts` — histórico com de→para a partir do catálogo de Atividades.
+- **"Em preenchimento" não existe:** o sistema não registra quando o candidato abre o link. "Link gerado em"
+  vem do último `FORM_LINK_SENT` do log.
+- **Correções de backend:**
+  - `PATCH /api/admissoes/[id]` **apagava `sourceJobId`/`sourceApplicationId` a cada edição** (o formulário não
+    enviava esses campos e eles viravam null) — o vínculo com a vaga/candidatura sumia. Agora a origem só é
+    gravada se vier no corpo; erro de UPDATE passa a retornar 500 (antes respondia 200 mesmo falhando).
+  - Selects de cadastro mantêm o valor gravado quando o item foi desativado ("(inativo)") — antes apareciam
+    vazios e salvar apagava o vínculo.
+  - `logAdmissionChanges` passa a registrar de→para de CPF (mascarado, 5 últimos dígitos), e-mail, telefone,
+    nascimento, salário e uniforme — correção de dado do candidato fica no histórico.
+- Reuso: `SettingsSaveBar` ganhou `autoHide`/`savedLabel` (barra só aparece com alteração; Ctrl+S e aviso ao
+  sair continuam). Ícones de atividade extraídos para `src/components/internal/activity/icons.ts`.
+- **Validação:** 27 testes novos (`npm test`, 194 no total), type-check e `next build` limpos. Validação visual
+  feita com dados fictícios numa rota temporária (desktop + 375px, leitura/edição, CPF inválido, descartar,
+  exclusão, perfil somente leitura). **Validação logada com dados reais: PENDENTE.**
+
+---
+
 ## Sessão de 2026-09-23 (madrugada) — Calendário, Relatórios, Atividades e Usuários reformulados
 
 Sem migração. Reformulação de UX/UI das quatro páginas + registro de eventos que faltavam.

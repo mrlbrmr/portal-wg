@@ -44,6 +44,10 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 
 ## Mapa de módulos (`src/app/(internal)` = interno · `src/app/(public)` = público)
 - **Admissões:** `src/app/(internal)/admissoes/**`, `src/lib/admissao/**`, `src/components/internal/admissao/**`
+- **Central da admissão** (`/admissoes/[id]?aba=…`): ficha ÚNICA de leitura + edição por seção
+  (`src/components/internal/admissao/workspace/**`; `/editar` só redireciona com `?editar=1`). Progresso vem
+  SÓ das etapas configuradas; pendências/rascunho/validação em `src/lib/admissao/workspace.ts` e histórico em
+  `history.ts` (puros, testados). O PATCH nunca grava a origem (vaga/candidatura) se ela não vier no corpo.
 - **Modelos de checklist:** `.../admissoes/configuracoes/modelos`, `src/lib/admissao/template-actions.ts`, `checklist.ts`
 - **Calendário** (`/admissoes/calendario`): eventos puros em `src/lib/admissao/calendar.ts` (testado). Experiência
   desligada até definir `EXPERIENCE_CHECKPOINT_DAYS`; o banco não guarda horário.

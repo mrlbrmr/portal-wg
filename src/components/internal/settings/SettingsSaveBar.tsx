@@ -67,6 +67,13 @@ interface Props {
   /** Ações secundárias à esquerda (ex.: "Restaurar padrão"). */
   extra?: ReactNode;
   saveLabel?: string;
+  /** Texto de confirmação após salvar (padrão: "Configurações salvas"). */
+  savedLabel?: string;
+  /**
+   * Some quando não há nada a salvar (só aparece com alterações, salvando ou logo após
+   * salvar). Para fichas em modo leitura, onde uma barra fixa vazia seria ruído.
+   */
+  autoHide?: boolean;
 }
 
 /**
@@ -74,7 +81,17 @@ interface Props {
  * "Descartar" e "Salvar alterações" (desabilitado sem alterações). Fica fixa no
  * rodapé da área de conteúdo, protege contra sair sem salvar e aceita Ctrl/⌘+S.
  */
-export function SettingsSaveBar({ isDirty, isSaving, onSave, onDiscard, savedAt, extra, saveLabel = "Salvar alterações" }: Props) {
+export function SettingsSaveBar({
+  isDirty,
+  isSaving,
+  onSave,
+  onDiscard,
+  savedAt,
+  extra,
+  saveLabel = "Salvar alterações",
+  savedLabel = "Configurações salvas",
+  autoHide = false,
+}: Props) {
   const { dialog } = useUnsavedChangesGuard(isDirty);
   const [justSaved, setJustSaved] = useState(false);
 
@@ -98,6 +115,8 @@ export function SettingsSaveBar({ isDirty, isSaving, onSave, onDiscard, savedAt,
     return () => window.removeEventListener("keydown", onKey);
   }, [isDirty, isSaving]);
 
+  if (autoHide && !isDirty && !isSaving && !justSaved) return dialog;
+
   return (
     <>
       <div className="sticky bottom-3 z-20 mt-6 md:bottom-4">
@@ -118,7 +137,7 @@ export function SettingsSaveBar({ isDirty, isSaving, onSave, onDiscard, savedAt,
                 </>
               ) : justSaved ? (
                 <span className="inline-flex items-center gap-1.5 font-medium text-success-fg">
-                  <Check className="h-4 w-4" aria-hidden /> Configurações salvas
+                  <Check className="h-4 w-4" aria-hidden /> {savedLabel}
                 </span>
               ) : (
                 <span className="text-wg-ink-muted">Nenhuma alteração pendente</span>

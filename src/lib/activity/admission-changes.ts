@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { diffFields, logActivity } from "./log";
+import { maskPhone } from "@/lib/admissao/workspace";
 
 // Registro das mudanças de uma admissão (etapa, ASO, dados principais). O chamador tira
 // um retrato ANTES e outro DEPOIS da gravação; aqui viram eventos de Atividades:
@@ -24,7 +25,29 @@ const TRACKED_LABELS: Record<string, string> = {
   startDate: "Data de início",
   managerName: "Gestor",
   shift: "Turno",
+  // Dados pessoais (em geral informados pelo candidato): corrigir precisa deixar rastro.
+  cpf: "CPF",
+  email: "E-mail",
+  phone: "Telefone",
+  birthDate: "Data de nascimento",
+  salary: "Salário",
+  uniformShirt: "Camiseta",
+  uniformPants: "Calça",
+  uniformShoe: "Sapato",
 };
+
+/** CPF no log só com os 5 últimos dígitos — o histórico não precisa do número inteiro. */
+function maskedCpf(v: string | null): string | null {
+  const d = (v ?? "").replace(/\D/g, "");
+  if (!d) return null;
+  return d.length === 11 ? `***.***.${d.slice(6, 9)}-${d.slice(9)}` : "***";
+}
+
+function brl(v: number | string | null): string | null {
+  if (v === null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n).replace(/\s/g, " ") : String(v);
+}
 
 function br(date: string | null): string | null {
   if (!date) return null;
@@ -37,6 +60,7 @@ export async function snapshotAdmission(supabase: SupabaseClient, id: string): P
     .from("admissions")
     .select(
       `fullName, stageId, startDate, medicalExamDate, responsibleId, managerName, shift,
+       cpf, email, phone, birthDate, salary, uniformShirt, uniformPants, uniformShoe,
        position:admission_positions(name), company:admission_companies(name),
        branch:admission_branches(name), stage:admission_stages(name, isFinal)`
     )
@@ -51,6 +75,14 @@ export async function snapshotAdmission(supabase: SupabaseClient, id: string): P
     responsibleId: string | null;
     managerName: string | null;
     shift: string | null;
+    cpf: string | null;
+    email: string | null;
+    phone: string | null;
+    birthDate: string | null;
+    salary: number | string | null;
+    uniformShirt: string | null;
+    uniformPants: string | null;
+    uniformShoe: string | null;
     position: { name: string } | null;
     company: { name: string } | null;
     branch: { name: string } | null;
@@ -76,6 +108,15 @@ export async function snapshotAdmission(supabase: SupabaseClient, id: string): P
       medicalExamDate: br(a.medicalExamDate),
       managerName: a.managerName,
       shift: a.shift,
+      // Normalizados (dígitos → máscara) para não acusar mudança só de formatação.
+      cpf: maskedCpf(a.cpf),
+      email: a.email,
+      phone: a.phone ? maskPhone(a.phone) || null : null,
+      birthDate: br(a.birthDate),
+      salary: brl(a.salary),
+      uniformShirt: a.uniformShirt,
+      uniformPants: a.uniformPants,
+      uniformShoe: a.uniformShoe,
     },
   };
 }

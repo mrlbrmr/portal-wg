@@ -390,7 +390,7 @@ function AdmissionListItem({ r, today, canManage }: { r: AdmissionRow; today: Da
           )}
           {canManage && (
             <ButtonLink
-              href={`/admissoes/${r.id}/editar`}
+              href={`/admissoes/${r.id}?aba=contratacao&editar=1`}
               variant="tertiary"
               size="sm"
               icon={Pencil}

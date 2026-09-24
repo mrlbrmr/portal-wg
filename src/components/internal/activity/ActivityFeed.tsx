@@ -1,38 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type ElementType } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  AlertTriangle,
   ArrowDown,
   ArrowUpRight,
-  Briefcase,
-  CheckCircle2,
-  CircleSlash,
-  FilePlus2,
-  FileCheck2,
-  FileX2,
   History,
   Loader2,
-  MessageCircle,
-  Pencil,
-  RotateCcw,
-  Send,
-  Settings,
-  ShieldCheck,
-  Stethoscope,
-  Trash2,
-  Undo2,
-  UserCheck,
-  UserCog,
-  UserPlus,
-  UserX,
-  Users,
-  Workflow,
-  XCircle,
-  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ACTIVITY_ICONS } from "./icons";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { FilterBar, FilterSelect, SearchField } from "@/components/ui/FilterControls";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -46,7 +23,6 @@ import {
   formatActivityTime,
   formatActivityTimestamp,
   type ActivityCategory,
-  type ActivityIcon,
 } from "@/lib/activity/catalog";
 import {
   ACTIVITY_PERIODS,
@@ -59,36 +35,7 @@ import {
 } from "@/lib/activity/feed";
 import { loadMoreActivities } from "@/app/(internal)/admissoes/historico/actions";
 
-const ICONS: Record<ActivityIcon, ElementType> = {
-  created: FilePlus2,
-  edit: Pencil,
-  stage: Workflow,
-  done: CheckCircle2,
-  exam: Stethoscope,
-  "form-sent": Send,
-  form: ClipboardList,
-  whatsapp: MessageCircle,
-  "doc-ok": FileCheck2,
-  "doc-bad": FileX2,
-  undo: Undo2,
-  send: Send,
-  approve: CheckCircle2,
-  reject: XCircle,
-  return: RotateCcw,
-  cancel: CircleSlash,
-  reopen: RotateCcw,
-  job: Briefcase,
-  position: Briefcase,
-  candidate: Users,
-  "user-plus": UserPlus,
-  user: UserCog,
-  shield: ShieldCheck,
-  "user-off": UserX,
-  "user-on": UserCheck,
-  trash: Trash2,
-  settings: Settings,
-  alert: AlertTriangle,
-};
+const ICONS = ACTIVITY_ICONS;
 
 interface Option {
   id: string;

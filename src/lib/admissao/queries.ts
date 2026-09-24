@@ -10,7 +10,7 @@ export const getAdmissionConfig = cache(async function getAdmissionConfig() {
   const [stages, companies, branches, positions, users] = await Promise.all([
     supabase
       .from("admission_stages")
-      .select("id, name, color")
+      .select("id, name, color, isFinal")
       .eq("active", true)
       .order("sortOrder", { ascending: true }),
     supabase
@@ -35,7 +35,7 @@ export const getAdmissionConfig = cache(async function getAdmissionConfig() {
       .order("name", { ascending: true }),
   ]);
   return {
-    stages: (stages.data ?? []) as Array<{ id: string; name: string; color: string }>,
+    stages: (stages.data ?? []) as Array<{ id: string; name: string; color: string; isFinal: boolean }>,
     companies: (companies.data ?? []) as Array<{ id: string; name: string }>,
     branches: (branches.data ?? []) as Array<{ id: string; name: string }>,
     positions: (positions.data ?? []) as Array<{ id: string; name: string }>,

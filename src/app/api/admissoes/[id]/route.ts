@@ -47,16 +47,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: first ?? "Dados inválidos" }, { status: 400 });
   }
 
+  // A origem (vaga/candidatura) é definida na criação. Edições não a enviam — gravar os
+  // campos ausentes como null desfazia o vínculo com o ATS a cada "Salvar".
+  const { sourceApplicationId, sourceJobId, ...fields } = admissionInputToData(parsed.data);
+  const origin = {
+    ...(parsed.data.sourceApplicationId !== undefined ? { sourceApplicationId } : {}),
+    ...(parsed.data.sourceJobId !== undefined ? { sourceJobId } : {}),
+  };
+
   const before = await snapshotAdmission(supabase, id);
-  await supabase
+  const { error: updateError } = await supabase
     .from("admissions")
-    .update({ ...admissionInputToData(parsed.data), updatedById: access.userId })
+    .update({ ...fields, ...origin, updatedById: access.userId })
     .eq("id", id);
+  if (updateError) {
+    console.error("[admissoes PATCH]", updateError.message);
+    return NextResponse.json({ error: "Não foi possível salvar as alterações." }, { status: 500 });
+  }
   const after = await snapshotAdmission(supabase, id);
   await logAdmissionChanges(supabase, { admissionId: id, userId: access.userId, before, after, source: "form" });
 
   revalidatePath("/admissoes");
-  revalidatePath(`/admissoes/${id}/editar`);
+  revalidatePath(`/admissoes/${id}`);
   return NextResponse.json({ id }, { status: 200 });
 }
 

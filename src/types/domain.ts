@@ -29,6 +29,14 @@ export const JobStatus = {
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
 
+/** Onde a vaga aparece: Portal de Carreiras, Intranet WG Conecta ou os dois. */
+export const JobVisibility = {
+  BOTH: "BOTH", // Portal + Intranet (padrão)
+  PUBLIC: "PUBLIC", // só no Portal de Carreiras
+  INTERNAL: "INTERNAL", // só na Intranet (fora da lista pública, sitemap e feeds)
+} as const;
+export type JobVisibility = (typeof JobVisibility)[keyof typeof JobVisibility];
+
 // Ciclo de vida da SOLICITAÇÃO (pedido de autorização para contratar) — não confundir
 // com JobStatus, que é o ciclo da VAGA/processo seletivo que nasce depois da aprovação.
 export const JobRequestStatus = {
@@ -161,6 +169,8 @@ export interface Job {
   closingDate: Date | null;
   hiringDeadline: Date | null;
   status: JobStatus;
+  /** Onde a vaga aparece (Portal, Intranet ou os dois). */
+  visibility: JobVisibility;
   createdAt: Date;
   updatedAt: Date;
 }

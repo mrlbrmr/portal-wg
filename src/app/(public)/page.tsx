@@ -4,7 +4,7 @@ export const revalidate = 60;
 import { createAnonClient } from "@/lib/supabase/anon";
 import { DEFAULT_CONFIG, type HomepageConfigData } from "@/lib/homepage-config";
 import type { Job } from "@/types/domain";
-import { PUBLIC_JOB_STATUSES } from "@/lib/utils";
+import { PORTAL_LISTED_VISIBILITIES, PUBLIC_JOB_STATUSES } from "@/lib/utils";
 import { applyJobFilters, onlyPublicVisible, PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
 import JobFilters from "@/components/public/JobFilters";
 import { LoadMoreJobs } from "@/components/public/LoadMoreJobs";
@@ -61,7 +61,8 @@ export default async function HomePage({
     supabase
       .from("jobs")
       .select("id", { count: "exact", head: true })
-      .in("status", PUBLIC_JOB_STATUSES as readonly string[]),
+      .in("status", PUBLIC_JOB_STATUSES as readonly string[])
+      .in("visibility", PORTAL_LISTED_VISIBILITIES as readonly string[]),
     supabase.from("homepage_config").select("*").eq("id", "singleton").maybeSingle(),
   ]);
 

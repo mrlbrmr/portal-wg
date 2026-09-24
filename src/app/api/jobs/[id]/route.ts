@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, JobRequestReason } from "@/types/domain";
+import { Modality, ContractType, JobStatus, JobRequestReason, JobVisibility } from "@/types/domain";
 import { generateSlug, isPublicJobStatus } from "@/lib/utils";
 import { salaryColumns, salaryStateFromJob } from "@/lib/jobs/salary";
 import { diffJobFields } from "@/lib/jobs/field-changes";
@@ -48,6 +48,7 @@ const updateJobSchema = z.object({
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
   status: z.nativeEnum(JobStatus).optional(),
+  visibility: z.nativeEnum(JobVisibility).optional(),
   /** Motivo informado ao alterar um dado do escopo aprovado (vai para o histórico). */
   changeReason: z.string().max(500).optional().nullable(),
 });

@@ -84,6 +84,7 @@ const SAMPLE_JOB: Job = {
   closingDate: null,
   hiringDeadline: null,
   status: "ACTIVE",
+  visibility: "BOTH",
   createdAt: new Date(),
   updatedAt: new Date(),
 };

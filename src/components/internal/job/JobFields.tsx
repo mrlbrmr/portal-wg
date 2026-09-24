@@ -6,13 +6,13 @@
 
 import { useId, type ReactNode } from "react";
 import { BadgeCheck, Eye, Pencil } from "lucide-react";
-import { cn, BRAZIL_STATES } from "@/lib/utils";
+import { cn, BRAZIL_STATES, JOB_VISIBILITY_LABELS } from "@/lib/utils";
 import { JOB_REQUEST_REASON_LABELS, JOB_REQUEST_REASON_ORDER } from "@/lib/job-requests/constants";
 import { JOB_STATUS_OPTION_GROUPS } from "@/lib/recruitment/job-presentation";
 import { buildInitialContent, markdownToHtml } from "@/lib/jobs/markdown";
 import { formatBRL, salaryColumns, salaryStateFromJob, type SalaryMode } from "@/lib/jobs/salary";
 import { dateInputValue } from "@/lib/jobs/deadlines";
-import type { Job } from "@/types/domain";
+import type { Job, JobVisibility } from "@/types/domain";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 export const inputClass =
@@ -38,6 +38,8 @@ export interface JobDraft {
   /** Texto salarial antigo sem valor numérico (só leitura; preservado se nada for informado). */
   salaryLegacyText: string | null;
   status: string;
+  /** Onde a vaga aparece: Portal, Intranet ou os dois. */
+  visibility: JobVisibility;
   responsible: string;
   hiringManager: string;
   closingDate: string;
@@ -64,6 +66,7 @@ export function jobToDraft(job: Job | null | undefined, defaults: { responsible?
     salaryPublic: salary?.salaryPublic ?? true,
     salaryLegacyText: salary?.legacyText ?? null,
     status: job?.status ?? "DRAFT",
+    visibility: job?.visibility ?? "BOTH",
     responsible: job?.responsible ?? defaults.responsible ?? "",
     hiringManager: job?.hiringManager ?? "",
     closingDate: dateInputValue(job?.closingDate as string | Date | null | undefined),
@@ -102,6 +105,7 @@ export function draftToPayload(d: JobDraft) {
     hiringManager: d.hiringManager.trim() || null,
     openingReason: d.openingReason || null,
     status: d.status,
+    visibility: d.visibility,
   };
 }
 
@@ -162,15 +166,17 @@ export function ChoiceCards<T extends string>({
   onChange,
   options,
   label,
+  columns = 2,
 }: {
   name: string;
   value: T;
   onChange: (v: T) => void;
   label: string;
   options: Array<{ value: T; label: string; description?: string; disabled?: boolean; disabledReason?: string }>;
+  columns?: 2 | 3;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="grid gap-2 sm:grid-cols-2">
+    <div role="radiogroup" aria-label={label} className={cn("grid gap-2 sm:grid-cols-2", columns === 3 && "lg:grid-cols-3")}>
       {options.map((o) => {
         const checked = o.value === value;
         return (
@@ -390,6 +396,32 @@ export function SalaryFields({ draft, patch, approvedLabel }: { draft: JobDraft;
         </label>
       </div>
     </div>
+  );
+}
+
+const VISIBILITY_OPTIONS: Array<{ value: JobVisibility; description: string }> = [
+  { value: "BOTH", description: "Aparece para candidatos e para colaboradores em Vagas Internas." },
+  { value: "PUBLIC", description: "Só candidatos externos veem. Não aparece na Intranet." },
+  {
+    value: "INTERNAL",
+    description: "Só colaboradores veem, na Intranet. Fora da lista do portal, do Google e do Indeed.",
+  },
+];
+
+/** Onde a vaga aparece. O status continua decidindo se ela está aberta. */
+export function VisibilityField({ draft, patch }: { draft: JobDraft; patch: Patch }) {
+  const id = useId();
+  return (
+    <Field label="Onde esta vaga deve ser exibida?" hint="A vaga só aparece enquanto o status estiver aberto e as inscrições no prazo.">
+      <ChoiceCards
+        name={`${id}-visibility`}
+        label="Onde esta vaga deve ser exibida?"
+        value={draft.visibility}
+        onChange={(v) => patch({ visibility: v })}
+        columns={3}
+        options={VISIBILITY_OPTIONS.map((o) => ({ ...o, label: JOB_VISIBILITY_LABELS[o.value] }))}
+      />
+    </Field>
   );
 }
 

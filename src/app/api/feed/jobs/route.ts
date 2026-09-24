@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
+import { PORTAL_LISTED_VISIBILITIES } from "@/lib/utils";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { buildJobPostingJsonLd, type JobForSchema } from "@/lib/job-schema";
 import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
@@ -23,6 +24,8 @@ export async function GET() {
       "id, title, slug, description, city, state, department, company, modality, contractType, salaryRange, createdAt, closingDate"
     )
     .in("status", PUBLIC_JOB_STATUS_LIST as readonly string[])
+    // "Somente Intranet" não vai para Google/Indeed.
+    .in("visibility", PORTAL_LISTED_VISIBILITIES as readonly string[])
     .or(`closingDate.is.null,closingDate.gte.${now.toISOString()}`)
     .order("createdAt", { ascending: false });
 

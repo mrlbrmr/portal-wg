@@ -44,6 +44,7 @@ import {
   OpportunityFields,
   SalaryFields,
   StatusSelect,
+  VisibilityField,
   draftToPayload,
   inputClass,
   jobToDraft,
@@ -485,6 +486,9 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
                   >
                     <StatusSelect id="job-status" value={draft.status} onChange={(v) => patch({ status: v })} />
                   </Field>
+                  <div className="sm:col-span-2">
+                    <VisibilityField draft={draft} patch={patch} />
+                  </div>
                   <Field label="Recrutador responsável" htmlFor="job-responsible" hint="Quem conduz a seleção pelo RH.">
                     <input
                       id="job-responsible"

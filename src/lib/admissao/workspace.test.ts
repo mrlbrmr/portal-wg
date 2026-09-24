@@ -10,6 +10,7 @@ import {
   draftToPayload,
   formatDateBR,
   formatSalaryDigits,
+  formFillProgress,
   parseAdmissionTab,
   validateDraft,
   type AdmissionRecord,
@@ -140,6 +141,71 @@ describe("admissionPendencies", () => {
   it("estados do formulário", () => {
     assert.match(admissionPendencies(pend({ formState: "NOT_SENT" }), TODAY)[0].text, /ainda não foi enviado/);
     assert.equal(admissionPendencies(pend({ formState: "EXPIRED" }), TODAY)[0].tone, "warning");
+  });
+
+  it("formulário começado mostra quantos obrigatórios o candidato já enviou", () => {
+    const fill = { requiredDone: 3, requiredTotal: 5 };
+    const waiting = admissionPendencies(pend({ formState: "WAITING", formFill: fill }), TODAY);
+    assert.match(waiting.find((p) => p.key === "form")!.text, /começou o formulário \(3 de 5 documentos obrigatórios\)/);
+    const expired = admissionPendencies(pend({ formState: "EXPIRED", formFill: fill }), TODAY);
+    assert.match(expired.find((p) => p.key === "form")!.text, /expirou antes do envio final/);
+  });
+});
+
+describe("formFillProgress", () => {
+  const always = { type: "always" };
+  const documents = [
+    { label: "RG/CNH", required: true, condition: always },
+    { label: "CTPS", required: true, condition: always },
+    { label: "Comprovante de residência", required: true, condition: always },
+    { label: "Reservista", required: false, condition: { type: "gender" } },
+  ];
+  const documentTypes = [
+    { id: "t-rg", name: "RG/CNH" },
+    { id: "t-ctps", name: "CTPS" },
+    { id: "t-res", name: "Comprovante de residência" },
+  ];
+
+  it("sem nenhum envio do candidato não há progresso", () => {
+    assert.equal(formFillProgress({ documents, documentTypes, candidateAttachments: [] }), null);
+  });
+
+  it("conta cada obrigatório uma vez e lista o que falta", () => {
+    const fill = formFillProgress({
+      documents,
+      documentTypes,
+      candidateAttachments: [
+        { documentTypeId: "t-rg", createdAt: "2026-09-24T15:53:00.000Z" },
+        { documentTypeId: "t-rg", createdAt: "2026-09-24T15:56:00.000Z" },
+        { documentTypeId: "t-ctps", createdAt: "2026-09-24T15:55:00.000Z" },
+      ],
+    });
+    assert.ok(fill);
+    assert.equal(fill.requiredDone, 2);
+    assert.equal(fill.requiredTotal, 3);
+    assert.deepEqual(fill.missing, ["Comprovante de residência"]);
+    assert.equal(fill.uploads, 3);
+    assert.equal(fill.lastUploadAt, "2026-09-24T15:56:00.000Z");
+    assert.equal(fill.hasConditionalRequired, false);
+  });
+
+  it("documento sem tipo cadastrado com o mesmo nome continua faltando", () => {
+    const fill = formFillProgress({
+      documents,
+      documentTypes: documentTypes.filter((t) => t.id !== "t-res"),
+      candidateAttachments: [{ documentTypeId: null, createdAt: "2026-09-24T15:00:00.000Z" }],
+    });
+    assert.deepEqual(fill?.missing, ["RG/CNH", "CTPS", "Comprovante de residência"]);
+  });
+
+  it("obrigatório condicional fica fora da conta, mas é sinalizado", () => {
+    const fill = formFillProgress({
+      documents: [...documents, { label: "Cônjuge", required: true, condition: { type: "marital" } }],
+      documentTypes,
+      candidateAttachments: [{ documentTypeId: "t-rg", createdAt: "2026-09-24T15:00:00.000Z" }],
+    });
+    assert.equal(fill?.requiredTotal, 3);
+    assert.equal(fill?.hasConditionalRequired, true);
   });
 });
 

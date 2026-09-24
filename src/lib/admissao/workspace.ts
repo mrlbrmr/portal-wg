@@ -123,6 +123,65 @@ export function admissionProgress(stages: StageDef[], currentStageId: string | n
   };
 }
 
+// ─── Formulário em preenchimento ────────────────────────────────────────────────────────
+// O candidato sobe cada documento na hora (rota de upload), mas as respostas só são
+// gravadas no envio final — e é o envio final que avisa o RH por e-mail. Enquanto isso,
+// os anexos enviados pelo link são o único sinal de que ele começou.
+//
+// Só os documentos obrigatórios SEMPRE visíveis entram na conta: os condicionais dependem
+// de respostas (gênero, estado civil…) que ainda não existem no banco.
+
+export interface FormFillProgress {
+  /** Documentos obrigatórios sempre visíveis que o candidato já enviou. */
+  requiredDone: number;
+  requiredTotal: number;
+  /** Rótulos dos obrigatórios sempre visíveis ainda sem arquivo. */
+  missing: string[];
+  /** Há obrigatórios que dependem das respostas — o total pode crescer no envio. */
+  hasConditionalRequired: boolean;
+  /** Arquivos enviados pelo candidato (qualquer documento). */
+  uploads: number;
+  lastUploadAt: string | null;
+}
+
+export interface FormFillInput {
+  /** Documentos do formulário (admission_form_config). */
+  documents: Array<{ label: string; required: boolean; condition: { type: string } }>;
+  /** Cadastro "Tipos de documento" — o upload liga pelo nome exato do rótulo. */
+  documentTypes: Array<{ id: string; name: string }>;
+  /** Só os anexos enviados pelo candidato (sem usuário do RH). */
+  candidateAttachments: Array<{ documentTypeId: string | null; createdAt: string }>;
+}
+
+/** Progresso do formulário ainda não enviado; null quando o candidato não subiu nada. */
+export function formFillProgress({ documents, documentTypes, candidateAttachments }: FormFillInput): FormFillProgress | null {
+  if (candidateAttachments.length === 0) return null;
+
+  const typeIdByName = new Map(documentTypes.map((t) => [t.name, t.id]));
+  const sentTypes = new Set(candidateAttachments.map((a) => a.documentTypeId).filter(Boolean));
+  const required = documents.filter((d) => d.required && d.condition.type === "always");
+  const missing = required
+    .filter((d) => {
+      const typeId = typeIdByName.get(d.label);
+      return !typeId || !sentTypes.has(typeId);
+    })
+    .map((d) => d.label);
+
+  const lastUploadAt = candidateAttachments.reduce<string | null>(
+    (max, a) => (max === null || new Date(a.createdAt) > new Date(max) ? a.createdAt : max),
+    null
+  );
+
+  return {
+    requiredDone: required.length - missing.length,
+    requiredTotal: required.length,
+    missing,
+    hasConditionalRequired: documents.some((d) => d.required && d.condition.type !== "always"),
+    uploads: candidateAttachments.length,
+    lastUploadAt,
+  };
+}
+
 // ─── Pendências ─────────────────────────────────────────────────────────────────────────
 
 export type PendencyTone = "danger" | "warning" | "info";
@@ -142,6 +201,8 @@ export interface PendencyInput {
   medicalExamDate: string | null; // AAAA-MM-DD
   cpf: string | null;
   formState: DigitalFormState;
+  /** Documentos já enviados pelo link, antes do envio final (formFillProgress). */
+  formFill?: Pick<FormFillProgress, "requiredDone" | "requiredTotal"> | null;
   missingRequiredDocs: string[];
   docsToReview: string[];
   docsRejected: string[];
@@ -209,8 +270,23 @@ export function admissionPendencies(p: PendencyInput, today: Date = new Date()):
     });
   }
 
+  const fillText = p.formFill
+    ? `${p.formFill.requiredDone} de ${p.formFill.requiredTotal} documentos obrigatórios`
+    : null;
   if (p.formState === "EXPIRED") {
-    out.push({ key: "form", tone: "warning", text: "O link do formulário expirou sem resposta do candidato." });
+    out.push({
+      key: "form",
+      tone: "warning",
+      text: fillText
+        ? `O link do formulário expirou antes do envio final (o candidato tinha enviado ${fillText}).`
+        : "O link do formulário expirou sem resposta do candidato.",
+    });
+  } else if (p.formState === "WAITING" && fillText) {
+    out.push({
+      key: "form",
+      tone: "info",
+      text: `O candidato começou o formulário (${fillText}), mas ainda não concluiu o envio.`,
+    });
   } else if (p.formState === "WAITING") {
     out.push({ key: "form", tone: "info", text: "Formulário enviado ao candidato, aguardando preenchimento." });
   } else if (p.formState === "NOT_SENT") {

@@ -48,6 +48,8 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   (`src/components/internal/admissao/workspace/**`; `/editar` só redireciona com `?editar=1`). Progresso vem
   SÓ das etapas configuradas; pendências/rascunho/validação em `src/lib/admissao/workspace.ts` e histórico em
   `history.ts` (puros, testados). O PATCH nunca grava a origem (vaga/candidatura) se ela não vier no corpo.
+  Respostas do formulário digital só gravam no envio final (que dispara o e-mail ao RH); antes disso,
+  "Em preenchimento" vem dos anexos sem `uploadedById` (`formFillProgress`, só obrigatórios sempre visíveis).
 - **Modelos de checklist:** `.../admissoes/configuracoes/modelos`, `src/lib/admissao/template-actions.ts`, `checklist.ts`
 - **Calendário** (`/admissoes/calendario`): eventos puros em `src/lib/admissao/calendar.ts` (testado). Experiência
   desligada até definir `EXPERIENCE_CHECKPOINT_DAYS`; o banco não guarda horário.

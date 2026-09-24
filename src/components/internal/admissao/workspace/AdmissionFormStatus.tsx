@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Circle, Clock, Copy, Check, FileText, MessageSquare, RefreshCw, Send, TimerOff } from "lucide-react";
+import { CheckCircle2, Circle, CircleDashed, Clock, Copy, Check, FileText, MessageSquare, RefreshCw, Send, TimerOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/utils";
 import type { DigitalFormState } from "@/lib/admissao/overview";
+import type { FormFillProgress } from "@/lib/admissao/workspace";
 import { useAdmissionWorkspace } from "./context";
 
 function fmt(iso: string) {
@@ -23,13 +25,55 @@ function fmt(iso: string) {
     .replace(",", " às");
 }
 
-// "Em preenchimento" não aparece: o sistema não registra quando o candidato abre o link.
+// O sistema não registra quando o candidato abre o link: "Em preenchimento" só aparece
+// depois que ele envia o primeiro documento (form.fill).
 const STATE: Record<DigitalFormState, { label: string; icon: typeof Circle; className: string }> = {
   NOT_SENT: { label: "Não enviado", icon: Circle, className: "text-wg-ink-muted" },
   WAITING: { label: "Aguardando preenchimento", icon: Clock, className: "text-warning-fg" },
   EXPIRED: { label: "Link expirado", icon: TimerOff, className: "text-danger-fg" },
   SUBMITTED: { label: "Concluído", icon: CheckCircle2, className: "text-success-fg" },
 };
+
+const FILLING = { label: "Em preenchimento", icon: CircleDashed, className: "text-info-fg" };
+
+/** Documentos que o candidato já subiu pelo link, antes de concluir o envio. */
+function FormFillDetails({ fill, expired }: { fill: FormFillProgress; expired: boolean }) {
+  const complete = fill.requiredTotal > 0 && fill.missing.length === 0;
+  return (
+    <div className="mt-3 rounded-control border border-wg-border-lighter bg-wg-bg p-3">
+      <div className="flex items-baseline justify-between gap-2 text-meta">
+        <span className="font-semibold text-wg-ink">Documentos obrigatórios</span>
+        <span className="tabular-nums text-wg-ink-muted">
+          {fill.requiredDone} de {fill.requiredTotal}
+        </span>
+      </div>
+      <ProgressBar
+        value={fill.requiredTotal ? (fill.requiredDone / fill.requiredTotal) * 100 : 0}
+        label="Documentos obrigatórios enviados pelo candidato"
+        tone={complete ? "success" : "info"}
+        className="mt-1.5"
+      />
+      {fill.missing.length > 0 && (
+        <p className="mt-2 text-meta text-wg-ink-muted">
+          <span className="font-medium text-wg-ink">Faltam:</span> {fill.missing.join(", ")}.
+        </p>
+      )}
+      {fill.hasConditionalRequired && (
+        <p className="mt-1 text-meta text-wg-ink-muted">Outros podem ser exigidos conforme as respostas do candidato.</p>
+      )}
+      {fill.lastUploadAt && (
+        <p className="mt-2 text-meta text-wg-ink-muted">
+          {fill.uploads} {fill.uploads === 1 ? "arquivo enviado" : "arquivos enviados"} · último em {fmt(fill.lastUploadAt)}
+        </p>
+      )}
+      <p className="mt-2 border-t border-wg-border-lighter pt-2 text-meta text-wg-ink-muted">
+        {expired
+          ? "O link expirou antes do envio final. Gere um novo link para o candidato concluir."
+          : "O formulário só é concluído quando o candidato clica em Enviar. Só então o RH recebe o aviso por e-mail."}
+      </p>
+    </div>
+  );
+}
 
 /**
  * Formulário de admissão do candidato: estado real (token/validade/envio) e as ações que o
@@ -47,7 +91,8 @@ export function AdmissionFormStatus() {
   const [whatsappMsg, setWhatsappMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState<"url" | "msg" | null>(null);
 
-  const meta = STATE[form.state];
+  const fill = form.fill;
+  const meta = form.state === "WAITING" && fill ? FILLING : STATE[form.state];
   const Icon = meta.icon;
   const url = generatedUrl ?? form.currentUrl;
 
@@ -115,6 +160,7 @@ export function AdmissionFormStatus() {
           </div>
         )}
       </dl>
+      {fill && <FormFillDetails fill={fill} expired={form.state === "EXPIRED"} />}
       {form.state === "NOT_SENT" && canManage && (
         <p className="mt-1 text-meta text-wg-ink-muted">
           Gere um link para o candidato preencher os dados e enviar os documentos. Vale {form.expiryDays} dias.

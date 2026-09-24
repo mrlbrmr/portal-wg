@@ -1,5 +1,5 @@
 import type { DigitalFormState } from "@/lib/admissao/overview";
-import type { AdmissionRecord, Pendency } from "@/lib/admissao/workspace";
+import type { AdmissionRecord, FormFillProgress, Pendency } from "@/lib/admissao/workspace";
 
 export interface Option {
   id: string;
@@ -47,6 +47,8 @@ export interface AdmissionWorkspaceData {
     /** Link ativo (só quando há token válido) — copiar sem gerar outro. */
     currentUrl: string | null;
     expiryDays: number;
+    /** Documentos já enviados pelo link antes do envio final (null = nada enviado ou já concluído). */
+    fill: FormFillProgress | null;
   };
   /** Respostas do formulário usadas em "Benefícios e recursos" (somente leitura). */
   answers: {

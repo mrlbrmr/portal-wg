@@ -11,6 +11,7 @@ import { needsAttention, sectionStatus } from "@/lib/admissao/document-status";
 import { canWriteAdmissions } from "@/lib/admissao/permissions";
 import {
   admissionPendencies,
+  formFillProgress,
   parseAdmissionTab,
   todayFrom,
   todayISOInSaoPaulo,
@@ -180,6 +181,17 @@ export default async function AdmissaoPage({
   // ── Formulário do candidato ─────────────────────────────────────────────────────────
   const formState = digitalFormState(admission);
   const lastSent = logs.find((l) => l.action === "FORM_LINK_SENT");
+  // Anexos do link não têm usuário do RH; só contam enquanto o envio final não acontece.
+  const formFill =
+    formState === "WAITING" || formState === "EXPIRED"
+      ? formFillProgress({
+          documents: formConfig.documents,
+          documentTypes,
+          candidateAttachments: (admission.attachments ?? [])
+            .filter((a) => !a.uploadedById)
+            .map((a) => ({ documentTypeId: a.documentTypeId, createdAt: new Date(a.createdAt).toISOString() })),
+        })
+      : null;
 
   const isFinal = !!admission.stage?.isFinal;
   const record: AdmissionRecord = {
@@ -252,6 +264,7 @@ export default async function AdmissaoPage({
           ? `${getAppBaseUrl()}/admissao/${admission.digitalFormToken}`
           : null,
       expiryDays: DIGITAL_FORM_EXPIRY_DAYS,
+      fill: formFill,
     },
     answers: {
       needsTransportVoucher: admission.needsTransportVoucher,
@@ -284,6 +297,7 @@ export default async function AdmissaoPage({
         medicalExamDate: admission.medicalExamDate,
         cpf: admission.cpf,
         formState,
+        formFill,
         missingRequiredDocs: missingRequired.map((d) => d.name),
         docsToReview: docsAiFlagged.map((d) => d.name),
         docsRejected: docsRejected.map((d) => d.name),

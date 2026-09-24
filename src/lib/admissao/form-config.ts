@@ -226,3 +226,32 @@ export function mergeConfig(partial: unknown): FormConfig {
   if (parsed.success) return parsed.data as FormConfig
   return DEFAULT_FORM_CONFIG
 }
+
+// ─── Retomada do formulário ───────────────────────────────────────────────────
+// Cada documento é gravado na hora do upload, mas as respostas só no envio final.
+// Ao reabrir o link, os arquivos já enviados voltam para o documento de origem —
+// o anexo é ligado ao cadastro "Tipos de documento" pelo rótulo exato (rota de upload).
+
+export interface RestoredUpload {
+  attachmentId: string
+  fileName: string
+}
+
+export function restoreFormUploads(
+  config: Pick<FormConfig, 'documents'>,
+  documentTypes: Array<{ id: string; name: string }>,
+  attachments: Array<{ id: string; fileName: string; documentTypeId: string | null; reviewStatus?: string | null }>
+): Record<string, RestoredUpload[]> {
+  const typeNameById = new Map(documentTypes.map((t) => [t.id, t.name]))
+  const keyByLabel = new Map(config.documents.map((d) => [d.label, d.key]))
+  const out: Record<string, RestoredUpload[]> = {}
+  for (const a of attachments) {
+    // Recusado pelo RH: o candidato precisa enviar outro arquivo.
+    if (a.reviewStatus === 'rejected' || !a.documentTypeId) continue
+    const name = typeNameById.get(a.documentTypeId)
+    const key = name ? keyByLabel.get(name) : undefined
+    if (!key) continue
+    ;(out[key] ??= []).push({ attachmentId: a.id, fileName: a.fileName })
+  }
+  return out
+}

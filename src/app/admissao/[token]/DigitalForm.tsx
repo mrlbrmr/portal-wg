@@ -5,6 +5,7 @@ import { CheckCircle2, Upload, Loader2, AlertTriangle, ChevronRight, ChevronLeft
 import {
   getVisibleDocuments,
   type FormConfig,
+  type RestoredUpload,
   type DocumentConfig,
   type ExtraFieldConfig,
 } from '@/lib/admissao/form-config'
@@ -325,11 +326,13 @@ function StepBar({ current }: { current: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function DigitalForm({
-  token, candidateName, config, preview = false,
+  token, candidateName, config, initialUploads, preview = false,
 }: {
   token: string
   candidateName: string
   config: FormConfig
+  /** Arquivos já enviados por este link (retomada após fechar a página). */
+  initialUploads?: Record<string, RestoredUpload[]>
   /**
    * Pré-visualização nas Configurações: mesma tela do candidato, mas sem upload, sem
    * envio e sem travar a navegação entre os passos nas validações.
@@ -353,7 +356,15 @@ export function DigitalForm({
     shirtSize: '', noOperationalUniform: false, pantsSize: '', bootSize: '',
   })
 
-  const [uploads, setUploads]     = useState<Record<string, UploadState[]>>({})
+  const [uploads, setUploads]     = useState<Record<string, UploadState[]>>(() =>
+    Object.fromEntries(
+      Object.entries(initialUploads ?? {}).map(([key, files]) => [
+        key,
+        files.map(f => ({ id: f.attachmentId, status: 'done' as const, fileName: f.fileName, attachmentId: f.attachmentId })),
+      ])
+    )
+  )
+  const restoredCount = Object.values(initialUploads ?? {}).reduce((n, files) => n + files.length, 0)
   const [removedIds, setRemovedIds] = useState<string[]>([])
   const [extras, setExtras]       = useState<Record<string, string>>({})
 
@@ -554,6 +565,18 @@ export function DigitalForm({
       </div>
 
       <StepBar current={step} />
+
+      {restoredCount > 0 && step < 3 && (
+        <div className="mb-4 flex gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-green-600" />
+          <p>
+            {restoredCount === 1
+              ? 'Guardamos o arquivo que você já tinha enviado. '
+              : `Guardamos os ${restoredCount} arquivos que você já tinha enviado. `}
+            Preencha seus dados de novo, envie só o que falta e clique em <strong>Enviar</strong> no final.
+          </p>
+        </div>
+      )}
 
       {/* ── Step 0: Dados pessoais ── */}
       {step === 0 && (

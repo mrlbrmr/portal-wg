@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DigitalForm } from './DigitalForm'
 import { loadFormConfig } from '@/lib/admissao/form-config-loader'
+import { restoreFormUploads } from '@/lib/admissao/form-config'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Admissão Digital | WG Baterias' }
@@ -58,13 +59,29 @@ export default async function AdmissaoPage({ params }: { params: Promise<{ token
     )
   }
 
-  const config = await loadFormConfig()
+  // Retomada: arquivos que o candidato já enviou por este link (anexos do RH têm usuário).
+  const [config, attachmentsRes, typesRes] = await Promise.all([
+    loadFormConfig(),
+    supabase
+      .from('admission_attachments')
+      .select('id, fileName, documentTypeId, reviewStatus')
+      .eq('admissionId', admission.id)
+      .is('uploadedById', null)
+      .order('createdAt', { ascending: true }),
+    supabase.from('admission_document_types').select('id, name'),
+  ])
+  const initialUploads = restoreFormUploads(
+    config,
+    (typesRes.data ?? []) as Array<{ id: string; name: string }>,
+    (attachmentsRes.data ?? []) as Array<{ id: string; fileName: string; documentTypeId: string | null; reviewStatus: string | null }>
+  )
 
   return (
     <DigitalForm
       token={token}
       candidateName={admission.fullName as string}
       config={config}
+      initialUploads={initialUploads}
     />
   )
 }

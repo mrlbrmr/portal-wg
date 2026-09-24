@@ -432,3 +432,50 @@ export function admissionSubmittedEmail(input: {
     }),
   };
 }
+
+/** Resumo diário ao RH: candidatos que começaram o formulário de admissão e pararam. */
+export function stalledAdmissionFormsEmail(input: {
+  items: Array<{
+    admissionId: string;
+    candidateName: string;
+    rows: Array<[string, string]>;
+  }>;
+}): { subject: string; html: string } {
+  const n = input.items.length;
+  const first = input.items[0]?.candidateName || "Candidato";
+  const subject =
+    n === 1
+      ? `Formulário de admissão parado — ${first}`
+      : `${n} formulários de admissão parados`;
+  const intro =
+    n === 1
+      ? `<strong style="color:${INK}">${escapeHtml(first)}</strong> começou a enviar os documentos da admissão, mas ainda não concluiu o formulário.`
+      : `<strong style="color:${INK}">${n} candidatos</strong> começaram a enviar os documentos da admissão, mas ainda não concluíram o formulário.`;
+
+  const blocks = input.items
+    .map((item) =>
+      [
+        paragraph(`<strong style="color:${INK};font-size:15.5px;">${escapeHtml(item.candidateName || "Candidato")}</strong>`),
+        dataTable(item.rows),
+        button(`${getAppBaseUrl()}/admissoes/${item.admissionId}`, "Abrir admissão"),
+        spacer(18),
+      ].join("")
+    )
+    .join("");
+
+  return {
+    subject,
+    html: layout({
+      preview: n === 1 ? `${first} parou no meio do formulário de admissão.` : `${n} candidatos pararam no meio do formulário de admissão.`,
+      chip: { label: "Aguardando o candidato", bg: "#FCF1DD", color: "#8A5B10" },
+      title: n === 1 ? "Formulário de admissão parado" : "Formulários de admissão parados",
+      body: [
+        paragraph(
+          `${intro} Os arquivos já enviados ficam guardados: basta o candidato abrir o mesmo link, enviar o que falta e clicar em <strong style="color:${INK}">Enviar</strong>. Na ficha da admissão você copia o link para lembrá-lo.`
+        ),
+        spacer(4),
+        blocks,
+      ].join(""),
+    }),
+  };
+}

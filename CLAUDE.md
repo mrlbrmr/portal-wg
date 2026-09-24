@@ -31,7 +31,7 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Teste de banco:** `npm run test:db` — cenários das posições contra o banco real, em transação com ROLLBACK.
 
 ## Deploy
-- **Push em `master` → deploy de produção automático na Vercel** (integração GitHub; não há `vercel.json` nem `.vercel/`).
+- **Push em `master` → deploy de produção automático na Vercel** (integração GitHub; sem `.vercel/`). `vercel.json` só declara os crons.
 
 ## Migrações de banco (LER ANTES DE MEXER NO SCHEMA)
 - Arquivos SQL em `supabase/migrations/` (nome `AAAAMMDDHHMMSS_descricao.sql`).
@@ -108,6 +108,9 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **E-mail transacional:** `src/lib/email.ts` (Resend) — sem `RESEND_API_KEY`/`RESEND_FROM_EMAIL`
   nada é enviado (só loga). Templates em `src/lib/email-templates.ts`. Avisos ao RH: nova
   solicitação de vaga e formulário de admissão enviado (`src/lib/admissao/notify-submitted.ts`).
+  Resumo diário de formulários parados no meio (cron `/api/cron/formularios-parados`, 08:00 BRT;
+  regra pura em `stalled-forms.ts`, envio em `notify-stalled.ts`; 1 aviso por parada via log
+  `FORM_STALLED_NOTIFIED`). Exige `CRON_SECRET` na Vercel — sem ele a rota responde 503.
 - **Avaliações / Testes:** `src/app/(internal)/avaliacoes/{banco,aplicacoes,resultados}`, `src/lib/avaliacoes/**`,
   página pública `src/app/avaliacao/[token]`.
   - **A UI decide pelo TIPO, nunca pelo nome do teste:** `assessment_templates."assessmentType"`

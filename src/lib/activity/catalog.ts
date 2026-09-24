@@ -80,6 +80,7 @@ export const ACTIVITY_TYPES = {
   "admission.exam_updated": { label: "ASO atualizado", category: "admissoes", icon: "exam", tone: "info" },
   "admission.form_link_sent": { label: "Formulário enviado ao candidato", category: "admissoes", icon: "form-sent", tone: "info" },
   "admission.form_submitted": { label: "Formulário preenchido", category: "admissoes", icon: "form", tone: "success" },
+  "admission.form_stalled": { label: "Aviso de formulário parado", category: "admissoes", icon: "alert", tone: "warning" },
   "admission.whatsapp_started": { label: "Admissão digital iniciada (WhatsApp)", category: "admissoes", icon: "whatsapp", tone: "info" },
   "admission.deleted": { label: "Admissão excluída", category: "admissoes", icon: "trash", tone: "danger" },
 
@@ -136,6 +137,7 @@ export const ADMISSION_LOG_ACTIONS: Record<string, ActivityTypeKey> = {
   EXAM_DATE_UPDATED: "admission.exam_updated",
   FORM_LINK_SENT: "admission.form_link_sent",
   FORM_SUBMITTED: "admission.form_submitted",
+  FORM_STALLED_NOTIFIED: "admission.form_stalled",
   ADMISSION_DIGITAL_COMPLETE: "admission.form_submitted",
   DIGITAL_ADMISSION_STARTED: "admission.whatsapp_started",
   ADMISSION_DELETED: "admission.deleted",

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activity/log'
 import { deleteAdmissionAttachment } from '@/lib/admissao/storage'
 import { notifyAdmissionSubmitted } from '@/lib/admissao/notify-submitted'
+import { advanceToDocumentIntake } from '@/lib/admissao/advance-document-intake'
 import { z } from 'zod'
 import { isValidCpf } from '@/lib/cpf'
 
@@ -127,6 +128,7 @@ export async function POST(
   // Avisa o RH por e-mail depois de responder ao candidato (roda após a limpeza
   // acima, então a lista de documentos já reflete só os anexos válidos).
   const admissionId = admission.id as string
+  after(() => advanceToDocumentIntake(supabase, admissionId, 'submit'))
   after(() =>
     notifyAdmissionSubmitted(supabase, admissionId).catch((err) =>
       console.error('[email] admissão enviada:', err)

@@ -50,6 +50,9 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   `history.ts` (puros, testados). O PATCH nunca grava a origem (vaga/candidatura) se ela não vier no corpo.
   Respostas do formulário digital só gravam no envio final (que dispara o e-mail ao RH); antes disso,
   "Em preenchimento" vem dos anexos sem `uploadedById` (`formFillProgress`, só obrigatórios sempre visíveis).
+- **Avanço automático ao receber documentos:** 1º upload ou envio do formulário leva a admissão para a etapa
+  `admission_stages."isDocumentIntake"` (hoje "Validação de documentos"; configurável em Cadastros › Etapas).
+  Só avança, nunca volta nem conclui — regra pura em `src/lib/admissao/document-intake.ts` (testada).
 - **Modelos de checklist:** `.../admissoes/configuracoes/modelos`, `src/lib/admissao/template-actions.ts`, `checklist.ts`
 - **Calendário** (`/admissoes/calendario`): eventos puros em `src/lib/admissao/calendar.ts` (testado). Experiência
   desligada até definir `EXPERIENCE_CHECKPOINT_DAYS`; o banco não guarda horário.

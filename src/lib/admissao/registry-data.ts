@@ -11,6 +11,8 @@ export interface RegistryItem {
   color: string | null;
   required: boolean | null;
   isFinal: boolean | null;
+  /** Etapa para onde a admissão avança quando o candidato começa a enviar documentos. */
+  isDocumentIntake: boolean | null;
   usage: Usage;
 }
 
@@ -20,7 +22,7 @@ const COLUMNS: Record<CatEntity, string> = {
   branch: "id, name, active",
   documentType: "id, name, required",
   tag: "id, name, color",
-  stage: "id, name, color, active, isFinal",
+  stage: "id, name, color, active, isFinal, isDocumentIntake",
 };
 
 export async function loadRegistryItems(entity: CatEntity): Promise<RegistryItem[]> {
@@ -40,6 +42,7 @@ export async function loadRegistryItems(entity: CatEntity): Promise<RegistryItem
     color: (r.color as string | undefined) ?? null,
     required: entity === "documentType" ? !!r.required : null,
     isFinal: entity === "stage" ? !!r.isFinal : null,
+    isDocumentIntake: entity === "stage" ? !!r.isDocumentIntake : null,
     usage: usages[i],
   }));
 }

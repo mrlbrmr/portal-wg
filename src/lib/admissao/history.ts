@@ -47,8 +47,8 @@ const ATTACHMENT_BATCH_MS = 10 * 60_000;
 
 type Change = { label?: string; from?: string | null; to?: string | null };
 
-function meta(m: unknown): { from?: string | null; to?: string | null; changes?: Change[] } {
-  return m && typeof m === "object" ? (m as { from?: string; to?: string; changes?: Change[] }) : {};
+function meta(m: unknown): { from?: string | null; to?: string | null; changes?: Change[]; automatic?: boolean; trigger?: string } {
+  return m && typeof m === "object" ? (m as { from?: string; to?: string; changes?: Change[]; automatic?: boolean; trigger?: string }) : {};
 }
 
 const q = (v: string | null | undefined) => (v ? `“${v}”` : "vazio");
@@ -66,7 +66,14 @@ function logToItem(log: HistoryLogRow): HistoryItem | null {
     case "admission.completed":
       return {
         ...base,
-        title: key === "admission.completed" ? (who ? `${who} concluiu a admissão` : "Admissão concluída") : who ? `${who} alterou a etapa` : "Etapa alterada",
+        title:
+          key === "admission.completed"
+            ? who ? `${who} concluiu a admissão` : "Admissão concluída"
+            : m.automatic
+              ? m.trigger === "submit"
+                ? "Etapa alterada automaticamente (formulário enviado)"
+                : "Etapa alterada automaticamente (candidato enviou documentos)"
+              : who ? `${who} alterou a etapa` : "Etapa alterada",
         description: m.from !== undefined || m.to !== undefined ? `${q(m.from)} → ${q(m.to)}` : (log.description ?? undefined),
       };
     case "admission.updated": {

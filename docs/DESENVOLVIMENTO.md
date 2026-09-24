@@ -7,6 +7,20 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-09-24 (tarde) — Avanço automático para "Validação de documentos"
+
+Migração `20260924150000_admission_stage_document_intake.sql` (**aplicada**): `admission_stages."isDocumentIntake"`
+(no máximo uma, índice único parcial), ligada na etapa "Validação de documentos".
+
+- Quando o candidato envia o 1º documento (`/api/admissao/[token]/upload`) ou o formulário completo
+  (`.../submit`), a admissão avança sozinha para a etapa marcada — em `after()`, nunca barra o candidato.
+- Regra pura `src/lib/admissao/document-intake.ts` (testada): só avança (etapa atual com `sortOrder` menor
+  ou sem etapa); quem já está nela/depois/concluída fica; etapa marcada desativada ou de conclusão = desligado.
+- Gravação em `advance-document-intake.ts`: compare-and-swap no `stageId` (se o RH mover junto, vale o RH) e
+  log `STAGE_CHANGED` com `metadata.automatic` → histórico mostra "Etapa alterada automaticamente".
+- Configuração: Configurações › Cadastros › Etapas, bloco "Avanço automático ao receber documentos"
+  (`setDocumentIntakeStage`, "Desligado" desliga). Nenhuma admissão antiga precisou ser movida.
+
 ## Sessão de 2026-09-24 — Central da admissão (ficha + edição unificadas)
 
 Sem migração. A ficha (`/admissoes/[id]`) e o formulário longo de edição (`/admissoes/[id]/editar`) viraram

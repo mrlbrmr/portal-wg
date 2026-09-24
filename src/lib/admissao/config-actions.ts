@@ -214,6 +214,37 @@ export async function setConclusionStage(id: string): Promise<ActionResult> {
 }
 
 /**
+ * Define a etapa de recebimento dos documentos (isDocumentIntake, no máximo uma): quando
+ * o candidato começa a enviar documentos ou envia o formulário, a admissão avança para
+ * ela (regra em document-intake.ts). `null` desliga a automação.
+ */
+export async function setDocumentIntakeStage(id: string | null): Promise<ActionResult> {
+  const a = await requireConfig();
+  if ("error" in a) return { ok: false, error: a.error };
+
+  const supabase = await createClient();
+  let name: string | null = null;
+  if (id) {
+    const { data: stage } = await supabase.from("admission_stages").select("id, name, active, isFinal").eq("id", id).maybeSingle();
+    if (!stage?.active) return { ok: false, error: "Escolha uma etapa ativa." };
+    if (stage.isFinal) return { ok: false, error: "A etapa de conclusão não pode receber a automação." };
+    name = stage.name as string;
+  }
+
+  // Desmarca antes de marcar: o índice único parcial só aceita uma etapa marcada.
+  const off = await supabase.from("admission_stages").update({ isDocumentIntake: false }).eq("isDocumentIntake", true);
+  if (off.error) return { ok: false, error: "Não foi possível salvar a automação." };
+  if (id) {
+    const on = await supabase.from("admission_stages").update({ isDocumentIntake: true }).eq("id", id);
+    if (on.error) return { ok: false, error: "Não foi possível salvar a automação." };
+  }
+
+  await log(a.session, "stage", name ? `Etapa de recebimento dos documentos definida: "${name}"` : "Avanço automático ao receber documentos desligado");
+  revalidate("stage");
+  return { ok: true };
+}
+
+/**
  * Tira uma etapa do quadro de admissões. As admissões que estão nela podem ser movidas
  * antes para outra etapa ativa. Etapa sem nenhum uso é excluída; com uso, desativada.
  */

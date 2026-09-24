@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { uploadAdmissionAttachment, validateAttachmentFile } from '@/lib/admissao/storage'
 import { validateAttachmentWithAI } from '@/lib/admissao/ai-validation'
 import { loadFormConfig } from '@/lib/admissao/form-config-loader'
+import { advanceToDocumentIntake } from '@/lib/admissao/advance-document-intake'
 
 export async function POST(
   req: NextRequest,
@@ -74,6 +75,10 @@ export async function POST(
     .single()
 
   if (attachment?.id) {
+    // Candidato começou a mandar documentos: a admissão vai para a etapa de recebimento.
+    const admissionId = admission.id as string
+    after(() => advanceToDocumentIntake(supabase, admissionId, 'upload'))
+
     const aid      = attachment.id as string
     const path     = uploaded.url
     const mime     = uploaded.mimeType

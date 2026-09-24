@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, CheckCircle2, Eye, EyeOff, KanbanSquare, MoreHorizontal, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Eye, EyeOff, FileInput, KanbanSquare, MoreHorizontal, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -16,6 +16,7 @@ import {
   removeAdmissionStage,
   reorderCategories,
   setConclusionStage,
+  setDocumentIntakeStage,
   updateCategory,
   type ActionResult,
 } from "@/lib/admissao/config-actions";
@@ -39,6 +40,7 @@ export function AdmissionStagesManager({ stages }: { stages: RegistryItem[] }) {
 
   const conclusion = items.find((s) => s.isFinal) ?? null;
   const activeStages = items.filter((s) => s.active);
+  const intake = items.find((s) => s.isDocumentIntake && s.active && !s.isFinal) ?? null;
 
   function run(action: () => Promise<ActionResult>, ok?: string, onError?: () => void) {
     startTransition(async () => {
@@ -123,6 +125,47 @@ export function AdmissionStagesManager({ stages }: { stages: RegistryItem[] }) {
         )}
       </section>
 
+      {/* Avanço automático ao receber documentos */}
+      <section className="rounded-card border border-wg-border-lighter bg-white p-5" aria-labelledby="intake-title">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-xl">
+            <h2 id="intake-title" className="flex items-center gap-2 font-sora text-section-title text-wg-ink">
+              <FileInput className="h-4 w-4 text-info-fg" aria-hidden /> Avanço automático ao receber documentos
+            </h2>
+            <p className="mt-0.5 text-meta text-wg-ink-muted">
+              Quando o candidato começa a enviar documentos pelo formulário digital (ou envia tudo), a admissão vai
+              sozinha para esta etapa. Só avança: quem já está nela ou depois dela não é movido.
+            </p>
+          </div>
+          <div className="w-full sm:w-72">
+            <label htmlFor="intake-stage" className="sr-only">
+              Etapa de recebimento dos documentos
+            </label>
+            <select
+              id="intake-stage"
+              value={intake?.id ?? ""}
+              disabled={pending}
+              onChange={(e) =>
+                run(
+                  () => setDocumentIntakeStage(e.target.value || null),
+                  e.target.value ? "Avanço automático atualizado." : "Avanço automático desligado."
+                )
+              }
+              className={settingsSelectClass}
+            >
+              <option value="">Desligado</option>
+              {activeStages
+                .filter((s) => !s.isFinal)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
       {/* Etapas */}
       <section className="rounded-card border border-wg-border-lighter bg-white" aria-labelledby="adm-stages-title">
         <header className="flex flex-wrap items-center justify-between gap-3 px-5 pb-3 pt-4">
@@ -186,6 +229,11 @@ export function AdmissionStagesManager({ stages }: { stages: RegistryItem[] }) {
                   {s.isFinal && (
                     <StatusBadge tone="success" icon={CheckCircle2}>
                       Conclusão
+                    </StatusBadge>
+                  )}
+                  {s.id === intake?.id && (
+                    <StatusBadge tone="info" icon={FileInput} hint="A admissão vem para cá quando o candidato envia documentos">
+                      Recebe documentos
                     </StatusBadge>
                   )}
                   {!s.active && <span className="text-label font-medium text-wg-ink-muted">Desativada</span>}

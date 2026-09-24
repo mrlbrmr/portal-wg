@@ -40,8 +40,20 @@
 --     supabase/migrations/20260924120000_restore_admission_origin.sql 20260924120000
 -- ========================================================================================
 
-alter table public."admissions"     disable trigger set_updatedAt;
-alter table public."job_positions" disable trigger set_updatedAt;
+-- Tudo num ÚNICO bloco DO = um único comando: é atômico em qualquer cliente (script, psql ou
+-- SQL Editor do Supabase, que pode executar comando a comando ou só o trecho selecionado).
+-- Se algo falhar, nada fica pela metade — inclusive os gatilhos de "updatedAt", desligados
+-- só dentro do bloco.
+do $fn$
+declare
+  c        record;
+  v_adm    public."admissions"%rowtype;
+  v_app    record;
+  v_pos    public."job_positions"%rowtype;
+  v_n      int;
+begin
+  alter table public."admissions"     disable trigger set_updatedAt;
+  alter table public."job_positions" disable trigger set_updatedAt;
 
 -- ─── Parte 1: pela posição que a admissão ocupa ──────────────────────────────────────
 with pos as (
@@ -100,14 +112,6 @@ select null, r."id", 'ADMISSION', r."id", 'ORIGIN_RESTORED',
   join alvo on alvo."id" = r."id";
 
 -- ─── Parte 2: casos aprovados (candidatura na posição + mesmo e-mail) ─────────────────
-do $fn$
-declare
-  c        record;
-  v_adm    public."admissions"%rowtype;
-  v_app    record;
-  v_pos    public."job_positions"%rowtype;
-  v_n      int;
-begin
   for c in
     select * from (values
       ('17d88130-43c0-4193-9fc5-ef3c023719cc', '7b17ae61-aa30-4b2b-a9d9-09d2b3516a35'),  -- Maiara Aparecida Candido · VAG-2026-0014
@@ -194,7 +198,7 @@ begin
               'migration',   '20260924120000'
             ));
   end loop;
-end $fn$;
 
-alter table public."job_positions" enable trigger set_updatedAt;
-alter table public."admissions"     enable trigger set_updatedAt;
+  alter table public."job_positions" enable trigger set_updatedAt;
+  alter table public."admissions"     enable trigger set_updatedAt;
+end $fn$;

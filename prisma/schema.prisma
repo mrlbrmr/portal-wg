@@ -56,6 +56,13 @@ enum JobStatus {
   FILLED // Finalizada — processo concluído/preenchida (não aparece no portal)
 }
 
+// Onde a vaga aparece. A Intranet WG Conecta lê as vagas por GET /api/intranet/jobs.
+enum JobVisibility {
+  BOTH // Portal de Carreiras + Intranet (padrão)
+  PUBLIC // Só no Portal de Carreiras
+  INTERNAL // Só na Intranet — fora da lista pública, sitemap e feeds; a página abre pelo link
+}
+
 enum Modality {
   PRESENTIAL // Presencial
   REMOTE // Remoto
@@ -120,6 +127,7 @@ model Job {
   hiringDeadline       DateTime? // Prazo interno alvo de contratação
   priority             JobPriority  @default(MEDIUM) // DEPRECATED — priorização é externa ao sistema
   status               JobStatus    @default(ACTIVE)
+  visibility           JobVisibility @default(BOTH) // Onde aparece: Portal, Intranet ou os dois
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 

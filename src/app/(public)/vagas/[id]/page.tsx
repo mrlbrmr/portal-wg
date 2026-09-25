@@ -2,11 +2,17 @@ import { createAnonClient } from "@/lib/supabase/anon";
 import type { Job } from "@/types/domain";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MODALITY_LABELS, CONTRACT_TYPE_LABELS, PUBLIC_JOB_STATUSES } from "@/lib/utils";
+import {
+  MODALITY_LABELS,
+  CONTRACT_TYPE_LABELS,
+  PUBLIC_JOB_STATUSES,
+  PORTAL_LISTED_VISIBILITIES,
+  isInternalOnlyJob,
+} from "@/lib/utils";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { buildJobPostingJsonLd } from "@/lib/job-schema";
 import { getAppBaseUrl } from "@/lib/app-url";
-import { MapPin, Clock, Briefcase, ChevronLeft, ArrowRight } from "lucide-react";
+import { MapPin, Clock, Briefcase, ChevronLeft, ArrowRight, Users } from "lucide-react";
 import { ShareButton } from "@/components/public/ShareButton";
 import { ApplicationForm } from "@/components/public/ApplicationForm";
 import type { Metadata } from "next";
@@ -37,6 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const location = job.city ? `${job.city}/${job.state}` : "Banco de Talentos";
   return {
     title: `${job.title} — ${location}`,
+    // "Somente Intranet": a página abre pelo link da Intranet, mas não vai para buscadores.
+    ...(isInternalOnlyJob(job.visibility) ? { robots: { index: false, follow: false } } : {}),
     description: `Vaga de ${job.title}${job.department ? ` em ${job.department}` : ""} no Grupo WG Baterias${job.city ? ` em ${location}` : ""}. Candidate-se agora!`,
     openGraph: {
       title: `${job.title} — Carreiras WG`,
@@ -60,6 +68,7 @@ export default async function JobPage({ params }: Props) {
     .select("id, slug, title, city, state, modality, department")
     .neq("id", job.id)
     .in("status", PUBLIC_JOB_STATUSES as readonly string[])
+    .in("visibility", PORTAL_LISTED_VISIBILITIES as readonly string[])
     .or(`closingDate.is.null,closingDate.gte.${now.toISOString()}`);
   if (job.department && job.city) {
     simQuery = simQuery.or(`department.eq."${job.department}",city.eq."${job.city}"`);
@@ -73,7 +82,9 @@ export default async function JobPage({ params }: Props) {
     Pick<Job, "id" | "slug" | "title" | "city" | "state" | "modality" | "department">
   >;
 
-  const jsonLd = buildJobPostingJsonLd(job, baseUrl);
+  const internalOnly = isInternalOnlyJob(job.visibility);
+  // Vaga interna não é anunciada ao Google for Jobs.
+  const jsonLd = internalOnly ? null : buildJobPostingJsonLd(job, baseUrl);
 
   const sections = [
     { title: "Sobre a Vaga", content: job.description },
@@ -87,10 +98,12 @@ export default async function JobPage({ params }: Props) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
 
       <div className="bg-gray-50 min-h-screen">
         <div className="max-w-[1180px] mx-auto px-4 md:px-6 py-8 md:py-12">
@@ -117,6 +130,13 @@ export default async function JobPage({ params }: Props) {
               <h1 className="text-[32px] md:text-[40px] font-extrabold text-gray-900 leading-tight mb-4 font-sora">
                 {job.title}
               </h1>
+
+              {internalOnly && (
+                <p className="inline-flex items-center gap-1.5 rounded-full bg-wg-green/10 px-3.5 py-1.5 text-sm font-medium text-gray-800 mb-4">
+                  <Users className="w-3.5 h-3.5 text-wg-green shrink-0" aria-hidden />
+                  Vaga interna — exclusiva para colaboradores do Grupo WG
+                </p>
+              )}
 
               {/* Pills de localização / modalidade */}
               <div className="flex flex-wrap gap-2 mb-8">

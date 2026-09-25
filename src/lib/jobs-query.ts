@@ -8,7 +8,7 @@
 // O query builder do PostgREST é fluente e sem um tipo público simples de
 // encadear; usamos `any` de forma contida (o runtime é correto; a tipagem forte
 // fica nos dados retornados, castados para os tipos de domínio do Prisma).
-import { PUBLIC_JOB_STATUSES } from "@/lib/utils";
+import { INTRANET_VISIBILITIES, PORTAL_LISTED_VISIBILITIES, PUBLIC_JOB_STATUSES } from "@/lib/utils";
 
 export interface JobFilterParams {
   city?: string | null;
@@ -29,12 +29,22 @@ export function applyJobFilters(q: any, f: JobFilterParams): any {
   return r;
 }
 
-/** Restringe às vagas visíveis no portal (status aberto) e não expiradas. */
-export function onlyPublicVisible(q: any): any {
+/** Vaga aberta (status público) e com inscrições no prazo — vale para Portal e Intranet. */
+export function onlyOpenJobs(q: any): any {
   const now = new Date().toISOString();
   return q
     .in("status", PUBLIC_JOB_STATUSES as readonly string[])
     .or(`closingDate.is.null,closingDate.gte.${now}`);
+}
+
+/** Vagas que o portal LISTA: abertas, no prazo e não marcadas "Somente Intranet". */
+export function onlyPublicVisible(q: any): any {
+  return onlyOpenJobs(q).in("visibility", PORTAL_LISTED_VISIBILITIES as readonly string[]);
+}
+
+/** Vagas de Vagas Internas (Intranet): abertas, no prazo e não marcadas "Somente Portal". */
+export function onlyIntranetVisible(q: any): any {
+  return onlyOpenJobs(q).in("visibility", INTRANET_VISIBILITIES as readonly string[]);
 }
 
 /**
@@ -46,4 +56,4 @@ export function onlyPublicVisible(q: any): any {
 export const PUBLIC_JOB_COLUMNS =
   "id, code, title, slug, department, company, city, state, isTalentPool, modality, contractType, " +
   "description, responsibilities, requiredRequirements, desiredRequirements, benefits, workSchedule, " +
-  "salaryRange, openings, openPositions, highlightBenefit, closingDate, status, createdAt, updatedAt";
+  "salaryRange, openings, openPositions, highlightBenefit, closingDate, status, visibility, createdAt, updatedAt";

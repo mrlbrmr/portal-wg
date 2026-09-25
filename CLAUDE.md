@@ -75,6 +75,14 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   - `jobs.approvedScope` = snapshot do que a solicitação aprovou (comparação em `approved-scope.ts`).
   - Salário: `salaryRange` (lido por portal/feeds) é DERIVADO de `salary` + `salaryPublic` (`salary.ts`).
   - Público: use `PUBLIC_JOB_COLUMNS` (`src/lib/jobs-query.ts`), nunca `select("*")`.
+  - **Onde a vaga aparece** (`jobs.visibility`): `BOTH` (Portal + Intranet, padrão), `PUBLIC` (só
+    Portal), `INTERNAL` (só Intranet). Listas públicas passam por `onlyPublicVisible` (sitemap, home,
+    feeds filtram `PORTAL_LISTED_VISIBILITIES`); a página `/vagas/[slug]` de uma INTERNAL abre pelo
+    link (noindex, sem JSON-LD) porque é nela que o colaborador se candidata.
+  - **Intranet WG Conecta** lê as vagas por `GET /api/intranet/jobs` (servidor a servidor,
+    `Authorization: Bearer INTRANET_API_TOKEN`). Contrato e regras puras em
+    `src/lib/jobs/intranet-feed.ts` (testado) — só dados públicos da vaga; nunca candidatos.
+    A Intranet NÃO tem cadastro de vagas: mudou aqui, reflete lá em até ~1 min.
 - **Quick View do candidato** (abre ao lado do pipeline da vaga): `src/components/internal/candidate/CandidateQuickView.tsx`
   (split view no desktop, J/K, barra de decisão). Anotações por autor em `application_notes`
   (`/api/applications/[id]/notes`); `applications.notes` = "anotações anteriores" + motivo de reprovação.

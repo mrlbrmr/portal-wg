@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, JobRequestReason } from "@/types/domain";
+import { Modality, ContractType, JobStatus, JobRequestReason, JobVisibility } from "@/types/domain";
 import { generateSlug } from "@/lib/utils";
 import { applyJobFilters, onlyPublicVisible, PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
 import { rateLimit } from "@/lib/rate-limit";
@@ -45,6 +45,8 @@ const jobSchema = z
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
   status: z.nativeEnum(JobStatus).default("ACTIVE"),
+  /** Onde a vaga aparece (Portal, Intranet ou os dois). Sem o campo, o banco usa BOTH. */
+  visibility: z.nativeEnum(JobVisibility).optional(),
 })
 .superRefine((data, ctx) => {
   if (!data.isTalentPool) {

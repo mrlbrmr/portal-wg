@@ -75,6 +75,22 @@ export function isPublicJobStatus(status: string): boolean {
   return (PUBLIC_JOB_STATUSES as readonly string[]).includes(status);
 }
 
+// Onde a vaga aparece (jobs.visibility). O status continua decidindo SE ela está aberta;
+// a visibilidade decide EM QUAL vitrine: lista do portal ou Vagas Internas da Intranet.
+export const PORTAL_LISTED_VISIBILITIES = ["BOTH", "PUBLIC"] as const;
+export const INTRANET_VISIBILITIES = ["BOTH", "INTERNAL"] as const;
+
+export const JOB_VISIBILITY_LABELS: Record<string, string> = {
+  BOTH: "Portal de Carreiras + Intranet",
+  PUBLIC: "Somente Portal de Carreiras",
+  INTERNAL: "Somente Intranet",
+};
+
+/** Vaga "Somente Intranet": fora da lista pública, sitemap e feeds (a página abre pelo link). */
+export function isInternalOnlyJob(visibility: string | null | undefined): boolean {
+  return visibility === "INTERNAL";
+}
+
 // Vaga "em andamento" no fluxo de recrutamento — usado nos filtros internos.
 // Distinto de PUBLIC_JOB_STATUSES (visibilidade no portal): aqui Rascunho TAMBÉM
 // conta como ativa, pois é uma vaga em preparação, ainda não encerrada.

@@ -22,7 +22,7 @@ export async function POST(
     .select(
       "title, department, company, city, state, modality, contractType, description, " +
         "responsibilities, requiredRequirements, desiredRequirements, benefits, " +
-        "workSchedule, salaryRange, salary, salaryPublic, openings, highlightBenefit, responsible, isTalentPool"
+        "workSchedule, salaryRange, salary, salaryPublic, openings, highlightBenefit, responsible, isTalentPool, visibility"
     )
     .eq("id", id)
     .maybeSingle();

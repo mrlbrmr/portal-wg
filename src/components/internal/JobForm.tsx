@@ -19,6 +19,7 @@ import {
   OpportunityFields,
   SalaryFields,
   StatusSelect,
+  VisibilityField,
   draftToPayload,
   inputClass,
   jobToDraft,
@@ -118,6 +119,9 @@ export default function JobForm({ currentUserName }: Props) {
           <Field label="Status do processo seletivo" htmlFor="new-job-status" required className="sm:col-span-2">
             <StatusSelect id="new-job-status" value={draft.status} onChange={(v) => patch({ status: v })} />
           </Field>
+          <div className="sm:col-span-2">
+            <VisibilityField draft={draft} patch={patch} />
+          </div>
           <Field label="Recrutador responsável" htmlFor="new-job-resp">
             <input id="new-job-resp" value={draft.responsible} onChange={(e) => patch({ responsible: e.target.value })} className={inputClass} />
           </Field>

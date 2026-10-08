@@ -15,7 +15,6 @@ import {
 } from "@/lib/utils";
 import {
   JOB_LIFECYCLE_META,
-  JOB_LIFECYCLE_ORDER,
   jobLifecycle,
   parseLegacyStatusParam,
   type JobLifecycle,
@@ -184,7 +183,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       cities: toOptions(countBy(jobs.map((j) => j.city))),
       departments: toOptions(countBy(jobs.map((j) => j.department))),
       openingReasons: countBy(jobs.map((j) => j.openingReason)),
-      lifecycle: countBy(jobs.map((j) => jobLifecycle(j.status))),
     }),
     [jobs]
   );
@@ -248,18 +246,9 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
     setQuick("todas");
   }
 
+  // Status não é filtro do menu: chega só pelas métricas do topo e pelo "Mostrar encerradas"
+  // (?status=), e aparece como chip removível abaixo da barra.
   const sections: FilterSection[] = [
-    {
-      key: "status",
-      title: "Status da vaga",
-      options: JOB_LIFECYCLE_ORDER.map((l) => ({
-        value: l,
-        label: JOB_LIFECYCLE_META[l].label,
-        count: facets.lifecycle.get(l) ?? 0,
-      })),
-      selected: lifecycle,
-      onToggle: (v) => setLifecycle((p) => toggle(p, v as JobLifecycle)),
-    },
     {
       key: "resp",
       title: "Responsável",
@@ -355,7 +344,7 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
             placeholder="Pesquisar por vaga, cidade, área ou responsável"
             className="min-w-[220px] flex-1"
           />
-          <FilterPopover sections={sections} activeCount={chips.length} onClear={clearFilters} />
+          <FilterPopover sections={sections} activeCount={chips.length - lifecycle.length} onClear={clearFilters} />
           <SortDropdown value={sort} onChange={setSort} options={SORT_OPTIONS} />
         </div>
 

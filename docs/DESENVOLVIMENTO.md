@@ -26,6 +26,8 @@ no pipeline de candidatos (`/vagas/[id]/candidatos`).
   (sem migração); vagas gravadas nesses status aparecem como "Aberta"/"Recebendo candidaturas" via
   `canonicalJobStatus()` (lista, página da vaga, export CSV, "Adicionar à vaga"). O histórico de eventos
   antigos mantém o rótulo gravado. `?status=SCREENING` antigo vira filtro "Aberta".
+- **Filtro "Status da vaga" saiu do menu Filtros.** O recorte por status continua só pelas métricas do topo
+  e pelo "Mostrar encerradas" (`?status=`), visível como chip removível; não conta no badge do botão Filtros.
 
 ## Sessão de 2026-09-24 (tarde) — Avanço automático para "Validação de documentos"
 

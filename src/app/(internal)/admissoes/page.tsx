@@ -7,20 +7,9 @@ import { loadAdmissionRows, admissionFlags } from "@/lib/admissao/overview";
 import { PageHeader } from "@/components/internal/PageHeader";
 import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
 import { CompactMetrics } from "@/components/ui/CompactMetrics";
-import { AdmissionDashboardClient } from "@/components/internal/admissao/AdmissionDashboardClient";
-import {
-  NO_STAGE,
-  type KanbanAdmission,
-} from "@/components/internal/admissao/AdmissionKanbanBoard";
-import type { KanbanColumnDef } from "@/components/internal/KanbanBoardShell";
+import { AdmissionsExplorer } from "@/components/internal/admissao/AdmissionsExplorer";
 
 export const metadata: Metadata = { title: "Admissões — RH" };
-
-function fmtDateBR(iso: string | null) {
-  if (!iso) return null;
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
 
 export default async function AdmissoesPage({
   searchParams,
@@ -34,27 +23,11 @@ export default async function AdmissoesPage({
   const canWrite = session?.user.role === "ADMIN_RH";
   const now = new Date();
 
-  // Lista: apenas admissões em aberto. Kanban: todas (inclusive concluídas).
+  // A lista recebe todas; concluídas (etapa final) ficam ocultas até filtrar pela etapa.
   const openRows = admissions.filter((a) => !a.isFinal);
   const flags = openRows.map((a) => admissionFlags(a, now));
   const doneCount = admissions.length - openRows.length;
-
-  const kanbanCards: KanbanAdmission[] = admissions.map((a) => ({
-    id: a.id,
-    fullName: a.fullName,
-    stageKey: a.stageId ?? NO_STAGE,
-    positionName: a.positionName,
-    companyName: a.companyName,
-    branchName: a.branchName,
-    responsibleName: a.responsibleName,
-    startDate: fmtDateBR(a.startDateISO),
-  }));
-
-  const hasUnstaged = kanbanCards.some((c) => c.stageKey === NO_STAGE);
-  const columns: KanbanColumnDef[] = [
-    ...(hasUnstaged ? [{ key: NO_STAGE, label: "Sem etapa", dotColor: "#94a3b8" }] : []),
-    ...config.stages.map((s) => ({ key: s.id, label: s.name, dotColor: s.color })),
-  ];
+  const finalStageIds = config.stages.filter((s) => s.isFinal).map((s) => s.id);
 
   return (
     <div>
@@ -78,15 +51,19 @@ export default async function AdmissoesPage({
           { label: "começam em 7 dias", value: flags.filter((f) => f.upcoming).length, tone: "info", href: "/admissoes?filtro=proximas" },
           { label: "com documentos pendentes", value: flags.filter((f) => f.missingDocs).length, tone: "warning", href: "/admissoes?filtro=documentos" },
           { label: "aguardando formulário", value: flags.filter((f) => f.waitingForm).length, tone: "neutral", href: "/admissoes?filtro=formulario" },
-          { label: "concluídas", value: doneCount, hint: "Admissões em etapa final — visíveis no Kanban e nos relatórios" },
+          {
+            label: "concluídas",
+            value: doneCount,
+            hint: "Admissões na etapa de conclusão — ocultas da lista por padrão",
+            href: finalStageIds.length > 0 ? `/admissoes?etapa=${finalStageIds.join(",")}` : undefined,
+          },
         ]}
       />
 
-      <AdmissionDashboardClient
+      <AdmissionsExplorer
+        // Remonta quando a URL muda por navegação (ex.: clique numa métrica acima).
         key={new URLSearchParams(params as Record<string, string>).toString()}
-        rows={openRows}
-        kanbanCards={kanbanCards}
-        columns={columns}
+        rows={admissions}
         stages={config.stages}
         companies={config.companies}
         positions={config.positions}

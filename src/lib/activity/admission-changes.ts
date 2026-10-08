@@ -123,7 +123,7 @@ export async function snapshotAdmission(supabase: SupabaseClient, id: string): P
 
 export async function logAdmissionChanges(
   supabase: SupabaseClient,
-  input: { admissionId: string; userId: string; before: AdmissionSnapshot | null; after: AdmissionSnapshot | null; source?: "form" | "kanban" }
+  input: { admissionId: string; userId: string; before: AdmissionSnapshot | null; after: AdmissionSnapshot | null; source?: "form" | "stage" }
 ): Promise<void> {
   const { admissionId, userId, before, after } = input;
   if (!before || !after) return;
@@ -150,7 +150,7 @@ export async function logAdmissionChanges(
     });
   }
 
-  if (input.source === "kanban") return;
+  if (input.source === "stage") return;
   const changes = diffFields(before.fields, after.fields, TRACKED_LABELS);
   // Só etapa/ASO mudaram: os eventos acima já contam a história.
   const stageOrExamLogged = (before.stageId ?? "") !== (after.stageId ?? "") || (examFrom ?? "") !== (examTo ?? "");

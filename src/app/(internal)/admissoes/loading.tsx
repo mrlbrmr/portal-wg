@@ -3,8 +3,8 @@ import { Skeleton, SkeletonListItem, SkeletonPageTop } from "@/components/ui/Ske
 /**
  * Fallback de carregamento do módulo de Admissões. Cobre a lista e — por
  * herança de Suspense — as sub-rotas sem loading próprio (relatórios,
- * histórico, configurações, nova/editar). Rotas de layout distinto (ficha,
- * kanban, calendário) têm o seu.
+ * histórico, configurações, nova/editar). Rotas de layout distinto (ficha e
+ * calendário) têm o seu.
  */
 export default function LoadingAdmissoes() {
   return (

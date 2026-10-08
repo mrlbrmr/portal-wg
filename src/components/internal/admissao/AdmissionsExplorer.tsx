@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ClipboardCheck, SearchX, CalendarDays, Clock3, UserRound, FileWarning, Plus, Pencil } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ViewToggle } from "@/components/internal/ViewToggle";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
 import { StatusBadge, StageBadge } from "@/components/ui/StatusBadge";
@@ -36,12 +35,11 @@ interface Option {
 export type AdmissionQuick = "todas" | "atrasadas" | "proximas" | "documentos" | "formulario";
 
 interface Props {
+  /** Todas as admissões; as concluídas (etapa final) só aparecem ao filtrar pela etapa. */
   rows: AdmissionRow[];
-  stages: Option[];
+  stages: Array<Option & { isFinal?: boolean }>;
   companies: Option[];
   positions: Option[];
-  view?: "list" | "kanban";
-  onViewChange?: (v: "list" | "kanban") => void;
   initialParams?: Record<string, string | undefined>;
   canManage?: boolean;
 }
@@ -83,8 +81,6 @@ export function AdmissionsExplorer({
   rows,
   stages,
   companies,
-  view = "list",
-  onViewChange,
   initialParams = {},
   canManage = false,
 }: Props) {
@@ -106,7 +102,6 @@ export function AdmissionsExplorer({
     resp: responsibleFilter.join(","),
     filtro: quick !== "todas" ? quick : undefined,
     ordem: sortKey !== "startAsc" ? sortKey : undefined,
-    view: view === "kanban" ? "kanban" : undefined,
   });
 
   const today = useMemo(() => new Date(), []);
@@ -122,6 +117,8 @@ export function AdmissionsExplorer({
     const q = normalizeText(query);
     return withFlags.filter(({ r }) => {
       if (q && !normalizeText(`${r.fullName} ${r.cpf ?? ""} ${r.positionName ?? ""}`).includes(q)) return false;
+      // Sem filtro de etapa, a lista mostra só as admissões em andamento.
+      if (stageFilter.length === 0 && r.isFinal) return false;
       if (stageFilter.length > 0 && !stageFilter.includes(r.stageId ?? "")) return false;
       if (companyFilter.length > 0 && !companyFilter.includes(r.companyId ?? "")) return false;
       if (responsibleFilter.length > 0 && !responsibleFilter.includes(r.responsibleName ?? "")) return false;
@@ -238,8 +235,11 @@ export function AdmissionsExplorer({
     );
   }
 
+  const hiddenDone = stageFilter.length === 0 ? rows.filter((r) => r.isFinal).length : 0;
+  const finalStageIds = stages.filter((s) => s.isFinal).map((s) => s.id);
+
   const quickEmpty: Record<AdmissionQuick, string> = {
-    todas: "Não encontramos admissões com esses filtros",
+    todas: "Nenhuma admissão em andamento",
     atrasadas: "Nenhuma admissão com início vencido",
     proximas: "Não há admissões previstas para os próximos 7 dias",
     documentos: "Nenhuma admissão com documentos obrigatórios pendentes",
@@ -258,7 +258,6 @@ export function AdmissionsExplorer({
           />
           <FilterPopover sections={sections} activeCount={chips.length} onClear={clearFilters} />
           <SortDropdown value={sortKey} onChange={setSortKey} options={SORT_OPTIONS} />
-          {onViewChange && <ViewToggle view={view} onChange={onViewChange} />}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <QuickFilterChips<AdmissionQuick>
@@ -274,7 +273,7 @@ export function AdmissionsExplorer({
             ]}
           />
           <span className="ml-auto text-meta text-wg-ink-muted" aria-live="polite">
-            {filtered.length} de {rows.length} admissões em andamento
+            {filtered.length} de {rows.length} admissões
           </span>
         </div>
         <ActiveFilterChips chips={chips} onClear={clearFilters} />
@@ -285,7 +284,7 @@ export function AdmissionsExplorer({
           <EmptyState
             compact
             icon={SearchX}
-            title={chips.length > 0 || query ? quickEmpty.todas : quickEmpty[quick]}
+            title={chips.length > 0 || query ? "Não encontramos admissões com esses filtros" : quickEmpty[quick]}
             action={
               chips.length > 0 || query || quick !== "todas" ? (
                 <Button
@@ -308,6 +307,19 @@ export function AdmissionsExplorer({
             <AdmissionListItem key={r.id} r={r} today={today} canManage={canManage} />
           ))}
         </ul>
+      )}
+
+      {hiddenDone > 0 && finalStageIds.length > 0 && (
+        <p className="text-meta text-wg-ink-muted">
+          {hiddenDone} {hiddenDone === 1 ? "admissão concluída oculta" : "admissões concluídas ocultas"}.{" "}
+          <button
+            type="button"
+            onClick={() => setStageFilter(finalStageIds)}
+            className="font-semibold text-wg-green-dark underline-offset-2 hover:underline"
+          >
+            Mostrar concluídas
+          </button>
+        </p>
       )}
     </div>
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Briefcase, BriefcaseBusiness, SearchX, Plus, Users, CalendarDays, Clock3, UserRound, Eye } from "lucide-react";
 import {
@@ -9,7 +8,6 @@ import {
   MODALITY_LABELS,
   formatDate,
   formatRelativeTime,
-  isKanbanDefaultHiddenStatus,
   normalizeText,
   pluralDays,
   daysSince,
@@ -35,7 +33,6 @@ import {
 } from "@/lib/recruitment/attention";
 import { evaluateSla, SLA_META } from "@/lib/recruitment/sla";
 import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
-import { ViewToggle } from "@/components/internal/ViewToggle";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -53,23 +50,9 @@ import { useSyncQueryString, parseList } from "@/hooks/useSyncQueryString";
 import { type JobRow } from "@/types/jobs";
 import type { JobRequestReason } from "@/types/domain";
 import { JOB_REQUEST_REASON_LABELS, JOB_REQUEST_REASON_ORDER } from "@/lib/job-requests/constants";
-import { Skeleton } from "@/components/ui/Skeleton";
 
-const JobKanbanBoard = dynamic(
-  () => import("@/components/internal/JobKanbanBoard").then((m) => m.JobKanbanBoard),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex gap-4 overflow-hidden pb-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-64 w-72 shrink-0 rounded-card" />
-        ))}
-      </div>
-    ),
-  }
-);
-
-type View = "list" | "kanban";
+// Vagas são acompanhadas só em lista; o status muda por ações explícitas (menu da vaga, posições,
+// solicitação). Kanban existe apenas no ATS — o pipeline de candidatos dentro de cada vaga.
 type Quick = "todas" | "minhas" | "atencao" | "triagem";
 type CandidatesFilter = "" | "com" | "sem";
 type PeriodFilter = "" | "7" | "30" | "90";
@@ -92,8 +75,6 @@ const SORT_OPTIONS = [
   { value: "city_asc", label: "Cidade (A-Z)" },
   { value: "title_asc", label: "Título (A-Z)" },
 ];
-
-const KANBAN_STATUSES = ["DRAFT", "ACTIVE", "SCREENING", "INTERVIEW", "ADMISSION", "PAUSED", "CLOSED", "FILLED"];
 
 const CANDIDATES_LABEL: Record<Exclude<CandidatesFilter, "">, string> = { com: "Com candidatos", sem: "Sem candidatos" };
 const PERIOD_LABEL: Record<Exclude<PeriodFilter, "">, string> = {
@@ -154,7 +135,6 @@ function ageLabel(job: JobRow): string {
 
 export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }: Props) {
   const legacy = parseLegacyStatusParam(initialParams.status);
-  const [view, setView] = useState<View>(initialParams.view === "kanban" ? "kanban" : "list");
   const [search, setSearch] = useState(initialParams.q ?? "");
   const [lifecycle, setLifecycle] = useState<JobLifecycle[]>(legacy.lifecycle);
   const [stages, setStages] = useState<JobProcessStage[]>([
@@ -201,7 +181,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
     pendencia: quick === "atencao" || quick === "triagem" ? quick : undefined,
     minhas: quick === "minhas" ? "1" : undefined,
     ordem: sort !== "date_desc" ? sort : undefined,
-    view: view === "kanban" ? "kanban" : undefined,
   });
 
   const enriched: Enriched[] = useMemo(() => {
@@ -237,11 +216,8 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
         const s = jobProcessStage(job.status);
         if (!s || !stages.includes(s)) return false;
       }
-      // Sem filtro de status: lista esconde encerradas/canceladas; Kanban esconde Pausada/Cancelada.
-      if (!hasStatusFilter) {
-        if (view === "list" && (l === "FILLED" || l === "CLOSED")) return false;
-        if (view === "kanban" && isKanbanDefaultHiddenStatus(job.status)) return false;
-      }
+      // Sem filtro de status, a lista esconde encerradas/canceladas.
+      if (!hasStatusFilter && (l === "FILLED" || l === "CLOSED")) return false;
       if (responsibles.length > 0 && !responsibles.includes(job.responsible ?? "")) return false;
       if (cities.length > 0 && !cities.includes(job.city ?? "")) return false;
       if (departments.length > 0 && !departments.includes(job.department ?? "")) return false;
@@ -252,7 +228,7 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       if (periodMs && now - new Date(job.openedAt).getTime() > periodMs) return false;
       return true;
     });
-  }, [enriched, query, lifecycle, stages, hasStatusFilter, view, responsibles, cities, departments, openingReasons, candidates, period]);
+  }, [enriched, query, lifecycle, stages, hasStatusFilter, responsibles, cities, departments, openingReasons, candidates, period]);
 
   const quickCounts = useMemo(
     () => ({
@@ -270,18 +246,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
     else if (quick === "triagem") result = result.filter((j) => j.newCount > 0);
     return sortJobs(result, quick === "atencao" && sort === "date_desc" ? "attention" : sort);
   }, [baseFiltered, quick, sort, currentUserName]);
-
-  const kanbanVisibleStatuses = useMemo(() => {
-    if (!hasStatusFilter) return KANBAN_STATUSES.filter((s) => !isKanbanDefaultHiddenStatus(s));
-    return KANBAN_STATUSES.filter((s) => {
-      if (lifecycle.length > 0 && !lifecycle.includes(jobLifecycle(s))) return false;
-      if (stages.length > 0) {
-        const st = jobProcessStage(s);
-        return !!st && stages.includes(st);
-      }
-      return true;
-    });
-  }, [hasStatusFilter, lifecycle, stages]);
 
   function clearFilters() {
     setLifecycle([]);
@@ -404,13 +368,12 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
     ...(period ? [{ key: "per", label: PERIOD_LABEL[period], onRemove: () => setPeriod("") }] : []),
   ];
 
-  const hiddenTerminal =
-    view === "list" && !hasStatusFilter
-      ? jobs.filter((j) => ["FILLED", "CLOSED"].includes(jobLifecycle(j.status))).length
-      : 0;
+  const hiddenTerminal = !hasStatusFilter
+    ? jobs.filter((j) => ["FILLED", "CLOSED"].includes(jobLifecycle(j.status))).length
+    : 0;
 
   return (
-    <div className={view === "kanban" ? "" : "max-w-5xl"}>
+    <div className="max-w-5xl">
       {/* Toolbar */}
       <div className="sticky top-11 z-30 -mx-1 mb-3 space-y-2.5 border-b border-wg-border-lighter bg-slate-50 px-1 pb-3 pt-2 md:top-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -422,7 +385,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
           />
           <FilterPopover sections={sections} activeCount={chips.length} onClear={clearFilters} />
           <SortDropdown value={sort} onChange={setSort} options={SORT_OPTIONS} />
-          <ViewToggle view={view} onChange={setView} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -446,24 +408,7 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       </div>
 
       {/* Content */}
-      {view === "kanban" ? (
-        <JobKanbanBoard
-          jobs={filtered.map((j) => ({
-            id: j.id,
-            title: j.title,
-            city: j.city,
-            state: j.state,
-            isTalentPool: j.isTalentPool,
-            modality: j.modality,
-            status: j.status,
-            createdAt: j.createdAt,
-            lastActivityAt: j.lastActivityAt,
-            candidateCount: j.candidateCount,
-          }))}
-          visibleStatuses={kanbanVisibleStatuses}
-          canManage={canManage}
-        />
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="rounded-card border border-wg-border-lighter bg-white">
           {jobs.length === 0 ? (
             <EmptyState

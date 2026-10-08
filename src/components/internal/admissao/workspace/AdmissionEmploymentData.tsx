@@ -59,7 +59,7 @@ export function AdmissionEmploymentData() {
           <FieldGroup title="Processo de admissão">
             <FieldGrid editing={editing} cols={3}>
               <DataField label="Etapa" htmlFor="adm-stage" editing={editing} changed={changed("stageId")}
-                hint="Mover a etapa também atualiza o Kanban de admissões."
+                hint="Mover a etapa também atualiza o progresso da admissão."
                 view={optionName(options.stages, draft.stageId, r.stageId, s.stageName)}>
                 <RegistrySelect id="adm-stage" value={draft.stageId} onChange={(v) => patch({ stageId: v })}
                   options={options.stages} savedId={r.stageId} savedName={s.stageName} placeholder="Sem etapa" />

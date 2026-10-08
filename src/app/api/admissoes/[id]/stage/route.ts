@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmissionWrite } from "@/lib/admissao/permissions";
 import { logAdmissionChanges, snapshotAdmission } from "@/lib/activity/admission-changes";
 
-// PATCH /api/admissoes/[id]/stage — move a admissão de etapa (usado no Kanban).
+// PATCH /api/admissoes/[id]/stage — move a admissão de etapa ("Avançar" da central da admissão).
 // Endpoint dedicado: o PATCH principal exige o objeto completo; aqui só a etapa.
 const bodySchema = z.object({
   stageId: z.string().min(1).nullable(),
@@ -64,9 +64,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .update({ stageId, updatedById: access.userId })
     .eq("id", id);
   const after = await snapshotAdmission(supabase, id);
-  await logAdmissionChanges(supabase, { admissionId: id, userId: access.userId, before, after, source: "kanban" });
+  await logAdmissionChanges(supabase, { admissionId: id, userId: access.userId, before, after, source: "stage" });
 
   revalidatePath("/admissoes");
-  revalidatePath("/admissoes/kanban");
   return NextResponse.json({ id, stageId }, { status: 200 });
 }

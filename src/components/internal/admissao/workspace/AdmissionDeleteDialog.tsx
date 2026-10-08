@@ -68,7 +68,7 @@ export function AdmissionDeleteDialog({
       busy={busy}
       size="sm"
       title="Excluir admissão?"
-      description={`A admissão de ${name} sai das listas, do Kanban, do calendário e dos relatórios. Somente o suporte consegue restaurá-la.`}
+      description={`A admissão de ${name} sai das listas, do calendário e dos relatórios. Somente o suporte consegue restaurá-la.`}
       initialFocus="#adm-delete-confirm"
       footer={
         <>

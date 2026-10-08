@@ -15,8 +15,8 @@ import { GripVertical } from "lucide-react";
 import { KANBAN_COLUMN_TYPE, kanbanKeyboardCoordinates } from "./kanban-keyboard";
 
 /**
- * Primitivas de Kanban sobre @dnd-kit, compartilhadas pelos quadros de
- * vagas e de candidatos. As colunas são áreas droppable (id = status/etapa)
+ * Primitivas de Kanban sobre @dnd-kit, usadas pelo pipeline de candidatos da
+ * vaga (o único Kanban do painel). As colunas são áreas droppable (id = etapa)
  * e os cards são draggable com handle dedicado — mantém links e botões
  * internos totalmente clicáveis e dá suporte a teclado (acessibilidade).
  */

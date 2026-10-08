@@ -12,8 +12,8 @@ import { admissionProgress } from "@/lib/admissao/workspace";
 import { useAdmissionWorkspace } from "./context";
 
 /**
- * Progresso = etapas configuradas em Admissões → Configurações (a mesma jornada do Kanban).
- * "Avançar" usa o endpoint de etapa do Kanban (registra no histórico).
+ * Progresso = etapas configuradas em Admissões → Configurações.
+ * "Avançar" usa o endpoint de etapa (PATCH /api/admissoes/[id]/stage, registra no histórico).
  */
 export function AdmissionProgress() {
   const { data, options, canManage, isDirty } = useAdmissionWorkspace();

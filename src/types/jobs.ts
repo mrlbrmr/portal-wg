@@ -2,7 +2,7 @@ import type { JobStatus, Modality, ContractType, JobRequestReason } from "@/type
 
 /**
  * Forma leve e serializável de uma vaga para as visões do painel
- * (lista, Kanban, cards). Datas em ISO string para cruzar o limite
+ * (lista e cards). Datas em ISO string para cruzar o limite
  * server → client. Enriquecida com contagens derivadas de candidaturas.
  */
 export interface JobRow {

@@ -65,6 +65,8 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   ADMIN_RH/VIEWER_RH são atribuíveis — papel novo exige migração do enum e das policies). Desativar usuário =
   `ban_duration` no Supabase Auth (`PATCH /api/users/[id]`).
 - **ATS / Vagas:** `src/app/(internal)/vagas/**` (kanban de candidatos, funil configurável)
+  - **Kanban existe SÓ no pipeline de candidatos da vaga.** Lista de vagas e lista de admissões não têm
+    visão Kanban (decisão de 2026-10-08) — não reintroduza quadro para status de vaga/etapa de admissão.
 - **Página da vaga + Posições:** `/vagas/[id]/editar?tab=visao|descricao|processo|divulgacao|historico`
   (`src/components/internal/job/**`, regras puras em `src/lib/jobs/**`). **Vaga = processo seletivo;
   posição = cada contratação** (`job_positions`: OPEN/FILLED/CANCELLED). Nunca crie uma vaga por posição.

@@ -7,6 +7,21 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-10-08 — Kanban só no ATS (pipeline de candidatos)
+
+Sem migração. Decisão: Kanban não organiza status de vaga nem etapa de admissão — existe só dentro da vaga,
+no pipeline de candidatos (`/vagas/[id]/candidatos`).
+
+- **Vagas** (`/vagas/gerenciar`): saiu o alternador Lista/Kanban; só lista. O status da vaga muda por ações
+  explícitas (menu da vaga, posições, solicitação). Removidos `JobKanbanBoard`, `isKanbanDefaultHiddenStatus`
+  e `formatAge`; `?view=kanban` antigo é ignorado.
+- **Admissões** (`/admissoes`): saiu o alternador e o quadro. A lista agora recebe TODAS as admissões e
+  esconde as concluídas (etapa `isFinal`) até filtrar pela etapa — "Mostrar concluídas" no rodapé e a métrica
+  "concluídas" leva a `/admissoes?etapa=<final>`. `/admissoes/kanban` só redireciona para `/admissoes`.
+  Removidos `AdmissionKanbanBoard`, `AdmissionDashboardClient` e `ViewToggle`.
+- `PATCH /api/admissoes/[id]/stage` continua (é o "Avançar" da central); o `source` do log virou `"stage"`.
+- `KanbanBoardShell`/`kanban-dnd` seguem, agora usados só pelo `CandidateKanban`.
+
 ## Sessão de 2026-09-24 (tarde) — Avanço automático para "Validação de documentos"
 
 Migração `20260924150000_admission_stage_document_intake.sql` (**aplicada**): `admission_stages."isDocumentIntake"`

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { jobAttentionReasons, operationalSituation, ATTENTION_RULES } from "./attention";
 import { evaluateSla } from "./sla";
-import { jobLifecycle, jobProcessStage, parseLegacyStatusParam } from "./job-presentation";
+import { canonicalJobStatus, jobLifecycle, parseLegacyStatusParam } from "./job-presentation";
 
 const NOW = new Date("2026-09-21T12:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000).toISOString();
@@ -68,11 +68,11 @@ test("SLA só avalia quando existe política", () => {
   assert.equal(r.find((x) => x.key === "SLA")?.label, "SLA excedido em 4 dias");
 });
 
-test("status do banco é projetado em status + etapa", () => {
+test("etapas legadas da vaga (antigo Kanban) valem como Aberta", () => {
   assert.equal(jobLifecycle("INTERVIEW"), "OPEN");
-  assert.equal(jobProcessStage("INTERVIEW"), "INTERVIEW");
-  assert.equal(jobProcessStage("ACTIVE"), null);
   assert.equal(jobLifecycle("FILLED"), "FILLED");
-  assert.deepEqual(parseLegacyStatusParam("SCREENING"), { lifecycle: ["OPEN"], stage: ["SCREENING"] });
-  assert.deepEqual(parseLegacyStatusParam("DRAFT,ATIVAS"), { lifecycle: ["DRAFT", "OPEN"], stage: [] });
+  assert.equal(canonicalJobStatus("SCREENING"), "ACTIVE");
+  assert.equal(canonicalJobStatus("PAUSED"), "PAUSED");
+  assert.deepEqual(parseLegacyStatusParam("SCREENING"), ["OPEN"]);
+  assert.deepEqual(parseLegacyStatusParam("DRAFT,ATIVAS,INTERVIEW"), ["DRAFT", "OPEN"]);
 });

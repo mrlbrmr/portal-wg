@@ -58,17 +58,14 @@ export function normalizeText(value: string): string {
 export const JOB_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Rascunho",
   ACTIVE: "Ativa",
-  SCREENING: "Triagem",
-  INTERVIEW: "Entrevistas",
-  ADMISSION: "Admissão",
   PAUSED: "Pausada",
   CLOSED: "Cancelada",
   FILLED: "Encerrada",
 };
 
 // Status em que a vaga fica VISÍVEL no portal público (e aceitando inscrições).
-// Triagem/Entrevistas/Admissão são etapas internas mas a vaga segue publicada;
-// só sai do ar em Rascunho, Pausada e Cancelada.
+// SCREENING/INTERVIEW/ADMISSION são etapas legadas (antigo Kanban de vagas) e valem
+// como ACTIVE; a vaga só sai do ar em Rascunho, Pausada, Encerrada e Cancelada.
 export const PUBLIC_JOB_STATUSES = ["ACTIVE", "SCREENING", "INTERVIEW", "ADMISSION"] as const;
 
 export function isPublicJobStatus(status: string): boolean {

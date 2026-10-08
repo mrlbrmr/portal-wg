@@ -21,7 +21,7 @@ import { DropdownMenu, type DropdownMenuItem } from "@/components/ui/DropdownMen
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn, isPublicJobStatus, MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
-import { JOB_LIFECYCLE_META, JOB_PROCESS_STATUS_LABELS, jobLifecycle } from "@/lib/recruitment/job-presentation";
+import { JOB_LIFECYCLE_META, JOB_PROCESS_STATUS_LABELS, canonicalJobStatus, jobLifecycle } from "@/lib/recruitment/job-presentation";
 import { FILL_STATE_META, shouldOfferClosing, summarizePositions, type JobPosition } from "@/lib/jobs/positions";
 import {
   approvedFields,
@@ -147,7 +147,7 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
   const summary = useMemo(() => summarizePositions(positions), [positions]);
   const isPublic = isPublicJobStatus(job.status);
   const lifecycle = JOB_LIFECYCLE_META[jobLifecycle(job.status)];
-  const statusLabel = JOB_PROCESS_STATUS_LABELS[job.status] ?? job.status;
+  const statusLabel = JOB_PROCESS_STATUS_LABELS[canonicalJobStatus(job.status)] ?? job.status;
   const approved = useMemo(() => approvedFields(scope) as Set<string>, [scope]);
   const history = useMemo(
     () => buildJobHistory({ createdAt: String(job.createdAt), statusHistory, events }),

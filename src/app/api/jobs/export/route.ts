@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { JobStatus } from "@/types/domain";
 import type { Job } from "@/types/domain";
 import { isPublicJobStatus } from "@/lib/utils";
+import { canonicalJobStatus } from "@/lib/recruitment/job-presentation";
 
 const MODALITY_LABELS: Record<string, string> = {
   PRESENTIAL: "Presencial",
@@ -14,9 +15,6 @@ const MODALITY_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Rascunho",
   ACTIVE: "Ativa",
-  SCREENING: "Triagem",
-  INTERVIEW: "Entrevistas",
-  ADMISSION: "Admissão",
   PAUSED: "Pausada",
   CLOSED: "Cancelada",
   FILLED: "Encerrada",
@@ -71,7 +69,7 @@ export async function GET(req: NextRequest) {
     j.state,
     MODALITY_LABELS[j.modality] ?? j.modality,
     CONTRACT_LABELS[j.contractType] ?? j.contractType,
-    STATUS_LABELS[j.status] ?? j.status,
+    STATUS_LABELS[canonicalJobStatus(j.status)] ?? j.status,
     j.openings ?? "",
     j.responsible ?? "",
     new Date(j.createdAt).toLocaleDateString("pt-BR"),

@@ -8,7 +8,7 @@ import { useId, type ReactNode } from "react";
 import { BadgeCheck, Eye, Pencil } from "lucide-react";
 import { cn, BRAZIL_STATES, JOB_VISIBILITY_LABELS } from "@/lib/utils";
 import { JOB_REQUEST_REASON_LABELS, JOB_REQUEST_REASON_ORDER } from "@/lib/job-requests/constants";
-import { JOB_STATUS_OPTION_GROUPS } from "@/lib/recruitment/job-presentation";
+import { JOB_STATUS_OPTION_GROUPS, canonicalJobStatus } from "@/lib/recruitment/job-presentation";
 import { buildInitialContent, markdownToHtml } from "@/lib/jobs/markdown";
 import { formatBRL, salaryColumns, salaryStateFromJob, type SalaryMode } from "@/lib/jobs/salary";
 import { dateInputValue } from "@/lib/jobs/deadlines";
@@ -426,8 +426,9 @@ export function VisibilityField({ draft, patch }: { draft: JobDraft; patch: Patc
 }
 
 export function StatusSelect({ id, value, onChange }: { id?: string; value: string; onChange: (v: string) => void }) {
+  // Etapa legada (Triagem/Entrevistas/Admissão) aparece como "Recebendo candidaturas".
   return (
-    <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
+    <select id={id} value={canonicalJobStatus(value)} onChange={(e) => onChange(e.target.value)} className={inputClass}>
       {JOB_STATUS_OPTION_GROUPS.map((g) => (
         <optgroup key={g.label} label={g.label}>
           {g.options.map((o) => (

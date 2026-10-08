@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
   let q = supabase.from("jobs").select(session ? "*" : PUBLIC_JOB_COLUMNS, { count: "exact" });
 
   if (!session) {
-    // Portal público: status "aberto" (ACTIVE/Triagem/Entrevistas/Admissão) e no prazo.
+    // Portal público: status "aberto" (ACTIVE + etapas legadas) e no prazo.
     // (RLS também garante isso para a chave anon; filtro explícito preserva o prazo.)
     q = onlyPublicVisible(q);
   } else {

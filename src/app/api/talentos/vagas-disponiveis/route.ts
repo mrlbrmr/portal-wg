@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireTalentoWrite } from "@/lib/talentos/permissions";
 import { entryStagesFor } from "@/lib/talentos/crm";
 import { ACTIVE_JOB_STATUSES, JOB_STATUS_LABELS } from "@/lib/utils";
+import { canonicalJobStatus } from "@/lib/recruitment/job-presentation";
 
 // Opções do "Adicionar à vaga": vagas em andamento (mesma regra de ACTIVE_JOB_STATUSES,
 // sem as vagas-banco legadas) e, para cada uma, as etapas de ENTRADA do seu funil.
@@ -42,7 +43,7 @@ export async function GET() {
         title: j.title,
         code: j.code,
         location: [j.city, j.state].filter(Boolean).join(" — ") || null,
-        statusLabel: JOB_STATUS_LABELS[j.status] ?? j.status,
+        statusLabel: JOB_STATUS_LABELS[canonicalJobStatus(j.status)] ?? j.status,
         stages: entryStagesFor(jobStages).map((s) => ({ id: s.id, name: s.name })),
       };
     }),

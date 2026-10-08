@@ -21,6 +21,11 @@ no pipeline de candidatos (`/vagas/[id]/candidatos`).
   Removidos `AdmissionKanbanBoard`, `AdmissionDashboardClient` e `ViewToggle`.
 - `PATCH /api/admissoes/[id]/stage` continua (é o "Avançar" da central); o `source` do log virou `"stage"`.
 - `KanbanBoardShell`/`kanban-dnd` seguem, agora usados só pelo `CandidateKanban`.
+- **Etapas da vaga retiradas** (eram as colunas do Kanban de vagas): sem selo "Triagem/Entrevistas/Admissão"
+  na lista, sem filtro "Etapa do processo" e sem essas opções no seletor de status. O enum continua no banco
+  (sem migração); vagas gravadas nesses status aparecem como "Aberta"/"Recebendo candidaturas" via
+  `canonicalJobStatus()` (lista, página da vaga, export CSV, "Adicionar à vaga"). O histórico de eventos
+  antigos mantém o rótulo gravado. `?status=SCREENING` antigo vira filtro "Aberta".
 
 ## Sessão de 2026-09-24 (tarde) — Avanço automático para "Validação de documentos"
 

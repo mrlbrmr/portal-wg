@@ -161,7 +161,9 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   `FilterPopover`/`ActiveFilterChips`/`QuickFilterChips`, `EmptyState`, `Skeleton`, `ConfirmModal`,
   `PageContainer` (1480px) + `PageHeader icon`, `FilterBar`/`FilterSelect`/`SearchField`, `table.ts`,
   `SideDrawer`/`DetailList`, `MetricCard`, `UserAvatar`, `ColumnChart`/`BarList` (`charts.tsx`).
-- Status da vaga × etapa: sempre via `src/lib/recruitment/job-presentation.ts` (não use o enum cru).
+- Status da vaga: sempre via `src/lib/recruitment/job-presentation.ts` (não use o enum cru). A vaga NÃO tem
+  etapa — SCREENING/INTERVIEW/ADMISSION são legados do antigo Kanban, valem como ACTIVE
+  (`canonicalJobStatus`) e não são oferecidos nem exibidos; o andamento é dos candidatos.
   Alertas de vaga sempre com motivo (`src/lib/recruitment/attention.ts`); SLA em `sla.ts` (política
   ainda `null`). Sentence case nos textos ("Nova vaga"), sem emoji como ícone (use lucide).
 

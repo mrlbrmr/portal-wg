@@ -16,13 +16,9 @@ import {
 import {
   JOB_LIFECYCLE_META,
   JOB_LIFECYCLE_ORDER,
-  JOB_STAGE_META,
-  JOB_STAGE_ORDER,
   jobLifecycle,
-  jobProcessStage,
   parseLegacyStatusParam,
   type JobLifecycle,
-  type JobProcessStage,
 } from "@/lib/recruitment/job-presentation";
 import {
   jobAttentionReasons,
@@ -36,7 +32,7 @@ import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { StatusBadge, StageBadge, TONE_DOT, TONE_TEXT } from "@/components/ui/StatusBadge";
+import { StatusBadge, TONE_DOT, TONE_TEXT } from "@/components/ui/StatusBadge";
 import { ButtonLink, Button } from "@/components/ui/Button";
 import {
   FilterPopover,
@@ -134,13 +130,8 @@ function ageLabel(job: JobRow): string {
 }
 
 export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }: Props) {
-  const legacy = parseLegacyStatusParam(initialParams.status);
   const [search, setSearch] = useState(initialParams.q ?? "");
-  const [lifecycle, setLifecycle] = useState<JobLifecycle[]>(legacy.lifecycle);
-  const [stages, setStages] = useState<JobProcessStage[]>([
-    ...legacy.stage,
-    ...(parseList(initialParams.etapa).filter((s) => (JOB_STAGE_ORDER as string[]).includes(s)) as JobProcessStage[]),
-  ]);
+  const [lifecycle, setLifecycle] = useState<JobLifecycle[]>(parseLegacyStatusParam(initialParams.status));
   const [responsibles, setResponsibles] = useState<string[]>(parseList(initialParams.resp));
   const [cities, setCities] = useState<string[]>(parseList(initialParams.cidade));
   const [departments, setDepartments] = useState<string[]>(parseList(initialParams.area));
@@ -171,7 +162,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
   useSyncQueryString({
     q: query || undefined,
     status: lifecycle.join(","),
-    etapa: stages.join(","),
     resp: responsibles.join(","),
     cidade: cities.join(","),
     area: departments.join(","),
@@ -195,12 +185,11 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       departments: toOptions(countBy(jobs.map((j) => j.department))),
       openingReasons: countBy(jobs.map((j) => j.openingReason)),
       lifecycle: countBy(jobs.map((j) => jobLifecycle(j.status))),
-      stage: countBy(jobs.map((j) => jobProcessStage(j.status))),
     }),
     [jobs]
   );
 
-  const hasStatusFilter = lifecycle.length > 0 || stages.length > 0;
+  const hasStatusFilter = lifecycle.length > 0;
 
   // Filtros "estruturais" (tudo menos o chip rápido) — base também das contagens dos chips.
   const baseFiltered = useMemo(() => {
@@ -212,10 +201,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
         return false;
       const l = jobLifecycle(job.status);
       if (lifecycle.length > 0 && !lifecycle.includes(l)) return false;
-      if (stages.length > 0) {
-        const s = jobProcessStage(job.status);
-        if (!s || !stages.includes(s)) return false;
-      }
       // Sem filtro de status, a lista esconde encerradas/canceladas.
       if (!hasStatusFilter && (l === "FILLED" || l === "CLOSED")) return false;
       if (responsibles.length > 0 && !responsibles.includes(job.responsible ?? "")) return false;
@@ -228,7 +213,7 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       if (periodMs && now - new Date(job.openedAt).getTime() > periodMs) return false;
       return true;
     });
-  }, [enriched, query, lifecycle, stages, hasStatusFilter, responsibles, cities, departments, openingReasons, candidates, period]);
+  }, [enriched, query, lifecycle, hasStatusFilter, responsibles, cities, departments, openingReasons, candidates, period]);
 
   const quickCounts = useMemo(
     () => ({
@@ -249,7 +234,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
 
   function clearFilters() {
     setLifecycle([]);
-    setStages([]);
     setResponsibles([]);
     setCities([]);
     setDepartments([]);
@@ -275,13 +259,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       })),
       selected: lifecycle,
       onToggle: (v) => setLifecycle((p) => toggle(p, v as JobLifecycle)),
-    },
-    {
-      key: "etapa",
-      title: "Etapa do processo",
-      options: JOB_STAGE_ORDER.map((s) => ({ value: s, label: JOB_STAGE_META[s].label, count: facets.stage.get(s) ?? 0 })),
-      selected: stages,
-      onToggle: (v) => setStages((p) => toggle(p, v as JobProcessStage)),
     },
     {
       key: "resp",
@@ -338,11 +315,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       key: `s-${l}`,
       label: `Status: ${JOB_LIFECYCLE_META[l].label}`,
       onRemove: () => setLifecycle((p) => p.filter((x) => x !== l)),
-    })),
-    ...stages.map((s) => ({
-      key: `e-${s}`,
-      label: `Etapa: ${JOB_STAGE_META[s].label}`,
-      onRemove: () => setStages((p) => p.filter((x) => x !== s)),
     })),
     ...responsibles.map((r) => ({
       key: `r-${r}`,
@@ -476,7 +448,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
 function JobListItem({ job, canManage }: { job: Enriched; canManage: boolean }) {
   const lifecycle = jobLifecycle(job.status);
   const status = JOB_LIFECYCLE_META[lifecycle];
-  const stage = jobProcessStage(job.status);
   const situation = operationalSituation(job.reasons);
   const sla = lifecycle === "OPEN" ? evaluateSla(daysSince(job.openedAt)) : null;
 
@@ -517,11 +488,6 @@ function JobListItem({ job, canManage }: { job: Enriched; canManage: boolean }) 
             <StatusBadge tone={status.tone} hint={status.hint}>
               {status.label}
             </StatusBadge>
-            {stage && (
-              <StageBadge color={JOB_STAGE_META[stage].color} hint="Etapa do processo seletivo">
-                {JOB_STAGE_META[stage].label}
-              </StageBadge>
-            )}
             {sla && (
               <StatusBadge tone={SLA_META[sla.state].tone} hint="Prazo de preenchimento (SLA)">
                 {SLA_META[sla.state].label}

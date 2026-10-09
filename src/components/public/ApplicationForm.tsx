@@ -65,10 +65,10 @@ async function loadCities(): Promise<string[]> {
       if (Date.now() - ts < IBGE_CACHE_TTL) return data;
     }
   } catch {}
-  const res = await fetch(
-    "https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome"
-  );
-  const data = ((await res.json()) as Array<{ nome: string }>).map((m) => m.nome);
+  // Rota própria (proxy do IBGE com cache): a CSP só libera connect-src 'self'.
+  const res = await fetch("/api/localidades/municipios");
+  if (!res.ok) throw new Error(`municipios: ${res.status}`);
+  const data = (await res.json()) as string[];
   try { sessionStorage.setItem(IBGE_CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
   return data;
 }
@@ -114,7 +114,10 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
     try {
       const list = await loadCities();
       setCities(list);
-    } catch {}
+    } catch {
+      // Falhou: tenta de novo no próximo foco em vez de deixar a lista vazia.
+      citiesLoadedRef.current = false;
+    }
   }, []);
 
   // Pré-preenche o formulário com dados da candidatura mais recente do CPF.

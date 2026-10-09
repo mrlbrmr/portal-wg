@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sourceLabelsFrom, type ApplicationSourceOption } from "@/lib/application-sources";
 import {
   JORNADA_ADMISSION_COLUMNS,
   JORNADA_JOB_COLUMNS,
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
     const jobs = allJobs.filter((j) => jobInScope(j, since));
     const jobIds = jobs.map((j) => j.id);
 
-    const [stages, statusHistory, positions, apps] = await Promise.all([
+    const [stages, statusHistory, positions, apps, sources] = await Promise.all([
       selectAll<StageRow>((from, to) =>
         db.from("application_stages").select('id, name, "sortOrder", kind, "hideFromBoard"').range(from, to)
       ),
@@ -94,6 +95,7 @@ export async function GET(req: NextRequest) {
         jobIds
       ),
       selectIn<ApplicationRow>(db, "applications", 'id, "jobId", "stageId", source, "createdAt"', "jobId", jobIds),
+      selectAll<ApplicationSourceOption>((from, to) => db.from("application_sources").select("id, name, active").range(from, to)),
     ]);
 
     const [stageHistory, admByJob, admByPosition] = await Promise.all([
@@ -104,7 +106,10 @@ export async function GET(req: NextRequest) {
     ]);
     const admissions = [...new Map([...admByJob, ...admByPosition].map((a) => [a.id, a])).values()];
 
-    const body = buildJornadaFeed({ since, jobs, stages, statusHistory, positions, apps, stageHistory, admissions });
+    const body = buildJornadaFeed({
+      since, jobs, stages, statusHistory, positions, apps, stageHistory, admissions,
+      sourceLabels: sourceLabelsFrom(sources),
+    });
     return NextResponse.json(body, { headers: { "Cache-Control": "private, no-store" } });
   } catch (err) {
     console.error("[jornada] falha ao montar a sincronização", err);

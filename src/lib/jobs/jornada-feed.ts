@@ -230,7 +230,9 @@ export function buildFunnel(
   apps: ApplicationRow[],
   history: StageHistoryRow[],
   positions: PositionRow[],
-  stages: StageRow[]
+  stages: StageRow[],
+  /** Código → rótulo das origens (cadastro "Origens de candidatos" + origens de sistema). */
+  sourceLabels: Record<string, string> = APPLICATION_SOURCE_LABELS
 ): { funnel: JornadaFunnel; firstReachedAt: JornadaJob["firstReachedAt"]; sources: Record<string, number> } {
   const stageById = new Map(stages.map((s) => [s.id, s]));
   const anchors = funnelAnchors(stages);
@@ -260,7 +262,7 @@ export function buildFunnel(
   };
 
   for (const a of mine) {
-    const label = APPLICATION_SOURCE_LABELS[a.source ?? "PORTAL"] ?? a.source ?? "Portal";
+    const label = sourceLabels[a.source ?? "PORTAL"] ?? a.source ?? "Portal";
     sources[label] = (sources[label] ?? 0) + 1;
     earliest("inscritos", a.createdAt);
     const current = a.stageId ? stageById.get(a.stageId) : undefined;
@@ -304,7 +306,14 @@ const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ?
 
 export function toJornadaJob(
   job: JobRow,
-  ctx: { statusHistory: StatusHistoryRow[]; positions: PositionRow[]; apps: ApplicationRow[]; stageHistory: StageHistoryRow[]; stages: StageRow[] }
+  ctx: {
+    statusHistory: StatusHistoryRow[];
+    positions: PositionRow[];
+    apps: ApplicationRow[];
+    stageHistory: StageHistoryRow[];
+    stages: StageRow[];
+    sourceLabels?: Record<string, string>;
+  }
 ): JornadaJob {
   const timeline = statusTimeline(job.id, ctx.statusHistory);
   const status = canonicalStatus(job.status);
@@ -322,7 +331,7 @@ export function toJornadaJob(
       admissionId: p.admissionId, expectedStartDate: p.expectedStartDate, filledAt: p.filledAt,
       cancelledAt: p.cancelledAt, cancelReason: p.cancelReason,
     }));
-  const f = buildFunnel(job.id, ctx.apps, ctx.stageHistory, ctx.positions, ctx.stages);
+  const f = buildFunnel(job.id, ctx.apps, ctx.stageHistory, ctx.positions, ctx.stages, ctx.sourceLabels);
   return {
     id: job.id, code: job.code, title: job.title, department: job.department, company: job.company,
     city: job.city, state: job.state, status, hiringManager: job.hiringManager, responsible: job.responsible,
@@ -337,7 +346,12 @@ export function toJornadaJob(
 
 export function toJornadaHire(
   adm: AdmissionRow,
-  ctx: { jobsById: Map<string, JobRow>; positions: PositionRow[]; appsById: Map<string, ApplicationRow> }
+  ctx: {
+    jobsById: Map<string, JobRow>;
+    positions: PositionRow[];
+    appsById: Map<string, ApplicationRow>;
+    sourceLabels?: Record<string, string>;
+  }
 ): JornadaHire {
   const pos = ctx.positions.find((p) => p.admissionId === adm.id && p.status === "FILLED")
     ?? ctx.positions.find((p) => p.admissionId === adm.id);
@@ -363,7 +377,7 @@ export function toJornadaHire(
     shift: adm.shift,
     admissionStage: stage?.name ?? null,
     admissionFinished: !!stage?.isFinal,
-    source: app ? APPLICATION_SOURCE_LABELS[app.source ?? "PORTAL"] ?? app.source : null,
+    source: app ? (ctx.sourceLabels ?? APPLICATION_SOURCE_LABELS)[app.source ?? "PORTAL"] ?? app.source : null,
     createdAt: adm.createdAt,
   };
 }
@@ -379,14 +393,22 @@ export function buildJornadaFeed(input: {
   apps: ApplicationRow[];
   stageHistory: StageHistoryRow[];
   admissions: AdmissionRow[];
+  sourceLabels?: Record<string, string>;
 }): JornadaFeed {
   const jobs = input.jobs.filter((j) => jobInScope(j, input.since));
   const jobsById = new Map(jobs.map((j) => [j.id, j]));
   const appsById = new Map(input.apps.map((a) => [a.id, a]));
-  const ctx = { statusHistory: input.statusHistory, positions: input.positions, apps: input.apps, stageHistory: input.stageHistory, stages: input.stages };
+  const ctx = {
+    statusHistory: input.statusHistory,
+    positions: input.positions,
+    apps: input.apps,
+    stageHistory: input.stageHistory,
+    stages: input.stages,
+    sourceLabels: input.sourceLabels,
+  };
   const hires = input.admissions
     .filter((a) => !a.deletedAt)
-    .map((a) => toJornadaHire(a, { jobsById, positions: input.positions, appsById }))
+    .map((a) => toJornadaHire(a, { jobsById, positions: input.positions, appsById, sourceLabels: input.sourceLabels }))
     .filter((h) => h.jobId && jobsById.has(h.jobId))
     .sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""));
   return {

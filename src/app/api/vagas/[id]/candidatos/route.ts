@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { uploadResume, validateResumeFile } from "@/lib/storage";
 import { applicantContactSchema } from "@/lib/application-schema";
+import { BRAZIL_STATES } from "@/lib/utils";
 import { resolveManualSource } from "@/lib/application-sources";
 import { logConfigChange } from "@/lib/settings/audit";
 
@@ -19,6 +20,14 @@ import { logConfigChange } from "@/lib/settings/audit";
 const fieldsSchema = applicantContactSchema.extend({
   source: z.string().trim().max(60).optional(),
   newSource: z.string().trim().max(120).optional(),
+  // Localização opcional (mesmas colunas da candidatura pelo portal).
+  candidateCity: z.string().trim().max(120).optional(),
+  candidateState: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => v === "" || (BRAZIL_STATES as readonly string[]).includes(v), "UF inválida.")
+    .optional(),
 });
 
 export async function POST(
@@ -45,12 +54,16 @@ export async function POST(
     phone: form.get("phone"),
     source: form.get("source") ?? undefined,
     newSource: form.get("newSource") ?? undefined,
+    candidateCity: form.get("candidateCity") ?? undefined,
+    candidateState: form.get("candidateState") ?? undefined,
   });
   if (!parsed.success) {
     const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
     return NextResponse.json({ error: first ?? "Dados inválidos." }, { status: 400 });
   }
   const { fullName, email, phone } = parsed.data;
+  const candidateCity = parsed.data.candidateCity || null;
+  const candidateState = parsed.data.candidateState || null;
 
   const supabase = await createClient();
 
@@ -99,6 +112,8 @@ export async function POST(
       fullName,
       email,
       phone,
+      candidateCity,
+      candidateState,
       source,
       addedBy: session.user.name ?? session.user.email ?? "Admin",
       resumeUrl: resume?.url ?? null,
@@ -133,6 +148,8 @@ export async function POST(
           nomeCompleto: fullName,
           email,
           telefone: phone || null,
+          cidade: candidateCity,
+          estado: candidateState,
           curriculoUrl: resume?.url ?? null,
           curriculoNome: resume?.name ?? null,
           origem: "VAGA_ESPECIFICA",

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Paperclip, Plus, Upload, UserPlus, X } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { buttonVariants } from "@/components/ui/Button";
-import { maskPhone } from "@/lib/utils";
+import { BRAZIL_STATES, maskPhone } from "@/lib/utils";
 import { MAX_SOURCE_NAME } from "@/lib/application-schema";
 
 const inputClass =
@@ -42,6 +42,8 @@ export function AddCandidateModal({ jobId, sources }: Props) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [uf, setUf] = useState("");
   const [source, setSource] = useState("");
   const [newSource, setNewSource] = useState("");
   const newSourceRef = useRef<HTMLInputElement>(null);
@@ -59,6 +61,8 @@ export function AddCandidateModal({ jobId, sources }: Props) {
     setFullName("");
     setEmail("");
     setPhone("");
+    setCity("");
+    setUf("");
     setSource("");
     setNewSource("");
     setFileName(null);
@@ -107,6 +111,8 @@ export function AddCandidateModal({ jobId, sources }: Props) {
       data.set("fullName", fullName);
       data.set("email", email);
       data.set("phone", phone);
+      if (city.trim()) data.set("candidateCity", city.trim());
+      if (uf) data.set("candidateState", uf);
       if (creatingSource) data.set("newSource", newSource.trim());
       else data.set("source", source);
       const file = fileRef.current?.files?.[0];
@@ -156,7 +162,7 @@ export function AddCandidateModal({ jobId, sources }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={close} />
 
-          <div className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+          <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-base font-semibold text-gray-900">Novo candidato</h3>
@@ -210,6 +216,41 @@ export function AddCandidateModal({ jobId, sources }: Props) {
                   placeholder="(11) 9 1234-5678"
                   className={inputClass}
                 />
+              </div>
+
+              <div className="grid grid-cols-[1fr_88px] gap-3">
+                <div>
+                  <label htmlFor="add-candidate-city" className="mb-1 block text-sm font-medium text-gray-700">
+                    Cidade <span className="font-normal text-gray-400">(opcional)</span>
+                  </label>
+                  <input
+                    id="add-candidate-city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    maxLength={120}
+                    autoComplete="off"
+                    placeholder="Cidade onde reside"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="add-candidate-uf" className="mb-1 block text-sm font-medium text-gray-700">
+                    UF
+                  </label>
+                  <select
+                    id="add-candidate-uf"
+                    value={uf}
+                    onChange={(e) => setUf(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">--</option>
+                    {BRAZIL_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>

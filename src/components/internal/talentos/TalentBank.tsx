@@ -294,7 +294,7 @@ export function TalentBank({
     {
       key: "origem",
       title: "Origem",
-      options: facets.origens.map((o) => ({ value: o.value, label: originLabel(o.value), count: o.count })),
+      options: facets.origens.map((o) => ({ value: o.value, label: o.label ?? originLabel(o.value), count: o.count })),
       selected: filters.origem,
       onToggle: (v) => toggleIn("origem", v),
     },

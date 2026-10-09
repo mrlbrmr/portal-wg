@@ -22,6 +22,8 @@ export interface CandidateDetail {
   stageId: string;
   stage: StageRef | null;
   source: string;
+  /** Rótulo da origem, resolvido no servidor (cadastro "Origens de candidatos"). */
+  sourceLabel: string;
   addedBy: string | null;
   notes: string | null;
   createdAt: string;

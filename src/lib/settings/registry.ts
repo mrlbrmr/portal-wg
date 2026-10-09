@@ -15,6 +15,7 @@ import {
   Linkedin,
   ListChecks,
   MapPin,
+  Signpost,
   Tag,
   type LucideIcon,
 } from "lucide-react";
@@ -38,7 +39,7 @@ export interface SettingsSection {
 
 // ─── Cadastros ────────────────────────────────────────────────────────────────
 
-export type RegistryEntity = "position" | "company" | "branch" | "documentType" | "tag";
+export type RegistryEntity = "position" | "company" | "branch" | "documentType" | "tag" | "applicationSource";
 
 export interface RegistryDef extends SettingsItem {
   entity: RegistryEntity | "stage";
@@ -116,6 +117,17 @@ export const REGISTRIES: RegistryDef[] = [
     plural: "tags",
     article: "a",
   },
+  {
+    key: "cadastros.origens",
+    entity: "applicationSource",
+    href: "/configuracoes/cadastros/origens",
+    title: "Origens de candidatos",
+    description: "De onde vêm os candidatos cadastrados à mão (WhatsApp, LinkedIn, indicação…).",
+    icon: Signpost,
+    singular: "origem",
+    plural: "origens",
+    article: "a",
+  },
 ];
 
 export function getRegistry(entity: RegistryDef["entity"]): RegistryDef {
@@ -130,7 +142,7 @@ export const CADASTROS: SettingsItem = {
   key: "cadastros",
   href: "/configuracoes/cadastros",
   title: "Cadastros",
-  description: "Cargos, empresas, filiais, tipos de documento, tags e etapas.",
+  description: "Cargos, empresas, filiais, tipos de documento, tags, etapas e origens de candidatos.",
   icon: ListChecks,
 };
 

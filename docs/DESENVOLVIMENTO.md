@@ -7,6 +7,24 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-10-09 — Origens de candidatos (cadastro + medição)
+
+Migração **aplicada** (aditiva): `20261009120000_application_sources.sql`.
+
+- **Cadastro `application_sources`** (Configurações › Cadastros › Origens de candidatos): o `id` é o CÓDIGO gravado
+  em `applications.source` (sem FK). Códigos antigos mantidos (WHATSAPP, CATHO, INDEED, INTERNAL_REFERRAL, OTHER) +
+  novas origens semeadas (LinkedIn, InfoJobs, Instagram, Facebook, SINE, currículo entregue na empresa). PORTAL e
+  BANCO_TALENTOS são origens de SISTEMA e não entram no cadastro. Em uso = só desativa (contagem por `applications.source`).
+- **Modal "Novo candidato"**: origem obrigatória, sem pré-seleção; "+ Nova origem…" cria a origem na hora
+  (`resolveManualSource` em `src/lib/application-sources.ts`: nome repetido reaproveita/reativa, código derivado do
+  nome com sufixo em colisão; registra em `config_change_log`).
+- **Rótulo resolvido no servidor**: pipeline, Quick View (`GET /api/applications/[id]`) e Banco de Talentos recebem
+  `sourceLabel`/`origemLabel` prontos — origem criada pelo RH não está em `APPLICATION_SOURCE_LABELS`.
+- **Medição**: painel "De onde vêm os candidatos" no Dashboard (30 dias / 90 dias / 12 meses, `?origem=`), pela RPC
+  `application_source_stats(p_since)` — candidaturas e contratados (etapa WON/ADMISSION) por origem.
+
+---
+
 ## Sessão de 2026-10-08 — Kanban só no ATS (pipeline de candidatos)
 
 Sem migração. Decisão: Kanban não organiza status de vaga nem etapa de admissão — existe só dentro da vaga,

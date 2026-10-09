@@ -23,6 +23,7 @@ const COLUMNS: Record<CatEntity, string> = {
   documentType: "id, name, required",
   tag: "id, name, color",
   stage: "id, name, color, active, isFinal, isDocumentIntake",
+  applicationSource: "id, name, active",
 };
 
 export async function loadRegistryItems(entity: CatEntity): Promise<RegistryItem[]> {

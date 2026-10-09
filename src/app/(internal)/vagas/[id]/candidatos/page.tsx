@@ -17,6 +17,7 @@ import type { AdmissionPosition } from "@/components/internal/AdmissionLinkModal
 import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/candidate-presentation";
 import { resolveAssessmentType } from "@/lib/avaliacoes/schema";
 import type { CvProfile } from "@/lib/ai/cv-analyzer";
+import { loadApplicationSources, labelForSource, sourceLabelsFrom } from "@/lib/application-sources";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -48,7 +49,7 @@ export default async function CandidatosPage({ params }: Props) {
   if (!job) notFound();
 
   // applications (com avaliações embutidas) + stages + posições da vaga em paralelo
-  const [{ data: applications, error: applicationsError }, { data: stagesData }, { data: positionsData }] = await Promise.all([
+  const [{ data: applications, error: applicationsError }, { data: stagesData }, { data: positionsData }, sources] = await Promise.all([
     supabase
       .from("applications")
       .select(
@@ -67,7 +68,9 @@ export default async function CandidatosPage({ params }: Props) {
       .select("id, positionNumber, status, candidateName")
       .eq("jobId", id)
       .order("positionNumber", { ascending: true }),
+    loadApplicationSources(supabase),
   ]);
+  const sourceLabels = sourceLabelsFrom(sources);
   // Banco de talentos não tem posições: o modal de contratação não pede posição.
   const positions = job.isTalentPool ? null : ((positionsData ?? []) as AdmissionPosition[]);
   const positionsSummary = positions ? summarizePositions(positions) : null;
@@ -250,6 +253,7 @@ export default async function CandidatosPage({ params }: Props) {
       resumeName: a.resumeName,
       stageId: a.stageId,
       source: a.source,
+      sourceLabel: labelForSource(sourceLabels, a.source),
       createdAt: new Date(a.createdAt).toISOString(),
       sortOrder: a.sort_order ?? undefined,
       aiScore: aiScoreByApp.get(a.id),
@@ -345,7 +349,10 @@ export default async function CandidatosPage({ params }: Props) {
         {canManage && (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <IncluirTalentoModal jobId={job.id} />
-            <AddCandidateModal jobId={job.id} />
+            <AddCandidateModal
+              jobId={job.id}
+              sources={sources.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }))}
+            />
             <JobPipelineActions
               jobId={job.id}
               allStages={allStages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}

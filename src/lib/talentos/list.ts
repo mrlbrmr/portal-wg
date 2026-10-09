@@ -12,6 +12,8 @@ import {
   type TalentSort,
 } from "./crm";
 
+import { loadApplicationSources } from "@/lib/application-sources";
+
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export const TALENT_PAGE_SIZE = 25;
@@ -156,10 +158,17 @@ const EMPTY_FACETS: TalentFacets = {
 };
 
 export async function loadTalentFacets(supabase: Supabase): Promise<TalentFacets> {
-  const { data, error } = await supabase.rpc("talentos_crm_facets");
+  const [{ data, error }, sources] = await Promise.all([
+    supabase.rpc("talentos_crm_facets"),
+    loadApplicationSources(supabase),
+  ]);
   if (error || !data) {
     console.warn("[talentos] facetas", error?.message);
     return EMPTY_FACETS;
   }
-  return { ...EMPTY_FACETS, ...(data as Partial<TalentFacets>) };
+  const facets = { ...EMPTY_FACETS, ...(data as Partial<TalentFacets>) };
+  // Origem criada no cadastro "Origens de candidatos" só tem rótulo pelo cadastro.
+  const names = new Map(sources.map((s) => [s.id, s.name]));
+  facets.origens = facets.origens.map((o) => ({ ...o, label: o.label ?? names.get(o.value) }));
+  return facets;
 }

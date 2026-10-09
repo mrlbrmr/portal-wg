@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { deleteResume } from "@/lib/storage";
 import { extractScreeningCriteria } from "@/lib/recruitment/screening";
+import { labelForSource } from "@/lib/application-sources";
 import { runStageEntryAutomations, type AutomationReport } from "@/lib/selection-funnel/run-automations";
 
 // Rotas internas — leitura/mutação de candidatura.
@@ -45,8 +46,15 @@ export async function GET(
     job: { responsible: string | null; description: string | null; requiredRequirements: string | null } | null;
   };
 
+  const { data: origin } = await supabase
+    .from("application_sources")
+    .select("name")
+    .eq("id", rest.source as string)
+    .maybeSingle();
+
   return NextResponse.json({
     ...rest,
+    sourceLabel: (origin?.name as string | undefined) ?? labelForSource({}, rest.source as string),
     stageHistory,
     jobResponsible: job?.responsible ?? null,
     screeningCriteria: job ? extractScreeningCriteria(job) : [],

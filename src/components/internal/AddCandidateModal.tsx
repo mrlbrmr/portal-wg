@@ -7,27 +7,30 @@ import { Loader2, Paperclip, Plus, Upload, UserPlus, X } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { buttonVariants } from "@/components/ui/Button";
 import { maskPhone } from "@/lib/utils";
-import {
-  APPLICATION_SOURCE_LABELS,
-  MANUAL_APPLICATION_SOURCES,
-} from "@/lib/application-schema";
+import { MAX_SOURCE_NAME } from "@/lib/application-schema";
 
 const inputClass =
   "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-wg-green/40 focus:border-wg-green transition-colors";
 
 const MAX_MB = 5;
 const ACCEPT = ".pdf,.doc,.docx";
+/** Valor do <select> que abre o campo de nova origem. */
+const NEW_SOURCE = "__nova__";
 
 interface Props {
   jobId: string;
+  /** Origens ativas do cadastro "Origens de candidatos", na ordem do cadastro. */
+  sources: Array<{ id: string; name: string }>;
 }
 
 /**
  * Botão "Adicionar candidato" + modal de cadastro MANUAL de candidato numa vaga
  * (CV recebido por fora do portal). Só ADMIN_RH vê o botão. CV é opcional.
+ * A origem é obrigatória — é o que permite medir de onde vêm os candidatos. Se ela não
+ * estiver na lista, o RH cria na hora ("Nova origem…"); a API grava no cadastro.
  * Envia multipart para POST /api/vagas/[id]/candidatos e dá router.refresh().
  */
-export function AddCandidateModal({ jobId }: Props) {
+export function AddCandidateModal({ jobId, sources }: Props) {
   const router = useRouter();
   const { notify } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -39,7 +42,10 @@ export function AddCandidateModal({ jobId }: Props) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [source, setSource] = useState<string>(MANUAL_APPLICATION_SOURCES[0]);
+  const [source, setSource] = useState("");
+  const [newSource, setNewSource] = useState("");
+  const newSourceRef = useRef<HTMLInputElement>(null);
+  const creatingSource = source === NEW_SOURCE;
   const [fileName, setFileName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,7 +59,8 @@ export function AddCandidateModal({ jobId }: Props) {
     setFullName("");
     setEmail("");
     setPhone("");
-    setSource(MANUAL_APPLICATION_SOURCES[0]);
+    setSource("");
+    setNewSource("");
     setFileName(null);
     setError(null);
     if (fileRef.current) fileRef.current.value = "";
@@ -89,6 +96,10 @@ export function AddCandidateModal({ jobId }: Props) {
       setError("Celular inválido. Use o formato (xx) x xxxx-xxxx.");
       return;
     }
+    if (!source || (creatingSource && newSource.trim().length < 2)) {
+      setError(creatingSource ? "Informe o nome da nova origem." : "Informe a origem do candidato.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -96,7 +107,8 @@ export function AddCandidateModal({ jobId }: Props) {
       data.set("fullName", fullName);
       data.set("email", email);
       data.set("phone", phone);
-      data.set("source", source);
+      if (creatingSource) data.set("newSource", newSource.trim());
+      else data.set("source", source);
       const file = fileRef.current?.files?.[0];
       if (file) data.set("resume", file);
 
@@ -201,18 +213,50 @@ export function AddCandidateModal({ jobId }: Props) {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Origem *</label>
+                <label htmlFor="add-candidate-source" className="mb-1 block text-sm font-medium text-gray-700">
+                  Origem *
+                </label>
                 <select
+                  id="add-candidate-source"
                   value={source}
-                  onChange={(e) => setSource(e.target.value)}
+                  required
+                  onChange={(e) => {
+                    setSource(e.target.value);
+                    if (e.target.value === NEW_SOURCE) requestAnimationFrame(() => newSourceRef.current?.focus());
+                  }}
                   className={inputClass}
                 >
-                  {MANUAL_APPLICATION_SOURCES.map((s) => (
-                    <option key={s} value={s}>
-                      {APPLICATION_SOURCE_LABELS[s]}
+                  <option value="" disabled>
+                    De onde veio o candidato?
+                  </option>
+                  {sources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
                     </option>
                   ))}
+                  <option value={NEW_SOURCE}>+ Nova origem…</option>
                 </select>
+                {creatingSource && (
+                  <div className="mt-2">
+                    <label htmlFor="add-candidate-new-source" className="sr-only">
+                      Nome da nova origem
+                    </label>
+                    <input
+                      id="add-candidate-new-source"
+                      ref={newSourceRef}
+                      value={newSource}
+                      onChange={(e) => setNewSource(e.target.value)}
+                      required
+                      minLength={2}
+                      maxLength={MAX_SOURCE_NAME}
+                      placeholder="Ex.: Vagas.com, rádio local, feira de empregos"
+                      className={inputClass}
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Fica salva em Configurações › Cadastros › Origens de candidatos e aparece nas próximas vezes.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>

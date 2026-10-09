@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { StageBadge } from "@/components/ui/StatusBadge";
 import { DialogShell } from "@/components/internal/candidate/DialogShell";
-import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import {
   formatCandidateLocation,
   formatDaysShort,
@@ -74,7 +73,7 @@ export function CompareCandidatesDialog({ open, entries, stageById, onClose, onO
           <Empty />
         ),
     },
-    { label: "Origem", render: ({ candidate: c }) => APPLICATION_SOURCE_LABELS[c.source] ?? c.source },
+    { label: "Origem", render: ({ candidate: c }) => c.sourceLabel },
     {
       label: "Avaliações",
       render: ({ candidate: c }) =>

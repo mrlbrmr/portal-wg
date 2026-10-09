@@ -5,18 +5,20 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { uploadResume, validateResumeFile } from "@/lib/storage";
-import {
-  applicantContactSchema,
-  MANUAL_APPLICATION_SOURCES,
-} from "@/lib/application-schema";
+import { applicantContactSchema } from "@/lib/application-schema";
+import { resolveManualSource } from "@/lib/application-sources";
+import { logConfigChange } from "@/lib/settings/audit";
 
 // Rota INTERNA — cadastro MANUAL de candidato numa vaga (CV recebido por fora do
 // portal: WhatsApp/Catho/Indeed/indicação). ADMIN_RH only, atrás do middleware.
+// A origem vem do cadastro "Origens de candidatos" (`source` = código) ou é criada aqui
+// mesmo (`newSource` = nome), para o RH medir de onde os candidatos vêm.
 // Sem reCAPTCHA (sessão autenticada). CV é OPCIONAL. LGPD: sem consentimento de
 // portal → consentAt = null; guarda-se a origem (source) e quem cadastrou (addedBy).
 
 const fieldsSchema = applicantContactSchema.extend({
-  source: z.enum(MANUAL_APPLICATION_SOURCES as [string, ...string[]]),
+  source: z.string().trim().max(60).optional(),
+  newSource: z.string().trim().max(120).optional(),
 });
 
 export async function POST(
@@ -41,15 +43,25 @@ export async function POST(
     fullName: form.get("fullName"),
     email: form.get("email"),
     phone: form.get("phone"),
-    source: form.get("source"),
+    source: form.get("source") ?? undefined,
+    newSource: form.get("newSource") ?? undefined,
   });
   if (!parsed.success) {
     const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
     return NextResponse.json({ error: first ?? "Dados inválidos." }, { status: 400 });
   }
-  const { fullName, email, phone, source } = parsed.data;
+  const { fullName, email, phone } = parsed.data;
 
   const supabase = await createClient();
+
+  const origin = await resolveManualSource(supabase, {
+    sourceId: parsed.data.source,
+    newSourceName: parsed.data.newSource,
+  });
+  if (!origin.ok) {
+    return NextResponse.json({ error: origin.error }, { status: 400 });
+  }
+  const source = origin.id;
 
   // A vaga precisa existir (não exige estar aberta — o RH pode cadastrar num
   // processo já em andamento).
@@ -150,6 +162,11 @@ export async function POST(
       // Falha silenciosa — candidatura já registrada com sucesso
     }
   });
+
+  if (origin.created) {
+    await logConfigChange(session, "cadastros.origens", `Origem de candidatos "${origin.name}" criada ao adicionar candidato`);
+    revalidatePath("/configuracoes/cadastros/origens");
+  }
 
   revalidatePath(`/vagas/${job.id}/candidatos`);
   revalidatePath("/dashboard");

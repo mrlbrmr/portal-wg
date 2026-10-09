@@ -95,6 +95,10 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   (split view no desktop, J/K, barra de decisão). Anotações por autor em `application_notes`
   (`/api/applications/[id]/notes`); `applications.notes` = "anotações anteriores" + motivo de reprovação.
   Análise de IA estruturada em `application_assessments.metadata` (lida por `src/lib/recruitment/ai-analysis.ts`).
+- **Origem da candidatura** (`applications.source` = código): PORTAL/BANCO_TALENTOS são de sistema; as demais vêm do
+  cadastro `application_sources` (Cadastros › Origens de candidatos; o modal "Novo candidato" cria origem na hora).
+  Rótulo SEMPRE resolvido no servidor (`src/lib/application-sources.ts` → `sourceLabel`), nunca só pelo mapa estático.
+  Medição no Dashboard (painel "De onde vêm os candidatos", RPC `application_source_stats`).
 - **Solicitação de vaga:** módulo próprio em `/solicitacoes` (`src/app/(internal)/solicitacoes/**`).
   **Solicitação ≠ Vaga.** A solicitação é o pedido de AUTORIZAÇÃO para contratar; a vaga é o
   processo seletivo que nasce depois. Gestor pede em `/solicitar-vaga` (público, campos

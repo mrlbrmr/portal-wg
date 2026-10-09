@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, type DropdownMenuItem } from "@/components/ui/DropdownMenu";
-import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import {
   formatAppliedAgo,
   formatCandidateLocation,
@@ -81,7 +80,7 @@ function CandidateCardBase({
 }: Props) {
   const location = formatCandidateLocation(c.city, c.state);
   const experience = formatExperience(c.experienceYears);
-  const source = APPLICATION_SOURCE_LABELS[c.source] ?? c.source;
+  const source = c.sourceLabel;
   const isOverlay = drag?.isOverlay ?? false;
   const showCheckbox = selected || selectionActive;
   const resumeHref = c.resumeName ? `/api/applications/${c.id}/resume` : null;

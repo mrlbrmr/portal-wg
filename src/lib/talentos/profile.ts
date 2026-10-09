@@ -6,7 +6,8 @@
 
 import type { createClient } from "@/lib/supabase/server";
 import { resolveAssessmentType, type AssessmentType } from "@/lib/avaliacoes/schema";
-import type { TalentSituation } from "./crm";
+import { loadApplicationSources } from "@/lib/application-sources";
+import { originLabel, type TalentSituation } from "./crm";
 import type { TagItem } from "./service";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -20,6 +21,8 @@ export interface TalentApplication {
   jobArea: string | null;
   createdAt: string;
   source: string;
+  /** Rótulo da origem (cadastro "Origens de candidatos"); ausente = usa ORIGIN_LABELS. */
+  sourceLabel?: string;
   addedBy: string | null;
   stageId: string;
   stageName: string;
@@ -92,6 +95,8 @@ export interface TalentProfileData {
   resumoProfissional: string | null;
   origem: string;
   origemDetalhe: string | null;
+  /** Rótulo pronto de origemDetalhe ?? origem. */
+  origemLabel: string;
   statusBanco: string;
   situacao: TalentSituation;
   favorito: boolean;
@@ -121,7 +126,7 @@ function maskCpf(cpf: string | null): string | null {
 }
 
 export async function loadTalentProfile(supabase: Supabase, id: string): Promise<TalentProfileData | null> {
-  const [baseRes, crmRes, tagsRes, appsRes, notesRes, eventsRes, stagesRes] = await Promise.all([
+  const [baseRes, crmRes, tagsRes, appsRes, notesRes, eventsRes, stagesRes, sourcesRes] = await Promise.all([
     supabase
       .from("talentos")
       .select(
@@ -149,7 +154,9 @@ export async function loadTalentProfile(supabase: Supabase, id: string): Promise
       .order("createdAt", { ascending: false })
       .limit(200),
     supabase.from("application_stages").select("id, name, kind, color"),
+    loadApplicationSources(supabase),
   ]);
+  const sourceNames = new Map(sourcesRes.map((s) => [s.id, s.name]));
 
   const base = baseRes.data as Record<string, unknown> | null;
   if (!base) return null;
@@ -184,6 +191,7 @@ export async function loadTalentProfile(supabase: Supabase, id: string): Promise
       jobArea: a.job?.department ?? null,
       createdAt: a.createdAt,
       source: a.source,
+      sourceLabel: sourceNames.get(a.source) ?? originLabel(a.source),
       addedBy: a.addedBy,
       stageId: a.stageId,
       stageName: st?.name ?? a.stageId,
@@ -302,6 +310,10 @@ export async function loadTalentProfile(supabase: Supabase, id: string): Promise
     resumoProfissional: (base.resumoProfissional as string | null) ?? null,
     origem: base.origem as string,
     origemDetalhe: crm.origemDetalhe ?? null,
+    origemLabel: (() => {
+      const o = crm.origemDetalhe ?? (base.origem as string);
+      return sourceNames.get(o) ?? originLabel(o);
+    })(),
     statusBanco: base.statusBanco as string,
     situacao: crm.situacao ?? "DISPONIVEL",
     favorito: Boolean(base.favorito),

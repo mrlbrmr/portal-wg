@@ -30,7 +30,6 @@ import {
   SITUATION_META,
   fullDateTime,
   locationLabel,
-  originLabel,
   relativeDay,
 } from "@/lib/talentos/crm";
 import {
@@ -514,7 +513,7 @@ function SummaryPanel({
             <span className="ml-1 text-meta text-wg-ink-muted">{meta.calculated ? "(pelas candidaturas)" : ""}</span>
           </Field>
           <Field label="Disponibilidade (definida pelo RH)">{EDITABLE_STATUS_LABELS[manualStatus]}</Field>
-          <Field label="Origem">{originLabel(profile.origemDetalhe ?? profile.origem)}</Field>
+          <Field label="Origem">{profile.origemLabel}</Field>
           <Field label="No banco desde">{formatDate(profile.createdAt)}</Field>
           <Field label="Última atividade">
             <span title={fullDateTime(profile.ultimaAtividadeEm)}>{relativeDay(profile.ultimaAtividadeEm)}</span>

@@ -16,7 +16,6 @@ import {
   UserX,
 } from "lucide-react";
 import { normalizeText } from "@/lib/utils";
-import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import {
   candidateSignals,
   pipelineSummary,
@@ -518,7 +517,9 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
 
   // ── Filtros ──
   const countBy = (pred: (a: PipelineCandidate) => boolean) => all.filter(pred).length;
-  const sourcesPresent = [...new Set(all.map((a) => a.source))];
+  // Código → rótulo (resolvido no servidor) das origens presentes na vaga.
+  const sourceLabels = new Map(all.map((a) => [a.source, a.sourceLabel]));
+  const sourcesPresent = [...sourceLabels.keys()];
   const toggleIn = <K extends "stages" | "sources" | "signals">(key: K, value: CandidateFilters[K][number]) =>
     setFilters((f) => {
       const list = f[key] as string[];
@@ -542,7 +543,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
       title: "Origem",
       options: sourcesPresent.map((s) => ({
         value: s,
-        label: APPLICATION_SOURCE_LABELS[s] ?? s,
+        label: sourceLabels.get(s) ?? s,
         count: countBy((a) => a.source === s),
       })),
       selected: filters.sources,
@@ -587,7 +588,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     })),
     ...filters.sources.map((s) => ({
       key: `source-${s}`,
-      label: `Origem: ${APPLICATION_SOURCE_LABELS[s] ?? s}`,
+      label: `Origem: ${sourceLabels.get(s) ?? s}`,
       onRemove: () => toggleIn("sources", s),
     })),
     ...(filters.match

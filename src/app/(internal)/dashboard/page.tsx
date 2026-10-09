@@ -14,6 +14,7 @@ import {
   Inbox,
   Plus,
   Send,
+  Signpost,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -38,6 +39,8 @@ import { Panel, panelLinkClass } from "@/components/ui/Panel";
 import { ActionListItem } from "@/components/ui/ActionListItem";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge, StageBadge, TONE_TEXT } from "@/components/ui/StatusBadge";
+import { labelForSource, loadSourceLabels } from "@/lib/application-sources";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Visão geral — RH" };
 
@@ -55,11 +58,21 @@ function plural(n: number, one: string, many: string) {
   return n === 1 ? one : many;
 }
 
-export default async function DashboardPage() {
+// Períodos do painel "De onde vêm os candidatos" (?origem=30|90|365).
+const SOURCE_PERIODS = [
+  { days: 30, label: "30 dias" },
+  { days: 90, label: "90 dias" },
+  { days: 365, label: "12 meses" },
+] as const;
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ origem?: string }> }) {
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
+  const { origem } = await searchParams;
+  const sourceDays = SOURCE_PERIODS.find((p) => String(p.days) === origem)?.days ?? 90;
+  const sourceSince = new Date(Date.now() - sourceDays * 86_400_000).toISOString();
 
-  const [session, admissions, jobs, recentAppsRes, requestsRes, reviewRes, waitingTestsRes] = await Promise.all([
+  const [session, admissions, jobs, recentAppsRes, requestsRes, reviewRes, waitingTestsRes, sourceStatsRes, sourceLabels] = await Promise.all([
     auth(),
     getAdmissionConfig().then((config) => loadAdmissionRows(supabase, config)),
     loadJobRows(supabase, { limit: 500 }),
@@ -77,6 +90,8 @@ export default async function DashboardPage() {
       .is("submittedAt", null)
       .is("invalidadoEm", null)
       .or(`expiresAt.is.null,expiresAt.gt.${nowIso}`),
+    supabase.rpc("application_source_stats", { p_since: sourceSince }),
+    loadSourceLabels(supabase),
   ]);
 
   const firstName = session?.user.name?.split(" ")[0] ?? "";
@@ -240,6 +255,14 @@ export default async function DashboardPage() {
     { title: "Aguardando outras pessoas", items: waitingOthersQueue },
   ].filter((g) => g.items.length > 0);
   const myActions = [...recruitmentQueue, ...admissionQueue].reduce((acc, i) => acc + i.count, 0);
+
+  // ── Origem dos candidatos ──────────────────────────────────────────────────
+  const sourceStats = ((sourceStatsRes.data ?? []) as Array<{ source: string; total: number; hired: number }>).map(
+    (r) => ({ ...r, total: Number(r.total), hired: Number(r.hired), label: labelForSource(sourceLabels, r.source) })
+  );
+  const sourceTotal = sourceStats.reduce((acc, r) => acc + r.total, 0);
+  const sourceHired = sourceStats.reduce((acc, r) => acc + r.hired, 0);
+  const sourceMax = Math.max(1, ...sourceStats.map((r) => r.total));
 
   const recentApplications = (recentAppsRes.data ?? []) as unknown as Array<{
     id: string;
@@ -483,6 +506,74 @@ export default async function DashboardPage() {
           )}
         </Panel>
       </div>
+
+      {/* Origem dos candidatos — mede de onde vêm as candidaturas e as contratações */}
+      <Panel
+        id="origens"
+        title="De onde vêm os candidatos"
+        description="Candidaturas recebidas no período, por origem. Contratados = candidatos que chegaram a uma etapa de contratação."
+        meta={
+          sourceTotal > 0
+            ? `${sourceTotal} ${plural(sourceTotal, "candidatura", "candidaturas")} · ${sourceHired} ${plural(sourceHired, "contratado", "contratados")}`
+            : undefined
+        }
+        action={
+          <nav aria-label="Período" className="flex items-center gap-1">
+            {SOURCE_PERIODS.map((p) => (
+              <Link
+                key={p.days}
+                href={`/dashboard?origem=${p.days}#origens`}
+                scroll={false}
+                aria-current={p.days === sourceDays ? "page" : undefined}
+                className={cn(
+                  "rounded-control px-2 py-1 text-meta font-medium transition-colors",
+                  p.days === sourceDays ? "bg-wg-ink text-white" : "text-wg-ink-secondary hover:bg-wg-bg"
+                )}
+              >
+                {p.label}
+              </Link>
+            ))}
+          </nav>
+        }
+      >
+        {sourceStats.length === 0 ? (
+          <EmptyState compact icon={Signpost} title="Nenhuma candidatura recebida no período" />
+        ) : (
+          <ul className="grid gap-x-8 gap-y-3 md:grid-cols-2">
+            {sourceStats.map((r) => {
+              const pct = Math.round((r.total / sourceTotal) * 100);
+              return (
+                <li key={r.source}>
+                  <div className="mb-1 flex items-baseline justify-between gap-3 text-meta">
+                    <span className="truncate text-wg-ink-secondary" title={r.label}>
+                      {r.label}
+                    </span>
+                    <span className="shrink-0 tabular-nums">
+                      <span className="font-semibold text-wg-ink">{r.total}</span>
+                      <span className="ml-1.5 text-[12px] text-wg-ink-muted">{pct}%</span>
+                      <span className="ml-2 text-[12px] text-wg-ink-muted">
+                        {r.hired} {plural(r.hired, "contratado", "contratados")}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-wg-bg" aria-hidden>
+                    <div className="h-full rounded-full bg-[#6E9440]" style={{ width: `${(r.total / sourceMax) * 100}%` }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {isAdmin && (
+          <p className="mt-4 text-meta text-wg-ink-muted">
+            Origens dos candidatos cadastrados à mão:{" "}
+            <Link href="/configuracoes/cadastros/origens" className="font-medium text-wg-green-dark hover:underline">
+              Configurações › Cadastros › Origens de candidatos
+            </Link>
+            .
+          </p>
+        )}
+      </Panel>
 
       <p className="text-meta text-wg-ink-muted">
         Uma vaga aberta pede atenção quando tem candidatos sem triagem, prazo de inscrição próximo ou vencido, nenhum

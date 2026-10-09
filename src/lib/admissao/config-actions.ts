@@ -14,6 +14,7 @@ import { getRegistry } from "@/lib/settings/registry";
 import { requireAdmissionConfig } from "./permissions";
 import { CATEGORY_TABLE, SUPPORTS_ACTIVE, countUsage, describeUsage, type CatEntity, type Usage } from "./registry-usage";
 import type { Session } from "@/lib/auth";
+import { sourceCodeFromName } from "@/lib/application-schema";
 
 export type { CatEntity } from "./registry-usage";
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -31,6 +32,11 @@ async function requireConfig(): Promise<{ session: Session } | { error: string }
 
 function revalidate(entity: CatEntity) {
   revalidatePath(getRegistry(entity).href);
+  if (entity === "applicationSource") {
+    revalidatePath("/vagas", "layout");
+    revalidatePath("/dashboard");
+    return;
+  }
   revalidatePath("/admissoes", "layout");
 }
 
@@ -70,7 +76,20 @@ export async function createCategory(
     if (entity === "documentType") row.required = !!input.required;
   }
 
-  const { error } = await supabase.from(table).insert(row);
+  let error: { code?: string } | null = null;
+  if (entity === "applicationSource") {
+    // O id é o código gravado em applications.source, derivado do nome ("Vagas.com" → VAGAS_COM).
+    const { count } = await supabase.from(table).select("id", { count: "exact", head: true }).ilike("name", clean.replace(/[\\%_]/g, (c) => `\\${c}`));
+    if (count) return { ok: false, error: DUPLICATE };
+    const base = sourceCodeFromName(clean) || "ORIGEM";
+    if (base === "PORTAL" || base === "BANCO_TALENTOS") return { ok: false, error: "Esse nome é reservado para as origens do sistema." };
+    for (let i = 0; i < 5; i++) {
+      ({ error } = await supabase.from(table).insert({ ...row, id: i === 0 ? base : `${base}_${i + 1}` }));
+      if (error?.code !== "23505") break;
+    }
+  } else {
+    ({ error } = await supabase.from(table).insert(row));
+  }
   if (error) return { ok: false, error: DUPLICATE };
 
   await log(a.session, entity, `${label(entity)} "${clean}" criado(a)`);

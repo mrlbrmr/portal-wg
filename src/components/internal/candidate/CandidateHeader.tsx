@@ -19,7 +19,6 @@ import { DropdownMenu, type DropdownMenuItem } from "@/components/ui/DropdownMen
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CandidateAvatar } from "@/components/internal/candidates/CandidateAvatar";
-import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import type { CandidateStageFlow, FlowStage } from "@/lib/recruitment/candidate-stage-flow";
 import { MATCH_SCORE_HINT, formatAppliedAgo } from "@/lib/recruitment/candidate-presentation";
 import { CandidateNavigation, type CandidateQueueNav } from "./CandidateNavigation";
@@ -96,7 +95,7 @@ export function CandidateHeader({
     }
   }
 
-  const source = data ? APPLICATION_SOURCE_LABELS[data.source] ?? data.source : null;
+  const source = data ? data.sourceLabel : null;
 
   return (
     <header className="shrink-0 px-4 pb-2.5 pt-3 sm:px-5">

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, MessageCircle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import { DataRow, Missing, Section } from "./Section";
 import { candidateLocation, formatDateAtTime, formatPhoneMask, whatsappUrl, type CandidateDetail } from "./types";
 
@@ -96,7 +95,7 @@ export function ApplicationDetails({
   onEdit: () => void;
 }) {
   const location = candidateLocation(data);
-  const source = APPLICATION_SOURCE_LABELS[data.source] ?? data.source;
+  const source = data.sourceLabel;
 
   return (
     <Section

@@ -11,8 +11,9 @@ export interface PipelineCandidate {
   phone: string;
   resumeName: string | null;
   stageId: string;
-  /** Origem da candidatura (APPLICATION_SOURCE_LABELS). */
+  /** Origem da candidatura: código (applications.source) e rótulo resolvido no servidor. */
   source: string;
+  sourceLabel: string;
   createdAt: string; // ISO
   /** Posição de ordenação manual (undefined = sem ordem definida → usa aiScore). */
   sortOrder?: number;

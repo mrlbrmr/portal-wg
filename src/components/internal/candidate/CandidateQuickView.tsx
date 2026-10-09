@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/utils";
-import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import { ASSESSMENT_KIND_LABELS } from "@/lib/assessment-schema";
 import type { ApplicationNote } from "@/lib/application-notes";
 import { latestAiAnalysis } from "@/lib/recruitment/ai-analysis";
@@ -317,7 +316,7 @@ export function CandidateQuickView({
       data
         ? buildCandidateTimeline({
             createdAt: data.createdAt,
-            sourceLabel: APPLICATION_SOURCE_LABELS[data.source] ?? data.source,
+            sourceLabel: data.sourceLabel,
             addedBy: data.addedBy,
             stageHistory: data.stageHistory,
             lostStageId,

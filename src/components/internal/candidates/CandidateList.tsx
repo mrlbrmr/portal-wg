@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, type DropdownMenuItem } from "@/components/ui/DropdownMenu";
 import { StageBadge } from "@/components/ui/StatusBadge";
-import { APPLICATION_SOURCE_LABELS } from "@/lib/application-schema";
 import {
   formatCandidateLocation,
   formatDaysShort,
@@ -196,7 +195,7 @@ function CandidateListRow({
       <td className="whitespace-nowrap px-3 py-2.5 text-wg-ink-secondary">
         {c.enteredStageAt ? capitalize(formatDaysShort(c.enteredStageAt)) : <Muted title="Sem registro de entrada na etapa">—</Muted>}
       </td>
-      <td className="whitespace-nowrap px-3 py-2.5 text-wg-ink-secondary">{APPLICATION_SOURCE_LABELS[c.source] ?? c.source}</td>
+      <td className="whitespace-nowrap px-3 py-2.5 text-wg-ink-secondary">{c.sourceLabel}</td>
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-1.5">
           <CandidateSignalBadges signals={signals} max={1} />

@@ -171,6 +171,7 @@ export function RegistryItemDialog({ entity, item, open, onClose }: Props) {
 }
 
 const PLACEHOLDERS: Record<CatEntity, string> = {
+  applicationSource: "Ex.: LinkedIn",
   position: "Ex.: Motorista de Caminhão",
   company: "Ex.: WG Baterias",
   branch: "Ex.: Matriz",

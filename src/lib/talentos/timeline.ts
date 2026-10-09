@@ -94,7 +94,7 @@ export function buildTalentTimeline(input: TalentTimelineInput): TalentEvent[] {
         at: a.createdAt,
         kind: "ADDED_BY_HR",
         title: `Cadastrado na vaga ${job}`,
-        detail: `Origem: ${ORIGIN_LABELS[a.source] ?? a.source}`,
+        detail: `Origem: ${a.sourceLabel ?? ORIGIN_LABELS[a.source] ?? a.source}`,
         actor: a.addedBy,
         tone: "info",
         applicationId: a.id,

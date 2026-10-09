@@ -20,14 +20,14 @@ const row: IntranetJobRow = {
   modality: "PRESENTIAL",
   contractType: "CLT",
   workSchedule: null,
-  description: "<h2>Sobre a vaga</h2><p>Você vai cuidar do fluxo de &amp; expedição.</p><h2>Requisitos</h2>",
+  description: "<h2>Sobre a vaga</h2><p>Você vai cuidar do fluxo de recebimento &amp; expedição.</p><h2>Requisitos</h2>",
   openPositions: 2,
   closingDate: null,
   createdAt: "2026-09-01T12:00:00Z",
 };
 
 test("resumo usa o primeiro parágrafo, sem HTML e com entidades decodificadas", () => {
-  assert.equal(summaryFromHtml(row.description), "Você vai cuidar do fluxo de & expedição.");
+  assert.equal(summaryFromHtml(row.description), "Você vai cuidar do fluxo de recebimento & expedição.");
 });
 
 test("resumo longo é cortado em palavra inteira", () => {
@@ -36,6 +36,29 @@ test("resumo longo é cortado em palavra inteira", () => {
   assert.ok(s.endsWith("…"));
   assert.ok(s.length <= 51);
   assert.ok(!s.includes("palavr…"));
+});
+
+test("resumo pula parágrafo que é rótulo e usa a 1ª responsabilidade (vaga só em listas)", () => {
+  // Formato real da vaga de Maringá (25/09/2026): só listas, e o único <p> é um rótulo.
+  const html =
+    "<h3>Responsabilidades</h3><ul><li>Realiza atendimento – pessoal ou telefônico – aos clientes junto ao balcão;</li>" +
+    "<li>Faturamento</li></ul><h3>Benefícios</h3><ul><li>💰 <strong>Remuneração</strong> - A combinar.</li></ul>" +
+    "<p>Após 90 dias de experiência:</p><ul><li>🏋️ Gympass</li></ul>";
+  assert.equal(
+    summaryFromHtml(html),
+    "Realiza atendimento – pessoal ou telefônico – aos clientes junto ao balcão;"
+  );
+});
+
+test("parágrafo de apresentação ganha de item de lista, mesmo vindo depois", () => {
+  const html =
+    "<ul><li>Item de lista comprido o bastante para virar resumo sozinho</li></ul>" +
+    "<p>Curto.</p><p>Buscamos alguém que goste de atender clientes e resolver problemas.</p>";
+  assert.equal(summaryFromHtml(html), "Buscamos alguém que goste de atender clientes e resolver problemas.");
+});
+
+test("sem frase de verdade, não há resumo", () => {
+  assert.equal(summaryFromHtml("<h3>Benefícios</h3><ul><li>VR</li><li>VA</li></ul><p>Após 90 dias:</p>"), null);
 });
 
 test("resumo vazio vira null", () => {

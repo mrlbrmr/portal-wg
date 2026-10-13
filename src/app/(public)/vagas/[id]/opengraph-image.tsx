@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { createAnonClient } from "@/lib/supabase/anon";
-import { MODALITY_LABELS, PUBLIC_JOB_STATUSES } from "@/lib/utils";
+import { MODALITY_LABELS } from "@/lib/utils";
+import { onlyLinkAccessible } from "@/lib/jobs-query";
 import { getAppBaseUrl } from "@/lib/app-url";
 
 export const size = { width: 1200, height: 630 };
@@ -8,10 +9,7 @@ export const contentType = "image/png";
 
 async function findJob(slugOrId: string) {
   const supabase = createAnonClient();
-  const { data } = await supabase
-    .from("jobs")
-    .select("title, city, state, department, modality")
-    .in("status", PUBLIC_JOB_STATUSES as readonly string[])
+  const { data } = await onlyLinkAccessible(supabase.from("jobs").select("title, city, state, department, modality"))
     .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
     .limit(1);
   return (data?.[0] ?? null) as unknown as {

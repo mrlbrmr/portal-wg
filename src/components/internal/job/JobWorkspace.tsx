@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Copy, ExternalLink, Eye, FileText, MoreHorizontal, Save, Users } from "lucide-react";
+import { ChevronLeft, Copy, ExternalLink, Eye, FileText, LayoutTemplate, MoreHorizontal, Save, Users } from "lucide-react";
 import type { Job } from "@/types/domain";
 import { Panel } from "@/components/ui/Panel";
 import { Button, buttonVariants } from "@/components/ui/Button";
@@ -21,6 +21,8 @@ import { DropdownMenu, type DropdownMenuItem } from "@/components/ui/DropdownMen
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn, isPublicJobStatus, MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { externalBlockReason, publicationIndicator, publicationState } from "@/lib/jobs/publication";
+import type { JobTemplate } from "@/lib/jobs/templates";
 import { JOB_LIFECYCLE_META, JOB_PROCESS_STATUS_LABELS, canonicalJobStatus, jobLifecycle } from "@/lib/recruitment/job-presentation";
 import { FILL_STATE_META, shouldOfferClosing, summarizePositions, type JobPosition } from "@/lib/jobs/positions";
 import {
@@ -54,6 +56,8 @@ import {
   type JobDraft,
 } from "./JobFields";
 import { JobPositionsCard, type HireCandidate } from "./JobPositionsCard";
+import { JobTemplatePicker } from "./JobTemplatePicker";
+import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
 import {
   AllFilledNotice,
   DistributionSummary,
@@ -77,6 +81,8 @@ export interface JobWorkspaceData {
   hireCandidates: HireCandidate[];
   announcementText: string;
   jobUrl: string;
+  /** Modelos de vaga (para completar o rascunho e mostrar a procedência). */
+  templates: JobTemplate[];
 }
 
 /**
@@ -145,10 +151,21 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
 
   const scope = (job.approvedScope ?? null) as ApprovedScope | null;
   const summary = useMemo(() => summarizePositions(positions), [positions]);
+  // isPublic = processo ABERTO (status). Em quais canais ele aparece é a publicação — sempre
+  // a GRAVADA (o rascunho só vale depois de salvar), pela regra central.
   const isPublic = isPublicJobStatus(job.status);
+  const publication = publicationState(job);
+  const pubIndicator = publicationIndicator(job);
   const lifecycle = JOB_LIFECYCLE_META[jobLifecycle(job.status)];
   const statusLabel = JOB_PROCESS_STATUS_LABELS[canonicalJobStatus(job.status)] ?? job.status;
   const approved = useMemo(() => approvedFields(scope) as Set<string>, [scope]);
+  // O que veio da solicitação aprovada — o modelo de vaga nunca sobrescreve.
+  const fromRequest = useMemo(() => {
+    const s = new Set<string>(approved);
+    if (scope?.workSchedule?.trim()) s.add("workSchedule");
+    return s;
+  }, [approved, scope]);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const history = useMemo(
     () => buildJobHistory({ createdAt: String(job.createdAt), statusHistory, events }),
     [job.createdAt, statusHistory, events]
@@ -295,6 +312,7 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
   const menu: DropdownMenuItem[] = [
     { label: "Ver candidatos (pipeline)", icon: Users, href: `/vagas/${job.id}/candidatos` },
     ...(origin ? [{ label: `Ver solicitação ${origin.code ?? ""}`.trim(), icon: FileText, href: `/solicitacoes/${origin.id}` }] : []),
+    { label: "Salvar como modelo", icon: LayoutTemplate, onSelect: () => setSaveTemplateOpen(true) },
     {
       label: "Copiar link público",
       icon: Copy,
@@ -347,6 +365,11 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
               <StatusBadge tone={lifecycle.tone} hint={lifecycle.hint} size="md">
                 {statusLabel}
               </StatusBadge>
+              {pubIndicator && (
+                <StatusBadge tone={publication.published ? "success" : "neutral"} hint={pubIndicator.hint} size="md">
+                  {pubIndicator.label}
+                </StatusBadge>
+              )}
               {!job.isTalentPool && (summary.state === "PARTIAL" || summary.state === "ALL_FILLED") && (
                 <StatusBadge tone={FILL_STATE_META[summary.state].tone} size="md">
                   {FILL_STATE_META[summary.state].label}
@@ -374,7 +397,7 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {dirty && <span className="hidden text-meta font-medium text-warning-fg sm:inline">Alterações não salvas</span>}
-            {isPublic && (
+            {publication.channels.LINK && (
               <a href={publicUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "secondary" })}>
                 <ExternalLink aria-hidden />
                 <span className="hidden sm:inline">Ver página pública</span>
@@ -458,6 +481,19 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
           main={
             <>
               <Panel title="Dados da oportunidade">
+                {/* Modelo: para completar a vaga em preparação (inclusive a que nasceu de uma
+                    solicitação). Campos da solicitação ficam protegidos. */}
+                {job.status === "DRAFT" && (
+                  <div className="mb-4">
+                    <JobTemplatePicker
+                      templates={data.templates}
+                      draft={draft}
+                      onDraftChange={setDraft}
+                      protectedFields={fromRequest}
+                      requestCode={origin?.code ?? scope?.requestCode ?? null}
+                    />
+                  </div>
+                )}
                 <OpportunityFields
                   draft={draft}
                   patch={patch}
@@ -565,7 +601,7 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
               />
               <JobOriginCard origin={origin} divergences={divergences} />
               <DistributionSummary
-                isPublic={isPublic}
+                channels={publication.channels}
                 linkedinStatus={publications.find((p) => p.channel === "LINKEDIN_PAGE")?.status ?? null}
                 onManage={() => setTab("divulgacao")}
               />
@@ -623,7 +659,8 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
           <DistributionPanel
             jobId={job.id}
             jobUrl={data.jobUrl}
-            isPublic={isPublic}
+            isPublic={publication.channels.EXTERNAL}
+            blockedReason={externalBlockReason(job)}
             publications={publications}
             announcementText={data.announcementText}
           />
@@ -693,6 +730,9 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
         }
       />
 
+      {/* ── Salvar como modelo (usa o rascunho atual — o que o RH está vendo) ── */}
+      <SaveAsTemplateDialog open={saveTemplateOpen} onClose={() => setSaveTemplateOpen(false)} job={draft} />
+
       {/* ── Visualizar como candidato ── */}
       <Dialog open={candidatePreview} onClose={() => setCandidatePreview(false)} size="lg" title="Visualização do candidato">
         <article>
@@ -705,9 +745,11 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
             {publicSalary && <Chip>{publicSalary}</Chip>}
           </div>
           <div className={cn("mt-5 border-t border-wg-border-lighter pt-4", markdownPreviewClass)} dangerouslySetInnerHTML={{ __html: markdownToHtml(draft.content) }} />
-          {!isPublic && (
+          {!publication.channels.LINK && (
             <p className="mt-4 rounded-control bg-wg-bg px-3 py-2 text-meta text-wg-ink-muted">
-              Esta vaga não está publicada. O candidato só verá esta página quando o status estiver no portal.
+              {isPublic
+                ? "Esta vaga está como Não publicar. O candidato só verá esta página depois que você escolher onde exibi-la."
+                : "Esta vaga não está publicada. O candidato só verá esta página quando o processo estiver aberto e publicado."}
             </p>
           )}
         </article>

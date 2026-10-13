@@ -29,8 +29,12 @@ export const JobStatus = {
 } as const;
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
 
-/** Onde a vaga aparece: Portal de Carreiras, Intranet WG Conecta ou os dois. */
+/**
+ * Publicação da vaga: em quais canais ela aparece. Independe do status do processo
+ * (regras em src/lib/jobs/publication.ts).
+ */
 export const JobVisibility = {
+  NONE: "NONE", // Não publicar: só o RH vê no painel (o processo segue normalmente)
   BOTH: "BOTH", // Portal + Intranet (padrão)
   PUBLIC: "PUBLIC", // só no Portal de Carreiras
   INTERNAL: "INTERNAL", // só na Intranet (fora da lista pública, sitemap e feeds)
@@ -169,8 +173,10 @@ export interface Job {
   closingDate: Date | null;
   hiringDeadline: Date | null;
   status: JobStatus;
-  /** Onde a vaga aparece (Portal, Intranet ou os dois). */
+  /** Publicação: em quais canais a vaga aparece (NONE = não publicada). */
   visibility: JobVisibility;
+  /** Modelo de vaga aplicado na criação — só procedência; o conteúdo foi copiado. */
+  templateId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "test:db": "node scripts/run-sql-test.mjs scripts/test-job-positions.sql"
+    "test:db": "node scripts/run-sql-test.mjs scripts/test-job-positions.sql && node scripts/run-sql-test.mjs scripts/test-job-publication.sql"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

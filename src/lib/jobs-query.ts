@@ -8,7 +8,17 @@
 // O query builder do PostgREST é fluente e sem um tipo público simples de
 // encadear; usamos `any` de forma contida (o runtime é correto; a tipagem forte
 // fica nos dados retornados, castados para os tipos de domínio do Prisma).
-import { INTRANET_VISIBILITIES, PORTAL_LISTED_VISIBILITIES, PUBLIC_JOB_STATUSES } from "@/lib/utils";
+//
+// Publicação: TODA consulta pública passa por um destes helpers — eles aplicam a regra de
+// src/lib/jobs/publication.ts (processo aberto + canal habilitado + prazo). Vaga "Não
+// publicar" (visibility NONE) não sai em nenhum deles.
+import { PUBLIC_JOB_STATUSES } from "@/lib/utils";
+import {
+  EXTERNAL_VISIBILITIES,
+  INTRANET_VISIBILITIES,
+  LINK_VISIBILITIES,
+  PORTAL_LISTED_VISIBILITIES,
+} from "@/lib/jobs/publication";
 
 export interface JobFilterParams {
   city?: string | null;
@@ -37,14 +47,30 @@ export function onlyOpenJobs(q: any): any {
     .or(`closingDate.is.null,closingDate.gte.${now}`);
 }
 
-/** Vagas que o portal LISTA: abertas, no prazo e não marcadas "Somente Intranet". */
+/** Vagas que o portal LISTA (home, sitemap): abertas, no prazo e publicadas no Portal. */
 export function onlyPublicVisible(q: any): any {
   return onlyOpenJobs(q).in("visibility", PORTAL_LISTED_VISIBILITIES as readonly string[]);
 }
 
-/** Vagas de Vagas Internas (Intranet): abertas, no prazo e não marcadas "Somente Portal". */
+/** Feeds e integrações externas (Google for Jobs, Indeed): abertas, no prazo e publicadas fora. */
+export function onlyExternalVisible(q: any): any {
+  return onlyOpenJobs(q).in("visibility", EXTERNAL_VISIBILITIES as readonly string[]);
+}
+
+/** Vagas de Vagas Internas (Intranet): abertas, no prazo e publicadas na Intranet. */
 export function onlyIntranetVisible(q: any): any {
   return onlyOpenJobs(q).in("visibility", INTRANET_VISIBILITIES as readonly string[]);
+}
+
+/**
+ * Página /vagas/[slug] pelo link: processo aberto e publicado em algum canal (inclui
+ * "Somente Intranet"). Sem filtro de prazo — depois do prazo a página abre e avisa que as
+ * inscrições encerraram; a candidatura é barrada por `publicationState().acceptsApplications`.
+ */
+export function onlyLinkAccessible(q: any): any {
+  return q
+    .in("status", PUBLIC_JOB_STATUSES as readonly string[])
+    .in("visibility", LINK_VISIBILITIES as readonly string[]);
 }
 
 /**

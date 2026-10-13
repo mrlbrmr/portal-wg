@@ -5,7 +5,7 @@ import { z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { uploadResume, validateResumeFile, RESUMES_BUCKET } from "@/lib/storage";
-import { isPublicJobStatus } from "@/lib/utils";
+import { publicationState } from "@/lib/jobs/publication";
 import { applicantContactSchema, applicantCpfSchema } from "@/lib/application-schema";
 import { extractCvProfile } from "@/lib/ai/cv-analyzer";
 
@@ -148,19 +148,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // A vaga precisa existir e estar em status aberto (visível no portal).
+  // A vaga precisa existir, estar aberta, publicada (não "Não publicar") e no prazo — regra
+  // central em src/lib/jobs/publication.ts. Um formulário aberto antes do prazo (ou antes
+  // de a vaga sair do ar) não é aceito depois.
   const supabase = createAdminClient();
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, status, slug, closingDate")
+    .select("id, status, slug, closingDate, visibility")
     .eq("id", jobId)
     .maybeSingle();
-  // Encerramento das inscrições: depois da data a vaga some do portal (jobs-query) e a API
-  // também recusa — um formulário aberto antes do prazo não é aceito depois dele.
-  const inscriptionsClosed = job?.closingDate
-    ? new Date(job.closingDate as string).getTime() < Date.now()
-    : false;
-  if (!job || !isPublicJobStatus(job.status) || inscriptionsClosed) {
+  if (!job || !publicationState(job as { status: string; visibility: string; closingDate: string | null }).acceptsApplications) {
     return NextResponse.json(
       { error: "Esta vaga não está aberta para inscrição pelo portal." },
       { status: 404 }

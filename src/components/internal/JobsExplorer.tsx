@@ -16,6 +16,7 @@ import {
 import {
   JOB_LIFECYCLE_META,
   jobLifecycle,
+  jobStatusDisplay,
   parseLegacyStatusParam,
   type JobLifecycle,
 } from "@/lib/recruitment/job-presentation";
@@ -436,7 +437,8 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
 
 function JobListItem({ job, canManage }: { job: Enriched; canManage: boolean }) {
   const lifecycle = jobLifecycle(job.status);
-  const status = JOB_LIFECYCLE_META[lifecycle];
+  // "Aberta • Publicada" × "Aberta • Não publicada" (publicação ≠ rascunho).
+  const status = jobStatusDisplay(job);
   const situation = operationalSituation(job.reasons);
   const sla = lifecycle === "OPEN" ? evaluateSla(daysSince(job.openedAt)) : null;
 

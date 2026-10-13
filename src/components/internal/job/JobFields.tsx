@@ -6,118 +6,20 @@
 
 import { useId, type ReactNode } from "react";
 import { BadgeCheck, Eye, Pencil } from "lucide-react";
-import { cn, BRAZIL_STATES, JOB_VISIBILITY_LABELS } from "@/lib/utils";
+import { cn, BRAZIL_STATES } from "@/lib/utils";
 import { JOB_REQUEST_REASON_LABELS, JOB_REQUEST_REASON_ORDER } from "@/lib/job-requests/constants";
 import { JOB_STATUS_OPTION_GROUPS, canonicalJobStatus } from "@/lib/recruitment/job-presentation";
-import { buildInitialContent, markdownToHtml } from "@/lib/jobs/markdown";
-import { formatBRL, salaryColumns, salaryStateFromJob, type SalaryMode } from "@/lib/jobs/salary";
-import { dateInputValue } from "@/lib/jobs/deadlines";
-import type { Job, JobVisibility } from "@/types/domain";
+import { markdownToHtml } from "@/lib/jobs/markdown";
+import { formatBRL, salaryColumns } from "@/lib/jobs/salary";
+import { PUBLICATION_OPTIONS } from "@/lib/jobs/publication";
+import { salaryValue, type JobDraft } from "@/lib/jobs/draft";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+
+// Rascunho da vaga: lógica pura em src/lib/jobs/draft.ts (re-exportada para os formulários).
+export { draftToPayload, jobToDraft, salaryValue, validateDraft, type JobDraft } from "@/lib/jobs/draft";
 
 export const inputClass =
   "w-full h-9 rounded-control border border-wg-border-light bg-white px-3 text-sm text-wg-ink placeholder:text-wg-ink-muted/70 transition-colors hover:border-[#C9D9B4] focus:border-wg-green focus:outline-none focus:ring-2 focus:ring-wg-green/30 disabled:cursor-not-allowed disabled:bg-wg-bg disabled:text-wg-ink-muted";
-
-// ─── Rascunho da vaga (estado do formulário) ────────────────────────────────────────────
-
-export interface JobDraft {
-  title: string;
-  isTalentPool: boolean;
-  department: string;
-  company: string;
-  city: string;
-  state: string;
-  modality: string;
-  contractType: string;
-  workSchedule: string;
-  openingReason: string;
-  salaryMode: SalaryMode;
-  /** Dígitos do valor em centavos ("280000" = R$ 2.800,00). */
-  salaryDigits: string;
-  salaryPublic: boolean;
-  /** Texto salarial antigo sem valor numérico (só leitura; preservado se nada for informado). */
-  salaryLegacyText: string | null;
-  status: string;
-  /** Onde a vaga aparece: Portal, Intranet ou os dois. */
-  visibility: JobVisibility;
-  responsible: string;
-  hiringManager: string;
-  closingDate: string;
-  hiringDeadline: string;
-  content: string;
-}
-
-/** Rascunho inicial: da vaga existente, ou vazio para "Nova vaga". */
-export function jobToDraft(job: Job | null | undefined, defaults: { responsible?: string | null } = {}): JobDraft {
-  const salary = job ? salaryStateFromJob(job) : null;
-  return {
-    title: job?.title ?? "",
-    isTalentPool: job?.isTalentPool ?? false,
-    department: job?.department ?? "",
-    company: job?.company ?? "",
-    city: job?.city ?? "",
-    state: job?.state ?? (job ? "" : "SP"),
-    modality: job?.modality ?? "PRESENTIAL",
-    contractType: job?.contractType ?? "CLT",
-    workSchedule: job?.workSchedule ?? "",
-    openingReason: job?.openingReason ?? "",
-    salaryMode: salary?.mode ?? "DEFINED",
-    salaryDigits: salary?.salary != null ? String(Math.round(salary.salary * 100)) : "",
-    salaryPublic: salary?.salaryPublic ?? true,
-    salaryLegacyText: salary?.legacyText ?? null,
-    status: job?.status ?? "DRAFT",
-    visibility: job?.visibility ?? "BOTH",
-    responsible: job?.responsible ?? defaults.responsible ?? "",
-    hiringManager: job?.hiringManager ?? "",
-    closingDate: dateInputValue(job?.closingDate as string | Date | null | undefined),
-    hiringDeadline: dateInputValue(job?.hiringDeadline as string | Date | null | undefined),
-    content: buildInitialContent(job ?? undefined),
-  };
-}
-
-export function salaryValue(d: Pick<JobDraft, "salaryDigits">): number | null {
-  return d.salaryDigits ? parseInt(d.salaryDigits, 10) / 100 : null;
-}
-
-/** Corpo do POST/PATCH a partir do rascunho (mesmo formato nas duas rotas). */
-export function draftToPayload(d: JobDraft) {
-  return {
-    title: d.title.trim(),
-    department: d.department.trim() || null,
-    company: d.company.trim() || null,
-    isTalentPool: d.isTalentPool,
-    city: d.isTalentPool ? null : d.city.trim(),
-    state: d.isTalentPool ? null : d.state,
-    modality: d.modality,
-    contractType: d.contractType,
-    description: markdownToHtml(d.content),
-    responsibilities: null,
-    requiredRequirements: null,
-    desiredRequirements: null,
-    benefits: null,
-    workSchedule: d.workSchedule.trim() || null,
-    salaryMode: d.salaryMode,
-    salary: d.salaryMode === "DEFINED" ? salaryValue(d) : null,
-    salaryPublic: d.salaryPublic,
-    closingDate: d.closingDate || null,
-    hiringDeadline: d.hiringDeadline || null,
-    responsible: d.responsible.trim() || null,
-    hiringManager: d.hiringManager.trim() || null,
-    openingReason: d.openingReason || null,
-    status: d.status,
-    visibility: d.visibility,
-  };
-}
-
-/** Validação mínima antes de enviar (o servidor valida de novo). */
-export function validateDraft(d: JobDraft): string | null {
-  if (d.title.trim().length < 2) return "Informe o título da vaga.";
-  if (!d.isTalentPool && d.city.trim().length < 2) return "Informe a cidade da vaga.";
-  if (!d.isTalentPool && !d.state) return "Informe a UF da vaga.";
-  if (d.content.trim().length < 10) return 'O "Conteúdo da vaga" é obrigatório (mínimo 10 caracteres).';
-  if (d.salaryMode === "DEFINED" && d.salaryDigits && salaryValue(d) === 0) return "Informe um salário maior que zero.";
-  return null;
-}
 
 // ─── Blocos de apresentação ─────────────────────────────────────────────────────────────
 
@@ -399,27 +301,24 @@ export function SalaryFields({ draft, patch, approvedLabel }: { draft: JobDraft;
   );
 }
 
-const VISIBILITY_OPTIONS: Array<{ value: JobVisibility; description: string }> = [
-  { value: "BOTH", description: "Aparece para candidatos e para colaboradores em Vagas Internas." },
-  { value: "PUBLIC", description: "Só candidatos externos veem. Não aparece na Intranet." },
-  {
-    value: "INTERNAL",
-    description: "Só colaboradores veem, na Intranet. Fora da lista do portal, do Google e do Indeed.",
-  },
-];
-
-/** Onde a vaga aparece. O status continua decidindo se ela está aberta. */
+/**
+ * Publicação — separada do status: o status diz se o processo seletivo está aberto; aqui o
+ * RH decide em quais canais ele aparece (inclusive "Não publicar"). Opções e regras em
+ * src/lib/jobs/publication.ts.
+ */
 export function VisibilityField({ draft, patch }: { draft: JobDraft; patch: Patch }) {
   const id = useId();
   return (
-    <Field label="Onde esta vaga deve ser exibida?" hint="A vaga só aparece enquanto o status estiver aberto e as inscrições no prazo.">
+    <Field
+      label="Onde esta vaga deve ser exibida?"
+      hint="A publicação só vale enquanto o processo estiver aberto e as inscrições no prazo. Mudar aqui não afeta candidatos nem o processo."
+    >
       <ChoiceCards
         name={`${id}-visibility`}
         label="Onde esta vaga deve ser exibida?"
         value={draft.visibility}
         onChange={(v) => patch({ visibility: v })}
-        columns={3}
-        options={VISIBILITY_OPTIONS.map((o) => ({ ...o, label: JOB_VISIBILITY_LABELS[o.value] }))}
+        options={[...PUBLICATION_OPTIONS]}
       />
     </Field>
   );

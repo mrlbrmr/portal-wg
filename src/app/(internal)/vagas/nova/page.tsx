@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import JobForm from "@/components/internal/JobForm";
+import { loadJobTemplates } from "@/lib/jobs/template-data";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Nova Vaga — RH" };
@@ -29,7 +30,7 @@ export default async function NovaVagaPage() {
         — assim a contratação passa pela validação do RH e pela aprovação antes de virar
         processo seletivo.
       </p>
-      <JobForm currentUserName={session.user.name} />
+      <JobForm currentUserName={session.user.name} templates={await loadJobTemplates()} />
     </div>
   );
 }

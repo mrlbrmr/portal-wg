@@ -4,7 +4,8 @@
 // job_events com a lista do que mudou (valor anterior → novo). A mudança de STATUS não
 // entra aqui: ela já é registrada em job_status_history.
 
-import { CONTRACT_TYPE_LABELS, JOB_VISIBILITY_LABELS, MODALITY_LABELS } from "@/lib/utils";
+import { CONTRACT_TYPE_LABELS, MODALITY_LABELS } from "@/lib/utils";
+import { PUBLICATION_LABELS } from "./publication";
 import { JOB_REQUEST_REASON_LABELS } from "@/lib/job-requests/constants";
 import { formatBRL } from "./salary";
 import { formatStoredDate } from "./deadlines";
@@ -48,7 +49,7 @@ export const TRACKED_FIELD_LABELS: Record<TrackedField, string> = {
   hiringManager: "Gestor solicitante",
   closingDate: "Encerramento das inscrições",
   hiringDeadline: "Contratação prevista",
-  visibility: "Onde a vaga aparece",
+  visibility: "Publicação",
   description: "Descrição da vaga",
 };
 
@@ -74,7 +75,7 @@ function display(field: TrackedField, v: unknown): string | null {
     case "salary":
       return formatBRL(Number(v));
     case "visibility":
-      return JOB_VISIBILITY_LABELS[String(v)] ?? String(v);
+      return PUBLICATION_LABELS[String(v)] ?? String(v);
     case "salaryPublic":
       return v ? "Divulgado no portal" : "Não divulgado";
     case "closingDate":

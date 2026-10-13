@@ -21,7 +21,10 @@ export interface PublicationView {
 interface Props {
   jobId: string;
   jobUrl: string;
+  /** A vaga pode ir para canais externos agora (processo aberto + publicação com integrações). */
   isPublic: boolean;
+  /** Por que não pode (src/lib/jobs/publication.ts → externalBlockReason). */
+  blockedReason?: string | null;
   publications: PublicationView[];
   announcementText: string;
 }
@@ -53,7 +56,7 @@ function formatWhen(iso: string | null): string | null {
  * última ação (quando houver) e a ação possível. Feeds (Google/Indeed) são passivos:
  * entram sozinhos enquanto a vaga está publicada no portal.
  */
-export function DistributionPanel({ jobId, jobUrl, isPublic, publications, announcementText }: Props) {
+export function DistributionPanel({ jobId, jobUrl, isPublic, blockedReason, publications, announcementText }: Props) {
   const { notify } = useToast();
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
@@ -93,10 +96,15 @@ export function DistributionPanel({ jobId, jobUrl, isPublic, publications, annou
       flush
     >
       {!isPublic && (
-        <p className="mx-5 mb-3 rounded-control border border-warning-border bg-warning-bg px-3 py-2 text-meta text-warning-fg">
-          A vaga não está publicada no portal. Mude o status para <strong>Recebendo candidaturas</strong> (ou outra etapa no portal) para
-          habilitar a divulgação.
-        </p>
+        <div className="mx-5 mb-3 rounded-control border border-warning-border bg-warning-bg px-3 py-2 text-meta text-warning-fg">
+          <p>{blockedReason ?? "A vaga não está publicada no portal."}</p>
+          {publications.some((p) => p.status === "PUBLISHED") && (
+            <p className="mt-1">
+              Portal, Intranet, Google e Indeed já saíram do ar. Anúncios postados em outros canais (ex.: LinkedIn) não são apagados
+              automaticamente — remova-os no próprio canal.
+            </p>
+          )}
+        </div>
       )}
 
       <ul className="divide-y divide-wg-border-lighter border-t border-wg-border-lighter">

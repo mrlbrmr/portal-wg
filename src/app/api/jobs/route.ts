@@ -45,8 +45,10 @@ const jobSchema = z
   closingDate: z.string().optional().nullable(),
   hiringDeadline: z.string().optional().nullable(),
   status: z.nativeEnum(JobStatus).default("ACTIVE"),
-  /** Onde a vaga aparece (Portal, Intranet ou os dois). Sem o campo, o banco usa BOTH. */
+  /** Publicação (Não publicar, Portal, Intranet ou os dois). Sem o campo, o banco usa BOTH. */
   visibility: z.nativeEnum(JobVisibility).optional(),
+  /** Modelo aplicado no formulário — só procedência (o conteúdo já vem copiado no corpo). */
+  templateId: z.string().min(1).max(64).optional().nullable(),
 })
 .superRefine((data, ctx) => {
   if (!data.isTalentPool) {

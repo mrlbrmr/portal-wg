@@ -11,7 +11,7 @@ import { IncluirTalentoModal } from "@/components/internal/IncluirTalentoModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MODALITY_LABELS } from "@/lib/utils";
-import { JOB_LIFECYCLE_META, jobLifecycle } from "@/lib/recruitment/job-presentation";
+import { jobStatusDisplay } from "@/lib/recruitment/job-presentation";
 import { progressLabel, summarizePositions } from "@/lib/jobs/positions";
 import type { AdmissionPosition } from "@/components/internal/AdmissionLinkModal";
 import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/candidate-presentation";
@@ -42,7 +42,7 @@ export default async function CandidatosPage({ params }: Props) {
     auth(),
     supabase
       .from("jobs")
-      .select("id, code, title, city, state, isTalentPool, requestId, modality, status, responsible")
+      .select("id, code, title, city, state, isTalentPool, requestId, modality, status, visibility, responsible")
       .eq("id", id)
       .maybeSingle(),
   ]);
@@ -301,7 +301,7 @@ export default async function CandidatosPage({ params }: Props) {
     : job.city
     ? `${job.city}/${job.state}`
     : "Múltiplas cidades";
-  const lifecycle = JOB_LIFECYCLE_META[jobLifecycle(job.status)];
+  const lifecycle = jobStatusDisplay(job);
   const meta = [job.code, jobLocation, job.modality ? MODALITY_LABELS[job.modality] ?? job.modality : null].filter(Boolean);
 
   return (

@@ -2,13 +2,8 @@ import { createAnonClient } from "@/lib/supabase/anon";
 import type { Job } from "@/types/domain";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import {
-  MODALITY_LABELS,
-  CONTRACT_TYPE_LABELS,
-  PUBLIC_JOB_STATUSES,
-  PORTAL_LISTED_VISIBILITIES,
-  isInternalOnlyJob,
-} from "@/lib/utils";
+import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { isInternalOnlyJob, publicationChannels } from "@/lib/jobs/publication";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { buildJobPostingJsonLd } from "@/lib/job-schema";
 import { getAppBaseUrl } from "@/lib/app-url";
@@ -17,7 +12,7 @@ import { ShareButton } from "@/components/public/ShareButton";
 import { ApplicationForm } from "@/components/public/ApplicationForm";
 import type { Metadata } from "next";
 import { cache } from "react";
-import { PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
+import { PUBLIC_JOB_COLUMNS, onlyLinkAccessible, onlyPublicVisible } from "@/lib/jobs-query";
 
 export const revalidate = 60;
 
@@ -27,10 +22,8 @@ interface Props {
 
 const findJob = cache(async (slugOrId: string): Promise<Job | null> => {
   const supabase = createAnonClient();
-  const { data } = await supabase
-    .from("jobs")
-    .select(PUBLIC_JOB_COLUMNS)
-    .in("status", PUBLIC_JOB_STATUSES as readonly string[])
+  // Processo aberto e publicado em algum canal ("Não publicar" não abre nem pelo link).
+  const { data } = await onlyLinkAccessible(supabase.from("jobs").select(PUBLIC_JOB_COLUMNS))
     .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
     .limit(1);
   return (data?.[0] ?? null) as unknown as Job | null;
@@ -58,18 +51,13 @@ export default async function JobPage({ params }: Props) {
   const job = await findJob(id);
   if (!job) notFound();
 
-  const now = new Date();
   const baseUrl = getAppBaseUrl();
   const jobUrl = `${baseUrl}/vagas/${job.slug ?? job.id}`;
 
   const supabase = createAnonClient();
-  let simQuery = supabase
-    .from("jobs")
-    .select("id, slug, title, city, state, modality, department")
-    .neq("id", job.id)
-    .in("status", PUBLIC_JOB_STATUSES as readonly string[])
-    .in("visibility", PORTAL_LISTED_VISIBILITIES as readonly string[])
-    .or(`closingDate.is.null,closingDate.gte.${now.toISOString()}`);
+  let simQuery = onlyPublicVisible(
+    supabase.from("jobs").select("id, slug, title, city, state, modality, department").neq("id", job.id)
+  );
   if (job.department && job.city) {
     simQuery = simQuery.or(`department.eq."${job.department}",city.eq."${job.city}"`);
   } else if (job.department) {
@@ -83,8 +71,8 @@ export default async function JobPage({ params }: Props) {
   >;
 
   const internalOnly = isInternalOnlyJob(job.visibility);
-  // Vaga interna não é anunciada ao Google for Jobs.
-  const jsonLd = internalOnly ? null : buildJobPostingJsonLd(job, baseUrl);
+  // Só anuncia ao Google for Jobs quando a publicação inclui integrações externas.
+  const jsonLd = publicationChannels(job.visibility).EXTERNAL ? buildJobPostingJsonLd(job, baseUrl) : null;
 
   const sections = [
     { title: "Sobre a Vaga", content: job.description },

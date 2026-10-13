@@ -6,6 +6,7 @@
 // Kanban de vagas): valem exatamente como ACTIVE e a UI não os oferece nem exibe.
 
 import type { Tone } from "@/components/ui/StatusBadge";
+import { publicationIndicator } from "@/lib/jobs/publication";
 
 /** Status de ciclo de vida da vaga, como o RH fala. */
 export type JobLifecycle = "DRAFT" | "OPEN" | "PAUSED" | "FILLED" | "CLOSED";
@@ -14,7 +15,7 @@ export const JOB_LIFECYCLE_ORDER: JobLifecycle[] = ["DRAFT", "OPEN", "PAUSED", "
 
 export const JOB_LIFECYCLE_META: Record<JobLifecycle, { label: string; tone: Tone; hint: string }> = {
   DRAFT: { label: "Rascunho", tone: "neutral", hint: "Em preparação — ainda não publicada" },
-  OPEN: { label: "Aberta", tone: "success", hint: "Publicada e recebendo candidaturas" },
+  OPEN: { label: "Aberta", tone: "success", hint: "Processo seletivo em andamento" },
   PAUSED: { label: "Pausada", tone: "warning", hint: "Fora do ar temporariamente" },
   FILLED: { label: "Encerrada", tone: "info", hint: "Vaga preenchida — processo concluído" },
   CLOSED: { label: "Cancelada", tone: "neutral", hint: "Processo cancelado sem contratação" },
@@ -50,16 +51,19 @@ export interface JobStatusOption {
   hint: string;
 }
 
-/** Opções do seletor de status, agrupadas pela visibilidade no portal. */
+/**
+ * Opções do seletor de status do PROCESSO. Onde a vaga aparece é outra decisão (publicação,
+ * src/lib/jobs/publication.ts): uma vaga aberta pode estar "Não publicar".
+ */
 export const JOB_STATUS_OPTION_GROUPS: Array<{ label: string; options: JobStatusOption[] }> = [
   {
-    label: "No portal (aceita candidaturas)",
+    label: "Processo aberto",
     options: [
-      { value: "ACTIVE", label: "Recebendo candidaturas", hint: "Publicada e aberta a inscrições." },
+      { value: "ACTIVE", label: "Recebendo candidaturas", hint: "Processo ativo; aparece onde a publicação indicar." },
     ],
   },
   {
-    label: "Fora do portal",
+    label: "Processo fora do ar",
     options: [
       { value: "DRAFT", label: "Rascunho", hint: "Em preparação — só no painel." },
       { value: "PAUSED", label: "Pausada", hint: "Fora do ar temporariamente." },
@@ -68,6 +72,22 @@ export const JOB_STATUS_OPTION_GROUPS: Array<{ label: string; options: JobStatus
     ],
   },
 ];
+
+/**
+ * Status como aparece nas listas do painel: o ciclo de vida e, com o processo aberto, a
+ * publicação — "Aberta • Publicada" × "Aberta • Não publicada". "Não publicada" NÃO é
+ * rascunho: a vaga está pronta e propositalmente fora dos canais.
+ */
+export function jobStatusDisplay(job: { status: string; visibility?: string | null }): { label: string; tone: Tone; hint: string } {
+  const meta = JOB_LIFECYCLE_META[jobLifecycle(job.status)];
+  const pub = publicationIndicator({ status: job.status, visibility: job.visibility ?? "BOTH" });
+  if (!pub) return meta;
+  return {
+    label: `${meta.label} • ${pub.label}`,
+    tone: pub.label === "Publicada" ? "success" : "info",
+    hint: pub.label === "Publicada" ? `Recebendo candidaturas — ${pub.hint}` : pub.hint,
+  };
+}
 
 export function jobLifecycle(status: string): JobLifecycle {
   if (OPEN_STATUSES.has(status)) return "OPEN";

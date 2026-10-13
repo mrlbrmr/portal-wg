@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { JobStatus } from "@/types/domain";
 import type { Job } from "@/types/domain";
-import { isPublicJobStatus } from "@/lib/utils";
+import { publicationState } from "@/lib/jobs/publication";
 import { canonicalJobStatus } from "@/lib/recruitment/job-presentation";
 
 const MODALITY_LABELS: Record<string, string> = {
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     .from("jobs")
     .select(
       "title, department, company, city, state, modality, contractType, status, " +
-        "openings, responsible, createdAt, closingDate, hiringDeadline, slug, id"
+        "openings, responsible, createdAt, closingDate, hiringDeadline, slug, id, visibility"
     )
     .order("createdAt", { ascending: false });
   if (rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
@@ -75,7 +75,8 @@ export async function GET(req: NextRequest) {
     new Date(j.createdAt).toLocaleDateString("pt-BR"),
     j.closingDate ? new Date(j.closingDate).toLocaleDateString("pt-BR") : "",
     j.hiringDeadline ? new Date(j.hiringDeadline).toLocaleDateString("pt-BR") : "",
-    isPublicJobStatus(j.status) ? `${appUrl}/vagas/${j.slug ?? j.id}` : "",
+    // Link só quando a página abre de fato (processo aberto e publicado — não "Não publicar").
+    publicationState(j).channels.LINK ? `${appUrl}/vagas/${j.slug ?? j.id}` : "",
   ]);
 
   const bom = "﻿";

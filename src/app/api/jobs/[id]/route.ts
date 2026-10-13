@@ -4,7 +4,8 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { Modality, ContractType, JobStatus, JobRequestReason, JobVisibility } from "@/types/domain";
-import { generateSlug, isPublicJobStatus } from "@/lib/utils";
+import { generateSlug } from "@/lib/utils";
+import { publicationState } from "@/lib/jobs/publication";
 import { salaryColumns, salaryStateFromJob } from "@/lib/jobs/salary";
 import { diffJobFields } from "@/lib/jobs/field-changes";
 import { PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
@@ -49,6 +50,8 @@ const updateJobSchema = z.object({
   hiringDeadline: z.string().optional().nullable(),
   status: z.nativeEnum(JobStatus).optional(),
   visibility: z.nativeEnum(JobVisibility).optional(),
+  /** Modelo aplicado (procedência). Nunca há `requestId` aqui: o vínculo com a solicitação é imutável. */
+  templateId: z.string().min(1).max(64).optional().nullable(),
   /** Motivo informado ao alterar um dado do escopo aprovado (vai para o histórico). */
   changeReason: z.string().max(500).optional().nullable(),
 });
@@ -67,11 +70,12 @@ export async function GET(
     .select(session ? "*" : PUBLIC_JOB_COLUMNS)
     .eq("id", id)
     .maybeSingle();
-  const job = jobRaw as unknown as { status: string } | null;
+  const job = jobRaw as unknown as { status: string; visibility: string } | null;
 
   if (!job) return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
 
-  if (!session && !isPublicJobStatus(job.status)) {
+  // Público: só vaga aberta E publicada em algum canal ("Não publicar" = não existe fora).
+  if (!session && !publicationState(job).channels.LINK) {
     return NextResponse.json({ error: "Vaga não encontrada" }, { status: 404 });
   }
 

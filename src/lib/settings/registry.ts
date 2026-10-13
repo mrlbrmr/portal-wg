@@ -9,6 +9,7 @@ import {
   ClipboardList,
   FileStack,
   FileText,
+  FilePlus2,
   Globe,
   KanbanSquare,
   LayoutTemplate,
@@ -177,6 +178,13 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
         title: "Solicitação de vaga",
         description: "Campos que os gestores preenchem ao pedir uma contratação.",
         icon: ClipboardList,
+      },
+      {
+        key: "modelos-vaga",
+        href: "/configuracoes/modelos-vaga",
+        title: "Modelos de vaga",
+        description: "Responsabilidades, requisitos e benefícios dos cargos que se repetem.",
+        icon: FilePlus2,
       },
       {
         key: "funil",

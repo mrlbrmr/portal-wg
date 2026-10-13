@@ -26,13 +26,18 @@ import {
   validateDraft,
   type JobDraft,
 } from "@/components/internal/job/JobFields";
+import { JobTemplatePicker } from "@/components/internal/job/JobTemplatePicker";
+import { NEW_JOB_DEFAULTS } from "@/lib/jobs/draft";
+import type { JobTemplate } from "@/lib/jobs/templates";
 
 interface Props {
   /** Nome do recrutador logado — vira o "Recrutador responsável" por padrão. */
   currentUserName?: string | null;
+  /** Modelos de vaga (Configurações › Modelos de vaga). Uso opcional. */
+  templates?: JobTemplate[];
 }
 
-export default function JobForm({ currentUserName }: Props) {
+export default function JobForm({ currentUserName, templates = [] }: Props) {
   const router = useRouter();
   const { notify } = useToast();
   const [draft, setDraft] = useState<JobDraft>(() => jobToDraft(null, { responsible: currentUserName }));
@@ -87,6 +92,9 @@ export default function JobForm({ currentUserName }: Props) {
   return (
     <div className="space-y-6">
       <Panel title="Dados da oportunidade">
+        <div className="mb-4">
+          <JobTemplatePicker templates={templates} draft={draft} onDraftChange={setDraft} defaults={NEW_JOB_DEFAULTS} />
+        </div>
         <OpportunityFields draft={draft} patch={patch} />
         {!draft.isTalentPool && (
           <div className="mt-4 max-w-xs">

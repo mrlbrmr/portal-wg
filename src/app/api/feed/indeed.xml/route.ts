@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PUBLIC_JOB_STATUS_LIST } from "@/lib/job-visibility";
-import { PORTAL_LISTED_VISIBILITIES } from "@/lib/utils";
+import { onlyExternalVisible } from "@/lib/jobs-query";
 import { getAppBaseUrl } from "@/lib/app-url";
 
 // GET /api/feed/indeed.xml — feed XML no padrão do Indeed (elemento <source>).
@@ -30,16 +29,15 @@ export async function GET() {
   const now = new Date();
 
   const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("jobs")
-    .select(
-      "id, title, slug, description, responsibilities, requiredRequirements, desiredRequirements, benefits, department, company, city, state, salaryRange, contractType, createdAt"
-    )
-    .in("status", PUBLIC_JOB_STATUS_LIST as readonly string[])
-    // "Somente Intranet" não vai para Google/Indeed.
-    .in("visibility", PORTAL_LISTED_VISIBILITIES as readonly string[])
-    .or(`closingDate.is.null,closingDate.gte.${now.toISOString()}`)
-    .order("createdAt", { ascending: false });
+  // Regra central de publicação: processo aberto, no prazo e publicado em integrações
+  // externas ("Não publicar" e "Somente Intranet" ficam de fora).
+  const { data } = await onlyExternalVisible(
+    supabase
+      .from("jobs")
+      .select(
+        "id, title, slug, description, responsibilities, requiredRequirements, desiredRequirements, benefits, department, company, city, state, salaryRange, contractType, createdAt"
+      )
+  ).order("createdAt", { ascending: false });
 
   const jobs = (data ?? []) as Array<{
     id: string;

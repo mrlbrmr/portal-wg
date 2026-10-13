@@ -11,6 +11,7 @@ import type { HireCandidate } from "@/components/internal/job/JobPositionsCard";
 import type { JobPosition } from "@/lib/jobs/positions";
 import type { JobEventRow, StatusHistoryRow } from "@/lib/jobs/history";
 import { pipelineGroup, type PipelineGroup } from "@/lib/recruitment/candidate-presentation";
+import { loadJobTemplates } from "@/lib/jobs/template-data";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -40,7 +41,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = await createClient();
-  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes] = await Promise.all([
+  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes, templates] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -69,6 +70,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
       .eq("active", true)
       .order("sortOrder", { ascending: true }),
     supabase.from("job_stage_config").select("stageId").eq("jobId", id),
+    loadJobTemplates(),
   ]);
 
   const jobRaw = jobRes.data as unknown as
@@ -170,6 +172,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
         hireCandidates,
         announcementText,
         jobUrl: jobPublicUrl(job.slug ?? job.id),
+        templates,
       }}
     />
   );

@@ -1,4 +1,4 @@
-import type { JobStatus, Modality, ContractType, JobRequestReason } from "@/types/domain";
+import type { JobStatus, JobVisibility, Modality, ContractType, JobRequestReason } from "@/types/domain";
 
 /**
  * Forma leve e serializável de uma vaga para as visões do painel
@@ -18,6 +18,8 @@ export interface JobRow {
   openingReason: JobRequestReason | null;
   responsible: string | null;
   status: JobStatus;
+  /** Publicação (NONE = aberta mas não publicada). Ver src/lib/jobs/publication.ts. */
+  visibility: JobVisibility;
   slug: string | null;
   createdAt: string; // ISO
   updatedAt: string; // ISO

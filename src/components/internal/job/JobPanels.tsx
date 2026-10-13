@@ -227,18 +227,20 @@ export function JobOriginCard({ origin, divergences }: { origin: OriginRequest |
 // ─── Resumo de divulgação (Visão geral) ─────────────────────────────────────────────────
 
 export function DistributionSummary({
-  isPublic,
+  channels,
   linkedinStatus,
   onManage,
 }: {
-  isPublic: boolean;
+  /** Canal a canal, pela regra central (src/lib/jobs/publication.ts → publicationState). */
+  channels: Record<"PORTAL" | "INTRANET" | "EXTERNAL", boolean>;
   linkedinStatus: PublicationStatus | null;
   onManage: () => void;
 }) {
   const rows: Array<{ label: string; on: boolean; text: string }> = [
-    { label: "Portal de carreiras", on: isPublic, text: isPublic ? "Publicada" : "Não publicada" },
-    { label: "Google for Jobs", on: isPublic, text: isPublic ? "Ativo" : "Inativo" },
-    { label: "Indeed", on: isPublic, text: isPublic ? "Ativo" : "Inativo" },
+    { label: "Portal de carreiras", on: channels.PORTAL, text: channels.PORTAL ? "Publicada" : "Não publicada" },
+    { label: "Intranet", on: channels.INTRANET, text: channels.INTRANET ? "Publicada" : "Não publicada" },
+    { label: "Google for Jobs", on: channels.EXTERNAL, text: channels.EXTERNAL ? "Ativo" : "Inativo" },
+    { label: "Indeed", on: channels.EXTERNAL, text: channels.EXTERNAL ? "Ativo" : "Inativo" },
     {
       label: "LinkedIn",
       on: linkedinStatus === "PUBLISHED",

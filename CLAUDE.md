@@ -77,10 +77,17 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   - `jobs.approvedScope` = snapshot do que a solicitação aprovou (comparação em `approved-scope.ts`).
   - Salário: `salaryRange` (lido por portal/feeds) é DERIVADO de `salary` + `salaryPublic` (`salary.ts`).
   - Público: use `PUBLIC_JOB_COLUMNS` (`src/lib/jobs-query.ts`), nunca `select("*")`.
-  - **Onde a vaga aparece** (`jobs.visibility`): `BOTH` (Portal + Intranet, padrão), `PUBLIC` (só
-    Portal), `INTERNAL` (só Intranet). Listas públicas passam por `onlyPublicVisible` (sitemap, home,
-    feeds filtram `PORTAL_LISTED_VISIBILITIES`); a página `/vagas/[slug]` de uma INTERNAL abre pelo
-    link (noindex, sem JSON-LD) porque é nela que o colaborador se candidata.
+  - **Publicação ≠ status** (`jobs.visibility`): `NONE` (Não publicar — processo aberto, só o painel),
+    `BOTH` (Portal + Intranet, padrão), `PUBLIC` (só Portal), `INTERNAL` (só Intranet). Regra ÚNICA em
+    `src/lib/jobs/publication.ts` (processo aberto + canal habilitado + prazo; testada). Consultas
+    públicas SEMPRE pelos helpers de `jobs-query.ts`: `onlyPublicVisible` (home/sitemap),
+    `onlyExternalVisible` (feeds Google/Indeed), `onlyIntranetVisible`, `onlyLinkAccessible` (página
+    `/vagas/[slug]`; INTERNAL abre pelo link, noindex, sem JSON-LD). RLS `jobs_public_select` também
+    exclui NONE. Painel: `jobStatusDisplay()` → "Aberta • Publicada" × "Aberta • Não publicada".
+  - **Modelos de vaga** (`job_templates`, Configurações › Modelos de vaga): regras puras em
+    `src/lib/jobs/templates.ts` (testadas). Aplicar = COPIAR para o rascunho (`jobs.templateId` é só
+    procedência). Campo da solicitação nunca é sobrescrito; preenchido só com "Substituir"; conteúdo
+    mescla por seção. Seletor em Nova vaga e na vaga em Rascunho; "Salvar como modelo" no menu da vaga.
   - **Intranet WG Conecta** lê as vagas por `GET /api/intranet/jobs` (servidor a servidor,
     `Authorization: Bearer INTRANET_API_TOKEN`). Contrato e regras puras em
     `src/lib/jobs/intranet-feed.ts` (testado) — só dados públicos da vaga; nunca candidatos.

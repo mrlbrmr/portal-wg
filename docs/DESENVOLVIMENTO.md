@@ -7,6 +7,31 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-10-13 (tarde) — APIs protegidas respondem 401 em vez de redirecionar ao /login
+
+Sem migração; nenhuma regra de negócio mudou. Commit `e8e34bb`.
+
+- **Bug:** sem sessão (ex.: sessão expirada), o middleware redirecionava também `/api/*` para
+  `/login?callbackUrl=…`. O `fetch` seguia o 307, recebia a página de login com **200** e o cliente tratava como
+  sucesso — no Kanban de candidatos aparecia "X movido para Y" e o card ficava na coluna nova sem nada gravado
+  (log do dev: `PATCH /login?callbackUrl=%2Fapi%2Fapplications%2F… 200`).
+- **Correção:** lista de rotas protegidas extraída do middleware para `src/lib/route-protection.ts` (pura, testada
+  em `route-protection.test.ts`; a lista não mudou). Sem sessão numa rota protegida:
+  - `fetch` em `/api/*` → **401 JSON** `{ error: "Sessão expirada. Entre novamente para continuar." }`;
+  - link de API aberto no navegador (`Sec-Fetch-Mode: navigate` — CV, anexos da admissão, export) → continua
+    indo ao `/login` (que devolve ao link depois), para não mostrar JSON cru na tela;
+  - páginas internas → `/login`, como antes.
+- APIs públicas seguem abertas (não estão na lista): `POST /api/applications`, `GET /api/jobs`, candidatura,
+  admissão/avaliação por token, feeds, intranet, jornada, cron e webhooks.
+- **Cliente sem mudança:** `KanbanBoardShell.move` já reverte em `!res.ok` e mostra o `error` da resposta;
+  `moveCandidate` (`CandidatePipeline.tsx`) e a reordenação também revertem.
+- **Regra para rota nova:** API interna nova que dependa do middleware para exigir sessão precisa entrar em
+  `isProtectedRoute()` (e ganhar caso no teste); API pública nova NÃO entra.
+- Validado no dev só com requisições sem sessão (nenhum candidato movido): PATCH/reorder → 401, `fetch` real do
+  navegador → `ok: false` sem redirect, link do CV e `/dashboard` → 307 para `/login`, `GET /api/jobs` → 200.
+
+---
+
 ## Sessão de 2026-10-13 — Refinamento do pipeline de candidatos (Kanban)
 
 Sem migração; nenhuma regra de negócio mudou. Tela `/vagas/[id]/candidatos`.

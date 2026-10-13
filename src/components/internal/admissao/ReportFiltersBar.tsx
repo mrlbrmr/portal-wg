@@ -28,13 +28,11 @@ export function ReportFiltersBar({
   companies,
   branches,
   positions,
-  users,
 }: {
   filters: ReportFilters;
   companies: Option[];
   branches: Option[];
   positions: Option[];
-  users: Option[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -71,12 +69,6 @@ export function ReportFiltersBar({
       <FilterSelect label="Empresa" value={filters.company} onChange={set("company")} options={opts(companies)} />
       <FilterSelect label="Filial" value={filters.branch} onChange={set("branch")} options={opts(branches)} />
       <FilterSelect label="Cargo" value={filters.position} onChange={set("position")} options={opts(positions, "Todos")} />
-      <FilterSelect
-        label="Responsável"
-        value={filters.responsible}
-        onChange={set("responsible")}
-        options={[...opts(users, "Todos"), { value: "none", label: "Sem responsável" }]}
-      />
       <FilterSelect<ReportStatus>
         label="Situação"
         value={filters.status}

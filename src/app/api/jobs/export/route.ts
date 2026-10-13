@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     .from("jobs")
     .select(
       "title, department, company, city, state, contractType, status, " +
-        "openings, responsible, createdAt, closingDate, hiringDeadline, slug, id, visibility"
+        "openings, createdAt, closingDate, hiringDeadline, slug, id, visibility"
     )
     .order("createdAt", { ascending: false });
   if (rawStatus && Object.values(JobStatus).includes(rawStatus as JobStatus)) {
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
   const header = [
     "Título", "Área", "Empresa/Unidade", "Cidade", "UF", "Contrato",
-    "Status", "Vagas", "Responsável", "Criada em", "Encerra em", "Prazo contratação", "Link público",
+    "Status", "Vagas", "Criada em", "Encerra em", "Prazo contratação", "Link público",
   ];
 
   const rows = jobs.map((j) => [
@@ -65,7 +65,6 @@ export async function GET(req: NextRequest) {
     CONTRACT_LABELS[j.contractType] ?? j.contractType,
     STATUS_LABELS[canonicalJobStatus(j.status)] ?? j.status,
     j.openings ?? "",
-    j.responsible ?? "",
     new Date(j.createdAt).toLocaleDateString("pt-BR"),
     j.closingDate ? new Date(j.closingDate).toLocaleDateString("pt-BR") : "",
     j.hiringDeadline ? new Date(j.hiringDeadline).toLocaleDateString("pt-BR") : "",

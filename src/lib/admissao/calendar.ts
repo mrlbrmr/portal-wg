@@ -41,8 +41,6 @@ export interface CalendarAdmission {
   companyName: string | null;
   branchId: string | null;
   branchName: string | null;
-  responsibleId: string | null;
-  responsibleName: string | null;
   stageName: string | null;
   stageColor: string | null;
   isFinal: boolean;
@@ -178,18 +176,16 @@ export interface CalendarFilters {
   company: string;
   branch: string;
   kind: string;
-  responsible: string;
 }
 
-export const EMPTY_CALENDAR_FILTERS: CalendarFilters = { company: "", branch: "", kind: "", responsible: "" };
+export const EMPTY_CALENDAR_FILTERS: CalendarFilters = { company: "", branch: "", kind: "" };
 
 export function filterCalendarEvents(events: CalendarEvent[], f: CalendarFilters): CalendarEvent[] {
   return events.filter(
     (e) =>
       (!f.kind || e.kind === f.kind) &&
       (!f.company || e.admission.companyId === f.company) &&
-      (!f.branch || e.admission.branchId === f.branch) &&
-      (!f.responsible || (f.responsible === "none" ? !e.admission.responsibleId : e.admission.responsibleId === f.responsible))
+      (!f.branch || e.admission.branchId === f.branch)
   );
 }
 

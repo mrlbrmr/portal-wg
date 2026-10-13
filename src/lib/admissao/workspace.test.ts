@@ -52,7 +52,6 @@ function record(over: Partial<AdmissionRecord> = {}): AdmissionRecord {
     companyId: "c1",
     branchId: "b1",
     stageId: "s2",
-    responsibleId: "u1",
     managerName: "Carlos",
     startDate: "2026-09-28",
     medicalExamDate: null,

@@ -121,6 +121,10 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   - **A vaga só nasce em** `create_job_from_request()` (função plpgsql, transacional, com
     `for update`) — nunca no `JobForm`. Clicar duas vezes não cria duas vagas.
   - Campo crítico alterado depois de aprovado ⇒ volta para `PENDING_APPROVAL`.
+  - **Sem modelo de trabalho nem responsável na UI (decisão de 2026-10-13):** toda vaga é presencial
+    e o RH é uma pessoa só. `jobs.modality` (NOT NULL) recebe PRESENTIAL no POST; o feed da Intranet
+    manda `modality: ""`. `jobs.responsible` é gravado sem campo (quem cria; lido pelo WG Jornada) e
+    `admissions.responsibleId` = quem cria (só destino dos avisos internos). Não reintroduza filtro/coluna.
   - `jobs.responsible` = recrutador; `jobs.hiringManager` = gestor solicitante;
     `jobs.requestId` = solicitação de origem (**null em vagas legadas — é esperado**).
   - **Colunas que existem no banco mas a aplicação NÃO usa** (reservadas, não remover sem

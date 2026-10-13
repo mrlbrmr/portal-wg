@@ -73,7 +73,6 @@ export function AdmissionSidebar() {
           <Row label="ASO" hint={open && examDays !== null ? relativeDaysLabel(examDays) : null}>
             {formatDateBR(r.medicalExamDate) ?? <span className="font-normal text-wg-ink-muted">Não agendado</span>}
           </Row>
-          <Row label="Responsável">{s.responsibleName ?? <span className="font-normal text-wg-ink-muted">Sem responsável</span>}</Row>
         </dl>
       </Section>
 

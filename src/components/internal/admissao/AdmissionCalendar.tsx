@@ -81,14 +81,13 @@ interface Props {
   admissions: CalendarAdmission[];
   companies: Option[];
   branches: Option[];
-  users: Option[];
   canManage: boolean;
   /** Hoje no fuso de São Paulo ("AAAA-MM-DD"), calculado no servidor. */
   today: string;
   initialParams: Record<string, string | undefined>;
 }
 
-export function AdmissionCalendar({ admissions, companies, branches, users, canManage, today, initialParams }: Props) {
+export function AdmissionCalendar({ admissions, companies, branches, canManage, today, initialParams }: Props) {
   const [view, setView] = useState<View>(
     initialParams.visao === "semana" || initialParams.visao === "lista" ? initialParams.visao : "mes"
   );
@@ -101,7 +100,6 @@ export function AdmissionCalendar({ admissions, companies, branches, users, canM
     company: initialParams.empresa ?? "",
     branch: initialParams.filial ?? "",
     kind: initialParams.tipo ?? "",
-    responsible: initialParams.resp ?? "",
   });
   const [selected, setSelected] = useState<{ type: "event"; ev: CalendarEvent } | { type: "day"; date: string } | null>(null);
 
@@ -117,7 +115,6 @@ export function AdmissionCalendar({ admissions, companies, branches, users, canM
     if (filters.company) p.set("empresa", filters.company);
     if (filters.branch) p.set("filial", filters.branch);
     if (filters.kind) p.set("tipo", filters.kind);
-    if (filters.responsible) p.set("resp", filters.responsible);
     const qs = p.toString();
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
   }, [view, cursor, filters, today]);
@@ -231,16 +228,6 @@ export function AdmissionCalendar({ admissions, companies, branches, users, canM
           value={filters.kind}
           onChange={setFilter("kind")}
           options={[{ value: "", label: "Todos" }, ...kindOptions.map((k) => ({ value: k.value, label: k.label }))]}
-        />
-        <FilterSelect
-          label="Responsável"
-          value={filters.responsible}
-          onChange={setFilter("responsible")}
-          options={[
-            { value: "", label: "Todos" },
-            ...users.map((u) => ({ value: u.id, label: u.name })),
-            { value: "none", label: "Sem responsável" },
-          ]}
         />
       </FilterBar>
 
@@ -660,7 +647,6 @@ function EventDrawer({
             label: "Etapa",
             value: a.stageName ? <StageBadge color={a.stageColor ?? undefined}>{a.stageName}</StageBadge> : "Sem etapa",
           },
-          { label: "Responsável", value: a.responsibleName ?? "Não definido" },
         ]}
       />
       <p className="mt-4 text-[12px] leading-snug text-wg-ink-muted">

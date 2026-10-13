@@ -40,8 +40,6 @@ export interface CandidateDetail {
     skills?: string[];
   } | null;
   stageHistory: StageHistoryEntry[];
-  /** Recrutador responsável pela VAGA (jobs.responsible) — não há responsável por candidatura. */
-  jobResponsible: string | null;
   /** Requisitos obrigatórios da vaga, em lista (extraídos do HTML da vaga). */
   screeningCriteria: string[];
 }

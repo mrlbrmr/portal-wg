@@ -46,7 +46,7 @@ async function loadReportRows(): Promise<{ rows: ReportAdmission[]; error: boole
     supabase
       .from("admissions")
       .select(
-        `id, fullName, createdAt, companyId, branchId, positionId, responsibleId, stageId, startDate, medicalExamDate,
+        `id, fullName, createdAt, companyId, branchId, positionId, stageId, startDate, medicalExamDate,
          digitalFormToken, digitalFormExpiresAt, digitalFormSubmittedAt,
          position:admission_positions(name), company:admission_companies(name),
          branch:admission_branches(name), stage:admission_stages(name, color, isFinal)`
@@ -87,7 +87,6 @@ async function loadReportRows(): Promise<{ rows: ReportAdmission[]; error: boole
     companyId: string | null;
     branchId: string | null;
     positionId: string | null;
-    responsibleId: string | null;
     stageId: string | null;
     startDate: string | null;
     medicalExamDate: string | null;
@@ -110,7 +109,6 @@ async function loadReportRows(): Promise<{ rows: ReportAdmission[]; error: boole
       branchName: a.branch?.name ?? null,
       positionId: a.positionId,
       positionName: a.position?.name ?? null,
-      responsibleId: a.responsibleId,
       stageId: a.stageId,
       stageName: a.stage?.name ?? null,
       stageColor: a.stage?.color ?? null,
@@ -186,7 +184,6 @@ export default async function RelatoriosPage({
           companies={config.companies}
           branches={config.branches}
           positions={config.positions}
-          users={config.users}
         />
         <p className="text-[12.5px] text-wg-ink-muted">
           {plural(cohort.length, "admissão", "admissões")} no recorte · o período considera a data de abertura da admissão

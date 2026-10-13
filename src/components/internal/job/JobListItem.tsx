@@ -240,11 +240,6 @@ export function JobListItem({ job, canManage }: { job: JobListRow; canManage: bo
           <MetaLine
             className="mt-0.5 text-[12px] leading-[18px] text-wg-ink-muted"
             items={[
-              job.responsible ? (
-                <span title={job.responsible}>{job.responsible}</span>
-              ) : (
-                <span className="pr-0.5 italic">Sem responsável</span>
-              ),
               <span title={statusHint(job)} suppressHydrationWarning>
                 {ageLabel(job)}
               </span>,

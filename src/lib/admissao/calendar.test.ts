@@ -24,8 +24,6 @@ function adm(over: Partial<CalendarAdmission> = {}): CalendarAdmission {
     companyName: "WG",
     branchId: "b1",
     branchName: "Matriz",
-    responsibleId: "u1",
-    responsibleName: "Murilo",
     stageName: "Agendamento de ASO",
     stageColor: "#999",
     isFinal: false,
@@ -74,16 +72,15 @@ describe("filtros e resumo", () => {
   const evs = buildCalendarEvents(
     [
       adm({ startDate: "2026-09-23", examDate: "2026-09-23" }),
-      adm({ id: "a2", companyId: "c2", branchId: "b2", responsibleId: null, startDate: "2026-09-23" }),
+      adm({ id: "a2", companyId: "c2", branchId: "b2", startDate: "2026-09-23" }),
     ],
     SEP,
     "2026-09-23"
   );
 
-  it("filtra por empresa, tipo e responsável (inclusive sem responsável)", () => {
+  it("filtra por empresa e tipo", () => {
     assert.equal(filterCalendarEvents(evs, { ...EMPTY_CALENDAR_FILTERS, company: "c2" }).length, 1);
     assert.equal(filterCalendarEvents(evs, { ...EMPTY_CALENDAR_FILTERS, kind: "exam" }).length, 1);
-    assert.equal(filterCalendarEvents(evs, { ...EMPTY_CALENDAR_FILTERS, responsible: "none" }).length, 1);
   });
 
   it("resume só os tipos presentes, no singular/plural", () => {

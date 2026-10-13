@@ -32,7 +32,6 @@ export interface AdmissionWorkspaceData {
     stageName: string | null;
     stageColor: string | null;
     stageIsFinal: boolean;
-    responsibleName: string | null;
   };
   /** "Hoje" (AAAA-MM-DD, fuso de São Paulo) calculado no servidor — mesmo valor na hidratação. */
   today: string;

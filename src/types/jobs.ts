@@ -15,7 +15,6 @@ export interface JobRow {
   department: string | null;
   /** Motivo da abertura (Substituição, Nova posição...) — null em vagas sem essa informação. */
   openingReason: JobRequestReason | null;
-  responsible: string | null;
   status: JobStatus;
   /** Publicação (NONE = aberta mas não publicada). Ver src/lib/jobs/publication.ts. */
   visibility: JobVisibility;
@@ -43,7 +42,6 @@ export interface JobFilters {
   city: string;
   department: string;
   contractType: string;
-  responsible: string;
 }
 
 export const EMPTY_JOB_FILTERS: JobFilters = {
@@ -51,5 +49,4 @@ export const EMPTY_JOB_FILTERS: JobFilters = {
   city: "",
   department: "",
   contractType: "",
-  responsible: "",
 };

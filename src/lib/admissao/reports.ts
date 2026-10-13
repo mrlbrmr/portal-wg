@@ -34,7 +34,6 @@ export interface ReportFilters {
   company: string;
   branch: string;
   position: string;
-  responsible: string;
   status: ReportStatus;
 }
 
@@ -43,11 +42,10 @@ export const EMPTY_REPORT_FILTERS: ReportFilters = {
   company: "",
   branch: "",
   position: "",
-  responsible: "",
   status: "",
 };
 
-/** Lê os filtros da URL (?periodo=&empresa=&filial=&cargo=&resp=&status=). */
+/** Lê os filtros da URL (?periodo=&empresa=&filial=&cargo=&status=). */
 export function parseReportFilters(p: Record<string, string | undefined>): ReportFilters {
   const period = REPORT_PERIODS.some((x) => x.value === p.periodo) ? (p.periodo as ReportPeriod) : "tudo";
   const status: ReportStatus = p.status === "ativas" || p.status === "concluidas" ? p.status : "";
@@ -57,7 +55,6 @@ export function parseReportFilters(p: Record<string, string | undefined>): Repor
     company: id(p.empresa),
     branch: id(p.filial),
     position: id(p.cargo),
-    responsible: id(p.resp),
     status,
   };
 }
@@ -68,7 +65,6 @@ export function reportFiltersToQuery(f: ReportFilters): string {
   if (f.company) p.set("empresa", f.company);
   if (f.branch) p.set("filial", f.branch);
   if (f.position) p.set("cargo", f.position);
-  if (f.responsible) p.set("resp", f.responsible);
   if (f.status) p.set("status", f.status);
   return p.toString();
 }
@@ -76,7 +72,7 @@ export function reportFiltersToQuery(f: ReportFilters): string {
 export function activeReportFilterCount(f: ReportFilters): number {
   return (
     (f.period !== "tudo" ? 1 : 0) +
-    [f.company, f.branch, f.position, f.responsible, f.status].filter(Boolean).length
+    [f.company, f.branch, f.position, f.status].filter(Boolean).length
   );
 }
 
@@ -120,7 +116,6 @@ export interface ReportAdmission {
   branchName: string | null;
   positionId: string | null;
   positionName: string | null;
-  responsibleId: string | null;
   stageId: string | null;
   stageName: string | null;
   stageColor: string | null;
@@ -143,7 +138,6 @@ export function applyReportFilters(rows: ReportAdmission[], f: ReportFilters): R
       (!f.company || r.companyId === f.company) &&
       (!f.branch || r.branchId === f.branch) &&
       (!f.position || r.positionId === f.position) &&
-      (!f.responsible || (f.responsible === "none" ? !r.responsibleId : r.responsibleId === f.responsible)) &&
       (!f.status || (f.status === "concluidas" ? r.isFinal : !r.isFinal))
   );
 }

@@ -38,7 +38,6 @@ export interface AdmissionOverviewRow {
   /** Posição da etapa atual na jornada configurada (1-based); null se sem etapa. */
   stageIndex: number | null;
   stageTotal: number;
-  responsibleName: string | null;
   startDateISO: string | null; // YYYY-MM-DD
   createdAt: string; // ISO
   updatedAt: string; // ISO
@@ -55,7 +54,7 @@ export async function loadAdmissionRows(
     supabase
       .from("admissions")
       .select(
-        `id, fullName, cpf, stageId, startDate, createdAt, updatedAt, companyId, responsibleId,
+        `id, fullName, cpf, stageId, startDate, createdAt, updatedAt, companyId,
          digitalFormToken, digitalFormExpiresAt, digitalFormSubmittedAt,
          position:admission_positions(name),
          company:admission_companies(name),
@@ -82,7 +81,6 @@ export async function loadAdmissionRows(
     createdAt: string;
     updatedAt: string;
     companyId: string | null;
-    responsibleId: string | null;
     digitalFormToken: string | null;
     digitalFormExpiresAt: string | null;
     digitalFormSubmittedAt: string | null;
@@ -101,7 +99,6 @@ export async function loadAdmissionRows(
     set.add(a.documentTypeId);
   }
 
-  const userMap = new Map(config.users.map((u) => [u.id, u.name]));
   const stageOrder = config.stages.map((s) => s.id);
   const now = new Date();
 
@@ -121,7 +118,6 @@ export async function loadAdmissionRows(
       isFinal: !!a.stage?.isFinal,
       stageIndex: idx >= 0 ? idx + 1 : null,
       stageTotal: stageOrder.length,
-      responsibleName: a.responsibleId ? (userMap.get(a.responsibleId) ?? null) : null,
       startDateISO: a.startDate ? new Date(a.startDate).toISOString().slice(0, 10) : null,
       createdAt: new Date(a.createdAt).toISOString(),
       updatedAt: new Date(a.updatedAt).toISOString(),

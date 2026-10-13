@@ -31,7 +31,7 @@ import { JOB_REQUEST_REASON_LABELS, JOB_REQUEST_REASON_ORDER } from "@/lib/job-r
 
 // Vagas são acompanhadas só em lista; o status muda por ações explícitas (menu da vaga, posições,
 // solicitação). Kanban existe apenas no ATS — o pipeline de candidatos dentro de cada vaga.
-type Quick = "todas" | "minhas" | "atencao" | "triagem";
+type Quick = "todas" | "atencao" | "triagem";
 type CandidatesFilter = "" | "com" | "sem";
 type PeriodFilter = "" | "7" | "30" | "90";
 
@@ -40,7 +40,6 @@ interface Props {
   canManage: boolean;
   /** Query string da página — fonte do estado inicial dos filtros (persistência por URL). */
   initialParams: Record<string, string | undefined>;
-  currentUserName?: string | null;
 }
 
 const SORT_OPTIONS = [
@@ -102,10 +101,9 @@ function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
 
-export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }: Props) {
+export function JobsExplorer({ jobs, canManage, initialParams }: Props) {
   const [search, setSearch] = useState(initialParams.q ?? "");
   const [lifecycle, setLifecycle] = useState<JobLifecycle[]>(parseLegacyStatusParam(initialParams.status));
-  const [responsibles, setResponsibles] = useState<string[]>(parseList(initialParams.resp));
   const [cities, setCities] = useState<string[]>(parseList(initialParams.cidade));
   const [departments, setDepartments] = useState<string[]>(parseList(initialParams.area));
   const [openingReasons, setOpeningReasons] = useState<JobRequestReason[]>(
@@ -122,9 +120,7 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
   const [quick, setQuick] = useState<Quick>(
     initialParams.pendencia === "atencao" || initialParams.pendencia === "triagem"
       ? initialParams.pendencia
-      : initialParams.minhas === "1"
-        ? "minhas"
-        : "todas"
+      : "todas"
   );
   const [sort, setSort] = useState(
     SORT_OPTIONS.some((o) => o.value === initialParams.ordem) ? initialParams.ordem! : "date_desc"
@@ -135,14 +131,12 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
   useSyncQueryString({
     q: query || undefined,
     status: lifecycle.join(","),
-    resp: responsibles.join(","),
     cidade: cities.join(","),
     area: departments.join(","),
     motivo: openingReasons.join(","),
     candidatos: candidates,
     periodo: period,
     pendencia: quick === "atencao" || quick === "triagem" ? quick : undefined,
-    minhas: quick === "minhas" ? "1" : undefined,
     ordem: sort !== "date_desc" ? sort : undefined,
   });
 
@@ -153,7 +147,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
 
   const facets = useMemo(
     () => ({
-      responsibles: toOptions(countBy(jobs.map((j) => j.responsible))),
       cities: toOptions(countBy(jobs.map((j) => j.city))),
       departments: toOptions(countBy(jobs.map((j) => j.department))),
       openingReasons: countBy(jobs.map((j) => j.openingReason)),
@@ -169,13 +162,12 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
     const periodMs = period ? Number(period) * 86_400_000 : 0;
     const now = Date.now();
     return enriched.filter((job) => {
-      if (q && !normalizeText(`${job.title} ${job.city ?? ""} ${job.department ?? ""} ${job.responsible ?? ""}`).includes(q))
+      if (q && !normalizeText(`${job.title} ${job.city ?? ""} ${job.department ?? ""}`).includes(q))
         return false;
       const l = jobLifecycle(job.status);
       if (lifecycle.length > 0 && !lifecycle.includes(l)) return false;
       // Sem filtro de status, a lista esconde encerradas/canceladas.
       if (!hasStatusFilter && (l === "FILLED" || l === "CLOSED")) return false;
-      if (responsibles.length > 0 && !responsibles.includes(job.responsible ?? "")) return false;
       if (cities.length > 0 && !cities.includes(job.city ?? "")) return false;
       if (departments.length > 0 && !departments.includes(job.department ?? "")) return false;
       if (openingReasons.length > 0 && (!job.openingReason || !openingReasons.includes(job.openingReason)))
@@ -185,28 +177,25 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       if (periodMs && now - new Date(job.openedAt).getTime() > periodMs) return false;
       return true;
     });
-  }, [enriched, query, lifecycle, hasStatusFilter, responsibles, cities, departments, openingReasons, candidates, period]);
+  }, [enriched, query, lifecycle, hasStatusFilter, cities, departments, openingReasons, candidates, period]);
 
   const quickCounts = useMemo(
     () => ({
-      minhas: currentUserName ? baseFiltered.filter((j) => j.responsible === currentUserName).length : 0,
       atencao: baseFiltered.filter((j) => j.reasons.length > 0).length,
       triagem: baseFiltered.filter((j) => j.newCount > 0).length,
     }),
-    [baseFiltered, currentUserName]
+    [baseFiltered]
   );
 
   const filtered = useMemo(() => {
     let result = baseFiltered;
-    if (quick === "minhas") result = result.filter((j) => currentUserName && j.responsible === currentUserName);
-    else if (quick === "atencao") result = result.filter((j) => j.reasons.length > 0);
+    if (quick === "atencao") result = result.filter((j) => j.reasons.length > 0);
     else if (quick === "triagem") result = result.filter((j) => j.newCount > 0);
     return sortJobs(result, quick === "atencao" && sort === "date_desc" ? "attention" : sort);
-  }, [baseFiltered, quick, sort, currentUserName]);
+  }, [baseFiltered, quick, sort]);
 
   function clearFilters() {
     setLifecycle([]);
-    setResponsibles([]);
     setCities([]);
     setDepartments([]);
     setOpeningReasons([]);
@@ -223,13 +212,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
   // Status não é filtro do menu: chega só pelas métricas do topo e pelo "Mostrar encerradas"
   // (?status=), e aparece como chip removível abaixo da barra.
   const sections: FilterSection[] = [
-    {
-      key: "resp",
-      title: "Responsável",
-      options: facets.responsibles,
-      selected: responsibles,
-      onToggle: (v) => setResponsibles((p) => toggle(p, v)),
-    },
     {
       key: "area",
       title: "Área / departamento",
@@ -278,11 +260,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
       key: `s-${l}`,
       label: `Status: ${JOB_LIFECYCLE_META[l].label}`,
       onRemove: () => setLifecycle((p) => p.filter((x) => x !== l)),
-    })),
-    ...responsibles.map((r) => ({
-      key: `r-${r}`,
-      label: `Responsável: ${r}`,
-      onRemove: () => setResponsibles((p) => p.filter((x) => x !== r)),
     })),
     ...departments.map((d) => ({
       key: `a-${d}`,
@@ -336,7 +313,6 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
             onChange={setQuick}
             options={[
               { value: "todas", label: "Todas" },
-              ...(currentUserName ? [{ value: "minhas" as const, label: "Minhas vagas", count: quickCounts.minhas }] : []),
               { value: "atencao", label: "Precisam de atenção", count: quickCounts.atencao },
               { value: "triagem", label: "Com candidatos para triar", count: quickCounts.triagem },
             ]}

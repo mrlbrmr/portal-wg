@@ -27,7 +27,7 @@ export async function GET(
   const { data: application } = await supabase
     .from("applications")
     .select(
-      "id, fullName, email, phone, resumeName, stageId, stage:application_stages(id, name, color), source, addedBy, notes, createdAt, country, candidateCity, candidateState, availablePresential, salaryExpectation, cv_profile, job:jobs(responsible, description, requiredRequirements), stageHistory:application_stage_history(id, stageId, stage:application_stages(name, color), changedBy, changedAt)"
+      "id, fullName, email, phone, resumeName, stageId, stage:application_stages(id, name, color), source, addedBy, notes, createdAt, country, candidateCity, candidateState, availablePresential, salaryExpectation, cv_profile, job:jobs(description, requiredRequirements), stageHistory:application_stage_history(id, stageId, stage:application_stages(name, color), changedBy, changedAt)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -40,10 +40,9 @@ export async function GET(
     (a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime()
   );
 
-  // Dados da vaga relevantes à triagem: o recrutador responsável (da VAGA, não da
-  // candidatura) e os requisitos obrigatórios em lista. A descrição inteira não sai daqui.
+  // Dados da vaga relevantes à triagem: os requisitos obrigatórios em lista. A descrição inteira não sai daqui.
   const { job, ...rest } = application as typeof application & {
-    job: { responsible: string | null; description: string | null; requiredRequirements: string | null } | null;
+    job: { description: string | null; requiredRequirements: string | null } | null;
   };
 
   const { data: origin } = await supabase
@@ -56,7 +55,6 @@ export async function GET(
     ...rest,
     sourceLabel: (origin?.name as string | undefined) ?? labelForSource({}, rest.source as string),
     stageHistory,
-    jobResponsible: job?.responsible ?? null,
     screeningCriteria: job ? extractScreeningCriteria(job) : [],
   });
 }

@@ -42,7 +42,7 @@ export default async function CandidatosPage({ params }: Props) {
     auth(),
     supabase
       .from("jobs")
-      .select("id, code, title, city, state, isTalentPool, requestId, status, visibility, responsible")
+      .select("id, code, title, city, state, isTalentPool, requestId, status, visibility")
       .eq("id", id)
       .maybeSingle(),
   ]);
@@ -340,7 +340,6 @@ export default async function CandidatosPage({ params }: Props) {
           </div>
           <p className="mt-1 text-meta text-wg-ink-muted">
             {meta.join(" · ")}
-            {job.responsible && <> · Recrutador: <span className="text-wg-ink-secondary">{job.responsible}</span></>}
           </p>
           {positionsSummary && positionsSummary.total > 0 && (
             <p className="mt-0.5 text-meta text-wg-ink-muted">

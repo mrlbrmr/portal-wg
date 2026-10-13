@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
     .from("admissions")
     .insert({
       ...admissionInputToData(parsed.data),
+      // Sem campo na tela (o RH é uma pessoa só): quem cria fica como responsável, só
+      // para os avisos internos (admission_notifications) terem destinatário.
+      responsibleId: access.userId,
       createdById: access.userId,
       updatedById: access.userId,
     })

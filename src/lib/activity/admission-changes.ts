@@ -21,7 +21,6 @@ const TRACKED_LABELS: Record<string, string> = {
   position: "Cargo",
   company: "Empresa",
   branch: "Filial",
-  responsible: "Responsável",
   startDate: "Data de início",
   managerName: "Gestor",
   shift: "Turno",
@@ -59,7 +58,7 @@ export async function snapshotAdmission(supabase: SupabaseClient, id: string): P
   const { data } = await supabase
     .from("admissions")
     .select(
-      `fullName, stageId, startDate, medicalExamDate, responsibleId, managerName, shift,
+      `fullName, stageId, startDate, medicalExamDate, managerName, shift,
        cpf, email, phone, birthDate, salary, uniformShirt, uniformPants, uniformShoe,
        position:admission_positions(name), company:admission_companies(name),
        branch:admission_branches(name), stage:admission_stages(name, isFinal)`
@@ -72,7 +71,6 @@ export async function snapshotAdmission(supabase: SupabaseClient, id: string): P
     stageId: string | null;
     startDate: string | null;
     medicalExamDate: string | null;
-    responsibleId: string | null;
     managerName: string | null;
     shift: string | null;
     cpf: string | null;
@@ -88,11 +86,6 @@ export async function snapshotAdmission(supabase: SupabaseClient, id: string): P
     branch: { name: string } | null;
     stage: { name: string; isFinal: boolean } | null;
   };
-  let responsible: string | null = null;
-  if (a.responsibleId) {
-    const { data: u } = await supabase.from("users").select("name").eq("id", a.responsibleId).maybeSingle();
-    responsible = (u as { name?: string } | null)?.name ?? null;
-  }
   return {
     fullName: a.fullName,
     stageId: a.stageId,
@@ -103,7 +96,6 @@ export async function snapshotAdmission(supabase: SupabaseClient, id: string): P
       position: a.position?.name ?? null,
       company: a.company?.name ?? null,
       branch: a.branch?.name ?? null,
-      responsible,
       startDate: br(a.startDate),
       medicalExamDate: br(a.medicalExamDate),
       managerName: a.managerName,

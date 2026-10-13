@@ -523,14 +523,6 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
                   <div className="sm:col-span-2">
                     <VisibilityField draft={draft} patch={patch} />
                   </div>
-                  <Field label="Recrutador responsável" htmlFor="job-responsible" hint="Quem conduz a seleção pelo RH.">
-                    <input
-                      id="job-responsible"
-                      value={draft.responsible}
-                      onChange={(e) => patch({ responsible: e.target.value })}
-                      className={inputClass}
-                    />
-                  </Field>
                   <Field
                     label="Gestor solicitante"
                     htmlFor="job-manager"
@@ -592,7 +584,6 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
                 isTalentPool={job.isTalentPool}
                 positions={summary}
                 pipeline={pipeline}
-                recruiter={job.responsible}
                 manager={job.hiringManager}
                 hiringDeadline={job.hiringDeadline ? String(job.hiringDeadline) : null}
                 closingDate={job.closingDate ? String(job.closingDate) : null}

@@ -31,7 +31,7 @@ import { NEW_JOB_DEFAULTS } from "@/lib/jobs/draft";
 import type { JobTemplate } from "@/lib/jobs/templates";
 
 interface Props {
-  /** Nome do recrutador logado — vira o "Recrutador responsável" por padrão. */
+  /** Nome de quem cria a vaga — gravado em jobs.responsible (sem campo na tela; lido pelo WG Jornada). */
   currentUserName?: string | null;
   /** Modelos de vaga (Configurações › Modelos de vaga). Uso opcional. */
   templates?: JobTemplate[];
@@ -130,9 +130,6 @@ export default function JobForm({ currentUserName, templates = [] }: Props) {
           <div className="sm:col-span-2">
             <VisibilityField draft={draft} patch={patch} />
           </div>
-          <Field label="Recrutador responsável" htmlFor="new-job-resp">
-            <input id="new-job-resp" value={draft.responsible} onChange={(e) => patch({ responsible: e.target.value })} className={inputClass} />
-          </Field>
           <Field label="Gestor solicitante" htmlFor="new-job-mgr" hint={draft.isTalentPool ? "Opcional em banco de talentos." : undefined}>
             <input id="new-job-mgr" value={draft.hiringManager} onChange={(e) => patch({ hiringManager: e.target.value })} className={inputClass} />
           </Field>

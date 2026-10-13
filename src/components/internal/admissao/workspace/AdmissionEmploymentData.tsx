@@ -64,11 +64,6 @@ export function AdmissionEmploymentData() {
                 <RegistrySelect id="adm-stage" value={draft.stageId} onChange={(v) => patch({ stageId: v })}
                   options={options.stages} savedId={r.stageId} savedName={s.stageName} placeholder="Sem etapa" />
               </DataField>
-              <DataField label="Responsável pela admissão" htmlFor="adm-responsible" editing={editing} changed={changed("responsibleId")}
-                view={optionName(options.users, draft.responsibleId, r.responsibleId, s.responsibleName)}>
-                <RegistrySelect id="adm-responsible" value={draft.responsibleId} onChange={(v) => patch({ responsibleId: v })}
-                  options={options.users} savedId={r.responsibleId} savedName={s.responsibleName} placeholder="Sem responsável" />
-              </DataField>
               <DataField label="Gestor" htmlFor="adm-manager" editing={editing} changed={changed("managerName")} view={draft.managerName || null}>
                 <input {...fieldA11y("adm-manager")} value={draft.managerName} onChange={(e) => patch({ managerName: e.target.value })}
                   maxLength={120} placeholder="Nome do gestor" className={inputClass} />

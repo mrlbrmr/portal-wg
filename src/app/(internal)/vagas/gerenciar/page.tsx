@@ -67,7 +67,6 @@ export default async function GerenciarVagasPage({
         jobs={rows}
         canManage={canManage}
         initialParams={params}
-        currentUserName={(session?.user as { name?: string | null } | undefined)?.name ?? null}
       />
     </div>
   );

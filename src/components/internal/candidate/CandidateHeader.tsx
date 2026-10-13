@@ -186,14 +186,6 @@ export function CandidateHeader({
           </div>
           <p className="flex flex-wrap items-center gap-x-1.5 text-meta text-wg-ink-muted">
             <span title={formatDateAtTime(data.createdAt)}>{formatAppliedAgo(data.createdAt)}</span>
-            {data.jobResponsible && (
-              <>
-                <span aria-hidden>·</span>
-                <span title="Recrutador(a) responsável pela vaga">
-                  Responsável: <span className="text-wg-ink-secondary">{data.jobResponsible}</span>
-                </span>
-              </>
-            )}
           </p>
           <CandidateNavigation nav={nav} className="-my-1 ml-auto sm:hidden" />
         </div>

@@ -54,9 +54,6 @@ export function AdmissionHeader({ menu, onEdit }: Props) {
               <span>
                 Início: <span className="font-medium tabular-nums text-wg-ink">{formatDateBR(r.startDate) ?? "a definir"}</span>
               </span>
-              <span>
-                Responsável: <span className="font-medium text-wg-ink">{s.responsibleName ?? "não definido"}</span>
-              </span>
             </div>
           </div>
         </div>

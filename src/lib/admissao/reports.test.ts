@@ -25,7 +25,6 @@ function row(over: Partial<ReportAdmission> = {}): ReportAdmission {
     branchName: "Matriz",
     positionId: "p1",
     positionName: "Motorista",
-    responsibleId: "u1",
     stageId: "s1",
     stageName: "Documentos",
     stageColor: "#999",

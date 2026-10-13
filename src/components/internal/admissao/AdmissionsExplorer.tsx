@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ClipboardCheck, SearchX, CalendarDays, Clock3, UserRound, FileWarning, Plus, Pencil } from "lucide-react";
+import { ClipboardCheck, SearchX, CalendarDays, Clock3, FileWarning, Plus, Pencil } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
@@ -87,7 +87,6 @@ export function AdmissionsExplorer({
   const [query, setQuery] = useState(initialParams.q ?? "");
   const [stageFilter, setStageFilter] = useState<string[]>(parseList(initialParams.etapa));
   const [companyFilter, setCompanyFilter] = useState<string[]>(parseList(initialParams.empresa));
-  const [responsibleFilter, setResponsibleFilter] = useState<string[]>(parseList(initialParams.resp));
   const [quick, setQuick] = useState<AdmissionQuick>(
     QUICK_KEYS.includes(initialParams.filtro as AdmissionQuick) ? (initialParams.filtro as AdmissionQuick) : "todas"
   );
@@ -99,19 +98,12 @@ export function AdmissionsExplorer({
     q: query || undefined,
     etapa: stageFilter.join(","),
     empresa: companyFilter.join(","),
-    resp: responsibleFilter.join(","),
     filtro: quick !== "todas" ? quick : undefined,
     ordem: sortKey !== "startAsc" ? sortKey : undefined,
   });
 
   const today = useMemo(() => new Date(), []);
   const withFlags = useMemo(() => rows.map((r) => ({ r, f: admissionFlags(r, today) })), [rows, today]);
-
-  const responsibles = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of rows) if (r.responsibleName) m.set(r.responsibleName, (m.get(r.responsibleName) ?? 0) + 1);
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
-  }, [rows]);
 
   const base = useMemo(() => {
     const q = normalizeText(query);
@@ -121,10 +113,9 @@ export function AdmissionsExplorer({
       if (stageFilter.length === 0 && r.isFinal) return false;
       if (stageFilter.length > 0 && !stageFilter.includes(r.stageId ?? "")) return false;
       if (companyFilter.length > 0 && !companyFilter.includes(r.companyId ?? "")) return false;
-      if (responsibleFilter.length > 0 && !responsibleFilter.includes(r.responsibleName ?? "")) return false;
       return true;
     });
-  }, [withFlags, query, stageFilter, companyFilter, responsibleFilter]);
+  }, [withFlags, query, stageFilter, companyFilter]);
 
   const counts = useMemo(
     () => ({
@@ -171,7 +162,6 @@ export function AdmissionsExplorer({
   function clearFilters() {
     setStageFilter([]);
     setCompanyFilter([]);
-    setResponsibleFilter([]);
   }
 
   const sections: FilterSection[] = [
@@ -189,13 +179,6 @@ export function AdmissionsExplorer({
       selected: companyFilter,
       onToggle: (v) => setCompanyFilter((p) => toggle(p, v)),
     },
-    {
-      key: "resp",
-      title: "Responsável RH",
-      options: responsibles.map(([name, count]) => ({ value: name, label: name, count })),
-      selected: responsibleFilter,
-      onToggle: (v) => setResponsibleFilter((p) => toggle(p, v)),
-    },
   ];
 
   const chips: ActiveChip[] = [
@@ -208,11 +191,6 @@ export function AdmissionsExplorer({
       key: `c-${id}`,
       label: `Empresa: ${companies.find((c) => c.id === id)?.name ?? "—"}`,
       onRemove: () => setCompanyFilter((p) => p.filter((x) => x !== id)),
-    })),
-    ...responsibleFilter.map((name) => ({
-      key: `r-${name}`,
-      label: `Responsável: ${name}`,
-      onRemove: () => setResponsibleFilter((p) => p.filter((x) => x !== name)),
     })),
   ];
 
@@ -357,10 +335,6 @@ function AdmissionListItem({ r, today, canManage }: { r: AdmissionRow; today: Da
           </div>
           <p className="mt-0.5 truncate text-meta text-wg-ink-muted">{org || "Cargo não definido"}</p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-wg-ink-secondary">
-            <span className="inline-flex items-center gap-1">
-              <UserRound className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
-              {r.responsibleName ?? <span className="text-wg-ink-muted">Sem responsável</span>}
-            </span>
             <span className="inline-flex items-center gap-1">
               <CalendarDays className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
               {r.startDateISO ? `Início ${fmtDateBR(r.startDateISO)}` : "Início a definir"}

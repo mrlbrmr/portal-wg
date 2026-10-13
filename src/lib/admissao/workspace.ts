@@ -314,7 +314,6 @@ export interface AdmissionDraft {
   companyId: string;
   branchId: string;
   stageId: string;
-  responsibleId: string;
   managerName: string;
   startDate: string;
   medicalExamDate: string;
@@ -340,7 +339,6 @@ export const FIELD_SECTION: Record<DraftField, AdmissionSection> = {
   companyId: "contratacao",
   branchId: "contratacao",
   stageId: "contratacao",
-  responsibleId: "contratacao",
   managerName: "contratacao",
   startDate: "contratacao",
   medicalExamDate: "contratacao",
@@ -395,7 +393,6 @@ export interface AdmissionRecord {
   companyId: string | null;
   branchId: string | null;
   stageId: string | null;
-  responsibleId: string | null;
   managerName: string | null;
   startDate: string | null;
   medicalExamDate: string | null;
@@ -418,7 +415,6 @@ export function admissionToDraft(a: AdmissionRecord): AdmissionDraft {
     companyId: a.companyId ?? "",
     branchId: a.branchId ?? "",
     stageId: a.stageId ?? "",
-    responsibleId: a.responsibleId ?? "",
     managerName: a.managerName ?? "",
     startDate: a.startDate ? a.startDate.slice(0, 10) : "",
     medicalExamDate: a.medicalExamDate ? a.medicalExamDate.slice(0, 10) : "",

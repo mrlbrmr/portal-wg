@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   let admissionsQuery = supabase
       .from("admissions")
       .select(
-        `fullName, cpf, email, phone, birthDate, responsibleId, managerName, startDate,
+        `fullName, cpf, email, phone, birthDate, managerName, startDate,
          medicalExamDate, salary, shift, uniformShirt, uniformPants, uniformShoe, createdAt,
          position:admission_positions(name),
          company:admission_companies(name),
@@ -37,13 +37,10 @@ export async function GET(req: NextRequest) {
   if (filters.company) admissionsQuery = admissionsQuery.eq("companyId", filters.company);
   if (filters.branch) admissionsQuery = admissionsQuery.eq("branchId", filters.branch);
   if (filters.position) admissionsQuery = admissionsQuery.eq("positionId", filters.position);
-  if (filters.responsible === "none") admissionsQuery = admissionsQuery.is("responsibleId", null);
-  else if (filters.responsible) admissionsQuery = admissionsQuery.eq("responsibleId", filters.responsible);
   if (from) admissionsQuery = admissionsQuery.gte("createdAt", from.toISOString());
 
-  const [admissionsRes, usersRes, requiredRes] = await Promise.all([
+  const [admissionsRes, requiredRes] = await Promise.all([
     admissionsQuery,
-    supabase.from("users").select("id, name"),
     supabase.from("admission_document_types").select("id").eq("required", true),
   ]);
 
@@ -53,7 +50,6 @@ export async function GET(req: NextRequest) {
     email: string | null;
     phone: string | null;
     birthDate: string | null;
-    responsibleId: string | null;
     managerName: string | null;
     startDate: string | null;
     medicalExamDate: string | null;
@@ -72,10 +68,7 @@ export async function GET(req: NextRequest) {
   const admissions = filters.status
     ? allAdmissions.filter((a) => (filters.status === "concluidas" ? a.stage?.isFinal : !a.stage?.isFinal))
     : allAdmissions;
-  const users = (usersRes.data ?? []) as Array<{ id: string; name: string }>;
   const requiredIds = ((requiredRes.data ?? []) as Array<{ id: string }>).map((d) => d.id);
-
-  const userMap = new Map(users.map((u) => [u.id, u.name]));
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "Portal WG";
@@ -92,7 +85,6 @@ export async function GET(req: NextRequest) {
     { header: "Empresa", key: "company", width: 20 },
     { header: "Filial", key: "branch", width: 18 },
     { header: "Etapa", key: "stage", width: 16 },
-    { header: "Responsável", key: "responsible", width: 20 },
     { header: "Gestor", key: "manager", width: 20 },
     { header: "Data de início", key: "startDate", width: 14 },
     { header: "Exame médico", key: "medicalExamDate", width: 14 },
@@ -126,7 +118,6 @@ export async function GET(req: NextRequest) {
       company: a.company?.name ?? "",
       branch: a.branch?.name ?? "",
       stage: a.stage?.name ?? "",
-      responsible: a.responsibleId ? userMap.get(a.responsibleId) ?? "" : "",
       manager: a.managerName ?? "",
       startDate: fmtDate(a.startDate),
       medicalExamDate: fmtDate(a.medicalExamDate),

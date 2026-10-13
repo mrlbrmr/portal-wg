@@ -26,7 +26,7 @@ export default async function AdmissoesCalendarioPage({
     supabase
       .from("admissions")
       .select(
-        `id, fullName, startDate, medicalExamDate, birthDate, companyId, branchId, responsibleId,
+        `id, fullName, startDate, medicalExamDate, birthDate, companyId, branchId,
          digitalFormToken, digitalFormExpiresAt, digitalFormSubmittedAt,
          position:admission_positions(name), company:admission_companies(name),
          branch:admission_branches(name), stage:admission_stages(name, color, isFinal)`
@@ -44,7 +44,6 @@ export default async function AdmissoesCalendarioPage({
     birthDate: string | null;
     companyId: string | null;
     branchId: string | null;
-    responsibleId: string | null;
     digitalFormToken: string | null;
     digitalFormExpiresAt: string | null;
     digitalFormSubmittedAt: string | null;
@@ -53,7 +52,6 @@ export default async function AdmissoesCalendarioPage({
     branch: { name: string } | null;
     stage: { name: string; color: string; isFinal: boolean } | null;
   }>;
-  const userName = new Map(config.users.map((u) => [u.id, u.name]));
 
   // Nenhum dado sensível vai ao cliente: o token do link vira só um booleano.
   const admissions: CalendarAdmission[] = rows.map((a) => ({
@@ -67,8 +65,6 @@ export default async function AdmissoesCalendarioPage({
     companyName: a.company?.name ?? null,
     branchId: a.branchId,
     branchName: a.branch?.name ?? null,
-    responsibleId: a.responsibleId,
-    responsibleName: a.responsibleId ? (userName.get(a.responsibleId) ?? null) : null,
     stageName: a.stage?.name ?? null,
     stageColor: a.stage?.color ?? null,
     isFinal: !!a.stage?.isFinal,
@@ -96,7 +92,6 @@ export default async function AdmissoesCalendarioPage({
           admissions={admissions}
           companies={config.companies}
           branches={config.branches}
-          users={config.users}
           canManage={session?.user.role === "ADMIN_RH"}
           today={today}
           initialParams={params}

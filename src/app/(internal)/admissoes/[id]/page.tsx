@@ -130,7 +130,7 @@ export default async function AdmissaoPage({
 
   // Nomes de usuários citados na ficha — inclui desativados (config.users só traz ativos).
   const userIds = new Set<string>();
-  for (const v of [admission.responsibleId, admission.createdById]) if (v) userIds.add(v);
+  if (admission.createdById) userIds.add(admission.createdById);
   for (const a of admission.attachments ?? []) {
     if (a.uploadedById) userIds.add(a.uploadedById);
     if (a.reviewedById) userIds.add(a.reviewedById);
@@ -204,7 +204,6 @@ export default async function AdmissaoPage({
     companyId: admission.companyId,
     branchId: admission.branchId,
     stageId: admission.stageId,
-    responsibleId: admission.responsibleId,
     managerName: admission.managerName,
     startDate: admission.startDate,
     medicalExamDate: admission.medicalExamDate,
@@ -249,7 +248,6 @@ export default async function AdmissaoPage({
       stageName: admission.stage?.name ?? null,
       stageColor: admission.stage?.color ?? null,
       stageIsFinal: isFinal,
-      responsibleName: userName(admission.responsibleId),
     },
     today,
     createdAt: new Date(admission.createdAt).toISOString(),

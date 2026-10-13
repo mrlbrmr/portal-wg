@@ -90,7 +90,6 @@ export function JobSummaryPanel({
   isTalentPool,
   positions,
   pipeline,
-  recruiter,
   manager,
   hiringDeadline,
   closingDate,
@@ -100,7 +99,6 @@ export function JobSummaryPanel({
   isTalentPool: boolean;
   positions: PositionsSummary;
   pipeline: PipelineData;
-  recruiter: string | null;
   manager: string | null;
   hiringDeadline: string | null;
   closingDate: string | null;
@@ -127,7 +125,6 @@ export function JobSummaryPanel({
           <Row label="Em processo">{pipeline.groups.IN_PROCESS}</Row>
         )}
         <Row label="Finalistas">{pipeline.groups.FINALIST}</Row>
-        <Row label="Recrutador">{recruiter || <span className="font-normal text-wg-ink-muted">Não definido</span>}</Row>
         <Row label="Gestor">{manager || <span className="font-normal text-wg-ink-muted">Não definido</span>}</Row>
         <Row label="Inscrições até" hint={<DeadlineHint iso={closingDate} />}>
           {closingDate ? formatStoredDate(closingDate) : <span className="font-normal text-wg-ink-muted">Sem data</span>}

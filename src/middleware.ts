@@ -1,10 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isProtectedRoute, unauthenticatedAction } from "@/lib/route-protection";
 
 // Middleware de sessão do Supabase: refresca a sessão (rotaciona cookies) e
-// protege as rotas internas — quem não está autenticado é mandado ao /login.
-// Mesma lista de rotas internas do NextAuth anterior.
+// protege as rotas internas — página sem sessão vai ao /login; API chamada por
+// fetch recebe 401 JSON. Lista de rotas e regra em src/lib/route-protection.ts.
 export async function middleware(req: NextRequest) {
   let response = NextResponse.next({ request: req });
 
@@ -35,29 +36,15 @@ export async function middleware(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
 
-  const isInternalRoute =
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/solicitacoes") ||
-    pathname.startsWith("/vagas/solicitacoes") ||
-    pathname.startsWith("/vagas/gerenciar") ||
-    pathname.startsWith("/vagas/nova") ||
-    (pathname.startsWith("/vagas/") && pathname.endsWith("/editar")) ||
-    (pathname.startsWith("/vagas/") && pathname.endsWith("/candidatos")) ||
-    pathname.startsWith("/configuracoes") ||
-    pathname.startsWith("/perfil") ||
-    pathname.startsWith("/usuarios") ||
-    pathname.startsWith("/admissoes") ||
-    pathname.startsWith("/api/admissoes") ||
-    // GET /api/jobs (lista) é PÚBLICO: o "Carregar mais" do portal usa; sem sessão a rota
-    // devolve só colunas públicas de vagas publicadas (onlyPublicVisible). O resto é interno.
-    (pathname.startsWith("/api/jobs") && !(pathname === "/api/jobs" && req.method === "GET")) ||
-    pathname.startsWith("/api/homepage-config") ||
-    pathname.startsWith("/api/users") ||
-    // Mutação/leitura de candidatura individual é interna.
-    // Atenção: POST /api/applications (exato) é PÚBLICO — só protegemos subrotas.
-    /^\/api\/applications\/.+/.test(pathname);
-
-  if (isInternalRoute && !user) {
+  if (isProtectedRoute(pathname, req.method) && !user) {
+    // API chamada por fetch recebe 401 JSON — não o redirect, que o fetch seguiria e
+    // trataria a página de login (200) como sucesso. Ver src/lib/route-protection.ts.
+    if (unauthenticatedAction(pathname, req.headers.get("sec-fetch-mode")) === "unauthorized") {
+      return NextResponse.json(
+        { error: "Sessão expirada. Entre novamente para continuar." },
+        { status: 401 }
+      );
+    }
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);

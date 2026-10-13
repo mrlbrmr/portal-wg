@@ -74,14 +74,30 @@ function toText(html: string): string {
     .trim();
 }
 
+/** Menos que isso não é frase de apresentação — é rótulo ("Após 90 dias de experiência:"). */
+export const INTRANET_SUMMARY_MIN = 40;
+
+/** Trecho que serve de resumo: frase de verdade, não rótulo que abre uma lista. */
+function isSentence(text: string): boolean {
+  return text.length >= INTRANET_SUMMARY_MIN && !text.endsWith(":");
+}
+
+function firstSentence(html: string, tag: "p" | "li"): string | null {
+  for (const m of html.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "gi"))) {
+    const text = toText(m[1]);
+    if (isSentence(text)) return text;
+  }
+  return null;
+}
+
 /**
- * Resumo curto em texto puro: o primeiro parágrafo da descrição (as vagas começam com
- * um título de seção, que não serve de resumo), cortado em palavra inteira.
+ * Resumo curto em texto puro, cortado em palavra inteira. Usa o primeiro parágrafo que seja
+ * frase de verdade; sem nenhum (vagas escritas só em listas), o primeiro item de lista — em
+ * geral a primeira responsabilidade. Sem nenhum dos dois, não há resumo.
  */
 export function summaryFromHtml(html: string | null | undefined, max = INTRANET_SUMMARY_MAX): string | null {
   if (!html) return null;
-  const firstParagraph = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i)?.[1];
-  const text = toText(firstParagraph ?? html);
+  const text = firstSentence(html, "p") ?? firstSentence(html, "li");
   if (!text) return null;
   if (text.length <= max) return text;
   const cut = text.slice(0, max);

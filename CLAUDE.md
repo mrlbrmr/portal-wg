@@ -173,6 +173,9 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 ## Design System do painel (ler antes de criar UI)
 - Tokens: cores semânticas `success/info/warning/danger/neutral` (`bg-*-bg text-*-fg`), radius
   `rounded-control` (8px) / `rounded-card` (12px), tipografia `text-page-title … text-label`.
+- `cn()` (`src/lib/utils.ts`) usa `extendTailwindMerge` com a escala tipográfica no grupo `font-size`
+  (teste em `utils.test.ts`). **Token novo em `fontSize` do `tailwind.config.ts` ⇒ registre também no
+  `cn()`**; senão o tailwind-merge o trata como COR e o descarta ao lado de `text-<cor>` (texto cai p/ 16px).
 - Reutilize `src/components/ui/*`: `Button`/`ButtonLink`, `StatusBadge` (status) × `StageBadge`
   (etapa), `ProgressBar`, `CompactMetrics`, `Panel`, `ActionListItem`, `ActivityTimeline`,
   `FilterPopover`/`ActiveFilterChips`/`QuickFilterChips`, `EmptyState`, `Skeleton`, `ConfirmModal`,

@@ -4,7 +4,7 @@ import { Skeleton, SkeletonListItem, SkeletonPageTop } from "@/components/ui/Ske
 export default function LoadingGerenciar() {
   return (
     <div>
-      <SkeletonPageTop />
+      <SkeletonPageTop metrics={false} />
       <div className="max-w-5xl">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Skeleton className="h-9 min-w-[220px] flex-1" />

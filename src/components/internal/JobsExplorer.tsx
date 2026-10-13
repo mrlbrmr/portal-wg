@@ -2,37 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Briefcase, BriefcaseBusiness, SearchX, Plus, Users, CalendarDays, Clock3, UserRound, Eye } from "lucide-react";
-import {
-  CONTRACT_TYPE_LABELS,
-  MODALITY_LABELS,
-  formatDate,
-  formatRelativeTime,
-  normalizeText,
-  pluralDays,
-  daysSince,
-  cn,
-} from "@/lib/utils";
+import { Briefcase, SearchX, Plus, Users } from "lucide-react";
+import { normalizeText } from "@/lib/utils";
 import {
   JOB_LIFECYCLE_META,
   jobLifecycle,
-  jobStatusDisplay,
   parseLegacyStatusParam,
   type JobLifecycle,
 } from "@/lib/recruitment/job-presentation";
-import {
-  jobAttentionReasons,
-  operationalSituation,
-  attentionScore,
-  SITUATION_META,
-  type AttentionReason,
-} from "@/lib/recruitment/attention";
-import { evaluateSla, SLA_META } from "@/lib/recruitment/sla";
-import { JobActionsMenu } from "@/components/internal/JobActionsMenu";
+import { jobAttentionReasons, attentionScore } from "@/lib/recruitment/attention";
+import { JobListItem, type JobListRow } from "@/components/internal/job/JobListItem";
 import { SearchBar } from "@/components/internal/SearchBar";
 import { SortDropdown } from "@/components/internal/SortDropdown";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { StatusBadge, TONE_DOT, TONE_TEXT } from "@/components/ui/StatusBadge";
 import { ButtonLink, Button } from "@/components/ui/Button";
 import {
   FilterPopover,
@@ -79,7 +61,7 @@ const PERIOD_LABEL: Record<Exclude<PeriodFilter, "">, string> = {
   "90": "Abertas nos últimos 90 dias",
 };
 
-type Enriched = JobRow & { reasons: AttentionReason[] };
+type Enriched = JobListRow;
 
 function sortJobs(jobs: Enriched[], sort: string): Enriched[] {
   const byNewest = (a: Enriched, b: Enriched) => b.createdAt.localeCompare(a.createdAt);
@@ -118,15 +100,6 @@ function toOptions(m: Map<string, number>) {
 
 function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
-}
-
-/** Idade da vaga conforme o status: "Aberta há X" só faz sentido para vagas abertas. */
-function ageLabel(job: JobRow): string {
-  const l = jobLifecycle(job.status);
-  if (l === "OPEN") return `Aberta há ${pluralDays(daysSince(job.openedAt))}`;
-  if (l === "DRAFT") return `Criada há ${pluralDays(daysSince(job.createdAt))}`;
-  if (l === "PAUSED") return `Pausada em ${formatDate(job.statusChangedAt)}`;
-  return `${JOB_LIFECYCLE_META[l].label} em ${formatDate(job.statusChangedAt)}`;
 }
 
 export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }: Props) {
@@ -337,16 +310,23 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
   return (
     <div className="max-w-5xl">
       {/* Toolbar */}
-      <div className="sticky top-11 z-30 -mx-1 mb-3 space-y-2.5 border-b border-wg-border-lighter bg-slate-50 px-1 pb-3 pt-2 md:top-0">
+      {/* No celular a barra não fixa: com a busca, os filtros e os chips ela cobriria metade da tela. */}
+      <div className="relative z-30 -mx-1 mb-3 space-y-2 border-b border-wg-border-lighter bg-slate-50 px-1 pb-2.5 pt-2 sm:sticky sm:top-11 md:top-0">
         <div className="flex flex-wrap items-center gap-2">
           <SearchBar
             value={search}
             onChange={setSearch}
             placeholder="Pesquisar por vaga, cidade, área ou responsável"
-            className="min-w-[220px] flex-1"
+            className="min-w-[220px] flex-1 basis-full sm:basis-0"
           />
           <FilterPopover sections={sections} activeCount={chips.length - lifecycle.length} onClear={clearFilters} />
-          <SortDropdown value={sort} onChange={setSort} options={SORT_OPTIONS} />
+          <SortDropdown
+            value={sort}
+            onChange={setSort}
+            options={SORT_OPTIONS}
+            className="min-w-0 flex-1 sm:flex-none"
+            selectClassName="w-full"
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -432,139 +412,5 @@ export function JobsExplorer({ jobs, canManage, initialParams, currentUserName }
         </>
       )}
     </div>
-  );
-}
-
-function JobListItem({ job, canManage }: { job: Enriched; canManage: boolean }) {
-  const lifecycle = jobLifecycle(job.status);
-  // "Aberta • Publicada" × "Aberta • Não publicada" (publicação ≠ rascunho).
-  const status = jobStatusDisplay(job);
-  const situation = operationalSituation(job.reasons);
-  const sla = lifecycle === "OPEN" ? evaluateSla(daysSince(job.openedAt)) : null;
-
-  const location = job.isTalentPool ? "Todas as praças" : [job.city, job.state].filter(Boolean).join("/");
-  const facts = [
-    location,
-    job.department,
-    job.openingReason ? JOB_REQUEST_REASON_LABELS[job.openingReason] : null,
-    CONTRACT_TYPE_LABELS[job.contractType] ?? null,
-    MODALITY_LABELS[job.modality] ?? null,
-  ].filter(Boolean);
-
-  return (
-    <li
-      className={cn(
-        "group relative flex rounded-card border border-wg-border-lighter bg-white transition-shadow hover:shadow-[0_6px_18px_rgba(26,34,19,.07)]",
-        "focus-within:shadow-[0_6px_18px_rgba(26,34,19,.07)]"
-      )}
-    >
-      {/* Faixa = situação operacional (Normal / Atenção / Atrasada). O texto dos motivos abaixo
-          explica a cor — ela nunca comunica sozinha. */}
-      <span
-        aria-hidden
-        className={cn(
-          "w-1 shrink-0 rounded-l-card",
-          situation === "NORMAL" ? "bg-transparent" : TONE_DOT[SITUATION_META[situation].tone]
-        )}
-      />
-      <div className="flex min-w-0 flex-1 flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/vagas/${job.id}/candidatos`}
-              className="truncate text-record-title text-wg-ink hover:text-wg-green-dark"
-            >
-              {job.title}
-            </Link>
-            <StatusBadge tone={status.tone} hint={status.hint}>
-              {status.label}
-            </StatusBadge>
-            {sla && (
-              <StatusBadge tone={SLA_META[sla.state].tone} hint="Prazo de preenchimento (SLA)">
-                {SLA_META[sla.state].label}
-              </StatusBadge>
-            )}
-          </div>
-
-          {facts.length > 0 && <p className="mt-0.5 truncate text-meta text-wg-ink-muted">{facts.join(" · ")}</p>}
-
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-wg-ink-secondary">
-            <span className="inline-flex items-center gap-1">
-              <UserRound className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
-              {job.responsible ?? <span className="text-wg-ink-muted">Sem responsável</span>}
-            </span>
-            <span className="inline-flex items-center gap-1" suppressHydrationWarning>
-              <CalendarDays className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
-              {ageLabel(job)}
-            </span>
-            <span
-              className="inline-flex items-center gap-1"
-              title={`Última movimentação: ${formatDate(job.lastActivityAt)}`}
-              suppressHydrationWarning
-            >
-              <Clock3 className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
-              Atualizada {formatRelativeTime(job.lastActivityAt)}
-            </span>
-            {job.positionsTotal != null && job.positionsTotal > 0 && (
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1",
-                  job.positionsFilled === job.positionsTotal && "font-medium text-success-fg"
-                )}
-                title="Posições preenchidas / posições da vaga"
-              >
-                <BriefcaseBusiness className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />
-                {job.positionsFilled ?? 0}/{job.positionsTotal} {job.positionsTotal === 1 ? "posição preenchida" : "posições preenchidas"}
-              </span>
-            )}
-          </p>
-
-          {job.reasons.length > 0 && (
-            <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5" aria-label="Motivos de atenção">
-              {job.reasons.map((r) => (
-                <li key={r.key} className={cn("inline-flex items-center gap-1 text-meta font-medium", TONE_TEXT[r.tone])}>
-                  <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[r.tone])} />
-                  {r.label}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <Link
-            href={`/vagas/${job.id}/candidatos`}
-            className="min-w-[88px] rounded-control px-2 py-1 text-right hover:bg-wg-bg"
-            aria-label={`${job.candidateCount} candidatos em ${job.title}${job.newCount ? `, ${job.newCount} novos` : ""}`}
-          >
-            <span className="flex items-center justify-end gap-1 font-sora text-lg font-semibold tabular-nums text-wg-ink">
-              <Users className="h-4 w-4 text-wg-ink-muted" aria-hidden />
-              {job.candidateCount}
-            </span>
-            <span className="block text-[11.5px] text-wg-ink-muted">
-              {job.newCount > 0 ? (
-                <span className="font-semibold text-warning-fg">
-                  {job.newCount} {job.newCount === 1 ? "novo" : "novos"}
-                </span>
-              ) : job.candidateCount === 1 ? (
-                "candidato"
-              ) : (
-                "candidatos"
-              )}
-            </span>
-          </Link>
-          <ButtonLink
-            href={`/vagas/${job.id}/candidatos`}
-            variant="secondary"
-            size="sm"
-            icon={Eye}
-            className="hidden md:inline-flex"
-          >
-            Ver candidatos
-          </ButtonLink>
-          {canManage && <JobActionsMenu jobId={job.id} jobTitle={job.title} status={job.status} />}
-        </div>
-      </div>
-    </li>
   );
 }

@@ -16,14 +16,80 @@ interface Props {
   /** Total em destaque à esquerda (ex.: "26 vagas"). */
   total: { value: number | string; label: string };
   items: CompactMetric[];
+  /**
+   * `card` (padrão): faixa com borda. `inline`: uma linha de texto sem moldura, logo abaixo do
+   * título — para páginas em que a lista é a tarefa principal e o resumo não deve competir.
+   */
+  variant?: "card" | "inline";
+  /** Zeros ficam sem ponto, sem negrito e no fim da linha (ênfase por exceção). */
+  muteZero?: boolean;
   className?: string;
 }
+
+const isZero = (v: number | string) => v === 0 || v === "0";
 
 /**
  * Faixa de métricas compacta para páginas operacionais (Vagas, Admissões): ocupa uma
  * linha em vez de uma grade de cards. Ex.: 26 vagas | 7 abertas · 1 rascunho · 4 canceladas.
  */
-export function CompactMetrics({ total, items, className }: Props) {
+export function CompactMetrics({ total, items, variant = "card", muteZero = false, className }: Props) {
+  // Ordenação estável: só empurra os zeros para o fim.
+  const list = muteZero ? [...items.filter((m) => !isZero(m.value)), ...items.filter((m) => isZero(m.value))] : items;
+
+  const renderItem = (m: CompactMetric) => {
+    const muted = muteZero && isZero(m.value);
+    const inner = (
+      <>
+        {m.tone && !muted && <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[m.tone])} />}
+        <span className={cn("tabular-nums", muted ? "text-wg-ink-muted" : "font-semibold text-wg-ink")}>{m.value}</span>
+        <span className="text-wg-ink-muted">{m.label}</span>
+      </>
+    );
+    return m.href ? (
+      <Link
+        href={m.href}
+        title={m.hint}
+        className="-mx-1 inline-flex items-center gap-1.5 rounded-md px-1 transition-colors duration-150 hover:bg-wg-hover-light"
+      >
+        {inner}
+      </Link>
+    ) : (
+      <span title={m.hint} className="inline-flex items-center gap-1.5">
+        {inner}
+      </span>
+    );
+  };
+
+  if (variant === "inline") {
+    // Mesmo recurso do MetaLine da lista de vagas: todo item leva o "·" à esquerda e a linha é
+    // deslocada dentro de um overflow oculto — o separador nunca abre uma linha quebrada.
+    // O padding externo (p-1 / -m-1) deixa o contorno de foco dos links visível.
+    const sep = (
+      <span aria-hidden className="w-5 shrink-0 text-center text-wg-ink-muted/50">
+        ·
+      </span>
+    );
+    return (
+      <div className={cn("-m-1 overflow-hidden p-1", className)}>
+        <ul className="-ml-5 flex flex-wrap items-center gap-y-1 text-meta">
+          <li className="flex items-baseline">
+            {sep}
+            <span className="flex items-baseline gap-1.5">
+              <span className="font-semibold tabular-nums text-wg-ink">{total.value}</span>
+              <span className="text-wg-ink-muted">{total.label}</span>
+            </span>
+          </li>
+          {list.map((m) => (
+            <li key={m.label} className="flex items-center">
+              {sep}
+              {renderItem(m)}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -36,32 +102,11 @@ export function CompactMetrics({ total, items, className }: Props) {
         <span className="text-meta text-wg-ink-muted">{total.label}</span>
       </p>
       <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-        {items.map((m) => {
-          const inner = (
-            <>
-              {m.tone && <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[m.tone])} />}
-              <span className="font-semibold tabular-nums text-wg-ink">{m.value}</span>
-              <span className="text-wg-ink-muted">{m.label}</span>
-            </>
-          );
-          return (
-            <li key={m.label} className="text-meta">
-              {m.href ? (
-                <Link
-                  href={m.href}
-                  title={m.hint}
-                  className="inline-flex items-center gap-1.5 rounded-md px-1 -mx-1 hover:bg-wg-hover-light"
-                >
-                  {inner}
-                </Link>
-              ) : (
-                <span title={m.hint} className="inline-flex items-center gap-1.5">
-                  {inner}
-                </span>
-              )}
-            </li>
-          );
-        })}
+        {list.map((m) => (
+          <li key={m.label} className="text-meta">
+            {renderItem(m)}
+          </li>
+        ))}
       </ul>
     </div>
   );

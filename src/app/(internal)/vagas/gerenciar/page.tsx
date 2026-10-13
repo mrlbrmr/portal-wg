@@ -29,9 +29,11 @@ export default async function GerenciarVagasPage({
 
   return (
     <div>
+      {/* O resumo ocupa o lugar do subtítulo: uma linha de texto, sem moldura, para a lista
+          ser o primeiro bloco da página. Cada número filtra a lista. */}
       <PageHeader
         title="Vagas"
-        subtitle="Processos seletivos em andamento — status, etapa, idade e pendências de cada vaga."
+        className="mb-1"
         action={
           <>
             <ExportCsvButton status={params.status} />
@@ -45,12 +47,14 @@ export default async function GerenciarVagasPage({
       />
 
       <CompactMetrics
-        className="mb-4"
+        variant="inline"
+        muteZero
+        className="mb-2"
         total={{ value: rows.length, label: rows.length === 1 ? "vaga" : "vagas" }}
         items={[
-          { label: "abertas", value: byLifecycle("OPEN"), tone: "success", href: "/vagas/gerenciar?status=OPEN" },
+          { label: "abertas", value: byLifecycle("OPEN"), href: "/vagas/gerenciar?status=OPEN" },
           { label: "precisam de atenção", value: needAttention, tone: "warning", href: "/vagas/gerenciar?pendencia=atencao" },
-          { label: "rascunhos", value: byLifecycle("DRAFT"), tone: "neutral", href: "/vagas/gerenciar?status=DRAFT" },
+          { label: "rascunhos", value: byLifecycle("DRAFT"), href: "/vagas/gerenciar?status=DRAFT" },
           { label: "pausadas", value: byLifecycle("PAUSED"), href: "/vagas/gerenciar?status=PAUSED" },
           { label: "encerradas", value: byLifecycle("FILLED"), href: "/vagas/gerenciar?status=FILLED" },
           { label: "canceladas", value: byLifecycle("CLOSED"), href: "/vagas/gerenciar?status=CLOSED" },

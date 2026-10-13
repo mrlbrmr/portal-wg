@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastProvider";
 import { createJobTemplate } from "@/lib/jobs/template-actions";
+import { actionErrorMessage } from "@/lib/action-errors";
 import { templateFromJob, type SaveAsTemplateOptions, type TemplateTarget } from "@/lib/jobs/templates";
 import { Field, inputClass } from "./JobFields";
 
@@ -51,7 +52,14 @@ export function SaveAsTemplateDialog({
     if (name.trim().length < 2) return setError("Informe o nome do modelo.");
     setError(null);
     startTransition(async () => {
-      const res = await createJobTemplate(templateFromJob(job, { name, department, include }));
+      let res: Awaited<ReturnType<typeof createJobTemplate>>;
+      try {
+        res = await createJobTemplate(templateFromJob(job, { name, department, include }));
+      } catch (e) {
+        console.error("[salvar-como-modelo]", e);
+        setError(actionErrorMessage(e));
+        return;
+      }
       if (!res.ok) {
         setError(res.error);
         return;

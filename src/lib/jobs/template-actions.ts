@@ -58,7 +58,22 @@ function revalidate() {
 
 function dbError(error: { code?: string; message?: string }): string {
   if (error.code === "23505") return DUPLICATE;
-  return "Não foi possível salvar o modelo.";
+  console.error("[job-templates]", error);
+  return `Não foi possível salvar o modelo${error.message ? ` (${error.message})` : ""}.`;
+}
+
+/**
+ * Nenhuma falha inesperada sobe como exceção para a tela (viraria "Ocorreu um erro
+ * inesperado"): vira { ok: false } com o detalhe, e o erro completo fica no log.
+ */
+async function guarded(label: string, fn: () => Promise<TemplateActionResult>): Promise<TemplateActionResult> {
+  try {
+    return await fn();
+  } catch (e) {
+    console.error(`[job-templates] ${label}`, e);
+    const detail = e instanceof Error && e.message ? ` (${e.message})` : "";
+    return { ok: false, error: `Não foi possível concluir a operação${detail}. Tente novamente.` };
+  }
 }
 
 function parse(input: unknown): { ok: true; data: JobTemplateInput } | { ok: false; error: string } {
@@ -68,6 +83,10 @@ function parse(input: unknown): { ok: true; data: JobTemplateInput } | { ok: fal
 }
 
 export async function createJobTemplate(input: JobTemplateInput): Promise<TemplateActionResult> {
+  return guarded("create", () => createJobTemplateImpl(input));
+}
+
+async function createJobTemplateImpl(input: JobTemplateInput): Promise<TemplateActionResult> {
   const session = await requireAdmin();
   if (!session) return { ok: false, error: "Sem permissão." };
   const v = parse(input);
@@ -87,6 +106,10 @@ export async function createJobTemplate(input: JobTemplateInput): Promise<Templa
 }
 
 export async function updateJobTemplate(id: string, input: JobTemplateInput): Promise<TemplateActionResult> {
+  return guarded("update", () => updateJobTemplateImpl(id, input));
+}
+
+async function updateJobTemplateImpl(id: string, input: JobTemplateInput): Promise<TemplateActionResult> {
   const session = await requireAdmin();
   if (!session) return { ok: false, error: "Sem permissão." };
   const v = parse(input);
@@ -108,6 +131,10 @@ export async function updateJobTemplate(id: string, input: JobTemplateInput): Pr
 }
 
 export async function duplicateJobTemplate(id: string): Promise<TemplateActionResult> {
+  return guarded("duplicate", () => duplicateJobTemplateImpl(id));
+}
+
+async function duplicateJobTemplateImpl(id: string): Promise<TemplateActionResult> {
   const session = await requireAdmin();
   if (!session) return { ok: false, error: "Sem permissão." };
 
@@ -148,6 +175,10 @@ export async function duplicateJobTemplate(id: string): Promise<TemplateActionRe
 
 /** Arquivar/reativar. Arquivado some do seletor de "Nova vaga"; vagas existentes não mudam. */
 export async function setJobTemplateActive(id: string, active: boolean): Promise<TemplateActionResult> {
+  return guarded("active", () => setJobTemplateActiveImpl(id, active));
+}
+
+async function setJobTemplateActiveImpl(id: string, active: boolean): Promise<TemplateActionResult> {
   const session = await requireAdmin();
   if (!session) return { ok: false, error: "Sem permissão." };
 

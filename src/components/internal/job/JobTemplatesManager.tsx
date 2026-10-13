@@ -24,6 +24,7 @@ import {
   updateJobTemplate,
 } from "@/lib/jobs/template-actions";
 import { matchesTemplate, type JobTemplate, type JobTemplateInput } from "@/lib/jobs/templates";
+import { actionErrorMessage } from "@/lib/action-errors";
 import { Field, inputClass } from "./JobFields";
 
 type StatusFilter = "active" | "archived" | "all";
@@ -63,7 +64,13 @@ export function JobTemplatesManager({ templates }: { templates: JobTemplate[] })
 
   function run(label: string, fn: () => Promise<{ ok: true; template: JobTemplate } | { ok: false; error: string }>) {
     startTransition(async () => {
-      const res = await fn();
+      let res: Awaited<ReturnType<typeof fn>>;
+      try {
+        res = await fn();
+      } catch (e) {
+        console.error("[modelos-vaga]", e);
+        return notify("error", actionErrorMessage(e));
+      }
       if (!res.ok) return notify("error", res.error);
       notify("success", label.replace("{name}", res.template.name));
       router.refresh();
@@ -298,7 +305,13 @@ function TemplateEditorDialog({
     if (form.title.trim().length < 2) return setError("Informe o cargo.");
     setError(null);
     startTransition(async () => {
-      const res = template ? await updateJobTemplate(template.id, form) : await createJobTemplate(form);
+      let res: Awaited<ReturnType<typeof createJobTemplate>>;
+      try {
+        res = template ? await updateJobTemplate(template.id, form) : await createJobTemplate(form);
+      } catch (e) {
+        console.error("[modelos-vaga]", e);
+        return setError(actionErrorMessage(e));
+      }
       if (!res.ok) return setError(res.error);
       notify("success", template ? "Modelo atualizado. Vagas já criadas não mudam." : `Modelo “${res.template.name}” criado.`);
       onSaved();

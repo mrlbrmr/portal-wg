@@ -199,6 +199,9 @@ export default async function HomePage({
             </AnimateIn>
           ) : (
             <LoadMoreJobs
+              // A lista vive em estado no cliente (para "Carregar mais"); trocar o filtro
+              // precisa remontar o componente, senão os cards antigos ficam na tela.
+              key={JSON.stringify(params)}
               initialJobs={jobs}
               total={total}
               filters={params}

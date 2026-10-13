@@ -48,7 +48,9 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/usuarios") ||
     pathname.startsWith("/admissoes") ||
     pathname.startsWith("/api/admissoes") ||
-    pathname.startsWith("/api/jobs") ||
+    // GET /api/jobs (lista) é PÚBLICO: o "Carregar mais" do portal usa; sem sessão a rota
+    // devolve só colunas públicas de vagas publicadas (onlyPublicVisible). O resto é interno.
+    (pathname.startsWith("/api/jobs") && !(pathname === "/api/jobs" && req.method === "GET")) ||
     pathname.startsWith("/api/homepage-config") ||
     pathname.startsWith("/api/users") ||
     // Mutação/leitura de candidatura individual é interna.

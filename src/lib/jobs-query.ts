@@ -22,18 +22,16 @@ import {
 
 export interface JobFilterParams {
   city?: string | null;
-  modality?: string | null;
   department?: string | null;
   query?: string | null;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/** Aplica os filtros de texto/seleção comuns (cidade/modelo/departamento/busca). */
+/** Aplica os filtros de texto comuns (cidade/departamento/busca). */
 export function applyJobFilters(q: any, f: JobFilterParams): any {
   let r = q;
   if (f.city) r = r.ilike("city", `%${f.city}%`);
-  if (f.modality) r = r.eq("modality", f.modality);
   if (f.department) r = r.ilike("department", `%${f.department}%`);
   if (f.query) r = r.ilike("title", `%${f.query}%`);
   return r;
@@ -80,6 +78,6 @@ export function onlyLinkAccessible(q: any): any {
  * O salário público é `salaryRange` (derivado em src/lib/jobs/salary.ts).
  */
 export const PUBLIC_JOB_COLUMNS =
-  "id, code, title, slug, department, company, city, state, isTalentPool, modality, contractType, " +
+  "id, code, title, slug, department, company, city, state, isTalentPool, contractType, " +
   "description, responsibilities, requiredRequirements, desiredRequirements, benefits, workSchedule, " +
   "salaryRange, openings, openPositions, highlightBenefit, closingDate, status, visibility, createdAt, updatedAt";

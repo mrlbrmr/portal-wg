@@ -12,14 +12,12 @@ import { useCallback, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import type { FormFieldConfig } from "@/types/form-config";
 import { BOOLEAN_OPTIONS, isFieldVisible, parseMulti, serializeMulti } from "@/lib/job-requests/extra-fields";
-import type { ContractType, JobRequestReason, Modality } from "@/types/domain";
+import type { ContractType, JobRequestReason } from "@/types/domain";
 import {
   CONTRACT_TYPE_LABELS,
   CONTRACT_TYPE_ORDER,
   JOB_REQUEST_REASON_LABELS,
   JOB_REQUEST_REASON_ORDER,
-  MODALITY_LABELS,
-  MODALITY_ORDER,
   requiresReplacedEmployee,
 } from "@/lib/job-requests/constants";
 
@@ -35,7 +33,6 @@ export interface JobRequestFormValues {
   justification: string;
   desiredStartDate: string;
   contractType: ContractType;
-  modality: Modality;
   workSchedule: string;
   extraData: Record<string, string>;
 }
@@ -52,7 +49,6 @@ export const EMPTY_JOB_REQUEST_FORM: JobRequestFormValues = {
   justification: "",
   desiredStartDate: "",
   contractType: "CLT",
-  modality: "PRESENTIAL",
   workSchedule: "",
   extraData: {},
 };
@@ -71,7 +67,6 @@ export function toPayload(v: JobRequestFormValues) {
     justification: v.justification.trim(),
     desiredStartDate: v.desiredStartDate,
     contractType: v.contractType,
-    modality: v.modality,
     workSchedule: v.workSchedule.trim() || null,
     extraData: v.extraData,
   };
@@ -497,20 +492,6 @@ export function JobRequestFormFields({
               </Select>
               {criticalMark}
             </>
-          </Field>
-
-          <Field label="Modalidade" htmlFor="jr-modality" required error={errors.modality}>
-            <Select
-              id="jr-modality"
-              value={values.modality}
-              onChange={(v) => onChange({ modality: v as Modality })}
-            >
-              {MODALITY_ORDER.map((m) => (
-                <option key={m} value={m}>
-                  {MODALITY_LABELS[m]}
-                </option>
-              ))}
-            </Select>
           </Field>
 
           <Field

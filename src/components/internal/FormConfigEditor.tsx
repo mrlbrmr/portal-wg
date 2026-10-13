@@ -80,7 +80,6 @@ const STANDARD_FIELDS: Array<{ section: string; label: string; type: FieldType; 
   { section: "Motivo da contratação", label: "Justificativa da contratação", type: "textarea", required: true },
   { section: "Motivo da contratação", label: "Data desejada para admissão", type: "date", required: true },
   { section: "Condições da vaga", label: "Tipo de contratação", type: "select", required: true },
-  { section: "Condições da vaga", label: "Modalidade", type: "select", required: true },
   { section: "Condições da vaga", label: "Horário / Jornada de trabalho", type: "text", required: false },
 ];
 

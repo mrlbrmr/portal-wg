@@ -5,7 +5,6 @@ export type HomepageConfigData = Omit<HomepageConfig, "id" | "updatedAt">;
 export const DEFAULT_CONFIG: HomepageConfigData = {
   showDepartment: true,
   showLocation: true,
-  showModality: true,
   showContractType: true,
   showCompany: false,
   showWorkSchedule: false,

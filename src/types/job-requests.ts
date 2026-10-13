@@ -3,7 +3,6 @@ import type {
   ContractType,
   JobRequestReason,
   JobRequestStatus,
-  Modality,
 } from "@/types/domain";
 
 /**
@@ -39,7 +38,6 @@ export interface JobRequestRow {
 
   // ── Condições da vaga ──
   contractType: ContractType | null;
-  modality: Modality | null;
   workSchedule: string | null;
 
   // ── Aprovação ──

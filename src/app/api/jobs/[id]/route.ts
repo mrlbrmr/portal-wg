@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { Modality, ContractType, JobStatus, JobRequestReason, JobVisibility } from "@/types/domain";
+import { ContractType, JobStatus, JobRequestReason, JobVisibility } from "@/types/domain";
 import { generateSlug } from "@/lib/utils";
 import { publicationState } from "@/lib/jobs/publication";
 import { salaryColumns, salaryStateFromJob } from "@/lib/jobs/salary";
@@ -23,7 +23,6 @@ const updateJobSchema = z.object({
   isTalentPool: z.boolean().optional(),
   city: z.string().min(2).optional().nullable(),
   state: z.string().length(2).optional().nullable(),
-  modality: z.nativeEnum(Modality).optional(),
   contractType: z.nativeEnum(ContractType).optional(),
   description: richText(10, "Descrição obrigatória").optional(),
   responsibilities: richText(10, "Responsabilidades obrigatórias").optional().nullable(),

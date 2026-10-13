@@ -79,7 +79,7 @@ export async function currentActor(): Promise<WorkflowActor | null> {
 const SELECT_COLUMNS = `
   id, code, status, title, department, location, requester_name, requester_email,
   requested_by_user_id, openings, reason_type, replaced_employee, justification,
-  desired_start_date, contract_type, modality, work_schedule, extra_data,
+  desired_start_date, contract_type, work_schedule, extra_data,
   submitted_at, hr_validated_at, hr_validated_by,
   current_approver_user_id, approved_at, approved_by_name, decision_note, decided_by,
   decided_at, job_id, created_at, updated_at
@@ -101,7 +101,6 @@ interface RawRequest {
   justification: string | null;
   desired_start_date: string | null;
   contract_type: JobRequestRow["contractType"];
-  modality: JobRequestRow["modality"];
   work_schedule: string | null;
   extra_data: Record<string, string> | null;
   submitted_at: string | null;
@@ -147,7 +146,6 @@ function toRow(
     justification: r.justification,
     desiredStartDate: r.desired_start_date,
     contractType: r.contract_type,
-    modality: r.modality,
     workSchedule: r.work_schedule,
     submittedAt: r.submitted_at,
     hrValidatedAt: r.hr_validated_at,

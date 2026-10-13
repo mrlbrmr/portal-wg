@@ -17,7 +17,6 @@ const row: IntranetJobRow = {
   company: "WG Baterias",
   city: "São José dos Pinhais",
   state: "PR",
-  modality: "PRESENTIAL",
   contractType: "CLT",
   workSchedule: null,
   description: "<h2>Sobre a vaga</h2><p>Você vai cuidar do fluxo de &amp; expedição.</p><h2>Requisitos</h2>",
@@ -57,7 +56,7 @@ test("sem histórico, a publicação é a criação; link usa o slug", () => {
   const job = toIntranetJob(row, undefined, "https://carreiras.wgbaterias.com.br");
   assert.equal(job.publishedAt, "2026-09-01T12:00:00.000Z");
   assert.equal(job.url, "https://carreiras.wgbaterias.com.br/vagas/analista-de-logistica-sao-jose-dos-pinhais");
-  assert.equal(job.modality, "Presencial");
+  assert.equal(job.modality, "");
   assert.equal(job.contractType, "CLT");
 });
 

@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyExternalVisible } from "@/lib/jobs-query";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { buildJobPostingJsonLd, type JobForSchema } from "@/lib/job-schema";
-import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { CONTRACT_TYPE_LABELS } from "@/lib/utils";
 
 // GET /api/feed/jobs — feed público (JSON) de todas as vagas abertas. Fonte
 // legível por máquina reutilizável por agregadores e integrações. Público (sem
@@ -23,7 +23,7 @@ export async function GET() {
     supabase
       .from("jobs")
       .select(
-        "id, title, slug, description, city, state, department, company, modality, contractType, salaryRange, createdAt, closingDate"
+        "id, title, slug, description, city, state, department, company, contractType, salaryRange, createdAt, closingDate"
       )
   ).order("createdAt", { ascending: false });
 
@@ -38,7 +38,6 @@ export async function GET() {
     city: job.city,
     state: job.state,
     country: "BR",
-    modality: MODALITY_LABELS[job.modality] ?? job.modality,
     contractType: CONTRACT_TYPE_LABELS[job.contractType] ?? job.contractType,
     salaryRange: job.salaryRange,
     datePosted: new Date(job.createdAt).toISOString(),

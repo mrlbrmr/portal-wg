@@ -8,7 +8,6 @@ import type {
   ContractType,
   JobRequestReason,
   JobRequestStatus,
-  Modality,
 } from "@/types/domain";
 
 // ─── Status ───────────────────────────────────────────────────────────────────
@@ -127,14 +126,6 @@ export const CONTRACT_TYPE_ORDER: ContractType[] = [
   "PJ",
   "OTHER",
 ];
-
-export const MODALITY_LABELS: Record<Modality, string> = {
-  PRESENTIAL: "Presencial",
-  HYBRID: "Híbrido",
-  REMOTE: "Remoto",
-};
-
-export const MODALITY_ORDER: Modality[] = ["PRESENTIAL", "HYBRID", "REMOTE"];
 
 // ─── Eventos do histórico ─────────────────────────────────────────────────────
 

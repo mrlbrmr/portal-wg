@@ -18,7 +18,6 @@ export interface JobForDistribution {
   state: string | null;
   department: string | null;
   company: string | null;
-  modality: string;
   contractType: string;
   salaryRange: string | null;
   highlightBenefit: string | null;

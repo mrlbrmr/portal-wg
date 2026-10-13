@@ -9,7 +9,6 @@ import {
   Hash,
   Lock,
   MapPin,
-  MonitorSmartphone,
   Network,
   Star,
   Users,
@@ -29,7 +28,6 @@ type Mode = "appearance" | "cards";
 type CardFieldKey =
   | "showDepartment"
   | "showLocation"
-  | "showModality"
   | "showContractType"
   | "showCompany"
   | "showWorkSchedule"
@@ -40,7 +38,6 @@ type CardFieldKey =
 const CARD_FIELDS: { key: CardFieldKey; label: string; icon: LucideIcon }[] = [
   { key: "showDepartment", label: "Área / departamento", icon: Network },
   { key: "showLocation", label: "Cidade / UF", icon: MapPin },
-  { key: "showModality", label: "Modalidade", icon: MonitorSmartphone },
   { key: "showContractType", label: "Tipo de contrato", icon: FileSignature },
   { key: "showCompany", label: "Empresa / unidade", icon: Building2 },
   { key: "showWorkSchedule", label: "Jornada / horário", icon: Clock },
@@ -232,7 +229,7 @@ export default function HomepageConfigForm({ initialConfig, mode }: { initialCon
               )}
               {mode === "appearance" && config.showFilters && (
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Filtros (exemplo)">
-                  {["Buscar cargo…", "Cidade…", "Modalidade", "Área…"].map((f) => (
+                  {["Buscar cargo…", "Cidade…", "Área…"].map((f) => (
                     <div key={f} className="rounded-xl border border-wg-border bg-wg-card px-3 py-2 text-[12px] text-wg-gray">
                       {f}
                     </div>

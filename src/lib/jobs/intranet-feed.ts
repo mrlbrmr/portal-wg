@@ -5,11 +5,11 @@
 // que podem aparecer para qualquer colaborador. Nada de candidatos, salário interno,
 // recrutador, gestor solicitante ou escopo aprovado.
 
-import { CONTRACT_TYPE_LABELS, MODALITY_LABELS, PUBLIC_JOB_STATUSES } from "@/lib/utils";
+import { CONTRACT_TYPE_LABELS, PUBLIC_JOB_STATUSES } from "@/lib/utils";
 
 /** Colunas lidas de `jobs` para a Intranet. Nunca use `select("*")` aqui. */
 export const INTRANET_JOB_COLUMNS =
-  "id, code, title, slug, department, company, city, state, modality, contractType, workSchedule, description, openPositions, closingDate, createdAt";
+  "id, code, title, slug, department, company, city, state, contractType, workSchedule, description, openPositions, closingDate, createdAt";
 
 export const INTRANET_SUMMARY_MAX = 220;
 
@@ -22,7 +22,6 @@ export interface IntranetJobRow {
   company: string | null;
   city: string | null;
   state: string | null;
-  modality: string;
   contractType: string;
   workSchedule: string | null;
   description: string | null;
@@ -31,7 +30,7 @@ export interface IntranetJobRow {
   createdAt: string;
 }
 
-/** O que a Intranet recebe por vaga. Modalidade e contrato já vêm como rótulo. */
+/** O que a Intranet recebe por vaga. Contrato já vem como rótulo. */
 export interface IntranetJob {
   id: string;
   code: string | null;
@@ -40,6 +39,8 @@ export interface IntranetJob {
   company: string | null;
   city: string | null;
   state: string | null;
+  /** Sempre "": a WG não usa mais modelo de trabalho (todas são presenciais). Mantido
+   *  só porque a Intranet valida o campo como string no contrato. */
   modality: string;
   contractType: string;
   workSchedule: string | null;
@@ -112,7 +113,7 @@ export function toIntranetJob(row: IntranetJobRow, openedAt: string | undefined,
     company: row.company,
     city: row.city,
     state: row.state,
-    modality: MODALITY_LABELS[row.modality] ?? row.modality,
+    modality: "",
     contractType: CONTRACT_TYPE_LABELS[row.contractType] ?? row.contractType,
     workSchedule: row.workSchedule,
     summary: summaryFromHtml(row.description),

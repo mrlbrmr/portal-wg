@@ -1,7 +1,7 @@
 import { memo } from "react";
 import Link from "next/link";
 import { MapPin, ArrowRight, Clock, Building2, Wallet, Star, Users, Sparkles, Globe } from "lucide-react";
-import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import type { Job } from "@/types/domain";
 import type { HomepageConfigData } from "@/lib/homepage-config";
 
@@ -72,18 +72,6 @@ export default memo(function JobCard({ job, config, preview = false }: Props) {
                     Diversas localidades
                   </>
                 )}
-              </span>
-            )}
-
-            {/* Modalidade */}
-            {config.showModality && (
-              <span className="inline-flex items-center text-[13px] font-semibold px-3.5 py-1 rounded-full"
-                style={{
-                  background: "rgba(144,203,70,0.16)",
-                  border: "1px solid rgba(144,203,70,0.4)",
-                  color: "#98DB55",
-                }}>
-                {MODALITY_LABELS[job.modality]}
               </span>
             )}
 

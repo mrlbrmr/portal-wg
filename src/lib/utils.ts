@@ -128,12 +128,6 @@ export const APPLICATION_STAGE_BADGE: Record<string, string> = {
   REJECTED: "bg-red-100 text-red-700",
 };
 
-export const MODALITY_LABELS: Record<string, string> = {
-  PRESENTIAL: "Presencial",
-  REMOTE: "Remoto",
-  HYBRID: "Híbrido",
-};
-
 export const CONTRACT_TYPE_LABELS: Record<string, string> = {
   CLT: "CLT",
   PJ: "PJ",

@@ -25,7 +25,6 @@ export interface JobTemplate {
   name: string;
   title: string;
   department: string | null;
-  modality: string | null;
   contractType: string | null;
   workSchedule: string | null;
   /**
@@ -51,28 +50,26 @@ export type JobTemplateInput = Omit<JobTemplate, "id" | "active" | "updatedAt" |
 export interface TemplateTarget {
   title: string;
   department: string;
-  modality: string;
   contractType: string;
   workSchedule: string;
   content: string;
   templateId: string | null;
 }
 
-export type TemplateField = "title" | "department" | "modality" | "contractType" | "workSchedule";
+export type TemplateField = "title" | "department" | "contractType" | "workSchedule";
 
-export const TEMPLATE_FIELDS: readonly TemplateField[] = ["title", "department", "modality", "contractType", "workSchedule"];
+export const TEMPLATE_FIELDS: readonly TemplateField[] = ["title", "department", "contractType", "workSchedule"];
 
 export const TEMPLATE_FIELD_LABELS: Record<TemplateField | "content", string> = {
   title: "Título da vaga",
   department: "Área / departamento",
-  modality: "Modalidade",
   contractType: "Tipo de contratação",
   workSchedule: "Horário de trabalho",
   content: "Conteúdo da vaga",
 };
 
 export const TEMPLATE_SELECT_COLUMNS =
-  "id, name, title, department, modality, contractType, workSchedule, about, responsibilities, requiredRequirements, desiredRequirements, benefits, active, updatedAt, updatedBy";
+  "id, name, title, department, contractType, workSchedule, about, responsibilities, requiredRequirements, desiredRequirements, benefits, active, updatedAt, updatedBy";
 
 // ─── Seções do conteúdo ─────────────────────────────────────────────────────────────────
 
@@ -329,12 +326,12 @@ export function withContent<T extends Pick<JobTemplateInput, "about" | SectionKe
 /**
  * Modelo a partir do rascunho da vaga. Nunca leva o que é da abertura (candidatos, datas,
  * status, publicação, solicitação, posições, motivo, salário, histórico).
- *   • `general` = modalidade, contratação e horário;
+ *   • `general` = contratação e horário;
  *   • `content` = o "Conteúdo da vaga" inteiro, como está (Markdown livre — sem exigir
  *     títulos padrão).
  */
 export function templateFromJob(
-  job: Pick<TemplateTarget, "title" | "modality" | "contractType" | "workSchedule" | "content">,
+  job: Pick<TemplateTarget, "title" | "contractType" | "workSchedule" | "content">,
   opts: SaveAsTemplateOptions
 ): JobTemplateInput {
   const { general, content } = opts.include;
@@ -345,7 +342,6 @@ export function templateFromJob(
       name: opts.name.trim(),
       title: job.title.trim(),
       department: opts.department.trim() || null,
-      modality: general ? job.modality || null : null,
       contractType: general ? job.contractType || null : null,
       workSchedule: general ? job.workSchedule.trim() || null : null,
       about: null,

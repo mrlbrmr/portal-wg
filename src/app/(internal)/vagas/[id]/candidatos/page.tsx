@@ -10,7 +10,6 @@ import { AddCandidateModal } from "@/components/internal/AddCandidateModal";
 import { IncluirTalentoModal } from "@/components/internal/IncluirTalentoModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { MODALITY_LABELS } from "@/lib/utils";
 import { jobLifecycle, jobStatusDisplay } from "@/lib/recruitment/job-presentation";
 import { publicationIndicator } from "@/lib/jobs/publication";
 import { progressLabel, summarizePositions } from "@/lib/jobs/positions";
@@ -43,7 +42,7 @@ export default async function CandidatosPage({ params }: Props) {
     auth(),
     supabase
       .from("jobs")
-      .select("id, code, title, city, state, isTalentPool, requestId, modality, status, visibility, responsible")
+      .select("id, code, title, city, state, isTalentPool, requestId, status, visibility, responsible")
       .eq("id", id)
       .maybeSingle(),
   ]);
@@ -306,7 +305,7 @@ export default async function CandidatosPage({ params }: Props) {
   const isDefaultStatus =
     jobLifecycle(job.status) === "OPEN" &&
     publicationIndicator({ status: job.status, visibility: job.visibility ?? "BOTH" })?.label === "Publicada";
-  const meta = [job.code, jobLocation, job.modality ? MODALITY_LABELS[job.modality] ?? job.modality : null].filter(Boolean);
+  const meta = [job.code, jobLocation].filter(Boolean);
 
   return (
     <div>

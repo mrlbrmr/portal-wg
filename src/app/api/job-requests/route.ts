@@ -21,7 +21,6 @@ import { pruneHiddenExtraData, validateExtraData } from "@/lib/job-requests/extr
 import {
   CONTRACT_TYPE_LABELS,
   JOB_REQUEST_REASON_LABELS,
-  MODALITY_LABELS,
 } from "@/lib/job-requests/constants";
 import type { FormConfig } from "@/types/form-config";
 
@@ -96,7 +95,6 @@ export async function POST(req: NextRequest) {
         ? ([["Colaborador substituído", payload.replacedEmployee]] as Array<[string, string]>)
         : []),
       ["Tipo de contratação", CONTRACT_TYPE_LABELS[payload.contractType]],
-      ["Modalidade", MODALITY_LABELS[payload.modality]],
       ...(payload.workSchedule
         ? ([["Horário / Jornada", payload.workSchedule]] as Array<[string, string]>)
         : []),

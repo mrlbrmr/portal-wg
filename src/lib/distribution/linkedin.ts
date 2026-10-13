@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import { getAppBaseUrl } from "@/lib/app-url";
 import type { JobForDistribution, PublishResult } from "./types";
 
@@ -193,7 +193,7 @@ async function ensureValidToken(conn: StoredLinkedInConnection): Promise<string 
 function buildCommentary(job: JobForDistribution): string {
   const parts = [
     `🚀 Nova vaga: ${job.title}`,
-    `📍 ${job.city}/${job.state} · ${MODALITY_LABELS[job.modality] ?? job.modality}`,
+    `📍 ${job.city}/${job.state}`,
     `📄 ${CONTRACT_TYPE_LABELS[job.contractType] ?? job.contractType}`,
   ];
   if (job.salaryRange) parts.push(`💰 ${job.salaryRange}`);
@@ -233,10 +233,7 @@ export async function createOrganizationPost(job: JobForDistribution): Promise<P
       article: {
         source: job.url,
         title: job.title.slice(0, 200),
-        description: `${job.city}/${job.state} · ${MODALITY_LABELS[job.modality] ?? job.modality}`.slice(
-          0,
-          256
-        ),
+        description: `${job.city}/${job.state}`.slice(0, 256),
       },
     },
     lifecycleState: "PUBLISHED",

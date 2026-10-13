@@ -12,7 +12,6 @@ interface Props {
   total: number;
   filters: {
     city?: string;
-    modality?: string;
     department?: string;
     query?: string;
   };
@@ -34,7 +33,6 @@ export function LoadMoreJobs({ initialJobs, total, filters, config, pageSize }: 
     const nextPage = page + 1;
     const params = new URLSearchParams({ page: String(nextPage), limit: String(pageSize) });
     if (filters.city) params.set("city", filters.city);
-    if (filters.modality) params.set("modality", filters.modality);
     if (filters.department) params.set("department", filters.department);
     if (filters.query) params.set("query", filters.query);
 

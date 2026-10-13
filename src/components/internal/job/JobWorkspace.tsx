@@ -20,7 +20,7 @@ import { StatusBadge, type Tone } from "@/components/ui/StatusBadge";
 import { DropdownMenu, type DropdownMenuItem } from "@/components/ui/DropdownMenu";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/ToastProvider";
-import { cn, isPublicJobStatus, MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { cn, isPublicJobStatus, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import { externalBlockReason, publicationIndicator, publicationState } from "@/lib/jobs/publication";
 import type { JobTemplate } from "@/lib/jobs/templates";
 import { JOB_LIFECYCLE_META, JOB_PROCESS_STATUS_LABELS, canonicalJobStatus, jobLifecycle } from "@/lib/recruitment/job-presentation";
@@ -107,7 +107,6 @@ function scopeCurrentFromDraft(d: JobDraft, openings: number): ScopeCurrent {
     company: d.company,
     openings,
     contractType: d.contractType,
-    modality: d.modality,
     openingReason: d.openingReason || null,
     hiringManager: d.hiringManager,
     salary: d.salaryMode === "DEFINED" ? salaryValue(d) : null,
@@ -180,7 +179,6 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
     department: approvedHint(scope, "department", liveScope.department),
     company: approvedHint(scope, "company", liveScope.company),
     contractType: approvedHint(scope, "contractType", liveScope.contractType),
-    modality: approvedHint(scope, "modality", liveScope.modality),
     openingReason: approvedHint(scope, "openingReason", liveScope.openingReason),
     hiringManager: approvedHint(scope, "hiringManager", liveScope.hiringManager),
   };
@@ -637,7 +635,6 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
               <dl className="-mt-1 divide-y divide-wg-border-lighter text-body">
                 <PublicRow label="Título" value={draft.title || "—"} />
                 <PublicRow label="Local" value={draft.isTalentPool ? "Diversas localidades" : draft.city ? `${draft.city}/${draft.state}` : "—"} />
-                <PublicRow label="Modalidade" value={MODALITY_LABELS[draft.modality] ?? draft.modality} />
                 <PublicRow label="Contratação" value={CONTRACT_TYPE_LABELS[draft.contractType] ?? draft.contractType} />
                 <PublicRow label="Horário" value={draft.workSchedule || "—"} />
                 <PublicRow label="Salário" value={publicSalary ?? "Não divulgado"} />
@@ -739,7 +736,6 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
           <h2 className="font-sora text-2xl font-semibold text-wg-ink">{draft.title || "Título da vaga"}</h2>
           <div className="mt-2 flex flex-wrap gap-2 text-meta text-wg-ink-secondary">
             <Chip>{draft.isTalentPool ? "Diversas localidades" : draft.city ? `${draft.city} / ${draft.state}` : "Local"}</Chip>
-            <Chip>{MODALITY_LABELS[draft.modality] ?? draft.modality}</Chip>
             <Chip>{CONTRACT_TYPE_LABELS[draft.contractType] ?? draft.contractType}</Chip>
             {draft.workSchedule && <Chip>{draft.workSchedule}</Chip>}
             {publicSalary && <Chip>{publicSalary}</Chip>}

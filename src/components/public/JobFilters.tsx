@@ -3,13 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useRef } from "react";
 
-const MODALITIES = [
-  { value: "", label: "Todas as modalidades" },
-  { value: "PRESENTIAL", label: "Presencial" },
-  { value: "REMOTE", label: "Remoto" },
-  { value: "HYBRID", label: "Híbrido" },
-];
-
 const ChevronDown = () => (
   <svg
     width="14"
@@ -82,22 +75,6 @@ export default function JobFilters() {
           onChange={(e) => updateFilterDebounced("city", e.target.value)}
           style={{ ...inputBase, padding: "14px 40px 14px 20px" }}
         />
-        <ChevronDown />
-      </div>
-
-      {/* Modalidade — select com chevron */}
-      <div style={{ position: "relative", minWidth: 200 }}>
-        <select
-          defaultValue={searchParams.get("modality") || ""}
-          onChange={(e) => updateFilter("modality", e.target.value)}
-          style={{ ...inputBase, padding: "14px 40px 14px 20px", appearance: "none", cursor: "pointer" }}
-        >
-          {MODALITIES.map((m) => (
-            <option key={m.value} value={m.value} style={{ background: "#1C1D1D", color: "#F2F2F2" }}>
-              {m.label}
-            </option>
-          ))}
-        </select>
         <ChevronDown />
       </div>
 

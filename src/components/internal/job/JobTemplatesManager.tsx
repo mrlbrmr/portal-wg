@@ -16,7 +16,7 @@ import { FilterSelect, SearchField } from "@/components/ui/FilterControls";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/ToastProvider";
-import { cn, CONTRACT_TYPE_LABELS, MODALITY_LABELS } from "@/lib/utils";
+import { cn, CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import {
   createJobTemplate,
   duplicateJobTemplate,
@@ -250,7 +250,6 @@ function emptyInput(): JobTemplateInput {
     name: "",
     title: "",
     department: null,
-    modality: null,
     contractType: null,
     workSchedule: null,
     about: null,
@@ -360,16 +359,6 @@ function TemplateEditorDialog({
         <fieldset className="space-y-3">
           <legend className="mb-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-wg-ink-muted">Dados padrão</legend>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Modalidade" htmlFor={`${id}-mod`}>
-              <select id={`${id}-mod`} value={str(form.modality)} onChange={(e) => set({ modality: e.target.value || null })} className={inputClass}>
-                <option value="">Não definir</option>
-                {Object.entries(MODALITY_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </Field>
             <Field label="Tipo de contratação" htmlFor={`${id}-ct`}>
               <select id={`${id}-ct`} value={str(form.contractType)} onChange={(e) => set({ contractType: e.target.value || null })} className={inputClass}>
                 <option value="">Não definir</option>

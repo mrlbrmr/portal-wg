@@ -16,7 +16,6 @@ const PAGE_SIZE = 9;
 
 interface SearchParams {
   city?: string;
-  modality?: string;
   department?: string;
   query?: string;
 }

@@ -9,7 +9,6 @@ import { logConfigChange } from "@/lib/settings/audit";
 const homepageConfigSchema = z.object({
   showDepartment: z.boolean().optional(),
   showLocation: z.boolean().optional(),
-  showModality: z.boolean().optional(),
   showContractType: z.boolean().optional(),
   showCompany: z.boolean().optional(),
   showWorkSchedule: z.boolean().optional(),

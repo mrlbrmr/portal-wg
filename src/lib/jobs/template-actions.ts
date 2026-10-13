@@ -12,7 +12,7 @@ import { z } from "zod";
 import { auth, type Session } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logConfigChange } from "@/lib/settings/audit";
-import { ContractType, Modality } from "@/types/domain";
+import { ContractType } from "@/types/domain";
 import { duplicateName, TEMPLATE_SELECT_COLUMNS, type JobTemplate, type JobTemplateInput } from "./templates";
 
 export type TemplateActionResult = { ok: true; template: JobTemplate } | { ok: false; error: string };
@@ -32,7 +32,6 @@ const templateSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do modelo.").max(120),
   title: z.string().trim().min(2, "Informe o cargo.").max(200),
   department: text(120),
-  modality: z.nativeEnum(Modality).nullable().optional().transform((v) => v ?? null),
   contractType: z.nativeEnum(ContractType).nullable().optional().transform((v) => v ?? null),
   workSchedule: text(200),
   about: text(50000),
@@ -153,7 +152,6 @@ async function duplicateJobTemplateImpl(id: string): Promise<TemplateActionResul
       name,
       title: s.title,
       department: s.department,
-      modality: s.modality,
       contractType: s.contractType,
       workSchedule: s.workSchedule,
       about: s.about,

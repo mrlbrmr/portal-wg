@@ -23,7 +23,8 @@ const jobSchema = z
   isTalentPool: z.boolean().optional().default(false),
   city: z.string().min(2, "Cidade obrigatória").optional().nullable(),
   state: z.string().length(2, "UF deve ter 2 caracteres").optional().nullable(),
-  modality: z.nativeEnum(Modality),
+  // Todas as vagas da WG são presenciais: o campo saiu das telas, mas a coluna é NOT NULL.
+  modality: z.nativeEnum(Modality).default("PRESENTIAL"),
   contractType: z.nativeEnum(ContractType),
   description: richText(10, "Descrição obrigatória"),
   responsibilities: z.string().optional().nullable(),
@@ -67,7 +68,6 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
   const city = searchParams.get("city");
-  const modality = searchParams.get("modality");
   const department = searchParams.get("department");
   const query = searchParams.get("query");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
@@ -90,7 +90,6 @@ export async function GET(req: NextRequest) {
 
   q = applyJobFilters(q, {
     city,
-    modality: modality && Object.values(Modality).includes(modality as Modality) ? modality : null,
     department,
     query,
   });

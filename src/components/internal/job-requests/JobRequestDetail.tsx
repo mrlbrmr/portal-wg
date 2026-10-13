@@ -18,7 +18,6 @@ import {
 import {
   CONTRACT_TYPE_LABELS,
   JOB_REQUEST_REASON_LABELS,
-  MODALITY_LABELS,
 } from "@/lib/job-requests/constants";
 import { formatDateBR, formatDateTimeBR } from "@/lib/job-requests/mapping";
 import {
@@ -52,7 +51,6 @@ function toFormValues(r: JobRequestRow): JobRequestFormValues {
     justification: r.justification ?? "",
     desiredStartDate: r.desiredStartDate ?? "",
     contractType: r.contractType ?? "CLT",
-    modality: r.modality ?? "PRESENTIAL",
     workSchedule: r.workSchedule ?? "",
     extraData: r.extraData ?? {},
   };
@@ -270,10 +268,6 @@ export function JobRequestDetail({
           <Row
             label="Tipo de contratação"
             value={request.contractType ? CONTRACT_TYPE_LABELS[request.contractType] : null}
-          />
-          <Row
-            label="Modalidade"
-            value={request.modality ? MODALITY_LABELS[request.modality] : null}
           />
           <Row label="Horário / Jornada" value={request.workSchedule} />
         </dl>

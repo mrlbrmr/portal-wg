@@ -2,7 +2,7 @@
 // (/api/job-requests), pela criação interna e pela edição. Client-safe.
 
 import { z } from "zod";
-import { ContractType, JobRequestReason, Modality } from "@/types/domain";
+import { ContractType, JobRequestReason } from "@/types/domain";
 
 const optionalText = (max = 500) =>
   z
@@ -43,7 +43,6 @@ export const jobRequestPayloadSchema = z
     // headcount é controlado fora do sistema. As colunas salary_min/salary_max/
     // cost_center/budget_status seguem no banco, reservadas e sem uso pela aplicação.
     contractType: z.nativeEnum(ContractType),
-    modality: z.nativeEnum(Modality),
     workSchedule: optionalText(200),
 
     /** Perguntas complementares configuradas em /configuracoes/formulario-vaga. */
@@ -75,7 +74,6 @@ export const jobRequestDraftSchema = z.object({
   justification: optionalText(4000),
   desiredStartDate: isoDate,
   contractType: z.nativeEnum(ContractType).optional().nullable(),
-  modality: z.nativeEnum(Modality).optional().nullable(),
   workSchedule: optionalText(200),
   extraData: z.record(z.string()).optional().default({}),
 });
@@ -104,7 +102,6 @@ export function payloadToColumns(data: JobRequestColumnsInput): Record<string, u
     justification: data.justification ?? null,
     desired_start_date: data.desiredStartDate ?? null,
     contract_type: data.contractType ?? null,
-    modality: data.modality ?? null,
     work_schedule: data.workSchedule ?? null,
     extra_data: data.extraData ?? {},
   };

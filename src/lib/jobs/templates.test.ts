@@ -23,7 +23,6 @@ const TEMPLATE: JobTemplate = {
   name: "Auxiliar de Logística",
   title: "Auxiliar de Logística",
   department: "Logística",
-  modality: "PRESENTIAL",
   contractType: "CLT",
   workSchedule: "Seg a Sex, 08h–17h48",
   about: null,
@@ -44,7 +43,6 @@ function jobFromRequest(): Job {
     location: "Matriz",
     openings: 2,
     contractType: "CLT",
-    modality: "PRESENTIAL",
     workSchedule: "Turno B, 14h–22h",
     reasonType: "REPLACEMENT",
     requesterName: "Paulo Gestor",
@@ -312,7 +310,7 @@ test("salvar vaga como modelo: guarda o conteúdo INTEIRO, com os títulos do RH
 
   const semConteudo = templateFromJob({ ...job, content }, { name: "X", department: "", include: { general: false, content: false } });
   assert.equal(semConteudo.about, null);
-  assert.equal(semConteudo.modality, null);
+  assert.equal(semConteudo.contractType, null);
   assert.equal(semConteudo.department, null);
 });
 

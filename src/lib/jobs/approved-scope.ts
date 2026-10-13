@@ -7,7 +7,7 @@
 //   • avisar antes de salvar uma alteração de escopo;
 //   • mostrar discretamente "Originalmente aprovado: X" quando houver divergência.
 
-import { CONTRACT_TYPE_LABELS, MODALITY_LABELS } from "@/lib/utils";
+import { CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import { JOB_REQUEST_REASON_LABELS } from "@/lib/job-requests/constants";
 import { formatBRL } from "./salary";
 
@@ -18,7 +18,6 @@ export interface ApprovedScope {
   location?: string | null;
   openings?: number | null;
   contractType?: string | null;
-  modality?: string | null;
   workSchedule?: string | null;
   reasonType?: string | null;
   requesterName?: string | null;
@@ -38,7 +37,6 @@ export type ScopeField =
   | "company"
   | "openings"
   | "contractType"
-  | "modality"
   | "openingReason"
   | "hiringManager"
   | "salary";
@@ -49,7 +47,6 @@ export const SCOPE_FIELD_LABELS: Record<ScopeField, string> = {
   company: "Empresa / unidade",
   openings: "Número de posições",
   contractType: "Tipo de contratação",
-  modality: "Modalidade",
   openingReason: "Motivo da abertura",
   hiringManager: "Gestor solicitante",
   salary: "Salário",
@@ -63,7 +60,6 @@ export interface ScopeCurrent {
   /** Posições ativas. */
   openings: number | null;
   contractType: string | null;
-  modality: string | null;
   openingReason: string | null;
   hiringManager: string | null;
   salary: number | null;
@@ -84,7 +80,6 @@ function norm(v: unknown): string {
 function display(field: ScopeField, v: unknown): string {
   if (v === null || v === undefined || v === "") return "—";
   if (field === "contractType") return CONTRACT_TYPE_LABELS[String(v)] ?? String(v);
-  if (field === "modality") return MODALITY_LABELS[String(v)] ?? String(v);
   if (field === "openingReason") return JOB_REQUEST_REASON_LABELS[v as keyof typeof JOB_REQUEST_REASON_LABELS] ?? String(v);
   if (field === "openings") return `${v} ${Number(v) === 1 ? "posição" : "posições"}`;
   return String(v);
@@ -103,8 +98,6 @@ export function approvedValue(scope: ApprovedScope, field: ScopeField): unknown 
       return scope.openings ?? null;
     case "contractType":
       return scope.contractType ?? null;
-    case "modality":
-      return scope.modality ?? null;
     case "openingReason":
       return scope.reasonType ?? null;
     case "hiringManager":

@@ -13,7 +13,6 @@ export interface JobForSchema {
   state: string | null;
   department: string | null;
   company: string | null;
-  modality: string;
   contractType: string;
   salaryRange: string | null;
   // Aceita Date (Prisma) ou string ISO (supabase-js) — normalizado com new Date().
@@ -94,12 +93,6 @@ export function buildJobPostingJsonLd(
 
   if (job.closingDate) {
     jsonLd.validThrough = new Date(job.closingDate).toISOString().split("T")[0];
-  }
-
-  // Remoto: Google exige jobLocationType + applicantLocationRequirements.
-  if (job.modality === "REMOTE") {
-    jsonLd.jobLocationType = "TELECOMMUTE";
-    jsonLd.applicantLocationRequirements = { "@type": "Country", name: "BR" };
   }
 
   if (salary) {

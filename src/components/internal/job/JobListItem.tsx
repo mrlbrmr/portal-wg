@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import {
   CONTRACT_TYPE_LABELS,
-  MODALITY_LABELS,
   formatDate,
   formatRelativeTime,
   pluralDays,
@@ -230,7 +229,6 @@ export function JobListItem({ job, canManage }: { job: JobListRow; canManage: bo
             items={[
               location ? <span title={location}>{location}</span> : null,
               job.department ? <span title={job.department}>{job.department}</span> : null,
-              MODALITY_LABELS[job.modality] ?? null,
               hasPositions ? (
                 <PositionsFill filled={job.positionsFilled ?? 0} total={job.positionsTotal!} />
               ) : null,

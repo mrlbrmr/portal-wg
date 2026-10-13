@@ -6,11 +6,6 @@ import type { Job } from "@/types/domain";
 import { publicationState } from "@/lib/jobs/publication";
 import { canonicalJobStatus } from "@/lib/recruitment/job-presentation";
 
-const MODALITY_LABELS: Record<string, string> = {
-  PRESENTIAL: "Presencial",
-  REMOTE: "Remoto",
-  HYBRID: "Híbrido",
-};
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Rascunho",
@@ -44,7 +39,7 @@ export async function GET(req: NextRequest) {
   let q = supabase
     .from("jobs")
     .select(
-      "title, department, company, city, state, modality, contractType, status, " +
+      "title, department, company, city, state, contractType, status, " +
         "openings, responsible, createdAt, closingDate, hiringDeadline, slug, id, visibility"
     )
     .order("createdAt", { ascending: false });
@@ -57,7 +52,7 @@ export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
   const header = [
-    "Título", "Área", "Empresa/Unidade", "Cidade", "UF", "Modalidade", "Contrato",
+    "Título", "Área", "Empresa/Unidade", "Cidade", "UF", "Contrato",
     "Status", "Vagas", "Responsável", "Criada em", "Encerra em", "Prazo contratação", "Link público",
   ];
 
@@ -67,7 +62,6 @@ export async function GET(req: NextRequest) {
     j.company ?? "",
     j.city,
     j.state,
-    MODALITY_LABELS[j.modality] ?? j.modality,
     CONTRACT_LABELS[j.contractType] ?? j.contractType,
     STATUS_LABELS[canonicalJobStatus(j.status)] ?? j.status,
     j.openings ?? "",

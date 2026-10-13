@@ -219,7 +219,6 @@ export interface HomepageConfig {
   id: string;
   showDepartment: boolean;
   showLocation: boolean;
-  showModality: boolean;
   showContractType: boolean;
   showCompany: boolean;
   showWorkSchedule: boolean;

@@ -148,7 +148,6 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
     state: job.state,
     department: job.department,
     company: job.company,
-    modality: job.modality,
     contractType: job.contractType,
     salaryRange: job.salaryRange,
     highlightBenefit: job.highlightBenefit,

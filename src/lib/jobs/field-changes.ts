@@ -4,7 +4,7 @@
 // job_events com a lista do que mudou (valor anterior → novo). A mudança de STATUS não
 // entra aqui: ela já é registrada em job_status_history.
 
-import { CONTRACT_TYPE_LABELS, MODALITY_LABELS } from "@/lib/utils";
+import { CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import { PUBLICATION_LABELS } from "./publication";
 import { JOB_REQUEST_REASON_LABELS } from "@/lib/job-requests/constants";
 import { formatBRL } from "./salary";
@@ -17,7 +17,6 @@ export type TrackedField =
   | "company"
   | "city"
   | "state"
-  | "modality"
   | "contractType"
   | "workSchedule"
   | "openingReason"
@@ -38,7 +37,6 @@ export const TRACKED_FIELD_LABELS: Record<TrackedField, string> = {
   company: "Empresa / unidade",
   city: "Cidade",
   state: "UF",
-  modality: "Modalidade",
   contractType: "Tipo de contratação",
   workSchedule: "Horário",
   openingReason: "Motivo da abertura",
@@ -66,8 +64,6 @@ function display(field: TrackedField, v: unknown): string | null {
   switch (field) {
     case "isTalentPool":
       return v ? "Banco de talentos" : "Vaga específica";
-    case "modality":
-      return MODALITY_LABELS[String(v)] ?? String(v);
     case "contractType":
       return CONTRACT_TYPE_LABELS[String(v)] ?? String(v);
     case "openingReason":

@@ -1,4 +1,4 @@
-import type { JobStatus, JobVisibility, Modality, ContractType, JobRequestReason } from "@/types/domain";
+import type { JobStatus, JobVisibility, ContractType, JobRequestReason } from "@/types/domain";
 
 /**
  * Forma leve e serializável de uma vaga para as visões do painel
@@ -11,7 +11,6 @@ export interface JobRow {
   city: string | null;
   state: string | null;
   isTalentPool: boolean;
-  modality: Modality;
   contractType: ContractType;
   department: string | null;
   /** Motivo da abertura (Substituição, Nova posição...) — null em vagas sem essa informação. */
@@ -43,7 +42,6 @@ export interface JobFilters {
   status: string;
   city: string;
   department: string;
-  modality: string;
   contractType: string;
   responsible: string;
 }
@@ -52,7 +50,6 @@ export const EMPTY_JOB_FILTERS: JobFilters = {
   status: "",
   city: "",
   department: "",
-  modality: "",
   contractType: "",
   responsible: "",
 };

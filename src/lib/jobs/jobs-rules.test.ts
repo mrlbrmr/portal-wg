@@ -59,7 +59,6 @@ const current: ScopeCurrent = {
   company: "Nova Iguaçu",
   openings: 2,
   contractType: "CLT",
-  modality: "PRESENTIAL",
   openingReason: "REPLACEMENT",
   hiringManager: "Paulo Roberto",
   salary: null,
@@ -81,7 +80,7 @@ test("3 posições com 2 aprovadas → 'Originalmente aprovado: 2 posições'", 
 test("campos que a solicitação não definiu não são marcados nem comparados", () => {
   const marked = approvedFields(scope);
   assert.ok(marked.has("openings") && marked.has("title"));
-  assert.ok(!marked.has("department") && !marked.has("modality") && !marked.has("salary"));
+  assert.ok(!marked.has("department") && !marked.has("salary"));
   assert.deepEqual(scopeDivergences(scope, { ...current, department: "Logística" }), []);
 });
 

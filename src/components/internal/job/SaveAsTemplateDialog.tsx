@@ -16,7 +16,7 @@ import { Field, inputClass } from "./JobFields";
 type Include = SaveAsTemplateOptions["include"];
 
 const INCLUDE_OPTIONS: Array<{ key: keyof Include; label: string; hint: string }> = [
-  { key: "general", label: "Dados gerais", hint: "Modalidade, tipo de contratação e horário." },
+  { key: "general", label: "Dados gerais", hint: "Tipo de contratação e horário." },
   { key: "content", label: "Conteúdo da vaga", hint: "O texto inteiro, como está no editor (responsabilidades, requisitos, benefícios…)." },
 ];
 
@@ -27,7 +27,7 @@ export function SaveAsTemplateDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  job: Pick<TemplateTarget, "title" | "department" | "modality" | "contractType" | "workSchedule" | "content">;
+  job: Pick<TemplateTarget, "title" | "department" | "contractType" | "workSchedule" | "content">;
 }) {
   const id = useId();
   const { notify } = useToast();

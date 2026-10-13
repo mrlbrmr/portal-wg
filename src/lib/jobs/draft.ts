@@ -17,7 +17,6 @@ export interface JobDraft {
   company: string;
   city: string;
   state: string;
-  modality: string;
   contractType: string;
   workSchedule: string;
   openingReason: string;
@@ -40,7 +39,7 @@ export interface JobDraft {
 }
 
 /** Valores com que "Nova vaga" começa nos selects — contam como "não preenchido" para o modelo. */
-export const NEW_JOB_DEFAULTS = { modality: "PRESENTIAL", contractType: "CLT" } as const;
+export const NEW_JOB_DEFAULTS = { contractType: "CLT" } as const;
 
 /** Rascunho inicial: da vaga existente, ou vazio para "Nova vaga". */
 export function jobToDraft(job: Job | null | undefined, defaults: { responsible?: string | null } = {}): JobDraft {
@@ -52,7 +51,6 @@ export function jobToDraft(job: Job | null | undefined, defaults: { responsible?
     company: job?.company ?? "",
     city: job?.city ?? "",
     state: job?.state ?? (job ? "" : "SP"),
-    modality: job?.modality ?? NEW_JOB_DEFAULTS.modality,
     contractType: job?.contractType ?? NEW_JOB_DEFAULTS.contractType,
     workSchedule: job?.workSchedule ?? "",
     openingReason: job?.openingReason ?? "",
@@ -84,7 +82,6 @@ export function draftToPayload(d: JobDraft) {
     isTalentPool: d.isTalentPool,
     city: d.isTalentPool ? null : d.city.trim(),
     state: d.isTalentPool ? null : d.state,
-    modality: d.modality,
     contractType: d.contractType,
     description: markdownToHtml(d.content),
     responsibilities: null,

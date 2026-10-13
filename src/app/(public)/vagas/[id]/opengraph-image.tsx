@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 import { createAnonClient } from "@/lib/supabase/anon";
-import { MODALITY_LABELS } from "@/lib/utils";
 import { onlyLinkAccessible } from "@/lib/jobs-query";
 import { getAppBaseUrl } from "@/lib/app-url";
 
@@ -9,7 +8,7 @@ export const contentType = "image/png";
 
 async function findJob(slugOrId: string) {
   const supabase = createAnonClient();
-  const { data } = await onlyLinkAccessible(supabase.from("jobs").select("title, city, state, department, modality"))
+  const { data } = await onlyLinkAccessible(supabase.from("jobs").select("title, city, state, department"))
     .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
     .limit(1);
   return (data?.[0] ?? null) as unknown as {
@@ -17,7 +16,6 @@ async function findJob(slugOrId: string) {
     city: string;
     state: string;
     department: string | null;
-    modality: string;
   } | null;
 }
 
@@ -31,7 +29,6 @@ export default async function OgImage({
 
   const title = job?.title ?? "Vaga de Emprego";
   const location = job ? `${job.city} / ${job.state}` : "Brasil";
-  const modality = job ? MODALITY_LABELS[job.modality] : "";
   const department = job?.department ?? "";
 
   const baseUrl = getAppBaseUrl();
@@ -134,21 +131,6 @@ export default async function OgImage({
             >
               {location}
             </span>
-
-            {modality && (
-              <span
-                style={{
-                  border: "2px solid #374151",
-                  color: "#9ca3af",
-                  padding: "9px 24px",
-                  borderRadius: 40,
-                  fontSize: 20,
-                  fontWeight: 500,
-                }}
-              >
-                {modality}
-              </span>
-            )}
 
             {department && (
               <span

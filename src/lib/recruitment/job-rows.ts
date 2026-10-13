@@ -13,7 +13,6 @@ type JobDbRow = {
   city: string | null;
   state: string | null;
   isTalentPool: boolean;
-  modality: JobRow["modality"];
   contractType: JobRow["contractType"];
   department: string | null;
   openingReason: JobRow["openingReason"];
@@ -33,7 +32,7 @@ export async function loadJobRows(supabase: SupabaseClient, { limit = 200 } = {}
     supabase
       .from("jobs")
       .select(
-        "id, title, city, state, isTalentPool, modality, contractType, department, openingReason, responsible, status, visibility, slug, createdAt, updatedAt, closingDate, openings, openPositions"
+        "id, title, city, state, isTalentPool, contractType, department, openingReason, responsible, status, visibility, slug, createdAt, updatedAt, closingDate, openings, openPositions"
       )
       .order("createdAt", { ascending: false })
       .limit(limit),
@@ -85,7 +84,6 @@ export async function loadJobRows(supabase: SupabaseClient, { limit = 200 } = {}
       city: job.city,
       state: job.state,
       isTalentPool: job.isTalentPool,
-      modality: job.modality,
       contractType: job.contractType,
       department: job.department,
       openingReason: job.openingReason,

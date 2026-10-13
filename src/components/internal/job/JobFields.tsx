@@ -194,13 +194,6 @@ export function OpportunityFields({
             </Field>
           </>
         )}
-        <Field label="Modalidade" htmlFor={`${id}-mod`} required approved={a("modality")} approvedHint={hints?.modality}>
-          <select id={`${id}-mod`} value={draft.modality} onChange={(e) => patch({ modality: e.target.value })} className={inputClass}>
-            <option value="PRESENTIAL">Presencial</option>
-            <option value="REMOTE">Remoto</option>
-            <option value="HYBRID">Híbrido</option>
-          </select>
-        </Field>
         <Field label="Tipo de contratação" htmlFor={`${id}-ct`} required approved={a("contractType")} approvedHint={hints?.contractType}>
           <select id={`${id}-ct`} value={draft.contractType} onChange={(e) => patch({ contractType: e.target.value })} className={inputClass}>
             <option value="CLT">CLT</option>

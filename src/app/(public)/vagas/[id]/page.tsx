@@ -2,7 +2,7 @@ import { createAnonClient } from "@/lib/supabase/anon";
 import type { Job } from "@/types/domain";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MODALITY_LABELS, CONTRACT_TYPE_LABELS } from "@/lib/utils";
+import { CONTRACT_TYPE_LABELS } from "@/lib/utils";
 import { isInternalOnlyJob, publicationChannels } from "@/lib/jobs/publication";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { buildJobPostingJsonLd } from "@/lib/job-schema";
@@ -56,7 +56,7 @@ export default async function JobPage({ params }: Props) {
 
   const supabase = createAnonClient();
   let simQuery = onlyPublicVisible(
-    supabase.from("jobs").select("id, slug, title, city, state, modality, department").neq("id", job.id)
+    supabase.from("jobs").select("id, slug, title, city, state, department").neq("id", job.id)
   );
   if (job.department && job.city) {
     simQuery = simQuery.or(`department.eq."${job.department}",city.eq."${job.city}"`);
@@ -67,7 +67,7 @@ export default async function JobPage({ params }: Props) {
   }
   const { data: similarData } = await simQuery.order("createdAt", { ascending: false }).limit(3);
   const similar = (similarData ?? []) as unknown as Array<
-    Pick<Job, "id" | "slug" | "title" | "city" | "state" | "modality" | "department">
+    Pick<Job, "id" | "slug" | "title" | "city" | "state" | "department">
   >;
 
   const internalOnly = isInternalOnlyJob(job.visibility);
@@ -126,7 +126,7 @@ export default async function JobPage({ params }: Props) {
                 </p>
               )}
 
-              {/* Pills de localização / modalidade */}
+              {/* Pills de localização / contrato */}
               <div className="flex flex-wrap gap-2 mb-8">
                 <span className="inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3.5 py-1.5 text-sm text-gray-600 shadow-sm">
                   <MapPin className="w-3.5 h-3.5 text-wg-green shrink-0" />
@@ -134,7 +134,7 @@ export default async function JobPage({ params }: Props) {
                 </span>
                 <span className="inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3.5 py-1.5 text-sm text-gray-600 shadow-sm">
                   <Briefcase className="w-3.5 h-3.5 text-wg-green shrink-0" />
-                  {MODALITY_LABELS[job.modality]} · {CONTRACT_TYPE_LABELS[job.contractType]}
+                  {CONTRACT_TYPE_LABELS[job.contractType]}
                 </span>
                 {job.workSchedule && (
                   <span className="inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3.5 py-1.5 text-sm text-gray-600 shadow-sm">
@@ -188,8 +188,6 @@ export default async function JobPage({ params }: Props) {
                           <p className="text-xs text-gray-500 mt-0.5">
                             {s.city} / {s.state}
                             {s.department ? ` · ${s.department}` : ""}
-                            {" · "}
-                            {MODALITY_LABELS[s.modality]}
                           </p>
                         </div>
                         <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-wg-green transition-colors shrink-0" />

@@ -32,13 +32,13 @@ export default function LoadingCandidatos() {
         <Skeleton className="h-9 w-28" />
       </div>
 
-      <div className="mt-4 flex gap-3 overflow-hidden pb-3">
+      <div className="mt-4 flex gap-2.5 overflow-hidden pb-3">
         {Array.from({ length: 6 }).map((_, col) => (
-          <div key={col} className="w-[272px] shrink-0 rounded-card bg-[#EEF2E8]/50 p-2">
+          <div key={col} className="w-[248px] shrink-0 rounded-card bg-[#EEF2E8]/45 p-2">
             <div className="flex items-center gap-2 px-1 pb-2 pt-0.5">
               <Skeleton className="h-2 w-2 rounded-full" />
               <Skeleton className="h-4 w-28" />
-              <Skeleton className="ml-auto h-5 w-5 rounded-full" />
+              <Skeleton className="ml-auto h-4 w-4" />
             </div>
             <div className="flex flex-col gap-2">
               {Array.from({ length: col % 3 === 0 ? 2 : 1 }).map((_, card) => (

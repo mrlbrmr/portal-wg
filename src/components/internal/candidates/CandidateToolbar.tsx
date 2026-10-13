@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { Columns3, GitCompareArrows, List, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
 import { ActiveFilterChips, FilterPopover, type ActiveChip, type FilterSection } from "@/components/ui/FilterPopover";
@@ -49,13 +50,17 @@ export function CandidateToolbar({
   onClearSelection,
   resultCount,
 }: Props) {
+  const compareHintId = useId();
   const canCompare = selectedCount >= 2;
   const compareHint = canCompare
     ? `Comparar ${selectedCount} candidatos lado a lado`
     : `Selecione de 2 a ${MAX_COMPARE} candidatos (passe o mouse sobre o avatar ou use a caixa de seleção)`;
 
+  // Única área fixa da tela (desktop): a barra acompanha a rolagem da lista sem competir com
+  // nada — as colunas do Kanban já mantêm o próprio cabeçalho visível. No celular ela quebra
+  // em várias linhas e por isso não fica fixa.
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2 bg-slate-50 py-2 md:sticky md:top-0 md:z-30 md:-mx-8 md:px-8">
       <div className="flex flex-wrap items-center gap-2">
         <SearchBar
           value={query}
@@ -74,20 +79,28 @@ export function CandidateToolbar({
             { value: "kanban", label: "Kanban", icon: Columns3 },
           ]}
         />
-        <span title={compareHint}>
+        {/* aria-disabled (não disabled): continua focável e o leitor de tela ouve como habilitar. */}
+        <span title={compareHint} className="inline-flex">
           <button
             type="button"
-            onClick={onCompare}
-            disabled={!canCompare}
-            aria-label={compareHint}
+            onClick={() => canCompare && onCompare()}
+            aria-disabled={!canCompare || undefined}
+            aria-describedby={compareHintId}
             className={buttonVariants({
               variant: "secondary",
-              className: cn(canCompare && "border-wg-green-dark/50 bg-wg-sidebar text-wg-ink"),
+              className: cn(
+                canCompare
+                  ? "border-wg-green-dark/50 bg-wg-sidebar text-wg-ink hover:bg-wg-hover-light"
+                  : "border-wg-border-lighter bg-transparent text-wg-ink-muted aria-disabled:opacity-100"
+              ),
             })}
           >
             <GitCompareArrows aria-hidden />
             {canCompare ? `Comparar ${selectedCount} candidatos` : "Comparar"}
           </button>
+          <span id={compareHintId} className="sr-only">
+            {compareHint}
+          </span>
         </span>
       </div>
 

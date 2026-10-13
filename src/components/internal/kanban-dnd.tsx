@@ -40,14 +40,19 @@ interface ColumnProps {
    * aqui" com `data-[over]:` — o atributo é marcado enquanto um card paira sobre ela.
    */
   className?: string;
+  /**
+   * Realce de "soltar aqui" decidido por quem usa (ex.: ponteiro sobre um card desta coluna,
+   * que o `isOver` da coluna não enxerga). Sem ele, vale o `isOver` do droppable.
+   */
+  highlighted?: boolean;
 }
 
-export function KanbanColumn({ id, children, className }: ColumnProps) {
+export function KanbanColumn({ id, children, className, highlighted }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id, data: { type: KANBAN_COLUMN_TYPE } });
 
   if (className) {
     return (
-      <div ref={setNodeRef} data-over={isOver || undefined} className={className}>
+      <div ref={setNodeRef} data-over={(highlighted ?? isOver) || undefined} className={className}>
         {children}
       </div>
     );

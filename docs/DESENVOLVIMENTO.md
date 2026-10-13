@@ -7,6 +7,29 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-10-13 — Refinamento do pipeline de candidatos (Kanban)
+
+Sem migração; nenhuma regra de negócio mudou. Tela `/vagas/[id]/candidatos`.
+
+- **Status por exceção no cabeçalho:** aberta + publicada vira texto discreto com ponto; não publicada, rascunho,
+  pausada, encerrada e cancelada mantêm a pílula (mesma regra da lista de vagas).
+- **Resumo = filtro rápido** (`PipelineSummary`): novos / em processo / finalistas / fora do funil filtram por
+  `pipelineGroup()`; "precisam de atenção" liga o mesmo filtro de Filtros → Sinais; o total limpa os dois. A
+  situação vira chip ("Situação: …") e soma com busca/filtros. Grupo sem candidatos fica desabilitado.
+- **Kanban:** colunas de 248px (eram 272px); etapa vazia = uma linha tracejada leve ("Arraste um candidato para cá").
+  Durante o arraste as colunas se estendem até a mais alta e a coluna-alvo é realçada — agora também com o ponteiro
+  sobre um CARD dela (`KanbanBoardShell` calcula a coluna no `onDragOver`; antes só acendia sobre a coluna vazia) — e
+  o empty state diz "Solte para mover para esta etapa". Origem do arraste = contorno tracejado; card solto ganha
+  realce breve (`api.landed`). Faltava `onDragCancel` (Esc deixava estado de arraste preso) — corrigido.
+- **Card:** 1º nome + ação da etapa; 2º cargo/experiência, cidade, aderência, sinais; 3º tempo na etapa, candidatura ·
+  origem e atalhos. Saiu o botão "Abrir no painel" (redundante: card, nome e menu ⋯ abrem o Quick View). "Parado há N
+  dias" (regra existente `STAGE_IDLE_WARNING_DAYS`) agora pinta a própria linha "Nesta etapa há…" em vez de virar badge.
+- **Toolbar** fixa no topo ao rolar (só desktop); Comparar desabilitado usa `aria-disabled` + dica acessível.
+- Validado com página temporária de dados fictícios (arraste por ponteiro simulado, cancelar, soltar em coluna vazia,
+  filtros rápidos, Lista, 1208px e 375px). **Validação logada pendente** (dev usa banco de produção).
+
+---
+
 ## Sessão de 2026-10-09 — Origens de candidatos (cadastro + medição)
 
 Migração **aplicada** (aditiva): `20261009120000_application_sources.sql`.

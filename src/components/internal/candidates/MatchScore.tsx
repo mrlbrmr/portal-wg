@@ -27,9 +27,12 @@ export function MatchScore({ score, variant = "card", className }: Props) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-describedby={hintId}
-      className={cn("overflow-hidden rounded-full bg-[#EBEFE5]", variant === "card" ? "h-1 w-full" : "h-1 w-12")}
+      className={cn("overflow-hidden rounded-full bg-[#E7ECE0]", variant === "card" ? "h-[5px] w-full" : "h-1 w-12")}
     >
-      <div className="h-full rounded-full bg-wg-green-dark/60" style={{ width: `${pct}%` }} />
+      <div
+        className={cn("h-full rounded-full", variant === "card" ? "bg-wg-green-dark/70" : "bg-wg-green-dark/60")}
+        style={{ width: `${pct}%` }}
+      />
     </div>
   );
 
@@ -47,12 +50,12 @@ export function MatchScore({ score, variant = "card", className }: Props) {
 
   return (
     <div className={className}>
-      <div className="mb-1.5 flex items-center justify-between gap-2 text-[12px]">
-        <span className="inline-flex cursor-help items-center gap-1 text-wg-ink-muted" title={MATCH_SCORE_HINT}>
+      <div className="mb-1 flex items-baseline justify-between gap-2 leading-4">
+        <span className="inline-flex cursor-help items-center gap-1 text-[11.5px] text-wg-ink-muted" title={MATCH_SCORE_HINT}>
           Aderência ao perfil
           <Info className="h-3 w-3 opacity-60" aria-hidden />
         </span>
-        <span className="font-semibold tabular-nums text-wg-ink">{pct}%</span>
+        <span className="text-[12.5px] font-semibold tabular-nums text-wg-ink">{pct}%</span>
       </div>
       {bar}
       <span id={hintId} className="sr-only">

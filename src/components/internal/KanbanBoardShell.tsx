@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import {
   DndContext,
   DragOverlay,
   closestCenter,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
@@ -52,6 +53,8 @@ export interface KanbanCardApi {
     isOverlay: boolean;
     handleProps: DragHandleProps | null;
   };
+  /** O card acabou de mudar de coluna (feedback breve depois de soltar). */
+  landed?: boolean;
 }
 
 /** Estratégia nula: com ordenação externa ativa, arrastar na coluna não embaralha os cards. */
@@ -161,10 +164,22 @@ export function KanbanBoardShell<T>({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
+  /** Coluna sob o card arrastado — vale também quando o ponteiro está sobre um card dela. */
+  const [overColumn, setOverColumn] = useState<string | null>(null);
+  /** Card que acabou de mudar de coluna: realce breve, some sozinho. */
+  const [landedId, setLandedId] = useState<string | null>(null);
+  const landedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ordem customizada por coluna (sobrescreve a ordem do pai quando o usuário reordena)
   const [columnOrderOverrides, setColumnOrderOverrides] = useState<Record<string, string[]>>({});
   const { notify } = useToast();
   const sensors = useKanbanSensors();
+
+  useEffect(
+    () => () => {
+      if (landedTimer.current) clearTimeout(landedTimer.current);
+    },
+    []
+  );
 
   // Quando o servidor confirma a nova coluna (router.refresh), o override otimista sai de
   // cena: a partir daí vale o dado real, inclusive se outra tela mover o item de novo.
@@ -223,12 +238,29 @@ export function KanbanBoardShell<T>({
     return ordered;
   }
 
+  /** Coluna de um alvo de colisão: a própria coluna ou a coluna do card sob o ponteiro. */
+  function columnOf(targetId: string): string | null {
+    if (columns.some((c) => c.key === targetId)) return targetId;
+    const item = items.find((it) => getId(it) === targetId);
+    return item ? getColumn(item) : null;
+  }
+
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
   }
 
-  function handleDragEnd(event: DragEndEvent) {
+  function handleDragOver(event: DragOverEvent) {
+    const col = event.over ? columnOf(String(event.over.id)) : null;
+    setOverColumn((prev) => (prev === col ? prev : col));
+  }
+
+  function resetDrag() {
     setActiveId(null);
+    setOverColumn(null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    resetDrag();
     const { active, over } = event;
     if (!over) return;
 
@@ -268,6 +300,9 @@ export function KanbanBoardShell<T>({
 
     const prevOverride = overrides[id];
     setOverrides((o) => ({ ...o, [id]: toColumn }));
+    setLandedId(id);
+    if (landedTimer.current) clearTimeout(landedTimer.current);
+    landedTimer.current = setTimeout(() => setLandedId(null), 1400);
     const revert = () =>
       setOverrides((o) => {
         const next = { ...o };
@@ -343,6 +378,11 @@ export function KanbanBoardShell<T>({
     },
   };
 
+  // Coluna de origem do arraste: o realce de "soltar aqui" vale só para as outras.
+  const draggedItem = activeId ? items.find((it) => getId(it) === activeId) : undefined;
+  const sourceColumn = draggedItem ? getColumn(draggedItem) : null;
+  const dropColumn = overColumn && overColumn !== sourceColumn ? overColumn : null;
+
   const deleting = deleteId ? items.find((it) => getId(it) === deleteId) : undefined;
   const confirmContent = deleting && confirmDelete ? confirmDelete(deleting) : null;
 
@@ -365,14 +405,25 @@ export function KanbanBoardShell<T>({
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={resetDrag}
       >
-        <div ref={scrollerRef} className={boardClassName ?? "flex gap-3.5 overflow-x-auto pb-4"}>
+        <div
+          ref={scrollerRef}
+          data-dragging={activeId ? "" : undefined}
+          className={boardClassName ?? "flex gap-3.5 overflow-x-auto pb-4"}
+        >
           {columns.map((col) => {
             const colItems = getColumnItems(col.key);
             const colIds = colItems.map((it) => getId(it));
             return (
-              <KanbanColumn key={col.key} id={col.key} className={columnClassName}>
+              <KanbanColumn
+                key={col.key}
+                id={col.key}
+                className={columnClassName}
+                highlighted={activeId ? dropColumn === col.key : undefined}
+              >
                 {renderColumnHeader ? (
                   renderColumnHeader(col, colItems.length)
                 ) : (
@@ -411,7 +462,11 @@ export function KanbanBoardShell<T>({
                           className={cardClassName}
                         >
                           {({ isDragging, handleProps }) =>
-                            renderCard(it, { ...cardApi, drag: { isDragging, isOverlay: false, handleProps } })
+                            renderCard(it, {
+                              ...cardApi,
+                              drag: { isDragging, isOverlay: false, handleProps },
+                              landed: landedId === getId(it),
+                            })
                           }
                         </KanbanSortableSurface>
                       ) : (

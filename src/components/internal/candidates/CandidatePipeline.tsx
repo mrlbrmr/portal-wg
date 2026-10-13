@@ -18,8 +18,11 @@ import {
 import { normalizeText } from "@/lib/utils";
 import {
   candidateSignals,
+  pipelineGroup,
   pipelineSummary,
+  PIPELINE_GROUP_META,
   type CandidateSignal,
+  type PipelineGroup,
 } from "@/lib/recruitment/candidate-presentation";
 import { candidateStageFlow, type FlowStage } from "@/lib/recruitment/candidate-stage-flow";
 import { queuePosition } from "@/lib/recruitment/candidate-navigation";
@@ -73,6 +76,8 @@ const VIEW_STORAGE_KEY = "wg:vaga-candidatos:view";
 interface Derived {
   score: number | undefined;
   signals: CandidateSignal[];
+  /** Situação no resumo (novos, em processo, finalistas, fora do funil). */
+  group: PipelineGroup;
 }
 
 function matchBand(score: number | undefined): MatchFilter {
@@ -123,6 +128,8 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [filters, setFilters] = useState<CandidateFilters>(EMPTY_FILTERS);
+  /** Filtro rápido do resumo (clique em "1 em processo"); soma-se à busca e aos Filtros. */
+  const [group, setGroup] = useState<PipelineGroup | null>(null);
   const [sort, setSort] = useState<CandidateSortKey>("default");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
@@ -228,18 +235,21 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     const m = new Map<string, Derived>();
     for (const a of all) {
       const score = aiScoreOverrides.get(a.id) ?? a.aiScore;
+      const stage = stageById.get(a.stageId);
       m.set(a.id, {
         score,
-        signals: candidateSignals({ ...a, hasScore: score !== undefined }, stageById.get(a.stageId), now),
+        signals: candidateSignals({ ...a, hasScore: score !== undefined }, stage, now),
+        group: pipelineGroup(stage, stages as FlowStage[]),
       });
     }
     return m;
-  }, [all, aiScoreOverrides, stageById]);
+  }, [all, aiScoreOverrides, stageById, stages]);
 
   const q = normalizeText(deferredQuery);
   const qDigits = deferredQuery.replace(/\D/g, "");
   const filtering =
     q.length > 0 ||
+    group !== null ||
     filters.stages.length > 0 ||
     filters.sources.length > 0 ||
     filters.match !== "" ||
@@ -247,6 +257,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
 
   const visible = useMemo(() => {
     let r = all;
+    if (group) r = r.filter((a) => derived.get(a.id)?.group === group);
     if (filters.stages.length) r = r.filter((a) => filters.stages.includes(a.stageId));
     if (filters.sources.length) r = r.filter((a) => filters.sources.includes(a.source));
     if (filters.match) r = r.filter((a) => matchBand(derived.get(a.id)?.score) === filters.match);
@@ -261,7 +272,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
       );
     }
     return sortCandidates(r, sort, derived);
-  }, [all, filters, derived, q, qDigits, sort]);
+  }, [all, group, filters, derived, q, qDigits, sort]);
 
   const summary = useMemo(() => pipelineSummary(all, stages as FlowStage[]), [all, stages]);
   const attentionCount = useMemo(
@@ -580,7 +591,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     },
   ];
 
-  const activeChips: ActiveChip[] = [
+  const popoverChips: ActiveChip[] = [
     ...filters.stages.map((id) => ({
       key: `stage-${id}`,
       label: `Etapa: ${stageById.get(id)?.name ?? id}`,
@@ -600,11 +611,26 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
       onRemove: () => toggleIn("signals", s),
     })),
   ];
-  const activeFilterCount = activeChips.length;
-  const clearFilters = () => setFilters(EMPTY_FILTERS);
-  const clearAll = () => {
+  // A situação vem do resumo (não do popover): aparece como chip, mas não conta no badge de Filtros.
+  const activeChips: ActiveChip[] = [
+    ...(group
+      ? [{ key: "group", label: `Situação: ${PIPELINE_GROUP_META[group].label}`, onRemove: () => setGroup(null) }]
+      : []),
+    ...popoverChips,
+  ];
+  const activeFilterCount = popoverChips.length;
+  const attentionActive = filters.signals.includes("attention");
+  const clearFilters = () => {
     setFilters(EMPTY_FILTERS);
+    setGroup(null);
+  };
+  const clearAll = () => {
+    clearFilters();
     setQuery("");
+  };
+  const showAll = () => {
+    setGroup(null);
+    setFilters((f) => (f.signals.includes("attention") ? { ...f, signals: f.signals.filter((s) => s !== "attention") } : f));
   };
 
   // ── Kanban ──
@@ -682,6 +708,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
         onOpen={openCandidate}
         onToggleSelect={toggleSelect}
         drag={api.drag}
+        landed={api.landed}
       />
     );
   };
@@ -726,7 +753,16 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
 
   return (
     <>
-      <PipelineSummary summary={summary} attention={attentionCount} className="mb-5" />
+      <PipelineSummary
+        summary={summary}
+        attention={attentionCount}
+        group={group}
+        onGroupChange={setGroup}
+        attentionActive={attentionActive}
+        onToggleAttention={() => toggleIn("signals", "attention")}
+        onShowAll={showAll}
+        className="mb-3"
+      />
 
       <CandidateToolbar
         query={query}
@@ -745,7 +781,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
         resultCount={filtering ? visible.length : null}
       />
 
-      <div className="mt-4">
+      <div className="mt-2">
         {view === "list" ? (
           visible.length === 0 ? (
             noResults
@@ -762,11 +798,12 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
               activeId={detailId}
             />
           )
-        ) : columns.length === 0 ? (
+        ) : columns.length === 0 || (filtering && onBoardCount === 0 && visible.length > 0) ? (
+          // Há candidatos no filtro, mas todos em etapas sem coluna (ex.: "fora do funil").
           <div className="rounded-card border border-dashed border-wg-border-light bg-white">
             <EmptyState
               icon={SearchX}
-              title="As etapas filtradas ficam fora do Kanban"
+              title={columns.length === 0 ? "As etapas filtradas ficam fora do Kanban" : "Os candidatos filtrados estão fora do Kanban"}
               description="Pausados e reprovados não têm coluna no quadro. Veja-os na Lista."
               action={
                 <Button variant="secondary" size="sm" onClick={() => changeView("list")}>

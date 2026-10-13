@@ -11,7 +11,8 @@ import { IncluirTalentoModal } from "@/components/internal/IncluirTalentoModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MODALITY_LABELS } from "@/lib/utils";
-import { jobStatusDisplay } from "@/lib/recruitment/job-presentation";
+import { jobLifecycle, jobStatusDisplay } from "@/lib/recruitment/job-presentation";
+import { publicationIndicator } from "@/lib/jobs/publication";
 import { progressLabel, summarizePositions } from "@/lib/jobs/positions";
 import type { AdmissionPosition } from "@/components/internal/AdmissionLinkModal";
 import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/candidate-presentation";
@@ -302,6 +303,9 @@ export default async function CandidatosPage({ params }: Props) {
     ? `${job.city}/${job.state}`
     : "Múltiplas cidades";
   const lifecycle = jobStatusDisplay(job);
+  const isDefaultStatus =
+    jobLifecycle(job.status) === "OPEN" &&
+    publicationIndicator({ status: job.status, visibility: job.visibility ?? "BOTH" })?.label === "Publicada";
   const meta = [job.code, jobLocation, job.modality ? MODALITY_LABELS[job.modality] ?? job.modality : null].filter(Boolean);
 
   return (
@@ -318,10 +322,22 @@ export default async function CandidatosPage({ params }: Props) {
       <header className="mb-4 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="font-sora text-2xl font-semibold tracking-tight text-wg-ink md:text-page-title">{job.title}</h1>
-            <StatusBadge tone={lifecycle.tone} hint={lifecycle.hint}>
-              {lifecycle.label}
-            </StatusBadge>
+            <h1 className="min-w-0 break-words font-sora text-2xl font-semibold tracking-tight text-wg-ink md:text-page-title">
+              {job.title}
+            </h1>
+            {/* Ênfase por exceção: aberta e publicada é o estado normal — texto discreto; o
+                resto (não publicada, rascunho, pausada, encerrada, cancelada) ganha a pílula. */}
+            {isDefaultStatus ? (
+              <span className="inline-flex items-center gap-1.5 text-meta text-wg-ink-muted" title={lifecycle.hint}>
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />
+                {lifecycle.label}
+                <span className="sr-only">. {lifecycle.hint}</span>
+              </span>
+            ) : (
+              <StatusBadge tone={lifecycle.tone} hint={lifecycle.hint} size="md">
+                {lifecycle.label}
+              </StatusBadge>
+            )}
           </div>
           <p className="mt-1 text-meta text-wg-ink-muted">
             {meta.join(" · ")}

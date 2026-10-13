@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Inbox } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
@@ -27,9 +27,10 @@ const getColumn = (a: PipelineCandidate) => a.stageId;
 const applyColumn = withStage;
 
 /**
- * Kanban de candidatos: colunas estreitas (272px) quase transparentes sobre o fundo claro,
+ * Kanban de candidatos: colunas estreitas (248px) quase transparentes sobre o fundo claro,
  * cards brancos, cabeçalho fixo acima da rolagem de cada coluna e navegação horizontal
- * com setas + sombra de borda indicando que há mais etapas. O arraste (mudança de etapa,
+ * com setas + sombra de borda indicando que há mais etapas. Etapa vazia é leve; durante o
+ * arraste as colunas viram áreas de soltar evidentes. O arraste (mudança de etapa,
  * reordenação, gate de admissão) é o mesmo do KanbanBoardShell.
  */
 export function CandidateKanban({ items, columns, canManage, orderMode, onBeforeMove, onMoved, renderCard }: Props) {
@@ -62,7 +63,7 @@ export function CandidateKanban({ items, columns, canManage, orderMode, onBefore
   const scrollBy = (dir: 1 | -1) => {
     const el = scrollerRef.current;
     if (!el) return;
-    el.scrollBy({ left: dir * Math.max(284, el.clientWidth * 0.75), behavior: "smooth" });
+    el.scrollBy({ left: dir * Math.max(258, el.clientWidth * 0.75), behavior: "smooth" });
   };
 
   return (
@@ -112,9 +113,11 @@ export function CandidateKanban({ items, columns, canManage, orderMode, onBefore
         cardVariant="surface"
         orderMode={orderMode}
         scrollerRef={scrollerRef}
-        boardClassName="flex items-start gap-3 overflow-x-auto scroll-smooth pb-3 [scrollbar-width:thin]"
-        columnClassName="flex w-[272px] shrink-0 flex-col rounded-card bg-[#EEF2E8]/50 transition-colors data-[over]:bg-wg-green/10 data-[over]:ring-2 data-[over]:ring-wg-green/30"
-        columnBodyClassName="flex min-h-[132px] max-h-[max(320px,calc(100vh-400px))] flex-col gap-2 overflow-y-auto overscroll-contain px-2 pb-2 [scrollbar-width:thin]"
+        // Durante o arraste (data-dragging) as colunas se estendem até a mais alta: toda etapa
+        // vira uma área de soltar evidente; fora dele, coluna vazia ocupa só o necessário.
+        boardClassName="group/board flex items-start gap-2.5 overflow-x-auto pb-3 [scrollbar-color:#C9D5BB_transparent] [scrollbar-width:thin] data-[dragging]:items-stretch"
+        columnClassName="group/col flex w-[248px] shrink-0 flex-col rounded-card bg-[#EEF2E8]/45 transition-[background-color,box-shadow] duration-150 data-[over]:bg-[#E5EFD7] data-[over]:ring-1 data-[over]:ring-wg-green-dark/35"
+        columnBodyClassName="flex min-h-[60px] max-h-[max(320px,calc(100vh-400px))] flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2 pb-2 [scrollbar-width:thin]"
         getId={getId}
         getColumn={getColumn}
         applyColumn={applyColumn}
@@ -161,23 +164,34 @@ export function CandidateKanban({ items, columns, canManage, orderMode, onBefore
   );
 }
 
+/**
+ * Cabeçalho da etapa. Primário: nome + contador (etapa vazia fica um tom abaixo, para as
+ * ocupadas saltarem aos olhos). Secundário: o teste vinculado, menor e numa linha só.
+ */
 function StageHeader({ col, count }: { col: KanbanColumnDef; count: number }) {
+  const empty = count === 0;
   return (
-    <div className="px-3 pb-2 pt-2.5">
+    <div className="px-3 pb-1.5 pt-2.5">
       <div className="flex items-center gap-2">
         <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: col.dotColor ?? "#9AA68A" }} />
-        <h3 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-wg-ink" title={col.label}>
+        <h3
+          className={cn("min-w-0 flex-1 truncate text-[13px] font-semibold leading-5", empty ? "text-wg-ink-secondary" : "text-wg-ink")}
+          title={col.label}
+        >
           {col.label}
         </h3>
         <span
-          className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold tabular-nums text-wg-ink-secondary shadow-[inset_0_0_0_1px_#E1E6DA]"
+          className={cn(
+            "min-w-[20px] shrink-0 text-right text-[12px] font-semibold tabular-nums leading-5",
+            empty ? "text-wg-ink-muted" : "text-wg-ink-secondary"
+          )}
           aria-label={`${count} ${count === 1 ? "candidato" : "candidatos"}`}
         >
           {count}
         </span>
       </div>
       {col.subtitle && (
-        <p className="mt-0.5 truncate pl-4 text-[11.5px] text-wg-ink-muted" title={col.subtitle}>
+        <p className="truncate pl-4 text-[11px] leading-4 text-wg-ink-muted" title={col.subtitle}>
           {col.subtitle}
         </p>
       )}
@@ -190,12 +204,27 @@ function StageHeader({ col, count }: { col: KanbanColumnDef; count: number }) {
   );
 }
 
+/**
+ * Etapa vazia: uma linha discreta dentro de uma área tracejada leve (continua sendo a área
+ * de soltar). Durante o arraste a área se acende; com o card sobre a coluna, diz "solte".
+ */
 function EmptyStage({ canDrop }: { canDrop: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-control border border-dashed border-[#DCE3D2] px-3 py-6 text-center">
-      <Inbox className="mb-1.5 h-4 w-4 text-wg-ink-muted/70" aria-hidden />
-      <p className="text-[12px] font-medium text-wg-ink-secondary">Nenhum candidato nesta etapa</p>
-      {canDrop && <p className="mt-0.5 text-[11.5px] text-wg-ink-muted">Arraste um candidato para cá.</p>}
+    <div
+      className={cn(
+        "flex min-h-[44px] flex-1 items-center justify-center rounded-control border border-dashed border-[#DCE3D2] px-3 py-2 text-center text-[11.5px] leading-4 text-wg-ink-muted transition-colors",
+        "group-data-[dragging]/board:border-[#BFD0AA] group-data-[dragging]/board:bg-white/50",
+        "group-data-[over]/col:border-wg-green-dark/50 group-data-[over]/col:bg-white/80 group-data-[over]/col:text-wg-green-dark"
+      )}
+    >
+      {canDrop ? (
+        <>
+          <span className="group-data-[over]/col:hidden">Arraste um candidato para cá</span>
+          <span className="hidden font-semibold group-data-[over]/col:inline">Solte para mover para esta etapa</span>
+        </>
+      ) : (
+        "Nenhum candidato"
+      )}
     </div>
   );
 }

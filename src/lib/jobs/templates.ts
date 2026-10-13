@@ -28,8 +28,13 @@ export interface JobTemplate {
   modality: string | null;
   contractType: string | null;
   workSchedule: string | null;
-  /** Texto de abertura e seções fora das quatro padrão (Markdown). */
+  /**
+   * CONTEÚDO DA VAGA em Markdown, livre, exatamente como no editor da vaga (o RH escreve
+   * seus próprios títulos). É a coluna usada pelo editor de modelos e por "Salvar como modelo".
+   */
   about: string | null;
+  /* Colunas por seção: formato da 1ª versão — só LIDAS (concatenadas depois de "about"
+     em templateToMarkdown). Gravações novas deixam null. */
   responsibilities: string | null;
   requiredRequirements: string | null;
   desiredRequirements: string | null;
@@ -306,42 +311,51 @@ export function revertTemplate<T extends TemplateTarget>(current: T, before: T, 
 export interface SaveAsTemplateOptions {
   name: string;
   department: string;
-  include: { general: boolean; responsibilities: boolean; requirements: boolean; benefits: boolean };
+  include: { general: boolean; content: boolean };
+}
+
+/** Grava o conteúdo como um único Markdown (o editor de modelos trabalha assim). */
+export function withContent<T extends Pick<JobTemplateInput, "about" | SectionKey>>(input: T, content: string): T {
+  return {
+    ...input,
+    about: content.trim() || null,
+    responsibilities: null,
+    requiredRequirements: null,
+    desiredRequirements: null,
+    benefits: null,
+  };
 }
 
 /**
  * Modelo a partir do rascunho da vaga. Nunca leva o que é da abertura (candidatos, datas,
  * status, publicação, solicitação, posições, motivo, salário, histórico).
- * `general` = modalidade, contratação, horário e o texto de abertura/outras seções.
+ *   • `general` = modalidade, contratação e horário;
+ *   • `content` = o "Conteúdo da vaga" inteiro, como está (Markdown livre — sem exigir
+ *     títulos padrão).
  */
 export function templateFromJob(
   job: Pick<TemplateTarget, "title" | "modality" | "contractType" | "workSchedule" | "content">,
   opts: SaveAsTemplateOptions
 ): JobTemplateInput {
-  const doc = parseContent(job.content);
-  const byKey = new Map<SectionKey, string>();
-  const others: ContentSection[] = [];
-  for (const s of doc.sections) {
-    const key = sectionKeyOf(s.heading);
-    if (key && !byKey.has(key)) byKey.set(key, s.body);
-    else if (s.body) others.push(s);
-  }
-  const about = renderContent({ preamble: doc.preamble, sections: others });
-  const pick = (on: boolean, key: SectionKey) => (on ? byKey.get(key)?.trim() || null : null);
-  const { general, responsibilities, requirements, benefits } = opts.include;
-  return {
-    name: opts.name.trim(),
-    title: job.title.trim(),
-    department: opts.department.trim() || null,
-    modality: general ? job.modality || null : null,
-    contractType: general ? job.contractType || null : null,
-    workSchedule: general ? job.workSchedule.trim() || null : null,
-    about: general ? about || null : null,
-    responsibilities: pick(responsibilities, "responsibilities"),
-    requiredRequirements: pick(requirements, "requiredRequirements"),
-    desiredRequirements: pick(requirements, "desiredRequirements"),
-    benefits: pick(benefits, "benefits"),
-  };
+  const { general, content } = opts.include;
+  // Esqueleto sem texto (só títulos) não vira conteúdo de modelo.
+  const text = content && !isContentBlank(job.content) ? job.content : "";
+  return withContent(
+    {
+      name: opts.name.trim(),
+      title: job.title.trim(),
+      department: opts.department.trim() || null,
+      modality: general ? job.modality || null : null,
+      contractType: general ? job.contractType || null : null,
+      workSchedule: general ? job.workSchedule.trim() || null : null,
+      about: null,
+      responsibilities: null,
+      requiredRequirements: null,
+      desiredRequirements: null,
+      benefits: null,
+    },
+    text
+  );
 }
 
 /** Nome para "Duplicar": "X (cópia)", "X (cópia 2)"… sem colidir (ignora caixa/acentos). */

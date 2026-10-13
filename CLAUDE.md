@@ -86,7 +86,7 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     exclui NONE. Painel: `jobStatusDisplay()` → "Aberta • Publicada" × "Aberta • Não publicada".
   - **Modelos de vaga** (`job_templates`, Configurações › Modelos de vaga): regras puras em
     `src/lib/jobs/templates.ts` (testadas). Aplicar = COPIAR para o rascunho (`jobs.templateId` é só
-    procedência). Campo da solicitação nunca é sobrescrito; preenchido só com "Substituir"; conteúdo
+    procedência). Conteúdo = Markdown LIVRE inteiro em `about` (colunas por seção são legado, só lidas). Campo da solicitação nunca é sobrescrito; preenchido só com "Substituir"; conteúdo
     mescla por seção. Seletor em Nova vaga e na vaga em Rascunho; "Salvar como modelo" no menu da vaga.
   - **Intranet WG Conecta** lê as vagas por `GET /api/intranet/jobs` (servidor a servidor,
     `Authorization: Bearer INTRANET_API_TOKEN`). Contrato e regras puras em

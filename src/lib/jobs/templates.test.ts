@@ -14,6 +14,7 @@ import {
   revertTemplate,
   templateFromJob,
   templateToMarkdown,
+  withContent,
   type JobTemplate,
 } from "./templates";
 
@@ -283,43 +284,62 @@ test("13. arquivar o modelo não afeta a vaga criada (o conteúdo continua; só 
 
 // ── Salvar como modelo ──────────────────────────────────────────────────────────────────
 
-test("salvar vaga como modelo: separa as seções e nunca leva dados da abertura", () => {
+test("salvar vaga como modelo: guarda o conteúdo INTEIRO, com os títulos do RH, e nunca dados da abertura", () => {
   const job = jobToDraft(jobFromRequest());
-  const content = "Venha crescer com a WG.\n\n### Responsabilidades\n\n- Expedir pedidos\n\n### Requisitos\n\n- Ensino médio\n\n### Diferenciais\n\n- Empilhadeira\n\n### Benefícios\n\n- VT";
+  // Markdown livre, como o RH escreve (títulos próprios, negrito, emoji).
+  const content = [
+    "Você tem facilidade para negociar? O Grupo WG está em busca de um(a) Assistente Comercial.",
+    "",
+    "## 🎯 O que você vai fazer",
+    "",
+    "- Atender clientes",
+    "",
+    "**Benefícios:** VT, VR",
+  ].join("\n");
   const t = templateFromJob({ ...job, content }, {
-    name: "Auxiliar de Expedição",
-    department: "Expedição",
-    include: { general: true, responsibilities: true, requirements: true, benefits: true },
+    name: "Assistente Comercial",
+    department: "Comercial",
+    include: { general: true, content: true },
   });
   assert.equal(t.title, "Auxiliar de Expedição");
-  assert.equal(t.responsibilities, "- Expedir pedidos");
-  assert.equal(t.requiredRequirements, "- Ensino médio");
-  assert.equal(t.desiredRequirements, "- Empilhadeira");
-  assert.equal(t.benefits, "- VT");
-  assert.equal(t.about, "Venha crescer com a WG.");
+  assert.equal(t.about, content);
+  assert.equal(templateToMarkdown(t), content, "aplicar o modelo devolve exatamente o texto salvo");
+  for (const k of ["responsibilities", "requiredRequirements", "desiredRequirements", "benefits"] as const) assert.equal(t[k], null);
   const keys = Object.keys(t);
   for (const forbidden of ["status", "visibility", "requestId", "openings", "openingReason", "salary", "closingDate", "hiringDeadline", "company"]) {
     assert.ok(!keys.includes(forbidden), forbidden);
   }
 
-  const partial = templateFromJob({ ...job, content }, {
-    name: "X",
-    department: "",
-    include: { general: false, responsibilities: true, requirements: false, benefits: false },
-  });
-  assert.equal(partial.requiredRequirements, null);
-  assert.equal(partial.benefits, null);
-  assert.equal(partial.modality, null);
-  assert.equal(partial.about, null);
+  const semConteudo = templateFromJob({ ...job, content }, { name: "X", department: "", include: { general: false, content: false } });
+  assert.equal(semConteudo.about, null);
+  assert.equal(semConteudo.modality, null);
+  assert.equal(semConteudo.department, null);
 });
 
-test("ida e volta: vaga → modelo → vaga reproduz as seções", () => {
+test("esqueleto vazio da solicitação não vira conteúdo de modelo", () => {
+  const job = jobToDraft(null);
+  const t = templateFromJob({ ...job, title: "Vendedor" }, { name: "Vendedor", department: "", include: { general: true, content: true } });
+  assert.equal(t.about, null);
+});
+
+test("modelo antigo (seções separadas) abre no editor como um único Markdown e regrava sem perda", () => {
   const md = templateToMarkdown(TEMPLATE);
-  const t = templateFromJob(
-    { title: TEMPLATE.title, modality: "PRESENTIAL", contractType: "CLT", workSchedule: "", content: md },
-    { name: "Cópia", department: "Logística", include: { general: true, responsibilities: true, requirements: true, benefits: true } }
-  );
-  assert.equal(templateToMarkdown(t), md);
+  const saved = withContent({ ...TEMPLATE }, md);
+  assert.equal(templateToMarkdown(saved), md);
+  assert.equal(saved.responsibilities, null);
+});
+
+test("aplicar modelo de Markdown livre numa vaga nova copia o texto como está", () => {
+  const free: JobTemplate = {
+    ...TEMPLATE,
+    about: "Texto livre\n\n## Atividades do dia a dia\n\n- Atender",
+    responsibilities: null,
+    requiredRequirements: null,
+    desiredRequirements: null,
+    benefits: null,
+  };
+  const { draft } = applyTemplate(jobToDraft(null), free, "fill", { defaults: NEW_JOB_DEFAULTS });
+  assert.equal(draft.content, free.about);
 });
 
 // ── Utilitários ─────────────────────────────────────────────────────────────────────────

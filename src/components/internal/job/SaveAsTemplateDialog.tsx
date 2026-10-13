@@ -16,10 +16,8 @@ import { Field, inputClass } from "./JobFields";
 type Include = SaveAsTemplateOptions["include"];
 
 const INCLUDE_OPTIONS: Array<{ key: keyof Include; label: string; hint: string }> = [
-  { key: "general", label: "Dados gerais", hint: "Modalidade, tipo de contratação, horário e texto de abertura." },
-  { key: "responsibilities", label: "Responsabilidades", hint: "" },
-  { key: "requirements", label: "Requisitos", hint: "Obrigatórios e desejáveis." },
-  { key: "benefits", label: "Benefícios", hint: "" },
+  { key: "general", label: "Dados gerais", hint: "Modalidade, tipo de contratação e horário." },
+  { key: "content", label: "Conteúdo da vaga", hint: "O texto inteiro, como está no editor (responsabilidades, requisitos, benefícios…)." },
 ];
 
 export function SaveAsTemplateDialog({
@@ -36,7 +34,7 @@ export function SaveAsTemplateDialog({
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(job.title);
   const [department, setDepartment] = useState(job.department);
-  const [include, setInclude] = useState<Include>({ general: true, responsibilities: true, requirements: true, benefits: true });
+  const [include, setInclude] = useState<Include>({ general: true, content: true });
   const [error, setError] = useState<string | null>(null);
 
   // Cada abertura do diálogo parte dos dados atuais da vaga.
@@ -44,7 +42,7 @@ export function SaveAsTemplateDialog({
     if (!open) return;
     setName(job.title);
     setDepartment(job.department);
-    setInclude({ general: true, responsibilities: true, requirements: true, benefits: true });
+    setInclude({ general: true, content: true });
     setError(null);
   }, [open, job.title, job.department]);
 

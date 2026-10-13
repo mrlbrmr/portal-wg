@@ -23,9 +23,9 @@ import {
   setJobTemplateActive,
   updateJobTemplate,
 } from "@/lib/jobs/template-actions";
-import { matchesTemplate, type JobTemplate, type JobTemplateInput } from "@/lib/jobs/templates";
+import { matchesTemplate, templateToMarkdown, withContent, type JobTemplate, type JobTemplateInput } from "@/lib/jobs/templates";
 import { actionErrorMessage } from "@/lib/action-errors";
-import { Field, inputClass } from "./JobFields";
+import { Field, MarkdownEditor, inputClass } from "./JobFields";
 
 type StatusFilter = "active" | "archived" | "all";
 const ALL_AREAS = "__all";
@@ -271,14 +271,6 @@ function toInput(t: JobTemplate | null): JobTemplateInput {
   return rest;
 }
 
-const CONTENT_FIELDS: Array<{ key: keyof JobTemplateInput; label: string; hint?: string; rows: number }> = [
-  { key: "responsibilities", label: "Responsabilidades", rows: 5, hint: "Uma por linha, começando com “- ”." },
-  { key: "requiredRequirements", label: "Requisitos obrigatórios", rows: 4 },
-  { key: "desiredRequirements", label: "Requisitos desejáveis", rows: 3 },
-  { key: "benefits", label: "Benefícios", rows: 4 },
-  { key: "about", label: "Sobre a vaga (opcional)", rows: 3, hint: "Texto de abertura, antes das seções." },
-];
-
 function TemplateEditorDialog({
   template,
   open,
@@ -294,6 +286,10 @@ function TemplateEditorDialog({
   const { notify } = useToast();
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState<JobTemplateInput>(() => toInput(template));
+  // Conteúdo = um único Markdown livre, igual ao editor da vaga (modelos antigos com
+  // seções separadas aparecem já juntos aqui e são gravados assim).
+  const [content, setContent] = useState(() => (template ? templateToMarkdown(template) : ""));
+  const [editorMode, setEditorMode] = useState<"write" | "preview">("write");
   const [error, setError] = useState<string | null>(null);
   useEffect(() => setError(null), [open]);
 
@@ -307,7 +303,8 @@ function TemplateEditorDialog({
     startTransition(async () => {
       let res: Awaited<ReturnType<typeof createJobTemplate>>;
       try {
-        res = template ? await updateJobTemplate(template.id, form) : await createJobTemplate(form);
+        const input = withContent(form, content);
+        res = template ? await updateJobTemplate(template.id, input) : await createJobTemplate(input);
       } catch (e) {
         console.error("[modelos-vaga]", e);
         return setError(actionErrorMessage(e));
@@ -399,20 +396,9 @@ function TemplateEditorDialog({
         <fieldset className="space-y-3">
           <legend className="mb-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-wg-ink-muted">Conteúdo da vaga</legend>
           <p className="-mt-1 text-[12px] text-wg-ink-muted">
-            Markdown simples: <code className="rounded bg-wg-bg px-1">- item</code> e <code className="rounded bg-wg-bg px-1">**negrito**</code>. Na vaga,
-            cada bloco vira uma seção (### Responsabilidades, ### Requisitos Obrigatórios…).
+            O mesmo texto do editor da vaga, com os seus próprios títulos. Ao aplicar o modelo, ele vai para o “Conteúdo da vaga”.
           </p>
-          {CONTENT_FIELDS.map((f) => (
-            <Field key={f.key} label={f.label} htmlFor={`${id}-${f.key}`} hint={f.hint}>
-              <textarea
-                id={`${id}-${f.key}`}
-                rows={f.rows}
-                value={str(form[f.key] as string | null)}
-                onChange={(e) => set({ [f.key]: e.target.value } as Partial<JobTemplateInput>)}
-                className={cn(inputClass, "h-auto resize-y py-2 font-mono text-[13px] leading-relaxed")}
-              />
-            </Field>
-          ))}
+          <MarkdownEditor value={content} onChange={setContent} mode={editorMode} onModeChange={setEditorMode} rows={16} />
         </fieldset>
 
         {error && (

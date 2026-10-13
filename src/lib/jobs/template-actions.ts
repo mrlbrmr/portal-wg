@@ -35,7 +35,7 @@ const templateSchema = z.object({
   modality: z.nativeEnum(Modality).nullable().optional().transform((v) => v ?? null),
   contractType: z.nativeEnum(ContractType).nullable().optional().transform((v) => v ?? null),
   workSchedule: text(200),
-  about: text(20000),
+  about: text(50000),
   responsibilities: text(20000),
   requiredRequirements: text(20000),
   desiredRequirements: text(20000),

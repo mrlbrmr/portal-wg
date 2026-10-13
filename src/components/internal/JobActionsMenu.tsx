@@ -123,7 +123,7 @@ export function JobActionsMenu({ jobId, jobTitle, status }: Props) {
           aria-expanded={open}
           aria-label={`Mais ações para ${jobTitle}`}
           title="Mais ações"
-          className="flex h-8 w-8 items-center justify-center rounded-control border border-transparent text-wg-ink-muted transition-colors hover:border-wg-border-light hover:bg-wg-bg hover:text-wg-ink disabled:opacity-50"
+          className="flex h-9 w-9 items-center justify-center rounded-control border border-transparent text-wg-ink-muted transition-colors duration-150 hover:border-wg-border-light hover:bg-wg-bg hover:text-wg-ink disabled:opacity-50"
         >
           {busy ? (
             <Loader2 className="h-4 w-4 animate-spin" />

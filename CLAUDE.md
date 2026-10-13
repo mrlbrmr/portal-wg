@@ -84,6 +84,8 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     `onlyExternalVisible` (feeds Google/Indeed), `onlyIntranetVisible`, `onlyLinkAccessible` (página
     `/vagas/[slug]`; INTERNAL abre pelo link, noindex, sem JSON-LD). RLS `jobs_public_select` também
     exclui NONE. Painel: `jobStatusDisplay()` → "Aberta • Publicada" × "Aberta • Não publicada".
+    Na LISTA de vagas (`job/JobListItem.tsx`) vale ênfase por exceção: aberta+publicada não tem selo
+    (o "Aberta há X dias" diz o estado); Não publicada/Rascunho/Pausada/Encerrada/Cancelada têm pílula.
   - **Modelos de vaga** (`job_templates`, Configurações › Modelos de vaga): regras puras em
     `src/lib/jobs/templates.ts` (testadas). Aplicar = COPIAR para o rascunho (`jobs.templateId` é só
     procedência). Conteúdo = Markdown LIVRE inteiro em `about` (colunas por seção são legado, só lidas). Campo da solicitação nunca é sobrescrito; preenchido só com "Substituir"; conteúdo

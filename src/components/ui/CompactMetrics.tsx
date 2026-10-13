@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { TONE_DOT, type Tone } from "@/components/ui/StatusBadge";
+import { TONE_DOT, TONE_TEXT, type Tone } from "@/components/ui/StatusBadge";
 
 export interface CompactMetric {
   label: string;
@@ -10,6 +10,11 @@ export interface CompactMetric {
   tone?: Tone;
   /** Tooltip explicando como o número é calculado. */
   hint?: string;
+  /**
+   * Peso visual (opt-in). `strong`: número e rótulo na cor do tom — para o que pede ação
+   * ("precisam de atenção"). `subtle`: número sem negrito — histórico (encerradas, canceladas).
+   */
+  weight?: "strong" | "subtle";
 }
 
 interface Props {
@@ -38,11 +43,19 @@ export function CompactMetrics({ total, items, variant = "card", muteZero = fals
 
   const renderItem = (m: CompactMetric) => {
     const muted = muteZero && isZero(m.value);
+    const strong = !muted && m.weight === "strong";
+    const valueClass = muted
+      ? "text-wg-ink-muted"
+      : strong && m.tone
+        ? cn("font-semibold", TONE_TEXT[m.tone])
+        : m.weight === "subtle"
+          ? "font-medium text-wg-ink-secondary"
+          : "font-semibold text-wg-ink";
     const inner = (
       <>
         {m.tone && !muted && <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[m.tone])} />}
-        <span className={cn("tabular-nums", muted ? "text-wg-ink-muted" : "font-semibold text-wg-ink")}>{m.value}</span>
-        <span className="text-wg-ink-muted">{m.label}</span>
+        <span className={cn("tabular-nums", valueClass)}>{m.value}</span>
+        <span className={strong && m.tone ? cn("font-medium", TONE_TEXT[m.tone]) : "text-wg-ink-muted"}>{m.label}</span>
       </>
     );
     return m.href ? (
@@ -75,8 +88,8 @@ export function CompactMetrics({ total, items, variant = "card", muteZero = fals
           <li className="flex items-baseline">
             {sep}
             <span className="flex items-baseline gap-1.5">
-              <span className="font-semibold tabular-nums text-wg-ink">{total.value}</span>
-              <span className="text-wg-ink-muted">{total.label}</span>
+              <span className="font-sora text-[15px] font-semibold tabular-nums text-wg-ink">{total.value}</span>
+              <span className="font-medium text-wg-ink-secondary">{total.label}</span>
             </span>
           </li>
           {list.map((m) => (

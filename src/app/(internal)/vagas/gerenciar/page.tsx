@@ -53,11 +53,11 @@ export default async function GerenciarVagasPage({
         total={{ value: rows.length, label: rows.length === 1 ? "vaga" : "vagas" }}
         items={[
           { label: "abertas", value: byLifecycle("OPEN"), href: "/vagas/gerenciar?status=OPEN" },
-          { label: "precisam de atenção", value: needAttention, tone: "warning", href: "/vagas/gerenciar?pendencia=atencao" },
+          { label: "precisam de atenção", value: needAttention, tone: "warning", weight: "strong", href: "/vagas/gerenciar?pendencia=atencao" },
           { label: "rascunhos", value: byLifecycle("DRAFT"), href: "/vagas/gerenciar?status=DRAFT" },
           { label: "pausadas", value: byLifecycle("PAUSED"), href: "/vagas/gerenciar?status=PAUSED" },
-          { label: "encerradas", value: byLifecycle("FILLED"), href: "/vagas/gerenciar?status=FILLED" },
-          { label: "canceladas", value: byLifecycle("CLOSED"), href: "/vagas/gerenciar?status=CLOSED" },
+          { label: "encerradas", value: byLifecycle("FILLED"), weight: "subtle", href: "/vagas/gerenciar?status=FILLED" },
+          { label: "canceladas", value: byLifecycle("CLOSED"), weight: "subtle", href: "/vagas/gerenciar?status=CLOSED" },
         ]}
       />
 

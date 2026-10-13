@@ -1,5 +1,18 @@
 import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
+
+// Escala tipográfica do Design System (`fontSize` do tailwind.config.ts). Sem registrar,
+// o tailwind-merge trata `text-meta` etc. como COR e descarta a classe quando aparece
+// outra cor `text-*` (ou descarta a cor quando o tamanho vem depois).
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "font-size": [
+        { text: ["page-title", "section-title", "record-title", "body", "meta", "label"] },
+      ],
+    },
+  },
+});
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

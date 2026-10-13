@@ -43,8 +43,7 @@ function MetaLine({ items, className }: { items: ReactNode[]; className?: string
   const visible = items.filter(Boolean);
   if (visible.length === 0) return null;
   return (
-    // Concatenação simples: o twMerge do `cn` descarta `text-meta` quando há uma cor `text-*` junto.
-    <div className={`overflow-hidden ${className ?? ""}`}>
+    <div className={cn("overflow-hidden", className)}>
       <p className="-ml-4 flex flex-wrap items-center">
         {visible.map((item, i) => (
           <span key={i} className="inline-flex items-center whitespace-nowrap">

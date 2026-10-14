@@ -98,8 +98,9 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     `GET /api/jornada/sync?desde=AAAA-MM-DD` (`Authorization: Bearer JORNADA_API_TOKEN`, só leitura,
     service-role). Contrato e regras puras em `src/lib/jobs/jornada-feed.ts` (testado): vagas + posições +
     histórico de status, funil SÓ com quantidades ("chegou até a etapa" pela ordem do funil; LOST e ocultas
-    não contam) e dados pessoais SÓ de contratados (admissão ligada à vaga). Mudou o funil/etapas? Revise
-    `funnelAnchors()`.
+    não contam), passagens ANÔNIMAS das candidaturas por etapa (`stageVisits`: faixa do funil, entrada, saída
+    e destino — mede o tempo por etapa; `buildStageVisits()`) e dados pessoais SÓ de contratados (admissão
+    ligada à vaga). Mudou o funil/etapas? Revise `funnelAnchors()`/`stageBucket()`.
 - **Quick View do candidato** (abre ao lado do pipeline da vaga): `src/components/internal/candidate/CandidateQuickView.tsx`
   (split view no desktop, J/K, barra de decisão). Anotações por autor em `application_notes`
   (`/api/applications/[id]/notes`); `applications.notes` = "anotações anteriores" + motivo de reprovação.

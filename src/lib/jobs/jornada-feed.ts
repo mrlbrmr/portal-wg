@@ -7,6 +7,8 @@
 //   • funil  — só QUANTIDADES por etapa (quem chegou até Triagem, Entrevista G&G, Entrevista
 //              Gestor e Admissão/Contratado) e a origem das candidaturas. Nada de dado pessoal
 //              de quem não foi contratado (LGPD: o Jornada não precisa disso);
+//   • passagens — quando cada candidatura entrou e saiu de cada etapa do funil, SEM identificar
+//              a candidatura (só etapa, datas e para onde foi). Mede o tempo médio por etapa;
 //   • contratados — as admissões ligadas às vagas (nome, CPF, início, filial, cargo, gestor),
 //              que o Jornada usa para casar com o período de experiência.
 //
@@ -140,6 +142,22 @@ export interface JornadaJob {
   firstReachedAt: Partial<Record<FunnelKey | "inscritos", string>>;
   /** Candidaturas por origem (rótulo legível → quantidade). */
   sources: Record<string, number>;
+  /**
+   * Passagens ANÔNIMAS das candidaturas pelas etapas do funil (sem id nem nome), em ordem de
+   * entrada. Mede quanto tempo cada candidatura ficou em cada etapa. `leftAt` null = ainda está
+   * nela. Só etapas antes da aprovação; tempo em Pausada/Cancelada não entra.
+   */
+  stageVisits: StageVisit[];
+}
+/** Faixa do funil de uma etapa do quadro: "inscritos" = antes da triagem (Novas candidaturas). */
+export type VisitStage = "inscritos" | "triagem" | "entrevistaRH" | "entrevistaGestor";
+/** Para onde a candidatura foi ao sair: avançou, foi reprovada/cancelada, voltou ou foi pausada. */
+export type VisitExit = "ADVANCED" | "LOST" | "BACK" | "PAUSED";
+export interface StageVisit {
+  stage: VisitStage;
+  enteredAt: string;
+  leftAt: string | null;
+  exit: VisitExit | null;
 }
 export interface JornadaHire {
   admissionId: string;
@@ -223,6 +241,82 @@ export function funnelAnchors(stages: StageRow[]): Partial<Record<FunnelKey, num
 /** Etapa conta como avanço? (exclui reprovação/cancelamento e as ocultas, como Pausada). */
 function countsAsProgress(s: StageRow | undefined): s is StageRow {
   return !!s && s.kind !== "LOST" && !s.hideFromBoard;
+}
+
+type Bucket = VisitStage | "aprovados";
+const BUCKET_ORDER: Bucket[] = ["inscritos", "triagem", "entrevistaRH", "entrevistaGestor", "aprovados"];
+
+/**
+ * Faixa do funil de uma etapa do quadro, pelas âncoras (a etapa vale até a próxima âncora:
+ * testes entre a triagem e a entrevista G&G contam como triagem). Pausada/LOST = null.
+ */
+export function stageBucket(s: StageRow | undefined, anchors: Partial<Record<FunnelKey, number>>): Bucket | null {
+  if (!countsAsProgress(s)) return null;
+  let out: Bucket = "inscritos";
+  for (const k of FUNNEL_KEYS) {
+    const a = anchors[k];
+    if (a != null && s.sortOrder >= a) out = k;
+  }
+  return out;
+}
+
+/** Folga entre a inscrição e o 1º registro do histórico antes de supor que faltou o registro de entrada. */
+const MISSING_ENTRY_MS = 60 * 60 * 1000;
+
+/**
+ * Passagens anônimas das candidaturas da vaga pelas etapas do funil (ver `StageVisit`).
+ * Etapas seguidas na mesma faixa viram uma passagem só. Candidatura antiga sem o registro
+ * de entrada ganha "inscritos" a partir da inscrição. Se o histórico não termina na etapa
+ * atual, a última passagem não tem fim conhecido e é descartada.
+ */
+export function buildStageVisits(
+  jobId: string,
+  apps: ApplicationRow[],
+  history: StageHistoryRow[],
+  stages: StageRow[]
+): StageVisit[] {
+  const stageById = new Map(stages.map((s) => [s.id, s]));
+  const anchors = funnelAnchors(stages);
+  const mine = apps.filter((a) => a.jobId === jobId);
+  const ids = new Set(mine.map((a) => a.id));
+  const histByApp = new Map<string, StageHistoryRow[]>();
+  for (const h of history) {
+    if (!ids.has(h.applicationId)) continue;
+    const list = histByApp.get(h.applicationId) ?? [];
+    list.push(h);
+    histByApp.set(h.applicationId, list);
+  }
+  const out: StageVisit[] = [];
+  for (const a of mine) {
+    const steps = [...(histByApp.get(a.id) ?? [])]
+      .sort((x, y) => x.changedAt.localeCompare(y.changedAt))
+      .map((h) => ({ stageId: h.stageId, at: h.changedAt }));
+    if (!steps.length || Date.parse(steps[0].at) - Date.parse(a.createdAt) > MISSING_ENTRY_MS) {
+      steps.unshift({ stageId: null, at: a.createdAt }); // entrada não registrada: estava em "Novas"
+    }
+    const bucketOf = (stageId: string | null, i: number): Bucket | null =>
+      stageId == null && i === 0 ? "inscritos" : stageBucket(stageId ? stageById.get(stageId) : undefined, anchors);
+    const lastStep = steps[steps.length - 1];
+    const endsAtCurrent = lastStep.stageId === a.stageId
+      || (lastStep.stageId == null && steps.length === 1 && bucketOf(a.stageId, 1) === "inscritos");
+    let open: { stage: Bucket; enteredAt: string } | null = null;
+    steps.forEach((step, i) => {
+      const b = bucketOf(step.stageId, i);
+      if (open && b === open.stage) return; // mesma faixa: continua a mesma passagem
+      if (open) {
+        const exit: VisitExit = b == null
+          ? (stageById.get(step.stageId ?? "")?.kind === "LOST" ? "LOST" : "PAUSED")
+          : BUCKET_ORDER.indexOf(b) > BUCKET_ORDER.indexOf(open.stage) ? "ADVANCED" : "BACK";
+        if (open.stage !== "aprovados") out.push({ stage: open.stage, enteredAt: open.enteredAt, leftAt: step.at, exit });
+      }
+      open = b == null ? null : { stage: b, enteredAt: step.at };
+    });
+    const last = open as { stage: Bucket; enteredAt: string } | null;
+    if (last && last.stage !== "aprovados" && endsAtCurrent) {
+      out.push({ stage: last.stage, enteredAt: last.enteredAt, leftAt: null, exit: null });
+    }
+  }
+  return out.sort((x, y) => x.enteredAt.localeCompare(y.enteredAt) || x.stage.localeCompare(y.stage));
 }
 
 export function buildFunnel(
@@ -341,6 +435,7 @@ export function toJornadaJob(
     contractType: job.contractType, workSchedule: job.workSchedule, salary: num(job.salary),
     createdAt: job.createdAt, openedAt: opened, closedAt, statusHistory: timeline, positions,
     funnel: f.funnel, firstReachedAt: f.firstReachedAt, sources: f.sources,
+    stageVisits: buildStageVisits(job.id, ctx.apps, ctx.stageHistory, ctx.stages),
   };
 }
 

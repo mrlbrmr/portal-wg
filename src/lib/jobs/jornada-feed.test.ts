@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildFunnel,
   buildJornadaFeed,
+  buildStageVisits,
   funnelAnchors,
   jobInScope,
   parseSince,
@@ -174,4 +175,49 @@ test("feed não leva dado pessoal de candidato não contratado", () => {
   const feed = buildJornadaFeed({ since: "2026-01-01", jobs: [job], stages, statusHistory: [], positions, apps, stageHistory: history, admissions: [] });
   const txt = JSON.stringify(feed);
   for (const id of ["a1", "a2", "a3", "a5"]) assert.ok(!txt.includes(`"${id}"`), `candidatura ${id} vazou`);
+});
+
+test("passagens: quanto tempo cada candidatura ficou em cada etapa, sem identificar ninguém", () => {
+  const v = buildStageVisits("job-1", apps, history, stages);
+  const fmt = v.map((x) => `${x.stage} ${x.enteredAt.slice(5, 10)}→${x.leftAt ? x.leftAt.slice(5, 10) : "…"} ${x.exit ?? "-"}`);
+  assert.deepEqual(fmt, [
+    "inscritos 09-02→… -",                // a1: ainda em Novas candidaturas (sem histórico)
+    "inscritos 09-02→09-05 ADVANCED",     // a2
+    "inscritos 09-02→09-06 ADVANCED",     // a3
+    "inscritos 09-03→09-04 ADVANCED",     // a4
+    "inscritos 09-04→09-12 ADVANCED",     // a5: pulou a triagem
+    "triagem 09-04→09-10 ADVANCED",       // a4
+    "triagem 09-05→09-08 ADVANCED",       // a2
+    "triagem 09-06→09-07 PAUSED",         // a3: pausado
+    "entrevistaRH 09-08→09-09 LOST",      // a2: reprovado
+    "entrevistaRH 09-10→09-15 ADVANCED",  // a4
+    "entrevistaGestor 09-12→… -",         // a5: ainda na entrevista com o gestor
+    "entrevistaGestor 09-15→09-20 ADVANCED", // a4: foi para a admissão (aprovação não é medida)
+  ]);
+  for (const x of v) assert.deepEqual(Object.keys(x).sort(), ["enteredAt", "exit", "leftAt", "stage"]);
+});
+
+test("passagens: testes contam como triagem, volta de etapa e histórico que não termina na etapa atual", () => {
+  const extra = [app("b1", "INTERVIEW"), app("b2", "NEW")];
+  const hist = [
+    h("b1", "NEW", "2026-09-02T10:00:00Z"),
+    h("b1", "SCREENING", "2026-09-03T10:00:00Z"),
+    h("b1", "t1", "2026-09-04T10:00:00Z"),
+    h("b1", "t2", "2026-09-05T10:00:00Z"),
+    h("b1", "INTERVIEW", "2026-09-07T10:00:00Z"),
+    h("b1", "SCREENING", "2026-09-08T10:00:00Z"),
+    h("b1", "INTERVIEW", "2026-09-09T10:00:00Z"),
+    h("b2", "NEW", "2026-09-02T10:00:00Z"),
+    h("b2", "SCREENING", "2026-09-03T10:00:00Z"), // atual diz NEW: histórico incompleto
+  ];
+  const v = buildStageVisits("job-1", extra, hist, stages);
+  const fmt = v.map((x) => `${x.stage} ${x.enteredAt.slice(5, 10)}→${x.leftAt ? x.leftAt.slice(5, 10) : "…"} ${x.exit ?? "-"}`);
+  assert.deepEqual(fmt, [
+    "inscritos 09-02→09-03 ADVANCED",
+    "inscritos 09-02→09-03 ADVANCED",
+    "triagem 09-03→09-07 ADVANCED", // triagem + 2 testes = uma passagem só
+    "entrevistaRH 09-07→09-08 BACK",
+    "triagem 09-08→09-09 ADVANCED",
+    "entrevistaRH 09-09→… -",
+  ]);
 });

@@ -105,6 +105,18 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   (split view no desktop, J/K, barra de decisão). Anotações por autor em `application_notes`
   (`/api/applications/[id]/notes`); `applications.notes` = "anotações anteriores" + motivo de reprovação.
   Análise de IA estruturada em `application_assessments.metadata` (lida por `src/lib/recruitment/ai-analysis.ts`).
+- **Aba Avaliações = hub da candidatura** (`src/components/internal/candidate/evaluations/**`, regras puras e
+  testadas em `src/lib/recruitment/evaluations/**`). Uma tabela só, `application_assessments`, por `kind`:
+  `INTERVIEW` = entrevista **e** parecer no MESMO registro (tipo, data, entrevistador, `recommendation`
+  estruturada, `content` = JSON do TipTap) · `REFERENCE` (empresa/contato/relação/`referenceResult`) ·
+  `OTHER` = avaliação externa (único com anexo) · `AI_FIT`. **Testes do Portal têm fonte ÚNICA em
+  `assessment_sessions`** — não grave cópia em `application_assessments`; as cópias antigas
+  (`metadata.sessionId`) ficam no banco e são ignoradas por `isTestMirror()`. Sem nota 0–100 em entrevista
+  (score só onde há escala real: testes e IA). Conteúdo do parecer: o servidor passa o JSON por
+  `sanitizeReportDoc()` (lista branca; link só http/https/mailto) e a leitura monta pelo schema do editor,
+  sem innerHTML. Markdown colado (Claude/ChatGPT) → `markdownToEditorHtml()` (marked; HTML cru escapado).
+  Modelos em `templates.ts`; tipos de entrevista/recomendações em `catalog.ts`. Autor/criação preservados
+  por trigger; quem editou vai em `updatedBy*`. "Exportar PDF" = impressão do navegador (o banco é a fonte).
 - **Origem da candidatura** (`applications.source` = código): PORTAL/BANCO_TALENTOS são de sistema; as demais vêm do
   cadastro `application_sources` (Cadastros › Origens de candidatos; o modal "Novo candidato" cria origem na hora).
   Rótulo SEMPRE resolvido no servidor (`src/lib/application-sources.ts` → `sourceLabel`), nunca só pelo mapa estático.

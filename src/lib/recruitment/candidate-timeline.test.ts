@@ -68,3 +68,25 @@ test("agrupa por dia no fuso de São Paulo: Hoje, Ontem e data", () => {
     [["Hoje", 1], ["Ontem", 1], ["19 de set.", 1]]
   );
 });
+
+test("hub de avaliações: entrevista com tipo/recomendação, referência e cópia de teste oculta — sem copiar o conteúdo", () => {
+  const ev = buildCandidateTimeline({
+    createdAt: "2026-10-01T10:00:00Z",
+    sourceLabel: "Portal",
+    addedBy: null,
+    stageHistory: [],
+    lostStageId: null,
+    assessments: [
+      { id: "i1", kind: "INTERVIEW", source: "HUMAN", title: "Entrevista RH", score: null, evaluator: "Murilo", occurredAt: "2026-10-14T12:00:00Z", createdAt: "2026-10-14T15:00:00Z", createdBy: "Murilo", interviewType: "HR", recommendation: "ADVANCE_WITH_CAVEATS" },
+      { id: "r1", kind: "REFERENCE", source: "HUMAN", title: "Referência · Empresa X", score: null, evaluator: null, occurredAt: "2026-10-13T12:00:00Z", createdAt: "2026-10-13T15:00:00Z", createdBy: "Murilo", referenceCompany: "Empresa X", referenceResult: "POSITIVE" },
+      { id: "m1", kind: "PERSONALITY_TEST", source: "HUMAN", title: "Big Five", score: null, evaluator: "Online", occurredAt: null, createdAt: "2026-10-12T15:00:00Z", metadata: { sessionId: "s1" } },
+    ],
+  });
+  const interview = ev.find((e) => e.id === "assessment-i1");
+  assert.equal(interview?.title, "Entrevista registrada");
+  assert.equal(interview?.detail, "Entrevista RH · Avançar com ressalvas");
+  const reference = ev.find((e) => e.id === "assessment-r1");
+  assert.equal(reference?.title, "Referência registrada");
+  assert.equal(reference?.detail, "Empresa X · Positiva");
+  assert.equal(ev.some((e) => e.id === "assessment-m1"), false);
+});

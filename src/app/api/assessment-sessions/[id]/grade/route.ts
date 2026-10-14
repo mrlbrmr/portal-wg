@@ -77,16 +77,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .eq('id', id)
   if (error) return NextResponse.json({ error: 'Erro ao salvar a correção.' }, { status: 500 })
 
-  // Espelha a nota final no registro do histórico do candidato (criado no envio).
-  await supabase
-    .from('application_assessments')
-    .update({
-      score,
-      outcome: outcome === 'PASS' || outcome === 'FAIL' ? outcome : null,
-      summary: `Teste online: ${template.name}\nNota final após correção: ${score ?? '—'}/100`,
-      metadata: { sessionId: id, scoreBreakdown },
-    })
-    .eq('metadata->>sessionId', id)
-
   return NextResponse.json({ score, outcome })
 }

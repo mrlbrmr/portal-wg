@@ -73,7 +73,7 @@ export function AiAnalysisPanel({ analysis, loading, jobCriteria, canManage, res
             ? "A análise automática só lê currículos em PDF."
             : "Currículo ainda não analisado."}
         </p>
-        {jobCriteria.length > 0 && <JobCriteriaReference criteria={jobCriteria} />}
+
       </Section>
     );
   }
@@ -204,7 +204,7 @@ function BulletList({ title, items, kind }: { title: string; items: string[]; ki
   );
 }
 
-function JobCriteriaReference({ criteria, note }: { criteria: string[]; note?: string }) {
+function JobCriteriaReference({ criteria, note }: { criteria: string[]; note: string }) {
   return (
     <div className="mt-2">
       <ul className="space-y-0.5">
@@ -219,7 +219,7 @@ function JobCriteriaReference({ criteria, note }: { criteria: string[]; note?: s
         ))}
       </ul>
       <p className="mt-1.5 text-[11.5px] text-wg-ink-muted">
-        {note ?? "Requisitos obrigatórios da vaga — use como roteiro da triagem."}
+        {note}
       </p>
     </div>
   );

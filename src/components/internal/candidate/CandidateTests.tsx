@@ -48,7 +48,7 @@ function sessionStatus(s: TestSession): { label: string; tone: Tone } {
 }
 
 /**
- * "Testes online": links de avaliação enviados ao candidato. Vazio = uma linha e o botão
+ * "Testes" (do Portal): links de avaliação enviados ao candidato — fonte única do resultado. Vazio = uma linha e o botão
  * de enviar; com testes, uma linha por envio (status, envio, conclusão, resultado).
  */
 export function CandidateTests({ applicationId, sessions, canManage, defaultTemplateId, onChanged }: Props) {
@@ -110,7 +110,7 @@ export function CandidateTests({ applicationId, sessions, canManage, defaultTemp
 
   return (
     <Section
-      title="Testes online"
+      title="Testes"
       meta={items && items.length > 0 ? <span className="text-meta font-normal tabular-nums text-wg-ink-muted">{items.length}</span> : null}
       action={
         canManage &&

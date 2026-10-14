@@ -35,7 +35,6 @@ import type { DropdownMenuItem } from "@/components/ui/DropdownMenu";
 import type { ActiveChip, FilterSection } from "@/components/ui/FilterPopover";
 import type { KanbanCardApi, KanbanColumnDef } from "@/components/internal/KanbanBoardShell";
 import { CandidateQuickView } from "@/components/internal/candidate/CandidateQuickView";
-import { InterviewModal } from "@/components/internal/InterviewModal";
 import { AdmissionLinkModal, type AdmissionMeta, type AdmissionPosition } from "@/components/internal/AdmissionLinkModal";
 import { MoveStageDialog } from "@/components/internal/candidate/MoveStageDialog";
 import { RejectionDialog, buildRejectionNote } from "@/components/internal/candidate/RejectionDialog";
@@ -160,7 +159,9 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
   const [pendingAdmission, setPendingAdmission] = useState<{ candidateId: string; toStageId: string } | null>(null);
   const [aiScoreOverrides, setAiScoreOverrides] = useState<Map<string, number>>(new Map());
   const [sendingTestFor, setSendingTestFor] = useState<string | null>(null);
-  const [interviewTarget, setInterviewTarget] = useState<{ applicationId: string; candidateName: string } | null>(null);
+  // "Registrar entrevista" no card abre o candidato direto no editor de entrevista + parecer.
+  const [interviewIntent, setInterviewIntent] = useState<string | null>(null);
+  const clearInterviewIntent = useCallback(() => setInterviewIntent(null), []);
   const [stageOverrides, setStageOverrides] = useState<Record<string, string>>({});
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<{ kind: "move" | "reject" | "delete"; id: string } | null>(null);
@@ -479,7 +480,10 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     return {
       label: "Registrar entrevista",
       icon: CalendarPlus,
-      onClick: () => setInterviewTarget({ applicationId: c.id, candidateName: c.fullName }),
+      onClick: () => {
+        setInterviewIntent(c.id);
+        openCandidate(c.id);
+      },
     };
   }
 
@@ -904,7 +908,12 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
         knownScore={detailId ? derived.get(detailId)?.score : undefined}
         nav={queueNav}
         onScoreChange={(id, score) => setAiScoreOverrides((prev) => new Map(prev).set(id, score))}
-        onClose={() => setDetailId(null)}
+        onClose={() => {
+          setDetailId(null);
+          setInterviewIntent(null);
+        }}
+        interviewIntent={interviewIntent}
+        onInterviewIntentHandled={clearInterviewIntent}
         onBeforeStageChange={(id, toStageId) => {
           // Mesmo gate do arrastar no Kanban: Admissão/Contratado abre o modal de admissão.
           if (handleBeforeMove(id, toStageId)) return true;
@@ -932,14 +941,6 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
         onSuccess={handleAdmissionSuccess}
       />
 
-      {interviewTarget && (
-        <InterviewModal
-          applicationId={interviewTarget.applicationId}
-          candidateName={interviewTarget.candidateName}
-          onClose={() => setInterviewTarget(null)}
-          onSuccess={() => router.refresh()}
-        />
-      )}
     </>
   );
 }

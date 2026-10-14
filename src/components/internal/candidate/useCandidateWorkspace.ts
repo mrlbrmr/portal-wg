@@ -5,6 +5,7 @@ import type { ApplicationNote } from "@/lib/application-notes";
 import type {
   AssessmentItem,
   CandidateDetail,
+  CurrentUser,
   LinkedAdmission,
   Loadable,
   TestSession,
@@ -22,6 +23,7 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 interface Snapshot {
   data?: CandidateDetail;
   assessments?: AssessmentItem[];
+  viewer?: CurrentUser;
   sessions?: TestSession[];
   notes?: ApplicationNote[];
   currentUserId?: string | null;
@@ -44,6 +46,7 @@ export function useCandidateWorkspace(applicationId: string | null) {
   const [sessions, setSessions] = useState<Loadable<TestSession>>(EMPTY);
   const [notes, setNotes] = useState<Loadable<ApplicationNote>>(EMPTY);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<CurrentUser | null>(null);
   const [admission, setAdmission] = useState<LinkedAdmission | null>(null);
 
   const cache = useRef(new Map<string, Snapshot>());
@@ -80,10 +83,12 @@ export function useCandidateWorkspace(applicationId: string | null) {
   const loadAssessments = useCallback(
     (id: string) => {
       const ctrl = new AbortController();
-      getJson<{ assessments: AssessmentItem[] }>(`/api/applications/${id}/assessments`, ctrl.signal)
+      getJson<{ assessments: AssessmentItem[]; currentUser?: CurrentUser }>(`/api/applications/${id}/assessments`, ctrl.signal)
         .then((d) => {
-          remember(id, { assessments: d.assessments });
-          if (isActive(id)) setAssessments({ items: d.assessments, error: false });
+          remember(id, { assessments: d.assessments, viewer: d.currentUser });
+          if (!isActive(id)) return;
+          setAssessments({ items: d.assessments, error: false });
+          if (d.currentUser) setViewer(d.currentUser);
         })
         .catch(() => !ctrl.signal.aborted && isActive(id) && setAssessments((s) => ({ items: s.items ?? [], error: true })));
       return ctrl;
@@ -131,6 +136,7 @@ export function useCandidateWorkspace(applicationId: string | null) {
     setSessions(snap?.sessions ? { items: snap.sessions, error: false } : EMPTY);
     setNotes(snap?.notes ? { items: snap.notes, error: false } : EMPTY);
     if (snap?.currentUserId !== undefined) setCurrentUserId(snap.currentUserId);
+    if (snap?.viewer) setViewer(snap.viewer);
     setAdmission(snap?.admission ?? null);
 
     const ctrls = [
@@ -158,6 +164,19 @@ export function useCandidateWorkspace(applicationId: string | null) {
   useEffect(() => {
     if (applicationId && data?.id === applicationId) remember(applicationId, { data });
   }, [applicationId, data, remember]);
+
+  // Avaliação criada/editada/excluída no hub: atualiza a lista na hora (e o cache).
+  const updateAssessments = useCallback(
+    (update: (items: AssessmentItem[]) => AssessmentItem[]) => {
+      const id = activeId.current;
+      setAssessments((s) => {
+        const items = update(s.items ?? []);
+        if (id) remember(id, { assessments: items });
+        return { items, error: false };
+      });
+    },
+    [remember]
+  );
 
   const updateNotes = useCallback(
     (update: (s: Loadable<ApplicationNote>) => Loadable<ApplicationNote>) => {
@@ -191,6 +210,8 @@ export function useCandidateWorkspace(applicationId: string | null) {
     setData,
     error,
     assessments,
+    setAssessments: updateAssessments,
+    viewer,
     sessions,
     notes,
     setNotes: updateNotes,

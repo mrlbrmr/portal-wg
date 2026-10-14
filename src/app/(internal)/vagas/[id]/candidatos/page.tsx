@@ -16,6 +16,7 @@ import { progressLabel, summarizePositions } from "@/lib/jobs/positions";
 import type { AdmissionPosition } from "@/components/internal/AdmissionLinkModal";
 import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/candidate-presentation";
 import { resolveAssessmentType } from "@/lib/avaliacoes/schema";
+import { isHumanEvaluation } from "@/lib/recruitment/evaluations/catalog";
 import type { CvProfile } from "@/lib/ai/cv-analyzer";
 import { loadApplicationSources, labelForSource, sourceLabelsFrom } from "@/lib/application-sources";
 import type { Metadata } from "next";
@@ -31,7 +32,15 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
-type AssessmentRow = { id: string; kind: string; occurredAt: string | null; outcome: string | null };
+type AssessmentRow = {
+  id: string;
+  kind: string;
+  occurredAt: string | null;
+  outcome: string | null;
+  recommendation: string | null;
+  evaluator: string | null;
+  metadata: unknown;
+};
 
 export default async function CandidatosPage({ params }: Props) {
   const { id } = await params;
@@ -53,7 +62,7 @@ export default async function CandidatosPage({ params }: Props) {
     supabase
       .from("applications")
       .select(
-        "id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, candidateCity, candidateState, cv_profile, notes, noteRows:application_notes(id), assessments:application_assessments(id, kind, occurredAt, outcome)"
+        "id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, candidateCity, candidateState, cv_profile, notes, noteRows:application_notes(id), assessments:application_assessments(id, kind, occurredAt, outcome, recommendation, evaluator, metadata)"
       )
       .eq("jobId", id)
       .order("sort_order", { ascending: true, nullsFirst: false })
@@ -238,7 +247,7 @@ export default async function CandidatosPage({ params }: Props) {
   const nextInterview = (rows: AssessmentRow[]) =>
     rows
       .filter((r) => r.kind === "INTERVIEW" && r.occurredAt && r.occurredAt.slice(0, 10) >= todayUtc)
-      .filter((r) => !r.outcome || r.outcome === "PENDING")
+      .filter((r) => (!r.outcome || r.outcome === "PENDING") && (!r.recommendation || r.recommendation === "UNDEFINED"))
       .map((r) => r.occurredAt as string)
       .sort()[0] ?? null;
 
@@ -268,7 +277,7 @@ export default async function CandidatosPage({ params }: Props) {
       education: profile?.education?.trim() || null,
       skills: Array.isArray(profile?.skills) ? profile.skills.filter((s): s is string => typeof s === "string") : [],
       hasNotes: !!a.notes?.trim() || (a.noteRows?.length ?? 0) > 0,
-      assessmentCount: assessments.filter((r) => r.kind !== "AI_FIT").length,
+      assessmentCount: assessments.filter(isHumanEvaluation).length,
       enteredStageAt: enteredStageAtFromLatest(latestHistoryByApp.get(a.id), a.stageId),
       nextInterviewAt: nextInterview(assessments),
     };

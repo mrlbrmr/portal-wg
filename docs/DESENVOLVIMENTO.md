@@ -7,6 +7,39 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-10-14 — Pareceres de entrevista + aba Avaliações como hub da candidatura
+
+Migração `20261014120000_assessments_hub.sql` — **aplicada** (aditiva). Teste SQL: `scripts/test-assessments-hub.sql`
+(entra no `npm run test:db`).
+
+- **Objetivo:** registrar o parecer de entrevista (gerado fora, no Claude/ChatGPT) dentro da candidatura, sem PDF, e
+  acabar com a duplicidade da antiga "Avaliações registradas" (Tipo/Nota 0–100/Parecer/Anexo genéricos).
+- **Decisão de modelo:** nada de tabela paralela. `application_assessments` evoluiu: entrevista e parecer são o MESMO
+  registro (`kind=INTERVIEW` + `interviewType`, `recommendation`, `content` jsonb, `contentText`); referência ganhou
+  colunas próprias (`referenceCompany/Contact/Relationship/Result`); `OTHER` virou "Avaliação externa" (único com
+  anexo). Autor/criação/candidatura preservados por trigger; `updatedById/updatedByName` registram quem editou.
+  Backfill: as 10 entrevistas antigas ganharam `recommendation` a partir do `outcome` (texto e nota antigos intactos;
+  a leitura mostra "Registro anterior · nota registrada na época").
+- **Etapas do funil como tipo de entrevista:** avaliado e descartado — as etapas são globais e misturam
+  Triagem/Teste/Admissão (não há kind de entrevista). Tipos ficam em `catalog.ts` (lista extensível).
+- **Testes = fonte única `assessment_sessions`:** o envio (`/api/avaliacao/[token]/submit`) e a correção (`/grade`)
+  deixaram de gravar cópia em `application_assessments`. As 20 cópias antigas continuam no banco (decisão do
+  usuário: ocultar, não apagar) e são ignoradas por `isTestMirror()` (aba, Histórico e contagem do card).
+- **UI:** aba Avaliações em modo de consulta — Critérios da vaga (recolhível) · Testes · Entrevistas e pareceres ·
+  Referências · Avaliações externas (só quando há) · Análise de currículo. "Registrar entrevista" abre modal grande
+  com editor TipTap (títulos, listas, tabelas, citação, divisor, link, desfazer/refazer), "Usar modelo"
+  (completo/simplificado/em branco), "Colar parecer gerado por IA" e conversão automática de Markdown colado como
+  texto puro. Parecer abre em leitura (documento), com Editar e ••• (Exportar PDF via impressão, Excluir). O
+  "Registrar entrevista" do card do pipeline abre o Quick View já no editor (o `InterviewModal` foi removido).
+  Editor e leitor carregam sob demanda (`next/dynamic`): `/vagas/[id]/candidatos` ficou em 64,5 kB.
+- **Segurança:** RLS existente (staff lê, ADMIN_RH escreve, anon nada) — coberta pelo teste SQL. Servidor valida tudo
+  com zod + `sanitizeReportDoc()`; link só http/https/mailto; leitura via `DOMSerializer` do schema (sem innerHTML).
+- **Validação:** tsc, `npm test` (295), build de produção, teste SQL. UI validada numa página temporária local (API
+  simulada com as mesmas regras): colar Markdown com tabela/`<script>`/`javascript:`, salvar, editar, modelo,
+  descartar alterações, referência, excluir, exportar e mobile 375px. **Pendente:** validação logada no painel real.
+
+---
+
 ## Sessão de 2026-10-13 (tarde) — APIs protegidas respondem 401 em vez de redirecionar ao /login
 
 Sem migração; nenhuma regra de negócio mudou. Commit `e8e34bb`.

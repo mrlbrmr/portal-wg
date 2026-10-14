@@ -173,6 +173,66 @@
 .rich-editor p:first-child { margin-top: 0; }
 .rich-editor p:last-child { margin-bottom: 0; }
 
+/* Parecer de entrevista: o MESMO estilo no editor e na leitura — um documento, não um
+   formulário. Conteúdo como protagonista: medida de leitura, ritmo vertical, tabelas leves. */
+.report-prose {
+  color: #1a2213;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.report-prose > * + * { margin-top: 0.75rem; }
+.report-prose h1 { font-family: var(--font-sora, inherit); font-size: 1.375rem; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em; margin-top: 1.75rem; }
+.report-prose h2 { font-family: var(--font-sora, inherit); font-size: 1.125rem; line-height: 1.35; font-weight: 600; margin-top: 1.5rem; }
+.report-prose h3 { font-size: 1rem; line-height: 1.4; font-weight: 600; margin-top: 1.25rem; }
+.report-prose h1:first-child, .report-prose h2:first-child, .report-prose h3:first-child { margin-top: 0; }
+.report-prose h1 + *, .report-prose h2 + *, .report-prose h3 + * { margin-top: 0.375rem; }
+.report-prose strong { font-weight: 600; }
+.report-prose em { font-style: italic; }
+.report-prose s { text-decoration: line-through; }
+.report-prose u { text-decoration: underline; }
+.report-prose a { color: #4f6930; text-decoration: underline; text-underline-offset: 2px; }
+.report-prose code { font-size: 0.85em; background: #f1f3ee; border-radius: 4px; padding: 0.1em 0.35em; }
+.report-prose pre { background: #f6f8f3; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.8125rem; white-space: pre-wrap; }
+.report-prose pre code { background: none; padding: 0; }
+.report-prose ul, .report-prose ol { padding-left: 1.4rem; }
+.report-prose ul { list-style: disc; }
+.report-prose ol { list-style: decimal; }
+.report-prose li + li { margin-top: 0.25rem; }
+.report-prose li > p { margin: 0; }
+.report-prose li::marker { color: #55614a; }
+.report-prose blockquote { border-left: 3px solid #c9d9b4; padding: 0.125rem 0 0.125rem 1rem; color: #3e4a34; }
+.report-prose hr { border: 0; border-top: 1px solid #e7eedd; margin: 1.5rem 0; }
+.report-prose table { width: 100%; border-collapse: collapse; font-size: 0.875rem; line-height: 1.5; table-layout: auto; }
+.report-prose th, .report-prose td { border-bottom: 1px solid #e7eedd; padding: 0.5rem 0.75rem 0.5rem 0; text-align: left; vertical-align: top; min-width: 4rem; position: relative; }
+.report-prose th { font-weight: 600; color: #3e4a34; border-bottom-color: #dce8cc; }
+.report-prose th > p, .report-prose td > p { margin: 0; }
+.report-prose .tableWrapper { overflow-x: auto; }
+/* No editor: célula selecionada e grade visível para editar a tabela. */
+.report-editor .ProseMirror { outline: none; min-height: 100%; }
+.report-editor .ProseMirror th, .report-editor .ProseMirror td { border: 1px solid #e7eedd; padding: 0.4rem 0.6rem; }
+.report-editor .ProseMirror .selectedCell::after { content: ""; position: absolute; inset: 0; background: rgba(127, 212, 0, 0.12); pointer-events: none; }
+.report-editor .ProseMirror p.is-editor-empty:first-child::before,
+.report-editor .ProseMirror .is-empty.is-editor-empty::before {
+  content: attr(data-placeholder);
+  color: rgba(85, 97, 74, 0.6);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Exportar parecer em PDF: imprime SÓ o documento (o resto da página some). */
+[data-report-print] { display: none; }
+@media print {
+  html[data-printing-report] body > *:not([data-report-print]) { display: none !important; }
+  html[data-printing-report] [data-report-print] { display: block; padding: 0; color: #000; }
+  html[data-printing-report] body { background: #fff; }
+  @page { margin: 18mm 16mm; }
+  [data-report-print] .report-prose table { page-break-inside: auto; }
+  [data-report-print] .report-prose tr { page-break-inside: avoid; }
+  [data-report-print] .report-prose h1, [data-report-print] .report-prose h2, [data-report-print] .report-prose h3 { page-break-after: avoid; }
+}
+
 /* Quick View do candidato em split view (>= lg): a área de conteúdo abre espaço à direita
    para o painel, e o pipeline da vaga continua visível e clicável à esquerda. */
 [data-internal-main] {

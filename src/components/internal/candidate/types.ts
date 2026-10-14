@@ -51,7 +51,11 @@ export interface LinkedAdmission {
   stage: StageRef | null;
 }
 
-/** GET /api/applications/[id]/assessments — entrevistas, testes manuais e análise de IA. */
+/**
+ * GET /api/applications/[id]/assessments — hub da aba Avaliações: entrevista + parecer,
+ * referência, avaliação externa e análise de IA (testes online vêm de TestSession).
+ * score/outcome só existem em registros antigos e na IA — não há nota em entrevista.
+ */
 export interface AssessmentItem {
   id: string;
   kind: string;
@@ -66,6 +70,24 @@ export interface AssessmentItem {
   occurredAt: string | null;
   createdAt: string;
   createdBy: string | null;
+  updatedAt?: string;
+  interviewType?: string | null;
+  recommendation?: string | null;
+  /** Documento do editor (JSON TipTap), já validado no servidor. */
+  content?: unknown;
+  referenceCompany?: string | null;
+  referenceContact?: string | null;
+  referenceRelationship?: string | null;
+  referenceResult?: string | null;
+  authorId?: string | null;
+  updatedById?: string | null;
+  updatedByName?: string | null;
+}
+
+/** Quem está logado (entrevistador padrão de uma nova entrevista). */
+export interface CurrentUser {
+  id: string;
+  name: string;
 }
 
 /** GET /api/assessment-sessions?applicationId= — testes online enviados por link. */

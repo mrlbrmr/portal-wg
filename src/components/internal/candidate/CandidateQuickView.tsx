@@ -14,16 +14,14 @@ import { pipelineGroup } from "@/lib/recruitment/candidate-presentation";
 import { candidateStageFlow, enteredCurrentStageAt, type FlowStage } from "@/lib/recruitment/candidate-stage-flow";
 import { buildCandidateTimeline } from "@/lib/recruitment/candidate-timeline";
 import type { PipelineStage } from "@/components/internal/candidates/types";
-import { AiAnalysisPanel } from "./AiAnalysisPanel";
 import type { CandidateProfilePatch } from "./CandidateEditForm";
 import { CandidateHeader, FullProfileAction, type StageActionKind } from "./CandidateHeader";
 import type { CandidateQueueNav } from "./CandidateNavigation";
 import { CandidateNotes } from "./CandidateNotes";
 import { CandidateOverview } from "./CandidateOverview";
 import { CandidateStageBar } from "./CandidateStageBar";
-import { CandidateTests } from "./CandidateTests";
 import { CandidateTimeline } from "./CandidateTimeline";
-import { ManualAssessments } from "./ManualAssessments";
+import { EvaluationsHub } from "./evaluations/EvaluationsHub";
 import { MoveStageDialog } from "./MoveStageDialog";
 import { RejectionDialog, buildRejectionNote } from "./RejectionDialog";
 import { useCandidateWorkspace } from "./useCandidateWorkspace";
@@ -65,6 +63,9 @@ interface Props {
   onBeforeStageChange?: (applicationId: string, stageId: string) => boolean;
   /** A IA recalculou a aderência — o card do pipeline atualiza sem recarregar. */
   onScoreChange?: (applicationId: string, score: number) => void;
+  /** "Registrar entrevista" do card: abre este candidato já no editor de entrevista. */
+  interviewIntent?: string | null;
+  onInterviewIntentHandled?: () => void;
 }
 
 /**
@@ -83,6 +84,8 @@ export function CandidateQuickView({
   onClose,
   onBeforeStageChange,
   onScoreChange,
+  interviewIntent = null,
+  onInterviewIntentHandled,
 }: Props) {
   const router = useRouter();
   const { notify } = useToast();
@@ -126,6 +129,11 @@ export function CandidateQuickView({
     }
     wasOpen.current = open;
   }, [open]);
+
+  // Pedido de registrar entrevista (card do pipeline): vai direto para a aba Avaliações.
+  useEffect(() => {
+    if (open && interviewIntent && interviewIntent === applicationId) setTab("assessments");
+  }, [open, interviewIntent, applicationId]);
 
   // ── Anotações: rascunho não se perde ao trocar de candidato ou fechar ──
   const postNote = useCallback(async (id: string, body: string) => {
@@ -563,38 +571,29 @@ export function CandidateQuickView({
     );
   } else if (tab === "assessments") {
     body = (
-      <div className={cn(wide && "grid grid-cols-2 gap-x-8")}>
-        <AiAnalysisPanel
-          analysis={analysis}
-          loading={ws.assessments.items === null}
-          jobCriteria={data.screeningCriteria}
-          canManage={canManage}
-          resumeName={data.resumeName}
-          analyzing={analyzing}
-          onAnalyze={() => void runAnalysis()}
-        />
-        <div className={cn(wide ? "border-l border-wg-border-lighter pl-8" : "mt-5 border-t border-wg-border-lighter pt-4")}>
-          <CandidateTests
-            applicationId={data.id}
-            sessions={ws.sessions}
-            canManage={canManage}
-            defaultTemplateId={stages.find((s) => s.id === data.stageId && s.kind === "TEST")?.templateId ?? null}
-            onChanged={() => {
-              ws.reloadSessions();
-              router.refresh();
-            }}
-          />
-          <ManualAssessments
-            applicationId={data.id}
-            assessments={ws.assessments}
-            canManage={canManage}
-            onChanged={() => {
-              ws.reloadAssessments();
-              router.refresh();
-            }}
-          />
-        </div>
-      </div>
+      <EvaluationsHub
+        key={data.id}
+        data={data}
+        jobTitle={jobTitle}
+        assessments={ws.assessments}
+        onAssessmentsChange={ws.setAssessments}
+        onRetryAssessments={() => ws.reloadAssessments()}
+        sessions={ws.sessions}
+        onSessionsChanged={() => {
+          ws.reloadSessions();
+          router.refresh();
+        }}
+        viewer={ws.viewer}
+        canManage={canManage}
+        wide={wide}
+        defaultTemplateId={stages.find((s) => s.id === data.stageId && s.kind === "TEST")?.templateId ?? null}
+        analysis={analysis}
+        analyzing={analyzing}
+        onAnalyze={() => void runAnalysis()}
+        autoStartInterview={interviewIntent === data.id}
+        onAutoStartHandled={onInterviewIntentHandled}
+        onChanged={() => router.refresh()}
+      />
     );
   } else if (tab === "notes") {
     body = (

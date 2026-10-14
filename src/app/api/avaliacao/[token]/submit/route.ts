@@ -2,19 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { scoreSession } from '@/lib/avaliacoes/scoring'
 import { resolveAssessmentType, type Question } from '@/lib/avaliacoes/schema'
-import { BIG_FIVE_INFO } from '@/lib/avaliacoes/big-five'
 import { z } from 'zod'
 
 const schema = z.object({
   answers: z.record(z.string(), z.string()),
 })
-
-// Mapeamento de kind do template para kind da application_assessments
-const TEMPLATE_KIND_TO_ASSESSMENT_KIND: Record<string, string> = {
-  SCREENING: 'TECHNICAL_TEST',
-  TECHNICAL: 'TECHNICAL_TEST',
-  PERSONALITY_BIG5: 'PERSONALITY_TEST',
-}
 
 export async function POST(
   req: NextRequest,
@@ -102,34 +94,8 @@ export async function POST(
     return NextResponse.json({ error: 'Avaliação já enviada' }, { status: 409 })
   }
 
-  // Registra em application_assessments para aparecer no histórico do candidato.
-  if (sess.applicationId) {
-    const summaryParts: string[] = [`Teste online: ${template.name as string}`]
-    if (scoreBreakdown.bigFive) {
-      const bf = scoreBreakdown.bigFive
-      summaryParts.push(
-        BIG_FIVE_INFO.filter((d) => bf[d.key] !== null && bf[d.key] !== undefined)
-          .map((d) => `${d.label}: ${bf[d.key]}`)
-          .join(' · ')
-      )
-    } else if (outcome === 'PENDING_REVIEW') {
-      summaryParts.push('Aguardando correção das questões dissertativas.')
-    }
-
-    await supabase.from('application_assessments').insert({
-      applicationId: sess.applicationId,
-      kind: TEMPLATE_KIND_TO_ASSESSMENT_KIND[template.kind as string] ?? 'OTHER',
-      source: 'HUMAN',
-      title: template.name as string,
-      score: score ?? null,
-      // Só PASS/FAIL viram outcome: comportamental não tem, dissertativa pendente ainda não tem.
-      outcome: outcome === 'PASS' || outcome === 'FAIL' ? outcome : null,
-      summary: summaryParts.join('\n'),
-      evaluator: 'Automático',
-      occurredAt: now,
-      metadata: { sessionId: sess.id, scoreBreakdown },
-    })
-  }
+  // O resultado fica SÓ em assessment_sessions (fonte única): a candidatura lê o teste de lá
+  // (aba Avaliações e Histórico). Não há mais cópia em application_assessments.
 
   return NextResponse.json({ score, outcome, assessmentType, scoreBreakdown })
 }

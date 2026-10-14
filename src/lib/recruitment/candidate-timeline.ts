@@ -6,6 +6,8 @@
 // e application_notes (anotações). Tipos sem fonte de dado hoje (contato realizado,
 // troca de responsável) já existem no vocabulário para a UI, mas nunca são gerados aqui.
 
+import { interviewTypeLabel, isTestMirror, recommendationInfo, referenceResultInfo } from "./evaluations/catalog";
+
 export type CandidateEventType =
   | "APPLICATION_RECEIVED"
   | "STAGE_CHANGED"
@@ -48,6 +50,11 @@ export interface TimelineInput {
     occurredAt: string | null;
     createdAt: string;
     createdBy?: string | null;
+    metadata?: unknown;
+    interviewType?: string | null;
+    recommendation?: string | null;
+    referenceCompany?: string | null;
+    referenceResult?: string | null;
   }>;
   sessions?: Array<{
     id: string;
@@ -110,9 +117,8 @@ export function buildCandidateTimeline(input: TimelineInput): CandidateEvent[] {
   });
 
   for (const a of input.assessments ?? []) {
-    // Teste online respondido (Big Five ou técnico) gera uma avaliação automática — o
-    // evento já vem da sessão ("Teste concluído").
-    if ((a.kind === "PERSONALITY_TEST" || a.kind === "TECHNICAL_TEST") && a.evaluator === "Automático") continue;
+    // Cópia antiga de teste online: o evento já vem da sessão ("Teste concluído").
+    if (isTestMirror(a)) continue;
     if (a.kind === "AI_FIT" && a.source === "AI") {
       events.push({
         id: `assessment-${a.id}`,
@@ -125,13 +131,30 @@ export function buildCandidateTimeline(input: TimelineInput): CandidateEvent[] {
       continue;
     }
     if (a.kind === "INTERVIEW") {
+      // Só o evento (tipo · recomendação) — o parecer em si fica na aba Avaliações.
+      const parts: string[] = [];
+      if (a.interviewType) parts.push(interviewTypeLabel(a.interviewType));
+      if (a.recommendation && a.recommendation !== "UNDEFINED") parts.push(recommendationInfo(a.recommendation).label);
+      if (a.occurredAt && a.occurredAt.slice(0, 10) > a.createdAt.slice(0, 10)) parts.push(`Para ${dayMonth(a.occurredAt)}`);
       events.push({
         id: `assessment-${a.id}`,
         type: "INTERVIEW_SCHEDULED",
         at: a.createdAt,
         title: "Entrevista registrada",
-        detail: a.occurredAt ? `Para ${dayMonth(a.occurredAt)}` : null,
+        detail: parts.join(" · ") || null,
         actor: a.createdBy ?? a.evaluator ?? null,
+      });
+      continue;
+    }
+    if (a.kind === "REFERENCE") {
+      const result = referenceResultInfo(a.referenceResult);
+      events.push({
+        id: `assessment-${a.id}`,
+        type: "ASSESSMENT_CREATED",
+        at: a.createdAt,
+        title: "Referência registrada",
+        detail: [a.referenceCompany, result?.label].filter(Boolean).join(" · ") || null,
+        actor: a.createdBy ?? null,
       });
       continue;
     }
@@ -139,7 +162,7 @@ export function buildCandidateTimeline(input: TimelineInput): CandidateEvent[] {
       id: `assessment-${a.id}`,
       type: "ASSESSMENT_CREATED",
       at: a.createdAt,
-      title: "Avaliação registrada",
+      title: a.kind === "OTHER" ? "Avaliação externa registrada" : "Avaliação registrada",
       detail: a.title || input.kindLabels?.[a.kind] || a.kind,
       actor: a.createdBy ?? a.evaluator ?? null,
     });

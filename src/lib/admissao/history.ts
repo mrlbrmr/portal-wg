@@ -96,6 +96,25 @@ function logToItem(log: HistoryLogRow): HistoryItem | null {
       };
     case "admission.form_submitted":
       return { ...base, title: "Candidato concluiu o formulário de admissão" };
+    case "admission.candidate_linked":
+    case "admission.candidate_unlinked": {
+      const linked = key === "admission.candidate_linked";
+      const lm = (log.metadata ?? {}) as { filled?: string[]; stageName?: string | null; positionNumber?: number | null };
+      const details = linked
+        ? [
+            lm.stageName ? `Candidato movido para “${lm.stageName}”` : null,
+            lm.positionNumber ? `Posição #${String(lm.positionNumber).padStart(2, "0")}` : null,
+            lm.filled?.length ? `Dados completados: ${lm.filled.join(", ")}` : null,
+          ].filter(Boolean)
+        : [];
+      return {
+        ...base,
+        title: who
+          ? `${who} ${linked ? "vinculou a admissão ao processo seletivo" : "desvinculou a admissão do processo seletivo"}`
+          : type.label,
+        description: [log.description, ...details].filter(Boolean).join(" · ") || undefined,
+      };
+    }
     default:
       return {
         ...base,

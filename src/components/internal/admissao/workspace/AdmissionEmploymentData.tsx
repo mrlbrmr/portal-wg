@@ -1,8 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowUpRight, Link2, Lock, Unlink } from "lucide-react";
 import { Panel } from "@/components/ui/Panel";
+import { Button } from "@/components/ui/Button";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { StageBadge } from "@/components/ui/StatusBadge";
+import { useToast } from "@/components/ui/ToastProvider";
+import { unlinkAdmissionCandidate } from "@/lib/admissao/candidate-link-actions";
 import { daysFromToday, formatDateBR, formatSalaryDigits, relativeDaysLabel, todayFrom } from "@/lib/admissao/workspace";
 import { optionName, useAdmissionWorkspace } from "./context";
 import { DataField, EditableSection, FieldGrid, RegistrySelect, fieldA11y, inputClass } from "./fields";
@@ -112,14 +119,62 @@ function FieldGroup({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-/** De onde a admissão veio (informativo). A origem é gravada na criação e não é editável. */
+/**
+ * Processo seletivo de onde a pessoa veio. Gravado pelo "Contratar" do pipeline ou, para
+ * admissão cadastrada direto aqui, pelo vínculo manual (unifica admissão e candidato).
+ */
 function AdmissionOrigin() {
-  const { data } = useAdmissionWorkspace();
-  const { job, candidateHref } = data.origin;
+  const { data, canManage, openCandidateLink } = useAdmissionWorkspace();
+  const router = useRouter();
+  const { notify } = useToast();
+  const [confirmUnlink, setConfirmUnlink] = useState(false);
+  const { job, candidateHref, candidate } = data.origin;
+
+  const unlink = async () => {
+    setConfirmUnlink(false);
+    const r = await unlinkAdmissionCandidate(data.id).catch(() => null);
+    if (!r || !r.ok) {
+      notify("error", r && !r.ok ? r.error : "Não foi possível desvincular.");
+      return;
+    }
+    notify("success", "Admissão desvinculada do processo seletivo.");
+    router.refresh();
+  };
+
   return (
-    <Panel title="Origem" description="De onde esta admissão veio. Informativo — definido na criação.">
-      {job || candidateHref ? (
+    <Panel
+      title="Processo seletivo"
+      description="Vaga e candidatura desta pessoa. Com o vínculo, o pipeline mostra a admissão e o Banco de Talentos a conta como contratada."
+      action={
+        canManage && candidate ? (
+          <Button variant="tertiary" size="sm" icon={Unlink} onClick={() => setConfirmUnlink(true)}>
+            Desvincular
+          </Button>
+        ) : undefined
+      }
+    >
+      {job || candidate ? (
         <dl className="grid gap-x-6 gap-y-4 pt-2 sm:grid-cols-2">
+          {candidate && (
+            <div className="min-w-0">
+              <dt className="text-label text-wg-ink-muted">Candidato</dt>
+              <dd className="mt-0.5 flex flex-wrap items-center gap-2 text-body">
+                {candidateHref ? (
+                  <Link href={candidateHref} className="inline-flex max-w-full items-center gap-1 font-semibold text-wg-green-dark hover:underline">
+                    <span className="truncate">{candidate.fullName}</span>
+                    <ArrowUpRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-wg-ink">{candidate.fullName}</span>
+                )}
+                {candidate.stageName && (
+                  <StageBadge color={candidate.stageColor ?? undefined} hint="Etapa da candidatura no funil">
+                    {candidate.stageName}
+                  </StageBadge>
+                )}
+              </dd>
+            </div>
+          )}
           {job && (
             <div className="min-w-0">
               <dt className="text-label text-wg-ink-muted">Vaga</dt>
@@ -131,21 +186,29 @@ function AdmissionOrigin() {
               </dd>
             </div>
           )}
-          {candidateHref && (
-            <div className="min-w-0">
-              <dt className="text-label text-wg-ink-muted">Candidatura</dt>
-              <dd className="mt-0.5 text-body">
-                <Link href={candidateHref} className="inline-flex items-center gap-1 font-semibold text-wg-green-dark hover:underline">
-                  Ver candidato no pipeline
-                  <ArrowUpRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                </Link>
-              </dd>
-            </div>
-          )}
         </dl>
       ) : (
-        <p className="text-body text-wg-ink-muted">Admissão cadastrada diretamente no módulo de Admissões, sem vaga vinculada.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="text-body text-wg-ink-muted">
+            Admissão cadastrada direto em Admissões, sem candidatura vinculada.
+            {canManage && " Se a pessoa participou de um processo seletivo, vincule para unificar os cadastros."}
+          </p>
+          {canManage && (
+            <Button variant="secondary" size="sm" icon={Link2} onClick={openCandidateLink}>
+              Vincular ao processo seletivo
+            </Button>
+          )}
+        </div>
       )}
+      <ConfirmModal
+        isOpen={confirmUnlink}
+        variant="warning"
+        title="Desvincular do processo seletivo?"
+        message={`A admissão deixa de apontar para a candidatura de ${candidate?.fullName ?? "este candidato"}. A etapa do candidato e a posição que ele ocupa na vaga não mudam — se foi engano, libere a posição na página da vaga.`}
+        confirmLabel="Desvincular"
+        onConfirm={unlink}
+        onCancel={() => setConfirmUnlink(false)}
+      />
     </Panel>
   );
 }

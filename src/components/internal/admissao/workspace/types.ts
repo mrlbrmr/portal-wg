@@ -60,6 +60,8 @@ export interface AdmissionWorkspaceData {
   origin: {
     job: { id: string; code: string | null; title: string } | null;
     candidateHref: string | null;
+    /** Candidatura vinculada (admissions.sourceApplicationId) — mesma pessoa no processo seletivo. */
+    candidate: { id: string; fullName: string; stageName: string | null; stageColor: string | null } | null;
   };
   docs: { requiredTotal: number; requiredDone: number; attention: number };
   pendencies: Pendency[];

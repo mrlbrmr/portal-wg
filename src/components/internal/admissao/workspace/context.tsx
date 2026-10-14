@@ -21,6 +21,8 @@ export interface AdmissionWorkspaceState {
   cancelEdit: (s: AdmissionSection) => void;
   isDirty: boolean;
   setTab: (t: AdmissionTab) => void;
+  /** Abre o diálogo "Vincular ao processo seletivo" (só ADMIN_RH, admissão sem vínculo). */
+  openCandidateLink: () => void;
 }
 
 const Ctx = createContext<AdmissionWorkspaceState | null>(null);

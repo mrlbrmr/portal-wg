@@ -83,6 +83,8 @@ export const ACTIVITY_TYPES = {
   "admission.form_stalled": { label: "Aviso de formulário parado", category: "admissoes", icon: "alert", tone: "warning" },
   "admission.whatsapp_started": { label: "Admissão digital iniciada (WhatsApp)", category: "admissoes", icon: "whatsapp", tone: "info" },
   "admission.deleted": { label: "Admissão excluída", category: "admissoes", icon: "trash", tone: "danger" },
+  "admission.candidate_linked": { label: "Admissão vinculada ao processo seletivo", category: "admissoes", icon: "candidate", tone: "success" },
+  "admission.candidate_unlinked": { label: "Admissão desvinculada do processo seletivo", category: "admissoes", icon: "candidate", tone: "neutral" },
 
   "document.approved": { label: "Documento aprovado", category: "documentos", icon: "doc-ok", tone: "success" },
   "document.rejected": { label: "Documento recusado", category: "documentos", icon: "doc-bad", tone: "danger" },
@@ -141,6 +143,8 @@ export const ADMISSION_LOG_ACTIONS: Record<string, ActivityTypeKey> = {
   ADMISSION_DIGITAL_COMPLETE: "admission.form_submitted",
   DIGITAL_ADMISSION_STARTED: "admission.whatsapp_started",
   ADMISSION_DELETED: "admission.deleted",
+  CANDIDATE_LINKED: "admission.candidate_linked",
+  CANDIDATE_UNLINKED: "admission.candidate_unlinked",
   DOC_APPROVED: "document.approved",
   DOC_REJECTED: "document.rejected",
   DOC_REVIEW_UNDONE: "document.review_undone",

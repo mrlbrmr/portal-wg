@@ -34,6 +34,8 @@ export interface TalentApplication {
   hasResume: boolean;
   /** O currículo desta candidatura é o mesmo arquivo do perfil (não listar duas vezes). */
   resumeIsProfileCv: boolean;
+  /** Admissão ligada a esta candidatura (admissions.sourceApplicationId) — a pessoa foi contratada. */
+  admission?: { id: string; stageName: string | null; isFinal: boolean } | null;
 }
 
 export interface TalentStageEvent {
@@ -209,7 +211,7 @@ export async function loadTalentProfile(supabase: Supabase, id: string): Promise
     .find((s): s is unknown[] => Array.isArray(s) && s.length > 0);
 
   const appIds = applications.map((a) => a.id);
-  const [historyRes, sessByTalent, sessByApp] = await Promise.all([
+  const [historyRes, sessByTalent, sessByApp, admissionsRes] = await Promise.all([
     appIds.length
       ? supabase
           .from("application_stage_history")
@@ -227,7 +229,32 @@ export async function loadTalentProfile(supabase: Supabase, id: string): Promise
           .select("id, applicationId, templateId, createdAt, startedAt, submittedAt, expiresAt, validoAte, outcome, score, invalidadoEm, template:assessment_templates(name, kind, assessmentType, validityMonths)")
           .in("applicationId", appIds)
       : Promise.resolve({ data: [] }),
+    appIds.length
+      ? supabase
+          .from("admissions")
+          .select("id, sourceApplicationId, stage:admission_stages(name, isFinal)")
+          .in("sourceApplicationId", appIds)
+          .is("deletedAt", null)
+          .order("createdAt", { ascending: false })
+      : Promise.resolve({ data: [] }),
   ]);
+
+  // Candidatura com admissão = contratação: sai dos "processos atuais" (mesma regra da view talentos_crm).
+  const admissionByApp = new Map<string, { id: string; stageName: string | null; isFinal: boolean }>();
+  for (const a of (admissionsRes.data ?? []) as unknown as Array<{
+    id: string;
+    sourceApplicationId: string;
+    stage: { name: string; isFinal: boolean } | null;
+  }>) {
+    if (!admissionByApp.has(a.sourceApplicationId)) {
+      admissionByApp.set(a.sourceApplicationId, { id: a.id, stageName: a.stage?.name ?? null, isFinal: !!a.stage?.isFinal });
+    }
+  }
+  for (const app of applications) {
+    const adm = admissionByApp.get(app.id) ?? null;
+    app.admission = adm;
+    if (adm) app.isOpen = false;
+  }
 
   const stageHistory: TalentStageEvent[] = (
     (historyRes.data ?? []) as Array<{ id: string; applicationId: string; stageId: string | null; changedAt: string; changedBy: string | null }>

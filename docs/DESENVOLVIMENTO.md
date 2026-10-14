@@ -7,6 +7,27 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-10-14 — Vincular admissão a candidato do processo seletivo
+
+Migração `20261014150000_admission_application_link.sql` — **aplicada** (só recria a view `talentos_crm`, mesmas colunas).
+
+- **Problema:** 18 admissões cadastradas direto em Admissões não sabiam de qual processo seletivo a pessoa veio — o
+  cadastro ficava duplicado (admissão × candidato) e o RH não via quem do pipeline/Banco de Talentos foi contratado.
+- **Solução:** painel "Processo seletivo" (aba Contratação; também em "Mais ações") com "Vincular ao processo
+  seletivo". O diálogo sugere candidaturas pelo CPF/e-mail/telefone/nome da admissão (14 das 18 já têm sugestão) e
+  busca livre por nome, e-mail ou CPF. Ao vincular: grava `sourceApplicationId`/`sourceJobId` (mesmas colunas do
+  "Contratar"), completa só CPF/e-mail/telefone VAZIOS, move o candidato para a etapa de Admissão (sem automação —
+  a admissão já existe) e ocupa uma posição em aberto da vaga (`job_position_fill`; se falhar, o vínculo é desfeito)
+  ou liga a admissão à posição que o candidato já ocupa. Candidatura já ligada a outra admissão não é oferecida.
+- **Contratados:** a view `talentos_crm` conta candidatura com admissão (não excluída) como CONTRATADO e a tira dos
+  processos abertos; o perfil do talento ganhou o card "Contratação" com link para a admissão.
+- **Desvincular:** limpa o vínculo e o `admissionId` da posição; etapa e posição do candidato não mudam.
+- Atividades: `CANDIDATE_LINKED` / `CANDIDATE_UNLINKED` no catálogo e no histórico da admissão.
+- Validação: regras puras testadas; consultas de sugestão conferidas no banco real; diálogo validado numa página
+  temporária com ações simuladas (desktop e celular). Fluxo logado no painel real ficou pendente (navegador sem login).
+
+---
+
 ## Sessão de 2026-10-14 — Pareceres de entrevista + aba Avaliações como hub da candidatura
 
 Migração `20261014120000_assessments_hub.sql` — **aplicada** (aditiva). Teste SQL: `scripts/test-assessments-hub.sql`

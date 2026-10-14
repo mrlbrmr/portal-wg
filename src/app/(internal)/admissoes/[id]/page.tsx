@@ -137,15 +137,27 @@ export default async function AdmissaoPage({
   }
   for (const l of logs) if (l.userId) userIds.add(l.userId);
 
-  const [usersRes, jobRes] = await Promise.all([
+  const [usersRes, jobRes, candidateRes] = await Promise.all([
     userIds.size > 0 ? supabase.from("users").select("id, name").in("id", [...userIds]) : Promise.resolve({ data: [] }),
     admission.sourceJobId
       ? supabase.from("jobs").select("id, code, title").eq("id", admission.sourceJobId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    admission.sourceApplicationId
+      ? supabase
+          .from("applications")
+          .select("id, fullName, stage:application_stages(name, color)")
+          .eq("id", admission.sourceApplicationId)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   const userMap = new Map(((usersRes.data ?? []) as Array<{ id: string; name: string }>).map((u) => [u.id, u.name]));
   const userName = (uid: string | null) => (uid ? (userMap.get(uid) ?? null) : null);
   const job = jobRes.data as { id: string; code: string | null; title: string } | null;
+  const candidateRow = candidateRes.data as unknown as {
+    id: string;
+    fullName: string;
+    stage: { name: string; color: string | null } | null;
+  } | null;
 
   const canManage = canWriteAdmissions(session?.user.role);
   const today = todayISOInSaoPaulo();
@@ -281,6 +293,14 @@ export default async function AdmissaoPage({
         admission.sourceApplicationId && admission.sourceJobId
           ? `/vagas/${admission.sourceJobId}/candidatos?candidato=${admission.sourceApplicationId}`
           : null,
+      candidate: candidateRow
+        ? {
+            id: candidateRow.id,
+            fullName: candidateRow.fullName,
+            stageName: candidateRow.stage?.name ?? null,
+            stageColor: candidateRow.stage?.color ?? null,
+          }
+        : null,
     },
     docs: {
       requiredTotal: requiredTypes.length,

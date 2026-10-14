@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Copy, FileText, Trash2, Users } from "lucide-react";
+import { ArrowUpRight, Copy, FileText, Link2, Trash2, Users } from "lucide-react";
 import type { DropdownMenuItem } from "@/components/ui/DropdownMenu";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SettingsSaveBar } from "@/components/internal/settings/SettingsSaveBar";
@@ -39,6 +39,7 @@ import { AdmissionPersonalData } from "./AdmissionPersonalData";
 import { AdmissionEmploymentData } from "./AdmissionEmploymentData";
 import { AdmissionResources } from "./AdmissionResources";
 import { AdmissionDeleteDialog } from "./AdmissionDeleteDialog";
+import { AdmissionCandidateLinkDialog } from "./AdmissionCandidateLinkDialog";
 
 const SAVE_ERROR = "Não foi possível salvar as alterações.";
 const ALL_SECTIONS: AdmissionSection[] = ["pessoais", "contratacao", "recursos", "notas"];
@@ -73,6 +74,9 @@ export function AdmissionWorkspace({ data, options, canManage, initialTab, start
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [tab, setTabState] = useState<AdmissionTab>(initialTab);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const canLinkCandidate = canManage && !data.origin.candidate;
+  const openCandidateLink = useCallback(() => setLinkOpen(true), []);
 
   const isDirty = useMemo(() => changedFields(draft, saved).length > 0, [draft, saved]);
 
@@ -203,6 +207,7 @@ export function AdmissionWorkspace({ data, options, canManage, initialTab, start
     cancelEdit,
     isDirty,
     setTab,
+    openCandidateLink,
   };
 
   // ── Mais ações: só o que o backend suporta ────────────────────────────────────────────
@@ -222,6 +227,7 @@ export function AdmissionWorkspace({ data, options, canManage, initialTab, start
   if (data.form.submittedAt) menu.push({ label: "Ver respostas do formulário", icon: FileText, onSelect: () => setTab("dados") });
   if (data.origin.job) menu.push({ label: "Abrir vaga de origem", icon: ArrowUpRight, href: `/vagas/${data.origin.job.id}/editar` });
   if (data.origin.candidateHref) menu.push({ label: "Ver candidato no pipeline", icon: Users, href: data.origin.candidateHref });
+  if (canLinkCandidate) menu.push({ label: "Vincular ao processo seletivo", icon: Link2, onSelect: openCandidateLink });
   if (canManage) {
     if (menu.length > 0) menu.push({ type: "separator" });
     menu.push({ label: "Excluir admissão", icon: Trash2, danger: true, onSelect: () => setDeleteOpen(true) });
@@ -341,6 +347,14 @@ export function AdmissionWorkspace({ data, options, canManage, initialTab, start
 
       {canManage && (
         <AdmissionDeleteDialog admissionId={data.id} name={data.record.fullName} open={deleteOpen} onClose={() => setDeleteOpen(false)} />
+      )}
+      {canLinkCandidate && (
+        <AdmissionCandidateLinkDialog
+          open={linkOpen}
+          admissionId={data.id}
+          admissionName={data.record.fullName}
+          onClose={() => setLinkOpen(false)}
+        />
       )}
     </AdmissionWorkspaceProvider>
   );

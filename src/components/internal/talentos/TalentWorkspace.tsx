@@ -22,7 +22,7 @@ import {
 import { Button, ButtonLink, buttonVariants } from "@/components/ui/Button";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { DropdownMenu, type DropdownMenuItem } from "@/components/ui/DropdownMenu";
-import { StageBadge } from "@/components/ui/StatusBadge";
+import { StageBadge, StatusBadge } from "@/components/ui/StatusBadge";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn, formatDate } from "@/lib/utils";
 import {
@@ -474,6 +474,7 @@ function SummaryPanel({
 
   const area = profile.areaInteresse ?? profile.applications.find((a) => a.jobArea)?.jobArea ?? null;
   const meta = SITUATION_META[profile.situacao];
+  const hiredApps = profile.applications.filter((a) => a.admission);
 
   return (
     <div className="space-y-3">
@@ -488,6 +489,26 @@ function SummaryPanel({
                 </StageBadge>
                 <Link href={candidateHref(a.jobId, a.id)} className="text-meta font-semibold text-wg-green-dark hover:underline">
                   Abrir candidatura
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {hiredApps.length > 0 && (
+        <Card title={hiredApps.length === 1 ? "Contratação" : `Contratações (${hiredApps.length})`}>
+          <ul className="space-y-2">
+            {hiredApps.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="min-w-0 flex-1 truncate text-body font-medium text-wg-ink">
+                  {[a.jobCode, a.jobTitle].filter(Boolean).join(" · ")}
+                </span>
+                <StatusBadge tone={a.admission!.isFinal ? "success" : "info"} hint="Etapa da admissão">
+                  {a.admission!.isFinal ? "Admitido" : (a.admission!.stageName ?? "Em admissão")}
+                </StatusBadge>
+                <Link href={`/admissoes/${a.admission!.id}`} className="text-meta font-semibold text-wg-green-dark hover:underline">
+                  Abrir admissão
                 </Link>
               </li>
             ))}

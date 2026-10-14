@@ -50,6 +50,12 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   `history.ts` (puros, testados). O PATCH nunca grava a origem (vaga/candidatura) se ela não vier no corpo.
   Respostas do formulário digital só gravam no envio final (que dispara o e-mail ao RH); antes disso,
   "Em preenchimento" vem dos anexos sem `uploadedById` (`formFillProgress`, só obrigatórios sempre visíveis).
+- **Vínculo admissão ↔ candidatura** (painel "Processo seletivo" na aba Contratação): admissão cadastrada direto
+  pode ser ligada à candidatura da mesma pessoa (`admissions."sourceApplicationId"/"sourceJobId"`, as colunas do
+  "Contratar" do pipeline). Regras puras em `src/lib/admissao/candidate-link.ts` (testado: sugestão por
+  CPF/e-mail/telefone/nome, 1 admissão por candidatura, só COMPLETA campos vazios, etapa Admissão/Contratado sem
+  automação, posição da vaga); ações em `candidate-link-actions.ts` (compare-and-swap; desvincular não mexe na
+  etapa nem libera a posição). Candidatura com admissão = CONTRATADO na view `talentos_crm` e sai dos "abertos".
 - **Avanço automático ao receber documentos:** 1º upload ou envio do formulário leva a admissão para a etapa
   `admission_stages."isDocumentIntake"` (hoje "Validação de documentos"; configurável em Cadastros › Etapas).
   Só avança, nunca volta nem conclui — regra pura em `src/lib/admissao/document-intake.ts` (testada).

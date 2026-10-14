@@ -6,7 +6,7 @@
 //   • o talento tem SITUAÇÃO no banco — calculada pela view talentos_crm:
 //       ARQUIVADO    ← statusBanco = ARQUIVADO                        (manual)
 //       EM_PROCESSO  ← candidatura em etapa aberta de vaga não encerrada (calculado)
-//       CONTRATADO   ← alguma candidatura em etapa do tipo WON         (calculado)
+//       CONTRATADO   ← candidatura em etapa WON ou com admissão ligada  (calculado)
 //       INDISPONIVEL ← statusBanco = INDISPONIVEL                     (manual)
 //       DISPONIVEL   ← demais                                         (padrão)
 //   O RH só edita o que é manual (Disponível/Indisponível e Arquivar/Restaurar); "Em
@@ -43,7 +43,7 @@ export const SITUATION_META: Record<TalentSituation, { label: string; tone: Tone
   CONTRATADO: {
     label: "Contratado",
     tone: "success",
-    hint: "Foi aprovado em um processo seletivo (calculado pelas candidaturas).",
+    hint: "Foi contratado: candidatura em etapa de contratado ou com admissão vinculada (calculado).",
     calculated: true,
   },
   INDISPONIVEL: {

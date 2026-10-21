@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ClipboardList, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAdmissionConfig } from "@/lib/admissao/queries";
@@ -20,12 +20,12 @@ import {
 import { buildAdmissionHistory } from "@/lib/admissao/history";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { AdmissionAttachments, type AttachmentView } from "@/components/internal/admissao/AdmissionAttachments";
+import { FormAnswersPanel } from "@/components/internal/admissao/FormAnswersPanel";
 import { DigitalFormViewer } from "@/components/internal/admissao/DigitalFormViewer";
 import { AdmissionWorkspace } from "@/components/internal/admissao/workspace/AdmissionWorkspace";
 import type { AdmissionWorkspaceData } from "@/components/internal/admissao/workspace/types";
 import { ACTIVITY_ICONS } from "@/components/internal/activity/icons";
 import { ActivityTimeline, type TimelineEvent } from "@/components/ui/ActivityTimeline";
-import { EmptyState } from "@/components/ui/EmptyState";
 
 // Central da admissão: ficha única para ver e editar (a antiga /editar redireciona para cá).
 
@@ -325,7 +325,7 @@ export default async function AdmissaoPage({
     historyCount: events.length,
   };
 
-  const formAnswers = admission.digitalFormSubmittedAt ? (
+  const formView = admission.digitalFormSubmittedAt ? (
     <DigitalFormViewer
       formConfig={formConfig}
       data={{
@@ -352,15 +352,34 @@ export default async function AdmissaoPage({
         submittedAt: admission.digitalFormSubmittedAt,
       }}
     />
-  ) : (
-    <div className="rounded-card border border-wg-border-lighter bg-white">
-      <EmptyState
-        icon={ClipboardList}
-        compact
-        title="O candidato ainda não enviou o formulário de admissão"
-        description="As respostas completas (estado civil, vale-transporte, dados bancários, uniforme) aparecem aqui assim que o formulário for enviado. Gere ou copie o link na lateral."
-      />
-    </div>
+  ) : null;
+
+  // Leitura do que o candidato enviou + preenchimento/correção pelo RH (documentos por WhatsApp).
+  const formAnswers = (
+    <FormAnswersPanel
+      admissionId={id}
+      canManage={canManage}
+      submitted={!!admission.digitalFormSubmittedAt}
+      formConfig={formConfig}
+      view={formView}
+      initial={{
+        gender: admission.gender,
+        maritalStatus: admission.maritalStatus,
+        hasChildren: admission.hasChildren,
+        needsTransportVoucher: admission.needsTransportVoucher,
+        transportVoucherDetails: admission.transportVoucherDetails,
+        hasItauAccount: admission.hasItauAccount,
+        bankAgency: admission.bankAgency,
+        bankAccount: admission.bankAccount,
+        colorDeclaration: admission.colorDeclaration,
+        isDriverOperator: admission.isDriverOperator,
+        uniformShirt: admission.uniformShirt,
+        noOperationalUniform: admission.noOperationalUniform,
+        uniformPants: admission.uniformPants,
+        uniformShoe: admission.uniformShoe,
+        formExtras: admission.formExtras,
+      }}
+    />
   );
 
   return (

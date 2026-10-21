@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Circle, CircleDashed, Clock, Copy, Check, FileText, MessageSquare, RefreshCw, Send, TimerOff } from "lucide-react";
+import { CheckCircle2, Circle, CircleDashed, Clock, Copy, Check, FileText, MessageSquare, Pencil, RefreshCw, Send, TimerOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -192,6 +192,9 @@ export function AdmissionFormStatus() {
                 {copied === "msg" ? "Mensagem copiada" : "Copiar mensagem para WhatsApp"}
               </Button>
             )}
+            <Button size="sm" variant="secondary" className="w-full" icon={Pencil} onClick={() => setTab("dados")}>
+              Preencher pelo RH
+            </Button>
             {form.state === "NOT_SENT" && (
               <Button size="sm" variant="primary" className="w-full" icon={Send} loading={loading} onClick={generateLink}>
                 Gerar link do formulário

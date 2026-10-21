@@ -139,7 +139,7 @@ export function buildAdmissionHistory(input: HistoryInput): HistoryItem[] {
   items.push(...logItems);
 
   // Formulários antigos (antes do log FORM_SUBMITTED) só têm a data gravada na admissão.
-  const submittedLogged = input.logs.some((l) => ADMISSION_LOG_ACTIONS[l.action] === "admission.form_submitted");
+  const submittedLogged = input.logs.some((l) => ["admission.form_submitted", "admission.form_filled_by_hr"].includes(ADMISSION_LOG_ACTIONS[l.action]));
   if (input.digitalFormSubmittedAt && !submittedLogged) {
     items.push({
       id: "form",

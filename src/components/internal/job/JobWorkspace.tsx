@@ -57,6 +57,7 @@ import {
 } from "./JobFields";
 import { JobPositionsCard, type HireCandidate } from "./JobPositionsCard";
 import { JobTemplatePicker } from "./JobTemplatePicker";
+import { JobInterviewsPanel, type JobInterviewItem } from "./JobInterviewsPanel";
 import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
 import {
   AllFilledNotice,
@@ -79,6 +80,8 @@ export interface JobWorkspaceData {
   origin: OriginRequest | null;
   pipeline: PipelineData;
   hireCandidates: HireCandidate[];
+  /** Entrevistas agendadas da vaga (atrasadas primeiro). */
+  interviews: JobInterviewItem[];
   announcementText: string;
   jobUrl: string;
   /** Modelos de vaga (para completar o rascunho e mostrar a procedência). */
@@ -116,7 +119,7 @@ function scopeCurrentFromDraft(d: JobDraft, openings: number): ScopeCurrent {
 const DISMISS_KEY = (jobId: string) => `vaga:${jobId}:manter-publicada`;
 
 export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; initialTab: JobTab }) {
-  const { job, positions, events, statusHistory, publications, origin, pipeline, hireCandidates } = data;
+  const { job, positions, events, statusHistory, publications, origin, pipeline, hireCandidates, interviews } = data;
   const router = useRouter();
   const { notify } = useToast();
   const tabsId = useId();
@@ -638,7 +641,10 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
 
       {/* ── Processo seletivo ── */}
       <TabPanel id={`${tabsId}-panel-processo`} labelledBy={`${tabsId}-processo`} hidden={tab !== "processo"}>
-        <PipelineOverview jobId={job.id} pipeline={pipeline} positions={summary} isTalentPool={job.isTalentPool} />
+        <div className="space-y-4">
+          <PipelineOverview jobId={job.id} pipeline={pipeline} positions={summary} isTalentPool={job.isTalentPool} />
+          {!job.isTalentPool && <JobInterviewsPanel jobId={job.id} items={interviews} />}
+        </div>
       </TabPanel>
 
       {/* ── Divulgação ── */}

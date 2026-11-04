@@ -14,6 +14,7 @@ import { pipelineGroup, type PipelineGroup } from "@/lib/recruitment/candidate-p
 import { loadJobTemplates } from "@/lib/jobs/template-data";
 import { loadDefaultTemplateRefs, loadProcessTemplates } from "@/lib/selection-funnel/process-data";
 import { resolveJobStages } from "@/lib/selection-funnel/process-templates";
+import { buildJobInterviewItems, type JobInterviewRow } from "@/lib/recruitment/interviews/job-items";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -43,7 +44,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = await createClient();
-  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes, defaultStageRefs, templates, processTemplates] = await Promise.all([
+  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes, defaultStageRefs, templates, processTemplates, interviewsRes] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -75,6 +76,15 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
     loadDefaultTemplateRefs(supabase),
     loadJobTemplates(),
     loadProcessTemplates(supabase),
+    supabase
+      .from("application_interviews")
+      .select(
+        'id, "applicationId", round, "scheduledAt", "durationMin", "interviewerName", location, application:applications!inner(id, fullName, jobId)'
+      )
+      .eq("application.jobId", id)
+      .eq("status", "SCHEDULED")
+      .order("scheduledAt", { ascending: true })
+      .limit(50),
   ]);
 
   const jobRaw = jobRes.data as unknown as
@@ -150,6 +160,8 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
     .map((a) => ({ applicationId: a.id, fullName: a.fullName, stageName: stageById.get(a.stageId)?.name ?? "" }))
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
 
+  const interviews = buildJobInterviewItems((interviewsRes.data ?? []) as unknown as JobInterviewRow[], new Date());
+
   const publications: PublicationView[] = pubs.map((p) => ({
     channel: p.channel,
     status: p.status,
@@ -187,6 +199,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
           : null,
         pipeline,
         hireCandidates,
+        interviews,
         announcementText,
         jobUrl: jobPublicUrl(job.slug ?? job.id),
         templates,

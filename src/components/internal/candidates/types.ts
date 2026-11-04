@@ -3,6 +3,7 @@
 // campos opcionais/nulos significam "sem dado" — a UI omite, nunca preenche com exemplo.
 
 import type { TestStatus } from "@/lib/recruitment/candidate-presentation";
+import type { InterviewStatus } from "@/lib/recruitment/interviews/catalog";
 
 export interface PipelineCandidate {
   id: string;
@@ -43,6 +44,8 @@ export interface PipelineCandidate {
   enteredStageAt: string | null;
   /** Próxima entrevista registrada com data de hoje em diante. */
   nextInterviewAt: string | null;
+  /** Entrevistas da agenda (application_interviews) ainda AGENDADAS; concluídas/canceladas ficam de fora. */
+  interviews: Array<{ round: string; scheduledAt: string; durationMin: number; status: InterviewStatus }>;
 }
 
 export interface PipelineStage {

@@ -18,6 +18,7 @@ import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/can
 import { resolveAssessmentType } from "@/lib/avaliacoes/schema";
 import { isHumanEvaluation } from "@/lib/recruitment/evaluations/catalog";
 import type { CvProfile } from "@/lib/ai/cv-analyzer";
+import type { InterviewStatus } from "@/lib/recruitment/interviews/catalog";
 import { loadApplicationSources, labelForSource, sourceLabelsFrom } from "@/lib/application-sources";
 import { loadDefaultTemplateRefs, loadJobStageRefs, loadProcessTemplates } from "@/lib/selection-funnel/process-data";
 import { resolveJobStages } from "@/lib/selection-funnel/process-templates";
@@ -64,7 +65,7 @@ export default async function CandidatosPage({ params }: Props) {
     supabase
       .from("applications")
       .select(
-        "id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, candidateCity, candidateState, cv_profile, notes, noteRows:application_notes(id), assessments:application_assessments(id, kind, occurredAt, outcome, recommendation, evaluator, metadata)"
+        "id, fullName, email, phone, resumeName, stageId, source, createdAt, cv_extraction_status, sort_order, candidateCity, candidateState, cv_profile, notes, noteRows:application_notes(id), assessments:application_assessments(id, kind, occurredAt, outcome, recommendation, evaluator, metadata), interviews:application_interviews(round, scheduledAt, durationMin, status)"
       )
       .eq("jobId", id)
       .order("sort_order", { ascending: true, nullsFirst: false })
@@ -113,6 +114,7 @@ export default async function CandidatosPage({ params }: Props) {
     notes: string | null;
     noteRows: Array<{ id: string }> | null;
     assessments: AssessmentRow[] | null;
+    interviews: Array<{ round: string; scheduledAt: string; durationMin: number; status: InterviewStatus }> | null;
   }>;
 
   const testAppIds = appList.filter((a) => testStageIds.has(a.stageId)).map((a) => a.id);
@@ -296,7 +298,9 @@ export default async function CandidatosPage({ params }: Props) {
       hasNotes: !!a.notes?.trim() || (a.noteRows?.length ?? 0) > 0,
       assessmentCount: assessments.filter(isHumanEvaluation).length,
       enteredStageAt: enteredStageAtFromLatest(latestHistoryByApp.get(a.id), a.stageId),
-      nextInterviewAt: nextInterview(assessments),
+      // Caminho antigo (parecer com data) só para quem NUNCA teve linha na agenda (qualquer status).
+      nextInterviewAt: a.interviews?.length ? null : nextInterview(assessments),
+      interviews: (a.interviews ?? []).filter((i) => i.status === "SCHEDULED"),
     };
   });
 

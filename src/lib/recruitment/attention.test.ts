@@ -52,6 +52,15 @@ test("candidatos reprovados não geram 'nenhum candidato'", () => {
   assert.equal(r.find((x) => x.key === "NO_CANDIDATES"), undefined);
 });
 
+test("banco de talentos nunca gera alerta", () => {
+  const r = jobAttentionReasons(
+    { ...base, isTalentPool: true, newCount: 18, candidateCount: 21, openedAt: daysAgo(107), lastActivityAt: daysAgo(90) },
+    NOW,
+    null
+  );
+  assert.deepEqual(r, []);
+});
+
 test("prazo de inscrição próximo e vencido", () => {
   assert.equal(
     jobAttentionReasons({ ...base, closingDate: inDays(3.5) }, NOW, null)[0].label,

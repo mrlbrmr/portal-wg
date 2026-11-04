@@ -48,6 +48,8 @@ export interface AttentionInput {
   /** Candidaturas na etapa "Novo" (aguardando triagem). */
   newCount: number;
   closingDate?: string | null;
+  /** Banco de talentos é fluxo contínuo: não tem prazo, SLA nem "parada" — nunca gera alerta. */
+  isTalentPool?: boolean;
 }
 
 const DAY = 86_400_000;
@@ -63,6 +65,7 @@ export function jobAttentionReasons(
 ): AttentionReason[] {
   // Só vagas abertas pedem ação de recrutamento.
   if (jobLifecycle(job.status) !== "OPEN") return [];
+  if (job.isTalentPool) return [];
 
   const reasons: AttentionReason[] = [];
   const openDays = wholeDays(job.openedAt, now);

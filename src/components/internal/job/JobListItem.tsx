@@ -29,6 +29,7 @@ export type JobListRow = JobRow & { reasons: AttentionReason[] };
 /** Idade da vaga conforme o status: "Aberta há X" só faz sentido para vagas abertas. */
 function ageLabel(job: JobRow): string {
   const l = jobLifecycle(job.status);
+  if (l === "OPEN" && job.isTalentPool) return "Contínua";
   if (l === "OPEN") return `Aberta há ${pluralDays(daysSince(job.openedAt))}`;
   if (l === "DRAFT") return `Criada há ${pluralDays(daysSince(job.createdAt))}`;
   if (l === "PAUSED") return `Pausada em ${formatDate(job.statusChangedAt)}`;
@@ -221,6 +222,11 @@ export function JobListItem({ job, canManage }: { job: JobListRow; canManage: bo
               {job.title}
             </Link>
             <JobStatus job={job} />
+            {job.isTalentPool && (
+              <StatusBadge tone="neutral" hint="Fluxo contínuo de candidatos, sem prazo nem posições">
+                Banco de talentos
+              </StatusBadge>
+            )}
           </div>
 
           {/* Secundário: onde/como + preenchimento. */}

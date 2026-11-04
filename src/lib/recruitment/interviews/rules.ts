@@ -128,3 +128,17 @@ export function findConflicts(
     })
     .map((o) => o.id);
 }
+
+/**
+ * Horário passado só vale com "Entrevista já realizada" marcada, ou ao editar uma entrevista
+ * já passada SEM mudar o horário (para corrigir observações/local). Mover para outro horário
+ * passado exige a caixa.
+ */
+export function canSavePastTime(
+  scheduledAt: string,
+  opts: { alreadyHappened: boolean; originalScheduledAt: string | null },
+): boolean {
+  if (opts.alreadyHappened) return true;
+  if (!opts.originalScheduledAt) return false;
+  return new Date(opts.originalScheduledAt).getTime() === new Date(scheduledAt).getTime();
+}

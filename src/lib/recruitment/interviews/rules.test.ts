@@ -9,6 +9,7 @@ import {
   interviewSignalLabel,
   canTransition,
   findConflicts,
+  canSavePastTime,
 } from "./rules";
 import type { InterviewStatus } from "./catalog";
 
@@ -75,4 +76,20 @@ test("findConflicts", () => {
   assert.deepEqual(findConflicts(cand, [{ ...base, status: "CANCELLED" }]), []);
   assert.deepEqual(findConflicts({ ...cand, id: "a" }, [base]), []);
   assert.deepEqual(findConflicts({ ...cand, interviewerName: "Jose Souza" }, [{ ...base, interviewerName: "José Souza" }]), ["a"]);
+});
+
+test("canSavePastTime: caixa marcada libera qualquer horário passado", () => {
+  assert.equal(canSavePastTime("2026-01-01T12:00:00.000Z", { alreadyHappened: true, originalScheduledAt: null }), true);
+});
+
+test("canSavePastTime: nova entrevista no passado sem a caixa é barrada", () => {
+  assert.equal(canSavePastTime("2026-01-01T12:00:00.000Z", { alreadyHappened: false, originalScheduledAt: null }), false);
+});
+
+test("canSavePastTime: editar entrevista passada sem mudar o horário é permitido (formatos ISO diferentes)", () => {
+  assert.equal(canSavePastTime("2026-01-01T12:00:00.000Z", { alreadyHappened: false, originalScheduledAt: "2026-01-01T12:00:00+00:00" }), true);
+});
+
+test("canSavePastTime: mover para outro horário passado exige a caixa", () => {
+  assert.equal(canSavePastTime("2026-01-01T11:00:00.000Z", { alreadyHappened: false, originalScheduledAt: "2026-01-01T12:00:00.000Z" }), false);
 });

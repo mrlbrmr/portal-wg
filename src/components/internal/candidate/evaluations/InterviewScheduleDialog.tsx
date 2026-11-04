@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/utils";
 import { INTERVIEW_ROUNDS, type InterviewRow } from "@/lib/recruitment/interviews/catalog";
-import { brtLocalToIso, formatInterviewWhen, isoToBrtLocal } from "@/lib/recruitment/interviews/rules";
+import { brtLocalToIso, canSavePastTime, formatInterviewWhen, isoToBrtLocal } from "@/lib/recruitment/interviews/rules";
 import {
   scheduleInterviewAction,
   updateInterviewAction,
@@ -94,7 +94,8 @@ export function InterviewScheduleDialog({ applicationId, existing, defaultInterv
       return;
     }
     const isPast = new Date(scheduledAt).getTime() <= Date.now();
-    if (isPast && !alreadyHappened && !existing) {
+    const pastOk = canSavePastTime(scheduledAt, { alreadyHappened, originalScheduledAt: existing?.scheduledAt ?? null });
+    if (isPast && !pastOk) {
       setError("A data da entrevista deve ser futura. Se ela já aconteceu, marque \"Entrevista já realizada\".");
       return;
     }
@@ -106,8 +107,8 @@ export function InterviewScheduleDialog({ applicationId, existing, defaultInterv
       location,
       interviewerName: interviewer,
       notes,
-      // Edição de uma entrevista atrasada/passada também precisa passar pela validação.
-      allowPast: alreadyHappened || (!!existing && isPast),
+      // Passado só com a caixa marcada ou mantendo o horário de uma entrevista já passada.
+      allowPast: isPast && pastOk,
     };
     setSaving(true);
     setError(null);

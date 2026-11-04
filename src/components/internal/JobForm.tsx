@@ -29,19 +29,31 @@ import {
 import { JobTemplatePicker } from "@/components/internal/job/JobTemplatePicker";
 import { NEW_JOB_DEFAULTS } from "@/lib/jobs/draft";
 import type { JobTemplate } from "@/lib/jobs/templates";
+import { saveJobProcess } from "@/lib/selection-funnel/process-actions";
+import { settingsSelectClass } from "@/components/internal/settings/fields";
+
+export interface ProcessModelOption {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  stageIds: string[];
+}
 
 interface Props {
   /** Nome de quem cria a vaga — gravado em jobs.responsible (sem campo na tela; lido pelo WG Jornada). */
   currentUserName?: string | null;
   /** Modelos de vaga (Configurações › Modelos de vaga). Uso opcional. */
   templates?: JobTemplate[];
+  /** Modelos de processo ativos (Configurações › Modelos de processo). */
+  processModels?: ProcessModelOption[];
 }
 
-export default function JobForm({ currentUserName, templates = [] }: Props) {
+export default function JobForm({ currentUserName, templates = [], processModels = [] }: Props) {
   const router = useRouter();
   const { notify } = useToast();
   const [draft, setDraft] = useState<JobDraft>(() => jobToDraft(null, { responsible: currentUserName }));
   const [positions, setPositions] = useState("1");
+  const [processModelId, setProcessModelId] = useState<string>(() => processModels.find((m) => m.isDefault)?.id ?? "");
   const [editorMode, setEditorMode] = useState<"write" | "preview">("write");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -79,8 +91,20 @@ export default function JobForm({ currentUserName, templates = [] }: Props) {
         );
         return;
       }
+      // Modelo de processo: o padrão não precisa de cópia (a vaga já o segue).
+      const model = processModels.find((m) => m.id === processModelId);
+      let processFailed = false;
+      if (model && !model.isDefault) {
+        const r = await saveJobProcess(body.id, { stageIds: model.stageIds, templateId: model.id });
+        processFailed = !r.ok;
+      }
       setDone(true);
-      notify("success", "Vaga criada.");
+      notify(
+        processFailed ? "error" : "success",
+        processFailed
+          ? "Vaga criada, mas não foi possível aplicar o modelo de processo. Ajuste em Processo seletivo."
+          : "Vaga criada."
+      );
       router.push(`/vagas/${body.id}/editar`);
     } catch {
       setError("Erro de conexão. Tente novamente.");
@@ -127,6 +151,28 @@ export default function JobForm({ currentUserName, templates = [] }: Props) {
           <Field label="Status do processo seletivo" htmlFor="new-job-status" required className="sm:col-span-2">
             <StatusSelect id="new-job-status" value={draft.status} onChange={(v) => patch({ status: v })} />
           </Field>
+          {processModels.length > 0 && (
+            <Field
+              label="Modelo de processo"
+              htmlFor="new-job-process"
+              className="sm:col-span-2"
+              hint="Etapas do funil de candidatos desta vaga. Dá para ajustar depois, só nesta vaga."
+            >
+              <select
+                id="new-job-process"
+                value={processModelId}
+                onChange={(e) => setProcessModelId(e.target.value)}
+                className={settingsSelectClass}
+              >
+                {processModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                    {m.isDefault ? " (padrão)" : ""} — {m.stageIds.length} etapas
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <div className="sm:col-span-2">
             <VisibilityField draft={draft} patch={patch} />
           </div>

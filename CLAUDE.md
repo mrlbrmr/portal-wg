@@ -200,7 +200,7 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     dos candidatos de etapa removida); ações em `process-actions.ts` (gravação atômica pelas funções SQL
     `process_template_set_stages`/`job_process_set`). **Nunca leia `job_stage_config` direto:** use
     `resolveJobStages()` + `process-data.ts`. Etapa nova criada em Funil entra no modelo padrão. UI da vaga:
-    menu ⋯ › "Processo seletivo" (`funnel/JobProcessDialog`). Teste de banco: `scripts/test-process-templates.sql`.
+    menu ⋯ › "Processo seletivo" (`funnel/JobProcessDialog`), botão "Alterar processo" na aba Processo seletivo da vaga e seletor em Nova vaga (`JobForm`; padrão = sem cópia). Teste de banco: `scripts/test-process-templates.sql`.
   - **Campos adicionais da solicitação:** regras em `src/lib/job-requests/extra-fields.ts` (visibilidade,
     obrigatoriedade só se visível, múltipla escolha = JSON de string[] em `extra_data`).
 

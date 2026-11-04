@@ -31,6 +31,7 @@ import { ActivityTimeline, type TimelineEvent } from "@/components/ui/ActivityTi
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { JOB_REQUEST_STATUS_LABELS } from "@/lib/job-requests/constants";
+import { JobProcessDialog, type JobProcessData } from "@/components/internal/funnel/JobProcessDialog";
 import { PIPELINE_GROUP_META, type PipelineGroup } from "@/lib/recruitment/candidate-presentation";
 import { remainingLabel, type PositionsSummary } from "@/lib/jobs/positions";
 import { deadlineView, formatStoredDate } from "@/lib/jobs/deadlines";
@@ -55,6 +56,8 @@ export interface PipelineData {
   stages: PipelineStageCount[];
   /** Candidatos em etapas de entrevista (null quando o funil não tem etapa "Entrevista…"). */
   interviewCount: number | null;
+  /** Dados do diálogo "Processo seletivo" (só para quem pode configurar o funil). */
+  process?: JobProcessData;
 }
 
 export interface OriginRequest {
@@ -281,6 +284,7 @@ export function PipelineOverview({
   positions: PositionsSummary;
   isTalentPool: boolean;
 }) {
+  const [processOpen, setProcessOpen] = useState(false);
   const visible = pipeline.stages.filter((s) => !s.hidden && s.kind !== "LOST");
   const offBoard = pipeline.stages.filter((s) => (s.hidden || s.kind === "LOST") && s.count > 0);
   const max = Math.max(1, ...visible.map((s) => s.count));
@@ -301,9 +305,16 @@ export function PipelineOverview({
         title="Pipeline da vaga"
         description="Etapas do funil configurado para esta vaga, com a quantidade de candidatos em cada uma."
         action={
-          <ButtonLink href={`/vagas/${jobId}/candidatos`} size="sm" variant="secondary">
-            Abrir pipeline
-          </ButtonLink>
+          <div className="flex items-center gap-2">
+            {pipeline.process && (
+              <Button size="sm" variant="secondary" onClick={() => setProcessOpen(true)}>
+                Alterar processo
+              </Button>
+            )}
+            <ButtonLink href={`/vagas/${jobId}/candidatos`} size="sm" variant="secondary">
+              Abrir pipeline
+            </ButtonLink>
+          </div>
         }
       >
         {pipeline.total === 0 ? (
@@ -329,6 +340,10 @@ export function PipelineOverview({
           </p>
         )}
       </Panel>
+
+      {pipeline.process && (
+        <JobProcessDialog open={processOpen} onClose={() => setProcessOpen(false)} jobId={jobId} {...pipeline.process} />
+      )}
 
       {!isTalentPool && (
         <Panel title="Contratações" description="Cada contratação ocupa uma posição da vaga.">

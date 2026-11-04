@@ -23,10 +23,7 @@ export interface ProcessTemplateOption {
   stageIds: string[];
 }
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-  jobId: string;
+export interface JobProcessData {
   catalog: EditorStage[];
   /** Etapas efetivas da vaga agora, na ordem dela. */
   currentStageIds: string[];
@@ -37,6 +34,12 @@ interface Props {
   templates: ProcessTemplateOption[];
   /** Candidatos da vaga por etapa. */
   counts: Record<string, number>;
+}
+
+interface Props extends JobProcessData {
+  open: boolean;
+  onClose: () => void;
+  jobId: string;
 }
 
 export function JobProcessDialog({ open, onClose, ...rest }: Props) {

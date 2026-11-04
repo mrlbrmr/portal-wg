@@ -1165,8 +1165,8 @@ reaproveita essa tabela ou cria uma trilha própria de sessões automatizadas.
   nenhuma vaga mudou de aparência). Teste de banco: `scripts/test-process-templates.sql`.
 - Regras puras: `src/lib/selection-funnel/process-templates.ts`. Ações: `process-actions.ts`. UI:
   `/configuracoes/processos` e menu ⋯ › "Processo seletivo" na vaga. Removida a rota `PUT /api/vagas/[id]/stages`.
-- Pendente (não feito): escolher o modelo já na tela "Nova vaga" (hoje a vaga nova segue o modelo padrão);
-  estados finais (Aprovado/Reprovado) fora do fluxo de colunas; validação logada na UI.
+- Modelo escolhido também em "Nova vaga" e em "Alterar processo" (aba Processo seletivo da vaga).
+- Pendente (não feito): estados finais (Aprovado/Reprovado) fora do fluxo de colunas; validação logada na UI.
 
 ---
 

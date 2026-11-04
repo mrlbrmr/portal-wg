@@ -12,7 +12,7 @@ import type { JobPosition } from "@/lib/jobs/positions";
 import type { JobEventRow, StatusHistoryRow } from "@/lib/jobs/history";
 import { pipelineGroup, type PipelineGroup } from "@/lib/recruitment/candidate-presentation";
 import { loadJobTemplates } from "@/lib/jobs/template-data";
-import { loadDefaultTemplateRefs } from "@/lib/selection-funnel/process-data";
+import { loadDefaultTemplateRefs, loadProcessTemplates } from "@/lib/selection-funnel/process-data";
 import { resolveJobStages } from "@/lib/selection-funnel/process-templates";
 import type { Metadata } from "next";
 
@@ -43,7 +43,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = await createClient();
-  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes, defaultStageRefs, templates] = await Promise.all([
+  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes, defaultStageRefs, templates, processTemplates] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -74,6 +74,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
     supabase.from("job_stage_config").select("stageId, sortOrder").eq("jobId", id),
     loadDefaultTemplateRefs(supabase),
     loadJobTemplates(),
+    loadProcessTemplates(supabase),
   ]);
 
   const jobRaw = jobRes.data as unknown as
@@ -92,11 +93,12 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
 
   // Etapas: o ajuste da vaga (job_stage_config), senão o modelo padrão, senão todo o catálogo.
   const allStages = (stagesRes.data ?? []) as StageRow[];
-  const jobStages = resolveJobStages(
+  const resolvedStages = resolveJobStages(
     allStages,
     (stageConfigRes.data ?? []) as Array<{ stageId: string; sortOrder: number }>,
     defaultStageRefs
-  ).stages;
+  );
+  const jobStages = resolvedStages.stages;
   const flow = jobStages.map((s) => ({ ...s, hideFromBoard: s.hideFromBoard ?? false }));
   const stageById = new Map(allStages.map((s) => [s.id, s]));
 
@@ -122,6 +124,16 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
     total: apps.length,
     groups,
     stages,
+    process: {
+      catalog: allStages.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind })),
+      currentStageIds: jobStages.map((s) => s.id),
+      isCustom: resolvedStages.source === "JOB",
+      templateId: (job as { processTemplateId?: string | null }).processTemplateId ?? null,
+      templates: processTemplates
+        .filter((t) => t.active)
+        .map((t) => ({ id: t.id, name: t.name, isDefault: t.isDefault, stageIds: t.stageIds })),
+      counts: Object.fromEntries(countByStage),
+    },
     interviewCount: interviewStageIds.length
       ? interviewStageIds.reduce((n, sid) => n + (countByStage.get(sid) ?? 0), 0)
       : null,

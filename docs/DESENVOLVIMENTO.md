@@ -1158,6 +1158,18 @@ reaproveita essa tabela ou cria uma trilha própria de sessões automatizadas.
 
 ---
 
+## Modelos de processo (2026-11-04)
+- Funil por vaga deixou de ser só "marcar/desmarcar": modelos reutilizáveis (`process_templates`) + ordem e
+  etapas próprias por vaga (`job_stage_config."sortOrder"`), com procedência em `jobs."processTemplateId"`.
+- Migração `20261104120000_process_templates.sql` (aditiva; seed = modelo "Padrão" com todas as etapas ativas, então
+  nenhuma vaga mudou de aparência). Teste de banco: `scripts/test-process-templates.sql`.
+- Regras puras: `src/lib/selection-funnel/process-templates.ts`. Ações: `process-actions.ts`. UI:
+  `/configuracoes/processos` e menu ⋯ › "Processo seletivo" na vaga. Removida a rota `PUT /api/vagas/[id]/stages`.
+- Pendente (não feito): escolher o modelo já na tela "Nova vaga" (hoje a vaga nova segue o modelo padrão);
+  estados finais (Aprovado/Reprovado) fora do fluxo de colunas; validação logada na UI.
+
+---
+
 ## Segurança
 - A `SUPABASE_DB_URL` (acesso total ao Postgres de produção) foi compartilhada em texto puro durante o
   desenvolvimento e usada para aplicar migrações. **Recomendado rotacionar a senha do Postgres no Supabase.**

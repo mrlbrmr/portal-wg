@@ -192,6 +192,15 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     `run-automations.ts` (servidor, chamado no PATCH da candidatura). Só existem as reais: abrir cadastro da
     admissão e gerar link do teste. Remover etapa com candidatos exige mover para outra etapa; etapa com
     histórico é desativada, nunca excluída.
+  - **Modelos de processo** (`/configuracoes/processos`, `process_templates` + `process_template_stages`): o catálogo
+    `application_stages` segue ÚNICO (nome, cor, tipo, teste, automações); modelo = lista ORDENADA do catálogo.
+    Aplicar a uma vaga = COPIAR para `job_stage_config` (agora com `sortOrder`); `jobs.processTemplateId` é só
+    procedência. Vaga sem linhas segue o modelo PADRÃO (`isDefault`, único), sem padrão = catálogo todo. Regras puras
+    em `src/lib/selection-funnel/process-templates.ts` (testadas: `resolveJobStages`, entrada obrigatória, destino
+    dos candidatos de etapa removida); ações em `process-actions.ts` (gravação atômica pelas funções SQL
+    `process_template_set_stages`/`job_process_set`). **Nunca leia `job_stage_config` direto:** use
+    `resolveJobStages()` + `process-data.ts`. Etapa nova criada em Funil entra no modelo padrão. UI da vaga:
+    menu ⋯ › "Processo seletivo" (`funnel/JobProcessDialog`). Teste de banco: `scripts/test-process-templates.sql`.
   - **Campos adicionais da solicitação:** regras em `src/lib/job-requests/extra-fields.ts` (visibilidade,
     obrigatoriedade só se visível, múltipla escolha = JSON de string[] em `extra_data`).
 

@@ -12,6 +12,8 @@ import type { JobPosition } from "@/lib/jobs/positions";
 import type { JobEventRow, StatusHistoryRow } from "@/lib/jobs/history";
 import { pipelineGroup, type PipelineGroup } from "@/lib/recruitment/candidate-presentation";
 import { loadJobTemplates } from "@/lib/jobs/template-data";
+import { loadDefaultTemplateRefs } from "@/lib/selection-funnel/process-data";
+import { resolveJobStages } from "@/lib/selection-funnel/process-templates";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -26,7 +28,7 @@ interface Props {
   searchParams: Promise<{ tab?: string }>;
 }
 
-type StageRow = { id: string; name: string; color: string; kind: string; hideFromBoard: boolean | null };
+type StageRow = { id: string; name: string; color: string; kind: string; hideFromBoard: boolean | null; sortOrder: number; active: boolean };
 type OriginRow = { id: string; code: string | null; requester_name: string | null; status: string } | null;
 
 /**
@@ -41,7 +43,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
   if (session?.user.role !== "ADMIN_RH") redirect("/dashboard");
 
   const supabase = await createClient();
-  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes, templates] = await Promise.all([
+  const [jobRes, positionsRes, eventsRes, appsRes, stagesRes, stageConfigRes, defaultStageRefs, templates] = await Promise.all([
     supabase
       .from("jobs")
       .select(
@@ -66,10 +68,11 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
     supabase.from("applications").select("id, stageId, fullName").eq("jobId", id),
     supabase
       .from("application_stages")
-      .select("id, name, color, kind, hideFromBoard")
+      .select("id, name, color, kind, hideFromBoard, sortOrder, active")
       .eq("active", true)
       .order("sortOrder", { ascending: true }),
-    supabase.from("job_stage_config").select("stageId").eq("jobId", id),
+    supabase.from("job_stage_config").select("stageId, sortOrder").eq("jobId", id),
+    loadDefaultTemplateRefs(supabase),
     loadJobTemplates(),
   ]);
 
@@ -87,10 +90,13 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
   const events = (eventsRes.data ?? []) as JobEventRow[];
   const apps = (appsRes.data ?? []) as Array<{ id: string; stageId: string; fullName: string }>;
 
-  // Etapas: as configuradas para a vaga (job_stage_config) ou, sem configuração, todas.
+  // Etapas: o ajuste da vaga (job_stage_config), senão o modelo padrão, senão todo o catálogo.
   const allStages = (stagesRes.data ?? []) as StageRow[];
-  const configured = new Set(((stageConfigRes.data ?? []) as Array<{ stageId: string }>).map((r) => r.stageId));
-  const jobStages = configured.size > 0 ? allStages.filter((s) => configured.has(s.id)) : allStages;
+  const jobStages = resolveJobStages(
+    allStages,
+    (stageConfigRes.data ?? []) as Array<{ stageId: string; sortOrder: number }>,
+    defaultStageRefs
+  ).stages;
   const flow = jobStages.map((s) => ({ ...s, hideFromBoard: s.hideFromBoard ?? false }));
   const stageById = new Map(allStages.map((s) => [s.id, s]));
 

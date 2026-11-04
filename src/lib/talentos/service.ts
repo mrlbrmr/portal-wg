@@ -8,6 +8,8 @@
 
 import type { createClient } from "@/lib/supabase/server";
 import { runStageEntryAutomations } from "@/lib/selection-funnel/run-automations";
+import { loadDefaultTemplateRefs, loadJobStageRefs } from "@/lib/selection-funnel/process-data";
+import { resolveJobStages } from "@/lib/selection-funnel/process-templates";
 import { isActiveJobStatus } from "@/lib/utils";
 import { cleanTagName, entryStagesFor, samePhone, sameTagName, phoneDigits, type EditableBankStatus } from "./crm";
 
@@ -374,14 +376,16 @@ export async function addTalentsToJob(
   }
 
   // Etapa inicial: precisa estar no funil desta vaga e ser uma etapa de entrada.
-  const [{ data: stagesData }, { data: configData }] = await Promise.all([
-    supabase.from("application_stages").select("id, name, kind, hideFromBoard").eq("active", true),
-    supabase.from("job_stage_config").select("stageId").eq("jobId", job.id),
+  const [{ data: stagesData }, jobRefs, defaultRefs] = await Promise.all([
+    supabase.from("application_stages").select("id, name, kind, hideFromBoard, sortOrder, active").eq("active", true),
+    loadJobStageRefs(supabase, job.id as string),
+    loadDefaultTemplateRefs(supabase),
   ]);
-  const configured = new Set(((configData ?? []) as Array<{ stageId: string }>).map((r) => r.stageId));
-  const jobStages = ((stagesData ?? []) as Array<{ id: string; name: string; kind: string; hideFromBoard: boolean }>).filter(
-    (s) => configured.size === 0 || configured.has(s.id)
-  );
+  const jobStages = resolveJobStages(
+    (stagesData ?? []) as Array<{ id: string; name: string; kind: string; hideFromBoard: boolean; sortOrder: number; active: boolean }>,
+    jobRefs,
+    defaultRefs
+  ).stages;
   const stageId = input.stageId || "NEW";
   const stage = entryStagesFor(jobStages).find((s) => s.id === stageId);
   if (!stage) return { ok: false, error: "Etapa inicial inválida para esta vaga." };

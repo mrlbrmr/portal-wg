@@ -55,7 +55,7 @@ export default async function FunilPage() {
     <SettingsPage
       breadcrumb={[{ label: "Recrutamento" }, { label: "Funil de seleção" }]}
       title="Funil de seleção"
-      description="Configure as etapas utilizadas nos processos seletivos. As etapas de contratação e reprovação são utilizadas para calcular os indicadores de recrutamento."
+      description="Catálogo de etapas dos processos seletivos (a ordem de cada vaga vem dos Modelos de processo). As etapas de contratação e reprovação são utilizadas para calcular os indicadores de recrutamento."
       lastChange={lastChange}
     >
       <FunnelStagesManager stages={stages} templates={templates} />

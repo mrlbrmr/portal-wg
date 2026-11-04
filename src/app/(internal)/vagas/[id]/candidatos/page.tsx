@@ -19,6 +19,8 @@ import { resolveAssessmentType } from "@/lib/avaliacoes/schema";
 import { isHumanEvaluation } from "@/lib/recruitment/evaluations/catalog";
 import type { CvProfile } from "@/lib/ai/cv-analyzer";
 import { loadApplicationSources, labelForSource, sourceLabelsFrom } from "@/lib/application-sources";
+import { loadDefaultTemplateRefs, loadJobStageRefs, loadProcessTemplates } from "@/lib/selection-funnel/process-data";
+import { resolveJobStages } from "@/lib/selection-funnel/process-templates";
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -51,7 +53,7 @@ export default async function CandidatosPage({ params }: Props) {
     auth(),
     supabase
       .from("jobs")
-      .select("id, code, title, city, state, isTalentPool, requestId, status, visibility")
+      .select("id, code, title, city, state, isTalentPool, requestId, status, visibility, processTemplateId")
       .eq("id", id)
       .maybeSingle(),
   ]);
@@ -69,7 +71,7 @@ export default async function CandidatosPage({ params }: Props) {
       .order("createdAt", { ascending: false }),
     supabase
       .from("application_stages")
-      .select("id, name, color, kind, templateId, hideFromBoard, automations")
+      .select("id, name, color, kind, sortOrder, active, templateId, hideFromBoard, automations")
       .eq("active", true)
       .order("sortOrder", { ascending: true }),
     supabase
@@ -86,7 +88,7 @@ export default async function CandidatosPage({ params }: Props) {
 
   // Valores derivados da wave 1
   const rawStages = (stagesData ?? []) as Array<{
-    id: string; name: string; color: string; kind: string; templateId: string | null; hideFromBoard: boolean; automations: unknown;
+    id: string; name: string; color: string; kind: string; sortOrder: number; active: boolean; templateId: string | null; hideFromBoard: boolean; automations: unknown;
   }>;
   const testTemplateIds = rawStages
     .filter((s) => s.kind === "TEST" && s.templateId)
@@ -133,8 +135,7 @@ export default async function CandidatosPage({ params }: Props) {
       ? supabase.from("assessment_templates").select("id, name, kind").in("id", testTemplateIds)
           .then((r) => r.data as TemplateRow[] | null)
       : null,
-    supabase.from("job_stage_config").select("stageId").eq("jobId", id)
-      .then((r) => r.data as Array<{ stageId: string }> | null),
+    Promise.all([loadJobStageRefs(supabase, id), loadDefaultTemplateRefs(supabase), loadProcessTemplates(supabase)]),
     testAppIds.length > 0
       ? supabase.from("assessment_sessions")
           .select("applicationId, outcome, submittedAt, template:assessment_templates(assessmentType, kind)")
@@ -187,11 +188,14 @@ export default async function CandidatosPage({ params }: Props) {
     templateKind: s.templateId ? (templateKinds.get(s.templateId) ?? null) : null,
   }));
 
-  const activeStageIds = (stageConfigData ?? []).map((r) => r.stageId);
-  const stages =
-    activeStageIds.length > 0
-      ? allStages.filter((s) => activeStageIds.includes(s.id))
-      : allStages;
+  const [jobStageRefs, defaultStageRefs, processTemplates] = stageConfigData;
+  const resolved = resolveJobStages(allStages, jobStageRefs, defaultStageRefs);
+  const stages = resolved.stages;
+  // "Configurado" = a vaga tem ajuste próprio (antes: qualquer linha em job_stage_config).
+  const activeStageIds = resolved.source === "JOB" ? stages.map((s) => s.id) : [];
+  const stageCounts: Record<string, number> = {};
+  for (const a of appList) stageCounts[a.stageId] = (stageCounts[a.stageId] ?? 0) + 1;
+  const jobProcessTemplateId = (job as { processTemplateId?: string | null }).processTemplateId ?? null;
 
   // Situação do teste (só para quem está numa etapa TEST), pela sessão mais recente:
   // sem sessão → não enviado; sessão aberta → aguardando; respondida → resultado. O que
@@ -378,8 +382,12 @@ export default async function CandidatosPage({ params }: Props) {
             />
             <JobPipelineActions
               jobId={job.id}
-              allStages={allStages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
-              activeStageIds={activeStageIds}
+              catalog={allStages.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind }))}
+              currentStageIds={stages.map((s) => s.id)}
+              isCustom={activeStageIds.length > 0}
+              templateId={jobProcessTemplateId}
+              templates={processTemplates.filter((t) => t.active).map((t) => ({ id: t.id, name: t.name, isDefault: t.isDefault, stageIds: t.stageIds }))}
+              counts={stageCounts}
             />
           </div>
         )}

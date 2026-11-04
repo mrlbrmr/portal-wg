@@ -38,6 +38,21 @@ async function stageName(supabase: Awaited<ReturnType<typeof createClient>>, id:
   return (data?.name as string | undefined) ?? "etapa";
 }
 
+async function addToDefaultTemplate(supabase: Awaited<ReturnType<typeof createClient>>, stageId: string) {
+  const { data: def } = await supabase.from("process_templates").select("id").eq("isDefault", true).maybeSingle();
+  if (!def) return;
+  const { data: last } = await supabase
+    .from("process_template_stages")
+    .select("sortOrder")
+    .eq("templateId", def.id as string)
+    .order("sortOrder", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  await supabase
+    .from("process_template_stages")
+    .insert({ templateId: def.id, stageId, sortOrder: ((last?.sortOrder as number | undefined) ?? 0) + 10 });
+}
+
 export async function createStage(name: string, color?: string): Promise<ActionResult> {
   const a = await requireAdmin();
   if ("error" in a) return { ok: false, error: a.error };
@@ -52,13 +67,20 @@ export async function createStage(name: string, color?: string): Promise<ActionR
     .limit(1)
     .maybeSingle();
 
-  const { error } = await supabase.from("application_stages").insert({
-    name: clean,
-    color: /^#[0-9a-fA-F]{6}$/.test(color ?? "") ? color : DEFAULT_COLOR,
-    sortOrder: ((max?.sortOrder as number | undefined) ?? 0) + 10,
-    kind: "OPEN",
-  });
-  if (error) return { ok: false, error: DUPLICATE };
+  const { data: created, error } = await supabase
+    .from("application_stages")
+    .insert({
+      name: clean,
+      color: /^#[0-9a-fA-F]{6}$/.test(color ?? "") ? color : DEFAULT_COLOR,
+      sortOrder: ((max?.sortOrder as number | undefined) ?? 0) + 10,
+      kind: "OPEN",
+    })
+    .select("id")
+    .single();
+  if (error || !created) return { ok: false, error: DUPLICATE };
+
+  // Etapa nova entra no modelo padrão (vagas sem ajuste continuam vendo todo o funil, como antes).
+  await addToDefaultTemplate(supabase, created.id as string);
 
   await logConfigChange(a.session, MODULE, `Etapa "${clean}" criada`);
   return done();
@@ -206,6 +228,8 @@ export async function duplicateStage(id: string): Promise<ActionResult> {
     .select("id")
     .single();
   if (error || !created) return { ok: false, error: "Não foi possível duplicar a etapa." };
+
+  await addToDefaultTemplate(supabase, created.id as string);
 
   const ids = list.map((s) => s.id);
   ids.splice(ids.indexOf(id) + 1, 0, created.id as string);

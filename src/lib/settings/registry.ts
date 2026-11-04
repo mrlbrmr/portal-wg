@@ -18,6 +18,7 @@ import {
   MapPin,
   Signpost,
   Tag,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -192,6 +193,13 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
         title: "Funil de seleção",
         description: "Etapas dos processos seletivos, testes vinculados e automações.",
         icon: KanbanSquare,
+      },
+      {
+        key: "processos",
+        href: "/configuracoes/processos",
+        title: "Modelos de processo",
+        description: "Funis prontos por tipo de vaga (operacional, administrativo, liderança…).",
+        icon: Workflow,
       },
     ],
   },

@@ -4,21 +4,25 @@ import { useState } from "react";
 import { MoreHorizontal, Pencil, Settings2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/Button";
 import { DropdownMenu } from "@/components/ui/DropdownMenu";
-import { JobStageConfigButton, type StageOption } from "@/components/internal/JobStageConfigButton";
+import { JobProcessDialog, type ProcessTemplateOption } from "@/components/internal/funnel/JobProcessDialog";
+import type { EditorStage } from "@/components/internal/funnel/ProcessStageEditor";
 
 interface Props {
   jobId: string;
-  allStages: StageOption[];
-  activeStageIds: string[];
+  catalog: EditorStage[];
+  currentStageIds: string[];
+  isCustom: boolean;
+  templateId: string | null;
+  templates: ProcessTemplateOption[];
+  counts: Record<string, number>;
 }
 
 /**
- * Ações de configuração da vaga (etapas do funil, edição) num menu secundário, para não
+ * Ações de configuração da vaga (processo seletivo, edição) num menu secundário, para não
  * competir com o CTA "Novo candidato".
  */
-export function JobPipelineActions({ jobId, allStages, activeStageIds }: Props) {
-  const [stagesOpen, setStagesOpen] = useState(false);
-  const isCustom = activeStageIds.length > 0;
+export function JobPipelineActions({ jobId, ...process }: Props) {
+  const [processOpen, setProcessOpen] = useState(false);
 
   return (
     <>
@@ -29,21 +33,15 @@ export function JobPipelineActions({ jobId, allStages, activeStageIds }: Props) 
         triggerClassName={buttonVariants({ variant: "secondary", size: "icon" })}
         items={[
           {
-            label: "Configurar etapas",
+            label: "Processo seletivo",
             icon: Settings2,
-            hint: isCustom ? "personalizadas" : undefined,
-            onSelect: () => setStagesOpen(true),
+            hint: process.isCustom ? "personalizado" : undefined,
+            onSelect: () => setProcessOpen(true),
           },
           { label: "Editar vaga", icon: Pencil, href: `/vagas/${jobId}/editar` },
         ]}
       />
-      <JobStageConfigButton
-        jobId={jobId}
-        allStages={allStages}
-        activeStageIds={activeStageIds}
-        open={stagesOpen}
-        onOpenChange={setStagesOpen}
-      />
+      <JobProcessDialog open={processOpen} onClose={() => setProcessOpen(false)} jobId={jobId} {...process} />
     </>
   );
 }

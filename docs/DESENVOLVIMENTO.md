@@ -7,6 +7,27 @@ desenvolvido em dois computadores, sincronizados via GitHub). Complementa o [`CL
 
 ---
 
+## Sessão de 2026-11-04 — Agenda de entrevistas
+
+Migração `20261104180000_application_interviews.sql` — aditiva; **aplicar à mão ANTES do push** (ver CLAUDE.md).
+Teste SQL: `scripts/test-interviews.sql` (entra no `npm run test:db`).
+
+- **Objetivo:** agendar entrevistas por candidatura (data/hora, entrevistador, tipo) e enxergá-las no Quick View, no card
+  do pipeline e na página da vaga, sem confundir com o parecer.
+- **Decisão de modelo:** tabela própria `application_interviews`. Agendada ≠ parecer: o parecer continua em
+  `application_assessments` (`kind=INTERVIEW`); a entrevista aponta por `assessmentId` ao ser concluída
+  ("Registrar parecer" pré-preenche o modal e vincula).
+- **Regras:** puras em `src/lib/recruitment/interviews/` (catalog, rules, schema, job-items); ações com compare-and-swap
+  (agendar, remarcar, cancelar, falta, concluir); remarcar para horário passado exige "Entrevista já realizada".
+  Fuso America/Sao_Paulo via `Intl`. Conflito de entrevistador só avisa.
+- **UI:** seção "Entrevistas" no Quick View/aba Avaliações; sinal no card do Kanban; painel na aba "Processo seletivo"
+  da vaga; eventos na timeline da candidatura. Sinal antigo (parecer com data futura) só vale para candidatura sem
+  nenhuma linha na agenda.
+- **Fora do v1 (fase 2):** e-mail/convite ao candidato/entrevistador e agenda geral.
+- **Pendente:** aplicar a migração, rodar `npm run test:db` e validar o fluxo logado no painel real.
+
+---
+
 ## Sessão de 2026-10-14 — Vincular admissão a candidato do processo seletivo
 
 Migração `20261014150000_admission_application_link.sql` — **aplicada** (só recria a view `talentos_crm`, mesmas colunas).

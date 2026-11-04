@@ -123,6 +123,17 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   sem innerHTML. Markdown colado (Claude/ChatGPT) → `markdownToEditorHtml()` (marked; HTML cru escapado).
   Modelos em `templates.ts`; tipos de entrevista/recomendações em `catalog.ts`. Autor/criação preservados
   por trigger; quem editou vai em `updatedBy*`. "Exportar PDF" = impressão do navegador (o banco é a fonte).
+- **Agenda de entrevistas** (`application_interviews`; regras puras e testadas em `src/lib/recruitment/interviews/`:
+  `catalog`, `rules`, `schema`, `job-items`; server actions em `actions.ts` com compare-and-swap; leitura em
+  `GET /api/applications/[id]/interviews`). **Entrevista agendada ≠ parecer:** a agenda guarda data/hora/entrevistador/
+  status; o parecer segue em `application_assessments` `kind=INTERVIEW` e a entrevista aponta por `assessmentId`
+  ("Registrar parecer" pré-preenche o `InterviewDialog` e vincula via `completeInterviewAction`). UI: seção
+  "Entrevistas" no Quick View/aba Avaliações (`InterviewsSection`, `InterviewScheduleDialog`), painel na aba "Processo
+  seletivo" da vaga (`JobInterviewsPanel`, link `?candidato=<id>`), sinal no card do Kanban (`candidateSignals`,
+  `SignalInput.interviews`) e eventos na timeline (`buildCandidateTimeline`). Fallback do sinal antigo (pareceres com
+  data futura → `nextInterviewAt`) vale SÓ para candidatura sem nenhuma linha em `application_interviews`. Fuso
+  America/Sao_Paulo via `Intl` (não offset fixo). Conflito de entrevistador só avisa. v1 sem e-mail/convite/agenda
+  geral (fase 2). Migração aditiva `20261104180000` aplicada à mão ANTES do push; teste: `scripts/test-interviews.sql`.
 - **Origem da candidatura** (`applications.source` = código): PORTAL/BANCO_TALENTOS são de sistema; as demais vêm do
   cadastro `application_sources` (Cadastros › Origens de candidatos; o modal "Novo candidato" cria origem na hora).
   Rótulo SEMPRE resolvido no servidor (`src/lib/application-sources.ts` → `sourceLabel`), nunca só pelo mapa estático.

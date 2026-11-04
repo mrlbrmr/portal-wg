@@ -47,6 +47,11 @@ test("nenhum candidato após o limite", () => {
   assert.equal(r.find((x) => x.key === "NO_CANDIDATES")?.label, "Nenhum candidato em 12 dias");
 });
 
+test("candidatos reprovados não geram 'nenhum candidato'", () => {
+  const r = jobAttentionReasons({ ...base, candidateCount: 0, receivedCount: 3, openedAt: daysAgo(16) }, NOW, null);
+  assert.equal(r.find((x) => x.key === "NO_CANDIDATES"), undefined);
+});
+
 test("prazo de inscrição próximo e vencido", () => {
   assert.equal(
     jobAttentionReasons({ ...base, closingDate: inDays(3.5) }, NOW, null)[0].label,

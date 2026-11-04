@@ -61,11 +61,14 @@ export async function loadJobRows(supabase: SupabaseClient, { limit = 200 } = {}
 
   const lostStageIds = new Set(((lostStagesRes.data ?? []) as Array<{ id: string }>).map((s) => s.id));
   const countByJob = new Map<string, number>();
+  // Total de candidaturas já recebidas, incluindo reprovadas/descartadas.
+  const receivedByJob = new Map<string, number>();
   const newByJob = new Map<string, number>();
   // Última mudança em qualquer candidatura da vaga (inclui as descartadas — marcar
   // alguém como perdido também conta como atividade na vaga).
   const lastActivityByJob = new Map<string, string>();
   for (const a of (appRowsRes.data ?? []) as Array<{ jobId: string; stageId: string; updatedAt: string }>) {
+    receivedByJob.set(a.jobId, (receivedByJob.get(a.jobId) ?? 0) + 1);
     if (!lostStageIds.has(a.stageId)) countByJob.set(a.jobId, (countByJob.get(a.jobId) ?? 0) + 1);
     if (a.stageId === "NEW") newByJob.set(a.jobId, (newByJob.get(a.jobId) ?? 0) + 1);
     const prev = lastActivityByJob.get(a.jobId);
@@ -93,6 +96,7 @@ export async function loadJobRows(supabase: SupabaseClient, { limit = 200 } = {}
       updatedAt: iso(job.updatedAt),
       lastActivityAt: iso(lastActivityAt),
       candidateCount: countByJob.get(job.id) ?? 0,
+      receivedCount: receivedByJob.get(job.id) ?? 0,
       newCount: newByJob.get(job.id) ?? 0,
       openedAt: iso(openedAtByJob.get(job.id) ?? job.createdAt),
       statusChangedAt: iso(statusChangedAtByJob.get(job.id) ?? job.updatedAt),

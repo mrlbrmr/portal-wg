@@ -22,7 +22,10 @@ export interface JobRow {
   createdAt: string; // ISO
   updatedAt: string; // ISO
   lastActivityAt: string; // ISO — max(updatedAt da vaga, updatedAt das candidaturas)
+  /** Candidatos ativos no processo (exclui reprovados/descartados). */
   candidateCount: number;
+  /** Todas as candidaturas já recebidas, inclusive reprovadas — "a vaga já teve candidatos". */
+  receivedCount: number;
   /** Candidaturas ainda na etapa "Novo" (aguardando triagem). */
   newCount: number;
   /** Primeira vez em que a vaga ficou aberta (job_status_history); fallback createdAt. */

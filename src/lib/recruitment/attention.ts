@@ -43,6 +43,8 @@ export interface AttentionInput {
   openedAt: string;
   lastActivityAt: string;
   candidateCount: number;
+  /** Total já recebido, inclusive reprovados. Sem ele, cai para candidateCount. */
+  receivedCount?: number;
   /** Candidaturas na etapa "Novo" (aguardando triagem). */
   newCount: number;
   closingDate?: string | null;
@@ -89,7 +91,8 @@ export function jobAttentionReasons(
     }
   }
 
-  if (job.candidateCount === 0 && openDays >= ATTENTION_RULES.noCandidatesDays) {
+  // "Nenhum candidato" só vale se a vaga nunca recebeu candidaturas: quem foi reprovado conta.
+  if ((job.receivedCount ?? job.candidateCount) === 0 && openDays >= ATTENTION_RULES.noCandidatesDays) {
     reasons.push({ key: "NO_CANDIDATES", label: `Nenhum candidato em ${pluralDays(openDays)}`, tone: "warning" });
   }
 

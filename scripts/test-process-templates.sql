@@ -14,9 +14,16 @@ begin
   select count(*) into n from public.process_templates where "isDefault";
   if n <> 1 then raise exception 'C1: esperava 1 modelo padrão, achei %', n; end if;
   select id into def_id from public.process_templates where "isDefault";
-  select count(*) into n from public.process_template_stages where "templateId" = def_id;
-  if n <> (select count(*) from public.application_stages where active) then
-    raise exception 'C1: modelo padrão não tem todas as etapas ativas (%)', n;
+  -- Toda etapa ATIVA do catálogo tem de estar no modelo. Etapa desativada pode continuar
+  -- ligada (desativar não mexe no modelo): é inofensivo, resolveJobStages só considera as
+  -- ativas, e o vínculo guarda a posição caso a etapa seja reativada.
+  select count(*) into n from public.application_stages s
+   where s.active
+     and not exists (
+       select 1 from public.process_template_stages t where t."templateId" = def_id and t."stageId" = s.id
+     );
+  if n <> 0 then
+    raise exception 'C1: % etapa(s) ativa(s) fora do modelo padrão', n;
   end if;
   raise notice 'C1 ok — modelo padrão cobre todas as etapas ativas';
 

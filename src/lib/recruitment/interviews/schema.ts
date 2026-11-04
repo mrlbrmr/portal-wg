@@ -53,3 +53,12 @@ export function parseScheduleInput(
   }
   return { ok: true, value };
 }
+
+/** Motivo do cancelamento: trim, vazio -> null, no maximo 500 caracteres (limite da coluna). */
+export function parseCancelReason(raw: unknown): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (raw === undefined || raw === null) return { ok: true, value: null };
+  if (typeof raw !== "string") return { ok: false, error: "Motivo inválido." };
+  const v = raw.trim();
+  if (v.length > 500) return { ok: false, error: "O motivo deve ter no máximo 500 caracteres." };
+  return { ok: true, value: v === "" ? null : v };
+}

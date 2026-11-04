@@ -9,6 +9,7 @@ import {
   formatExperience,
   formatInterviewLabel,
   formatStageTime,
+  isActiveFunnelStage,
   pipelineSummary,
   STAGE_IDLE_WARNING_DAYS,
 } from "./candidate-presentation";
@@ -173,4 +174,25 @@ test("agenda: lista vazia mantém o comportamento antigo de nextInterviewAt", ()
     NOW_AGENDA
   );
   assert.equal(sig.find((s) => s.key === "interview")?.label, "Entrevista hoje");
+});
+
+test("agenda: candidatura inativa (reprovada, contratada, admissão, oculta) não sinaliza entrevista", () => {
+  const overdue = [{ round: "MANAGER", scheduledAt: "2026-11-12T10:00:00Z", durationMin: 60, status: "SCHEDULED" as const }];
+  const upcoming = [{ round: "HR", scheduledAt: "2026-11-12T17:00:00Z", durationMin: 60, status: "SCHEDULED" as const }];
+  for (const stage of [STAGES[5], STAGES[4], STAGES[3], STAGES[6], undefined]) {
+    for (const interviews of [overdue, upcoming]) {
+      const sigs = candidateSignals({ stageId: "X", enteredStageAt: null, interviews }, stage, NOW_AGENDA);
+      assert.equal(sigs.filter((x) => x.key === "interview").length, 0, `etapa ${stage?.id}`);
+      assert.equal(sigs.some((x) => x.attention), false, `etapa ${stage?.id}`);
+    }
+  }
+});
+
+test("isActiveFunnelStage: OPEN/TEST/sem kind visíveis são ativas", () => {
+  assert.equal(isActiveFunnelStage(STAGES[1]), true);
+  assert.equal(isActiveFunnelStage(STAGES[2]), true);
+  assert.equal(isActiveFunnelStage({ id: "x", name: "x", color: "#000" }), true);
+  assert.equal(isActiveFunnelStage(STAGES[6]), false);
+  assert.equal(isActiveFunnelStage(STAGES[4]), false);
+  assert.equal(isActiveFunnelStage(undefined), false);
 });

@@ -18,6 +18,7 @@ import { enteredStageAtFromLatest, type TestStatus } from "@/lib/recruitment/can
 import { resolveAssessmentType } from "@/lib/avaliacoes/schema";
 import { isHumanEvaluation } from "@/lib/recruitment/evaluations/catalog";
 import type { CvProfile } from "@/lib/ai/cv-analyzer";
+import { agendaSignalInputs } from "@/lib/recruitment/interviews/signal-inputs";
 import type { InterviewStatus } from "@/lib/recruitment/interviews/catalog";
 import { loadApplicationSources, labelForSource, sourceLabelsFrom } from "@/lib/application-sources";
 import { loadDefaultTemplateRefs, loadJobStageRefs, loadProcessTemplates } from "@/lib/selection-funnel/process-data";
@@ -298,9 +299,7 @@ export default async function CandidatosPage({ params }: Props) {
       hasNotes: !!a.notes?.trim() || (a.noteRows?.length ?? 0) > 0,
       assessmentCount: assessments.filter(isHumanEvaluation).length,
       enteredStageAt: enteredStageAtFromLatest(latestHistoryByApp.get(a.id), a.stageId),
-      // Caminho antigo (parecer com data) só para quem NUNCA teve linha na agenda (qualquer status).
-      nextInterviewAt: a.interviews?.length ? null : nextInterview(assessments),
-      interviews: (a.interviews ?? []).filter((i) => i.status === "SCHEDULED"),
+      ...agendaSignalInputs(a.interviews, nextInterview(assessments)),
     };
   });
 

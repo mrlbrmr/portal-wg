@@ -95,6 +95,14 @@ begin
   end if;
   raise notice 'C5 ok — apagar a avaliação desvincula a entrevista (on delete set null)';
 
+  -- C5b: compare-and-swap — cancelar com guard de status não afeta entrevista já DONE
+  update public.application_interviews set status = 'DONE' where id = iv;
+  update public.application_interviews set status = 'CANCELLED' where id = iv and status = 'SCHEDULED';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'C5b: CAS afetou % linha(s)', n; end if;
+  if (select status from public.application_interviews where id = iv) <> 'DONE' then raise exception 'C5b: status mudou'; end if;
+  raise notice 'C5b ok — compare-and-swap não sobrescreve DONE';
+
   -- C6: apagar a candidatura apaga a entrevista
   delete from public.applications where id = app_a;
   select count(*) into n from public.application_interviews where id = iv;

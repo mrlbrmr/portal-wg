@@ -28,9 +28,15 @@ export interface JobInterviewRow {
 }
 
 /** Monta os itens (embed objeto ou array), ignora data inválida; atrasadas primeiro, depois as próximas. */
-export function buildJobInterviewItems(rows: JobInterviewRow[], now: Date): JobInterviewItem[] {
+export function buildJobInterviewItems(
+  rows: JobInterviewRow[],
+  now: Date,
+  /** Candidaturas ativas no funil; quando informado, entrevistas de outras (reprovadas, contratadas, ocultas) ficam fora. */
+  activeApplicationIds?: ReadonlySet<string>,
+): JobInterviewItem[] {
   const items: JobInterviewItem[] = [];
   for (const r of rows) {
+    if (activeApplicationIds && !activeApplicationIds.has(r.applicationId)) continue;
     if (Number.isNaN(new Date(r.scheduledAt).getTime())) continue;
     const a = (Array.isArray(r.application) ? r.application[0] : r.application) ?? {};
     items.push({

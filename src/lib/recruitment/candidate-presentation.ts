@@ -205,6 +205,11 @@ export function formatInterviewLabel(iso: string, now: Date = new Date()): strin
   return `Entrevista ${d}/${m}`;
 }
 
+/** Etapa "viva" do funil: existe, aparece no quadro e não é de encerramento (LOST/WON/ADMISSION). */
+export function isActiveFunnelStage(stage: FlowStage | undefined): boolean {
+  return !!stage && !stage.hideFromBoard && (stage.kind === "OPEN" || stage.kind === "TEST" || !stage.kind);
+}
+
 /** Sinais do card, do mais ao menos importante. A UI mostra só os primeiros. */
 export function candidateSignals(
   input: SignalInput,
@@ -218,8 +223,9 @@ export function candidateSignals(
   }
 
   if (input.interviews?.length) {
+    // Agenda só sinaliza para candidatura ativa; reprovado/contratado/oculto não pede desfecho.
     // Um único sinal: a agendada futura mais próxima ou, sem ela, a atrasada (pede o desfecho).
-    const picked = pickInterviewForCard(input.interviews, now);
+    const picked = isActiveFunnelStage(stage) ? pickInterviewForCard(input.interviews, now) : null;
     if (picked?.overdue) {
       out.push({
         key: "interview",
@@ -243,8 +249,7 @@ export function candidateSignals(
     if (label) out.push({ key: "interview", icon: "calendar", label, tone: "info", attention: false });
   }
 
-  const inActiveFunnel = stage && !stage.hideFromBoard && (stage.kind === "OPEN" || stage.kind === "TEST" || !stage.kind);
-  if (STAGE_IDLE_WARNING_DAYS !== null && inActiveFunnel && input.enteredStageAt) {
+  if (STAGE_IDLE_WARNING_DAYS !== null && isActiveFunnelStage(stage) && input.enteredStageAt) {
     const days = calendarDaysSince(input.enteredStageAt, now);
     if (days >= STAGE_IDLE_WARNING_DAYS) {
       out.push({

@@ -10,7 +10,7 @@ import type { PipelineData, PipelineStageCount } from "@/components/internal/job
 import type { HireCandidate } from "@/components/internal/job/JobPositionsCard";
 import type { JobPosition } from "@/lib/jobs/positions";
 import type { JobEventRow, StatusHistoryRow } from "@/lib/jobs/history";
-import { pipelineGroup, type PipelineGroup } from "@/lib/recruitment/candidate-presentation";
+import { isActiveFunnelStage, pipelineGroup, type PipelineGroup } from "@/lib/recruitment/candidate-presentation";
 import { loadJobTemplates } from "@/lib/jobs/template-data";
 import { loadDefaultTemplateRefs, loadProcessTemplates } from "@/lib/selection-funnel/process-data";
 import { resolveJobStages } from "@/lib/selection-funnel/process-templates";
@@ -160,7 +160,19 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
     .map((a) => ({ applicationId: a.id, fullName: a.fullName, stageName: stageById.get(a.stageId)?.name ?? "" }))
     .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
 
-  const interviews = buildJobInterviewItems((interviewsRes.data ?? []) as unknown as JobInterviewRow[], new Date());
+  const activeApplicationIds = new Set(
+    apps
+      .filter((a) => {
+        const st = stageById.get(a.stageId);
+        return isActiveFunnelStage(st ? { ...st, hideFromBoard: st.hideFromBoard ?? false } : undefined);
+      })
+      .map((a) => a.id)
+  );
+  const interviews = buildJobInterviewItems(
+    (interviewsRes.data ?? []) as unknown as JobInterviewRow[],
+    new Date(),
+    activeApplicationIds
+  );
 
   const publications: PublicationView[] = pubs.map((p) => ({
     channel: p.channel,

@@ -144,7 +144,7 @@ export function InterviewsSection({
 
   return (
     <Section
-      title="Entrevistas agendadas"
+      title="Entrevistas"
       meta={items.length > 0 ? <span className="text-meta font-normal tabular-nums text-wg-ink-muted">{items.length}</span> : null}
       action={items.length > 0 ? scheduleButton("tertiary") : null}
     >

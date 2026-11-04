@@ -73,7 +73,7 @@ export function InterviewScheduleDialog({ applicationId, existing, defaultInterv
   const [interviewer, setInterviewer] = useState(existing?.interviewerName ?? defaultInterviewer);
   const [location, setLocation] = useState(existing?.location ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
-  // Remarcar uma entrevista que já passou: o horário antigo não pode barrar o salvamento.
+  // Checkbox "Entrevista já realizada": libera salvar um horário no passado (registro retroativo ou remarcação para data passada).
   const [alreadyHappened, setAlreadyHappened] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

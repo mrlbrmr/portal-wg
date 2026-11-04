@@ -331,10 +331,11 @@ export function CandidateQuickView({
             assessments: ws.assessments.items ?? [],
             sessions: ws.sessions.items ?? [],
             notes: ws.notes.items ?? [],
+            interviews: ws.interviews.items ?? [],
             kindLabels: ASSESSMENT_KIND_LABELS,
           })
         : [],
-    [data, lostStageId, ws.assessments.items, ws.sessions.items, ws.notes.items]
+    [data, lostStageId, ws.assessments.items, ws.sessions.items, ws.notes.items, ws.interviews.items]
   );
 
   if (!applicationId) return null;
@@ -520,7 +521,8 @@ export function CandidateQuickView({
   const counts: Partial<Record<Tab, number>> = { notes: notesCount, history: events.length };
   const panelWidth = split ? (expanded ? window.innerWidth - layout.left : layout.width) : layout.width;
   const wide = panelWidth >= WIDE_PANEL;
-  const extrasLoading = ws.assessments.items === null || ws.sessions.items === null || ws.notes.items === null;
+  const extrasLoading =
+    ws.assessments.items === null || ws.sessions.items === null || ws.notes.items === null || ws.interviews.items === null;
 
   // ── Conteúdo da aba ──
   let body: React.ReactNode;
@@ -578,6 +580,9 @@ export function CandidateQuickView({
         assessments={ws.assessments}
         onAssessmentsChange={ws.setAssessments}
         onRetryAssessments={() => ws.reloadAssessments()}
+        interviews={ws.interviews}
+        onInterviewsChange={ws.setInterviews}
+        onRetryInterviews={() => ws.reloadInterviews()}
         sessions={ws.sessions}
         onSessionsChanged={() => {
           ws.reloadSessions();

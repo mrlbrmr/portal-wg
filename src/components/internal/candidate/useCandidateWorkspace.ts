@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApplicationNote } from "@/lib/application-notes";
+import type { InterviewRow } from "@/lib/recruitment/interviews/catalog";
 import type {
   AssessmentItem,
   CandidateDetail,
@@ -23,6 +24,7 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 interface Snapshot {
   data?: CandidateDetail;
   assessments?: AssessmentItem[];
+  interviews?: InterviewRow[];
   viewer?: CurrentUser;
   sessions?: TestSession[];
   notes?: ApplicationNote[];
@@ -43,6 +45,7 @@ export function useCandidateWorkspace(applicationId: string | null) {
   const [data, setData] = useState<CandidateDetail | null>(null);
   const [error, setError] = useState(false);
   const [assessments, setAssessments] = useState<Loadable<AssessmentItem>>(EMPTY);
+  const [interviews, setInterviews] = useState<Loadable<InterviewRow>>(EMPTY);
   const [sessions, setSessions] = useState<Loadable<TestSession>>(EMPTY);
   const [notes, setNotes] = useState<Loadable<ApplicationNote>>(EMPTY);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -96,6 +99,20 @@ export function useCandidateWorkspace(applicationId: string | null) {
     [remember]
   );
 
+  const loadInterviews = useCallback(
+    (id: string) => {
+      const ctrl = new AbortController();
+      getJson<{ interviews: InterviewRow[] }>(`/api/applications/${id}/interviews`, ctrl.signal)
+        .then((d) => {
+          remember(id, { interviews: d.interviews });
+          if (isActive(id)) setInterviews({ items: d.interviews, error: false });
+        })
+        .catch(() => !ctrl.signal.aborted && isActive(id) && setInterviews((s) => ({ items: s.items ?? [], error: true })));
+      return ctrl;
+    },
+    [remember]
+  );
+
   const loadSessions = useCallback(
     (id: string) => {
       const ctrl = new AbortController();
@@ -133,6 +150,7 @@ export function useCandidateWorkspace(applicationId: string | null) {
     setData(snap?.data ?? null);
     setError(false);
     setAssessments(snap?.assessments ? { items: snap.assessments, error: false } : EMPTY);
+    setInterviews(snap?.interviews ? { items: snap.interviews, error: false } : EMPTY);
     setSessions(snap?.sessions ? { items: snap.sessions, error: false } : EMPTY);
     setNotes(snap?.notes ? { items: snap.notes, error: false } : EMPTY);
     if (snap?.currentUserId !== undefined) setCurrentUserId(snap.currentUserId);
@@ -142,6 +160,7 @@ export function useCandidateWorkspace(applicationId: string | null) {
     const ctrls = [
       loadDetail(applicationId, { silent: !!snap?.data }),
       loadAssessments(applicationId),
+      loadInterviews(applicationId),
       loadSessions(applicationId),
       loadNotes(applicationId),
     ];
@@ -157,7 +176,7 @@ export function useCandidateWorkspace(applicationId: string | null) {
       ctrls.forEach((c) => c.abort());
       admissionCtrl.abort();
     };
-  }, [applicationId, loadDetail, loadAssessments, loadSessions, loadNotes, remember]);
+  }, [applicationId, loadDetail, loadAssessments, loadInterviews, loadSessions, loadNotes, remember]);
 
   // Mudanças locais (dados editados, anotação criada…) também valem para o cache. A ficha
   // traz o próprio id; as anotações não, então são gravadas pelo setter abaixo.
@@ -172,6 +191,19 @@ export function useCandidateWorkspace(applicationId: string | null) {
       setAssessments((s) => {
         const items = update(s.items ?? []);
         if (id) remember(id, { assessments: items });
+        return { items, error: false };
+      });
+    },
+    [remember]
+  );
+
+  // Entrevista agendada/remarcada/cancelada na seção: atualiza a lista na hora (e o cache).
+  const updateInterviews = useCallback(
+    (update: (items: InterviewRow[]) => InterviewRow[]) => {
+      const id = activeId.current;
+      setInterviews((s) => {
+        const items = update(s.items ?? []);
+        if (id) remember(id, { interviews: items });
         return { items, error: false };
       });
     },
@@ -211,6 +243,8 @@ export function useCandidateWorkspace(applicationId: string | null) {
     error,
     assessments,
     setAssessments: updateAssessments,
+    interviews,
+    setInterviews: updateInterviews,
     viewer,
     sessions,
     notes,
@@ -220,6 +254,7 @@ export function useCandidateWorkspace(applicationId: string | null) {
     prefetch,
     reloadDetail: (opts?: { silent?: boolean }) => applicationId && loadDetail(applicationId, opts),
     reloadAssessments: () => applicationId && loadAssessments(applicationId),
+    reloadInterviews: () => applicationId && loadInterviews(applicationId),
     reloadSessions: () => applicationId && loadSessions(applicationId),
     reloadNotes: () => applicationId && loadNotes(applicationId),
   };

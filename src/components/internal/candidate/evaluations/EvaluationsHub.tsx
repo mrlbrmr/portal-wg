@@ -12,11 +12,16 @@ import { cn, formatDate } from "@/lib/utils";
 import type { AiAnalysis } from "@/lib/recruitment/ai-analysis";
 import { evaluationGroup, interviewTypeLabel, referenceResultInfo } from "@/lib/recruitment/evaluations/catalog";
 import { interviewDoc, reportExcerpt } from "@/lib/recruitment/evaluations/document";
+import type { InterviewRow } from "@/lib/recruitment/interviews/catalog";
+import { completeInterviewAction } from "@/lib/recruitment/interviews/actions";
+import { isoToBrtLocal } from "@/lib/recruitment/interviews/rules";
+import { todayISO } from "@/lib/recruitment/evaluations/schema";
 import { AiAnalysisPanel } from "../AiAnalysisPanel";
 import { CandidateTests } from "../CandidateTests";
 import { ConfirmDialog } from "../DialogShell";
 import { Section } from "../Section";
 import type { AssessmentItem, CandidateDetail, CurrentUser, Loadable, TestSession } from "../types";
+import { InterviewsSection } from "./InterviewsSection";
 import { RecommendationLabel, ToneLabel } from "./RecommendationLabel";
 import { ExternalEvaluationDialog, ReferenceDialog } from "./SimpleEvaluationDialogs";
 
@@ -33,7 +38,12 @@ const InterviewReader = dynamic(() => import("./InterviewReader").then((m) => m.
   ),
 });
 
-type DialogState = { type: "interview" | "reference" | "external"; existing: AssessmentItem | null } | null;
+type DialogState = {
+  type: "interview" | "reference" | "external";
+  existing: AssessmentItem | null;
+  /** Parecer aberto a partir de uma entrevista agendada — ao salvar, ela vira "Realizada". */
+  fromInterview?: InterviewRow | null;
+} | null;
 
 interface Props {
   data: CandidateDetail;
@@ -41,6 +51,10 @@ interface Props {
   assessments: Loadable<AssessmentItem>;
   onAssessmentsChange: (update: (items: AssessmentItem[]) => AssessmentItem[]) => void;
   onRetryAssessments: () => void;
+  /** Agenda de entrevistas (application_interviews). */
+  interviews: Loadable<InterviewRow>;
+  onInterviewsChange: (update: (items: InterviewRow[]) => InterviewRow[]) => void;
+  onRetryInterviews: () => void;
   sessions: Loadable<TestSession>;
   onSessionsChanged: () => void;
   viewer: CurrentUser | null;
@@ -99,10 +113,29 @@ export function EvaluationsHub(props: Props) {
 
   const onSaved = (item: AssessmentItem, created: boolean) => {
     onAssessmentsChange((items) => (created ? [item, ...items] : items.map((a) => (a.id === item.id ? item : a))));
+    const fromInterview = dialog?.fromInterview ?? null;
+    if (created && fromInterview) void linkReport(fromInterview, item.id);
     setDialog(null);
     if (item.kind === "INTERVIEW") openReader(item.id);
     onChanged();
   };
+
+  // Parecer salvo a partir de uma entrevista agendada: marca a entrevista como realizada.
+  const linkReport = async (interview: InterviewRow, assessmentId: string) => {
+    try {
+      const r = await completeInterviewAction(interview.id, assessmentId);
+      if (r.ok) {
+        props.onInterviewsChange((items) => items.map((i) => (i.id === r.interview.id ? r.interview : i)));
+        return;
+      }
+    } catch {
+      // cai no aviso abaixo
+    }
+    notify("error", "Parecer salvo, mas não foi possível vincular à entrevista.");
+    props.onRetryInterviews();
+  };
+
+  const openReportFor = (interview: InterviewRow) => setDialog({ type: "interview", existing: null, fromInterview: interview });
 
   const remove = async () => {
     if (!toDelete) return;
@@ -129,6 +162,19 @@ export function EvaluationsHub(props: Props) {
   const readingItem = reading ? groups.interviews.find((a) => a.id === reading) ?? null : null;
   const defaultEvaluator = viewer?.name ?? "";
 
+  // Parecer de entrevista agendada: tipo = rodada, data = dia agendado (Brasília), entrevistador.
+  const fromInterview = dialog?.fromInterview ?? null;
+  const prefill = useMemo(() => {
+    if (!fromInterview) return undefined;
+    let occurredAt: string;
+    try {
+      occurredAt = isoToBrtLocal(fromInterview.scheduledAt).slice(0, 10);
+    } catch {
+      occurredAt = todayISO();
+    }
+    return { interviewType: fromInterview.round, occurredAt, evaluator: fromInterview.interviewerName ?? defaultEvaluator };
+  }, [fromInterview, defaultEvaluator]);
+
   const dialogs = (
     <>
       {dialog?.type === "interview" && (
@@ -139,6 +185,7 @@ export function EvaluationsHub(props: Props) {
           criteria={data.screeningCriteria}
           defaultEvaluator={defaultEvaluator}
           existing={dialog.existing}
+          prefill={prefill}
           onClose={() => setDialog(null)}
           onSaved={onSaved}
         />
@@ -240,7 +287,20 @@ export function EvaluationsHub(props: Props) {
     />
   );
 
-  const interviews = (
+  const schedule = (
+    <InterviewsSection
+      applicationId={data.id}
+      interviews={props.interviews}
+      onInterviewsChange={props.onInterviewsChange}
+      onRetry={props.onRetryInterviews}
+      canManage={canManage}
+      defaultInterviewer={defaultEvaluator}
+      onRegisterReport={openReportFor}
+      onChanged={onChanged}
+    />
+  );
+
+  const reports = (
     <Section
       title="Entrevistas e pareceres"
       meta={groups.interviews.length > 0 ? <span className="text-meta font-normal tabular-nums text-wg-ink-muted">{groups.interviews.length}</span> : null}
@@ -436,7 +496,8 @@ export function EvaluationsHub(props: Props) {
         <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-x-8">
           <div>
             {tests}
-            {interviews}
+            {schedule}
+            {reports}
             {references}
             {external}
           </div>
@@ -449,7 +510,8 @@ export function EvaluationsHub(props: Props) {
         <div>
           {criteria && <div className="mb-4">{criteria}</div>}
           {tests}
-          {interviews}
+          {schedule}
+          {reports}
           {references}
           {external}
           <div className="mt-5 border-t border-wg-border-lighter pt-1">{ai}</div>

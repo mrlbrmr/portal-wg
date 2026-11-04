@@ -27,6 +27,8 @@ interface Props {
   defaultEvaluator: string;
   /** Edição de uma entrevista existente (null = nova). */
   existing: AssessmentItem | null;
+  /** Parecer de uma entrevista agendada: tipo, data e entrevistador já vêm preenchidos (só quando `existing` é null). */
+  prefill?: { interviewType: string; occurredAt: string; evaluator: string };
   onClose: () => void;
   onSaved: (item: AssessmentItem, created: boolean) => void;
 }
@@ -49,7 +51,7 @@ function initialDoc(existing: AssessmentItem | null): ReportDoc {
  * recomendação (dado estruturado) e o documento. Modal grande por cima do Quick View,
  * com o editor como protagonista. Alterações não salvas pedem confirmação ao sair.
  */
-export function InterviewDialog({ applicationId, candidateName, jobTitle, criteria, defaultEvaluator, existing, onClose, onSaved }: Props) {
+export function InterviewDialog({ applicationId, candidateName, jobTitle, criteria, defaultEvaluator, existing, prefill, onClose, onSaved }: Props) {
   const { notify } = useToast();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -58,12 +60,13 @@ export function InterviewDialog({ applicationId, candidateName, jobTitle, criter
   const startDoc = useMemo(() => initialDoc(existing), [existing]);
   const initial = useMemo(
     () => ({
-      interviewType: existing?.interviewType ?? (existing ? "OTHER" : "HR"),
-      occurredAt: existing?.occurredAt?.slice(0, 10) ?? todayISO(),
-      evaluator: existing?.evaluator ?? defaultEvaluator,
+      interviewType: existing ? (existing.interviewType ?? "OTHER") : (prefill?.interviewType ?? "HR"),
+      occurredAt: existing ? (existing.occurredAt?.slice(0, 10) ?? todayISO()) : (prefill?.occurredAt ?? todayISO()),
+      evaluator: existing ? (existing.evaluator ?? defaultEvaluator) : (prefill?.evaluator ?? defaultEvaluator),
       recommendation: existing?.recommendation ?? "UNDEFINED",
       title: existing?.title && existing.title !== interviewTypeLabel(existing.interviewType) && existing.title !== "Entrevista" ? existing.title : "",
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prefill só vale na abertura
     [existing, defaultEvaluator]
   );
   const [form, setForm] = useState(initial);

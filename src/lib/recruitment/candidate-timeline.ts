@@ -6,6 +6,9 @@
 // e application_notes (anotações). Tipos sem fonte de dado hoje (contato realizado,
 // troca de responsável) já existem no vocabulário para a UI, mas nunca são gerados aqui.
 
+import type { InterviewRow } from "./interviews/catalog";
+import { roundLabel } from "./interviews/catalog";
+import { formatInterviewWhen } from "./interviews/rules";
 import { interviewTypeLabel, isTestMirror, recommendationInfo, referenceResultInfo } from "./evaluations/catalog";
 
 export type CandidateEventType =
@@ -64,6 +67,8 @@ export interface TimelineInput {
     createdAt: string;
   }>;
   notes?: Array<{ id: string; body: string; authorName: string; createdAt: string }>;
+  /** Agenda de entrevistas (application_interviews). */
+  interviews?: InterviewRow[];
   /** Rótulos dos tipos de avaliação (ASSESSMENT_KIND_LABELS). */
   kindLabels?: Record<string, string>;
 }
@@ -192,6 +197,37 @@ export function buildCandidateTimeline(input: TimelineInput): CandidateEvent[] {
       detail: excerpt(n.body),
       actor: n.authorName,
     });
+  }
+
+  for (const iv of input.interviews ?? []) {
+    const what = `${roundLabel(iv.round)} · ${formatInterviewWhen(iv.scheduledAt)}`;
+    events.push({
+      id: `interview-${iv.id}`,
+      type: "INTERVIEW_SCHEDULED",
+      at: iv.createdAt,
+      title: "Entrevista agendada",
+      detail: what,
+      actor: iv.createdBy,
+    });
+    if (iv.status === "CANCELLED") {
+      events.push({
+        id: `interview-cancel-${iv.id}`,
+        type: "INTERVIEW_SCHEDULED",
+        at: iv.updatedAt,
+        title: "Entrevista cancelada",
+        detail: iv.cancelReason ? `${what} · ${iv.cancelReason}` : what,
+        actor: iv.updatedByName,
+      });
+    } else if (iv.status === "NO_SHOW") {
+      events.push({
+        id: `interview-noshow-${iv.id}`,
+        type: "INTERVIEW_SCHEDULED",
+        at: iv.updatedAt,
+        title: "Candidato não compareceu",
+        detail: what,
+        actor: iv.updatedByName,
+      });
+    }
   }
 
   return events.sort((a, b) => ms(b.at) - ms(a.at));

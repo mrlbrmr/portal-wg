@@ -99,3 +99,78 @@ test("experiência vinda do perfil do CV", () => {
   assert.equal(formatExperience(1), "1 ano de exp.");
   assert.equal(formatExperience(5), "5 anos de exp.");
 });
+
+// ── Agenda de entrevistas (application_interviews) ───────────────────────────
+// 12/11/2026 09h em São Paulo.
+const NOW_AGENDA = new Date("2026-11-12T12:00:00Z");
+
+test("agenda: entrevista agendada futura vira sinal informativo com rodada e horário", () => {
+  const sig = candidateSignals(
+    {
+      stageId: "SCREENING",
+      enteredStageAt: null,
+      interviews: [{ round: "HR", scheduledAt: "2026-11-12T17:00:00Z", durationMin: 60, status: "SCHEDULED" }],
+    },
+    STAGES[1],
+    NOW_AGENDA
+  ).filter((s) => s.key === "interview");
+  assert.equal(sig.length, 1);
+  assert.equal(sig[0].label, "Entrevista G&G · hoje 14h");
+  assert.equal(sig[0].tone, "info");
+  assert.equal(sig[0].icon, "calendar");
+  assert.equal(sig[0].attention, false);
+});
+
+test("agenda: entrevista atrasada pede o resultado e conta como atenção", () => {
+  const sig = candidateSignals(
+    {
+      stageId: "SCREENING",
+      enteredStageAt: null,
+      interviews: [{ round: "MANAGER", scheduledAt: "2026-11-12T10:00:00Z", durationMin: 60, status: "SCHEDULED" }],
+    },
+    STAGES[1],
+    NOW_AGENDA
+  ).filter((s) => s.key === "interview");
+  assert.equal(sig.length, 1);
+  assert.equal(sig[0].label, "Registrar resultado da entrevista");
+  assert.equal(sig[0].tone, "warning");
+  assert.equal(sig[0].attention, true);
+});
+
+test("agenda: com entrevistas, só UM sinal de entrevista e nextInterviewAt é ignorado", () => {
+  const sig = candidateSignals(
+    {
+      stageId: "SCREENING",
+      enteredStageAt: null,
+      nextInterviewAt: "2026-11-12T00:00:00Z",
+      interviews: [{ round: "HR", scheduledAt: "2026-11-13T17:00:00Z", durationMin: 60, status: "SCHEDULED" }],
+    },
+    STAGES[1],
+    NOW_AGENDA
+  ).filter((s) => s.key === "interview");
+  assert.equal(sig.length, 1);
+  assert.equal(sig[0].label, "Entrevista G&G · amanhã 14h");
+});
+
+test("agenda: entrevistas sem nenhuma agendada não geram sinal nem caem no legado", () => {
+  const sig = candidateSignals(
+    {
+      stageId: "SCREENING",
+      enteredStageAt: null,
+      nextInterviewAt: "2026-11-12T00:00:00Z",
+      interviews: [{ round: "HR", scheduledAt: "2026-11-10T17:00:00Z", durationMin: 60, status: "DONE" }],
+    },
+    STAGES[1],
+    NOW_AGENDA
+  );
+  assert.equal(sig.filter((s) => s.key === "interview").length, 0);
+});
+
+test("agenda: lista vazia mantém o comportamento antigo de nextInterviewAt", () => {
+  const sig = candidateSignals(
+    { stageId: "SCREENING", enteredStageAt: null, nextInterviewAt: "2026-11-12T00:00:00Z", interviews: [] },
+    STAGES[1],
+    NOW_AGENDA
+  );
+  assert.equal(sig.find((s) => s.key === "interview")?.label, "Entrevista hoje");
+});

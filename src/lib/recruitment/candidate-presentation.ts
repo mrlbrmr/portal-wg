@@ -7,6 +7,8 @@
 
 import type { Tone } from "@/components/ui/StatusBadge";
 import { pipelineStages, type FlowStage } from "@/lib/recruitment/candidate-stage-flow";
+import type { InterviewStatus } from "@/lib/recruitment/interviews/catalog";
+import { interviewSignalLabel, pickInterviewForCard } from "@/lib/recruitment/interviews/rules";
 
 const TIME_ZONE = "America/Sao_Paulo";
 
@@ -171,6 +173,8 @@ export interface SignalInput {
   testStatus?: TestStatus;
   /** Próxima entrevista registrada com data (ISO) — só futuras ou de hoje. */
   nextInterviewAt?: string | null;
+  /** Agenda de entrevistas (application_interviews). Quando não vazia, substitui `nextInterviewAt`. */
+  interviews?: Array<{ round: string; scheduledAt: string; durationMin: number; status: InterviewStatus }>;
   cvExtractionStatus?: string;
   bigFiveDone?: boolean;
   /** A IA já calculou a aderência — prova de que o currículo é legível. */
@@ -213,7 +217,28 @@ export function candidateSignals(
     out.push({ key: "test", icon: "test", ...TEST_SIGNAL[input.testStatus] });
   }
 
-  if (input.nextInterviewAt) {
+  if (input.interviews?.length) {
+    // Um único sinal: a agendada futura mais próxima ou, sem ela, a atrasada (pede o desfecho).
+    const picked = pickInterviewForCard(input.interviews, now);
+    if (picked?.overdue) {
+      out.push({
+        key: "interview",
+        icon: "calendar",
+        label: "Registrar resultado da entrevista",
+        tone: "warning",
+        attention: true,
+        hint: "O horário da entrevista já passou; registre se foi realizada, cancelada ou falta.",
+      });
+    } else if (picked) {
+      out.push({
+        key: "interview",
+        icon: "calendar",
+        label: interviewSignalLabel(picked.item.round, picked.item.scheduledAt, now),
+        tone: "info",
+        attention: false,
+      });
+    }
+  } else if (input.nextInterviewAt) {
     const label = formatInterviewLabel(input.nextInterviewAt, now);
     if (label) out.push({ key: "interview", icon: "calendar", label, tone: "info", attention: false });
   }

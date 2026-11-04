@@ -90,3 +90,53 @@ test("hub de avaliações: entrevista com tipo/recomendação, referência e có
   assert.equal(reference?.detail, "Empresa X · Positiva");
   assert.equal(ev.some((e) => e.id === "assessment-m1"), false);
 });
+
+// ── Agenda de entrevistas ────────────────────────────────────────────────────
+const IV = {
+  id: "i1",
+  applicationId: "app1",
+  round: "HR",
+  scheduledAt: "2026-11-12T17:00:00Z",
+  durationMin: 60,
+  location: null,
+  interviewerName: null,
+  notes: null,
+  status: "SCHEDULED" as const,
+  cancelReason: null,
+  assessmentId: null,
+  createdAt: "2026-11-10T13:00:00Z",
+  createdBy: "Murilo Bremer",
+  updatedAt: "2026-11-10T13:00:00Z",
+  updatedByName: null,
+};
+const baseTl = { createdAt: "2026-11-01T10:00:00Z", sourceLabel: "Portal", addedBy: null, stageHistory: [], lostStageId: null };
+
+test("agenda: entrevista agendada vira evento com rodada e data", () => {
+  const ev = buildCandidateTimeline({ ...baseTl, interviews: [IV] }).filter((e) => e.type === "INTERVIEW_SCHEDULED");
+  assert.equal(ev.length, 1);
+  assert.equal(ev[0].id, "interview-i1");
+  assert.equal(ev[0].title, "Entrevista agendada");
+  assert.equal(ev[0].detail, "Gente & Gestão · 12/11 · 14h");
+  assert.equal(ev[0].at, IV.createdAt);
+  assert.equal(ev[0].actor, "Murilo Bremer");
+});
+
+test("agenda: cancelada gera também evento de cancelamento com o motivo", () => {
+  const ev = buildCandidateTimeline({
+    ...baseTl,
+    interviews: [{ ...IV, status: "CANCELLED", cancelReason: "Candidato pediu remarcar", updatedAt: "2026-11-11T09:00:00Z", updatedByName: "Ana" }],
+  }).filter((e) => e.type === "INTERVIEW_SCHEDULED");
+  assert.equal(ev.length, 2);
+  const c = ev.find((e) => e.id === "interview-cancel-i1")!;
+  assert.equal(c.title, "Entrevista cancelada");
+  assert.equal(c.at, "2026-11-11T09:00:00Z");
+  assert.match(c.detail ?? "", /Candidato pediu remarcar/);
+});
+
+test("agenda: falta gera 'Candidato não compareceu'; realizada gera só o agendamento", () => {
+  const noShow = buildCandidateTimeline({ ...baseTl, interviews: [{ ...IV, status: "NO_SHOW", updatedAt: "2026-11-12T20:00:00Z" }] });
+  assert.ok(noShow.some((e) => e.id === "interview-noshow-i1" && e.title === "Candidato não compareceu" && e.at === "2026-11-12T20:00:00Z"));
+  const done = buildCandidateTimeline({ ...baseTl, interviews: [{ ...IV, status: "DONE" }] }).filter((e) => e.type === "INTERVIEW_SCHEDULED");
+  assert.equal(done.length, 1);
+  assert.equal(done[0].title, "Entrevista agendada");
+});

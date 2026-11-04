@@ -1166,7 +1166,10 @@ reaproveita essa tabela ou cria uma trilha própria de sessões automatizadas.
 - Regras puras: `src/lib/selection-funnel/process-templates.ts`. Ações: `process-actions.ts`. UI:
   `/configuracoes/processos` e menu ⋯ › "Processo seletivo" na vaga. Removida a rota `PUT /api/vagas/[id]/stages`.
 - Modelo escolhido também em "Nova vaga" e em "Alterar processo" (aba Processo seletivo da vaga).
-- Pendente (não feito): estados finais (Aprovado/Reprovado) fora do fluxo de colunas; validação logada na UI.
+- Kanban: Reprovado já era `hideFromBoard`; agora o recorte "fora do funil" mostra a lista inline (antes era um
+  beco sem saída com "Ver na lista"). Cards em Aprovado(a)/Admissão ganharam "Contratar" (abre o cadastro da
+  admissão) ou "Abrir admissão" quando a candidatura já virou admissão (`PipelineCandidate.admissionId`).
+- Pendente: validação logada na UI.
 
 ---
 

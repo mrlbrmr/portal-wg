@@ -13,6 +13,7 @@ import {
   SearchX,
   Send,
   Trash2,
+  UserCheck,
   UserX,
 } from "lucide-react";
 import { normalizeText } from "@/lib/utils";
@@ -487,8 +488,25 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     };
   }
 
+  /** Aprovado(a)/Admissão: contratar (abre o cadastro da admissão) ou abrir a admissão já criada. */
+  function hireActionFor(c: PipelineCandidate): StageAction | null {
+    const stage = stageById.get(c.stageId);
+    if (!canManage || !stage || (stage.kind !== "WON" && stage.kind !== "ADMISSION")) return null;
+    if (c.admissionId) {
+      return { label: "Abrir admissão", icon: UserCheck, onClick: () => router.push(`/admissoes/${c.admissionId}`) };
+    }
+    if (!admissionMeta || !isAutomationOn(stage, "openAdmission")) return null;
+    return {
+      label: "Contratar",
+      icon: UserCheck,
+      onClick: () => setPendingAdmission({ candidateId: c.id, toStageId: c.stageId }),
+    };
+  }
+
   /** Próxima ação no card: só quando ainda há algo a fazer na etapa. */
   function cardActionFor(c: PipelineCandidate): StageAction | null {
+    const hire = hireActionFor(c);
+    if (hire) return hire;
     const test = testActionFor(c);
     if (test) return c.testStatus === undefined || c.testStatus === "NOT_SENT" || c.testStatus === "AWAITING" ? test : null;
     return interviewActionFor(c);
@@ -803,19 +821,28 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
             />
           )
         ) : columns.length === 0 || (filtering && onBoardCount === 0 && visible.length > 0) ? (
-          // Há candidatos no filtro, mas todos em etapas sem coluna (ex.: "fora do funil").
-          <div className="rounded-card border border-dashed border-wg-border-light bg-white">
-            <EmptyState
-              icon={SearchX}
-              title={columns.length === 0 ? "As etapas filtradas ficam fora do Kanban" : "Os candidatos filtrados estão fora do Kanban"}
-              description="Pausados e reprovados não têm coluna no quadro. Veja-os na Lista."
-              action={
-                <Button variant="secondary" size="sm" onClick={() => changeView("list")}>
-                  Ver na lista
-                </Button>
-              }
-            />
-          </div>
+          // Há candidatos no filtro, mas todos em etapas sem coluna (reprovados, cancelados, pausados):
+          // em vez de um beco sem saída, mostra-os numa lista logo aqui.
+          columns.length === 0 && visible.length === 0 ? (
+            noResults
+          ) : (
+            <div>
+              <p className="mb-2 text-meta text-wg-ink-muted">
+                Fora do quadro — reprovados, cancelados e pausados não têm coluna no Kanban.
+              </p>
+              <CandidateList
+                rows={listRows}
+                stageById={stageById}
+                sort={sort}
+                onSortChange={setSort}
+                selected={selectedIds}
+                onToggleSelect={toggleSelect}
+                onToggleAll={toggleAll}
+                onOpen={openCandidate}
+                activeId={detailId}
+              />
+            </div>
+          )
         ) : filtering && onBoardCount === 0 ? (
           noResults
         ) : (

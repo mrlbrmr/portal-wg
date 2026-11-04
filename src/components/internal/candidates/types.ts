@@ -25,6 +25,8 @@ export interface PipelineCandidate {
   bigFiveDone?: boolean;
   /** Situação do teste — só preenchido quando a etapa atual é de teste. */
   testStatus?: TestStatus;
+  /** Admissão já aberta a partir desta candidatura (null/ausente = ainda não contratado). */
+  admissionId?: string | null;
   /** Localização informada na candidatura. */
   city: string | null;
   state: string | null;

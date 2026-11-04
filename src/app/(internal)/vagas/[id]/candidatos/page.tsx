@@ -130,7 +130,7 @@ export default async function CandidatosPage({ params }: Props) {
   type AiRow = { applicationId: string; score: number };
   type HistoryRow = { applicationId: string; stageId: string | null; changedAt: string };
 
-  const [tmplData, stageConfigData, sessData, aiData, historyData, admissionMeta] = await Promise.all([
+  const [tmplData, stageConfigData, sessData, aiData, historyData, admissionMeta, admissionLinks] = await Promise.all([
     testTemplateIds.length > 0
       ? supabase.from("assessment_templates").select("id, name, kind").in("id", testTemplateIds)
           .then((r) => r.data as TemplateRow[] | null)
@@ -171,7 +171,19 @@ export default async function CandidatosPage({ params }: Props) {
           intakeStageId: intakeR.data?.id ?? null,
         }))
       : null,
+    // Candidaturas desta vaga que já viraram admissão (o card troca "Contratar" por "Abrir admissão").
+    hasAdmissionStage
+      ? supabase
+          .from("admissions")
+          .select("id, sourceApplicationId")
+          .eq("sourceJobId", id)
+          .is("deletedAt", null)
+          .then((r) => (r.data ?? []) as Array<{ id: string; sourceApplicationId: string | null }>)
+      : null,
   ]);
+
+  const admissionByApp = new Map<string, string>();
+  for (const l of admissionLinks ?? []) if (l.sourceApplicationId) admissionByApp.set(l.sourceApplicationId, l.id);
 
   // templateNames / templateKinds
   const templateNames = new Map<string, string>();
@@ -274,6 +286,7 @@ export default async function CandidatosPage({ params }: Props) {
       bigFiveDone: bigFiveDoneSet.has(a.id),
       // undefined quando não está em etapa TEST → sem badge de teste
       testStatus: testStatusByApp.get(a.id),
+      admissionId: admissionByApp.get(a.id) ?? null,
       city: a.candidateCity,
       state: a.candidateState,
       lastPosition: profile?.lastPosition?.trim() || null,

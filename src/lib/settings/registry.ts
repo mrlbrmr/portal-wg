@@ -16,6 +16,7 @@ import {
   Linkedin,
   ListChecks,
   MapPin,
+  ShieldCheck,
   Signpost,
   Tag,
   Workflow,
@@ -225,6 +226,19 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     key: "cadastros",
     label: "Cadastros",
     items: REGISTRIES.filter((r) => r.entity !== "stage"),
+  },
+  {
+    key: "privacidade",
+    label: "Privacidade",
+    items: [
+      {
+        key: "privacidade",
+        href: "/configuracoes/privacidade",
+        title: "Privacidade e retenção (LGPD)",
+        description: "Prazo de retenção dos dados, revisão e anonimização de cadastros parados.",
+        icon: ShieldCheck,
+      },
+    ],
   },
   {
     key: "integracoes",

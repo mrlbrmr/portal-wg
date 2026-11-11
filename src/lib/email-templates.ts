@@ -479,3 +479,27 @@ export function stalledAdmissionFormsEmail(input: {
     }),
   };
 }
+
+/** Aviso semanal ao RH: talentos que venceram o prazo de retenção (a decisão é do RH). */
+export function retentionDigestEmail(input: { count: number; months: number }): { subject: string; html: string } {
+  const { count, months } = input;
+  const subject =
+    count === 1
+      ? "1 talento venceu o prazo de retenção de dados"
+      : `${count} talentos venceram o prazo de retenção de dados`;
+  return {
+    subject,
+    html: layout({
+      preview: `${count} cadastro(s) sem atividade há mais de ${months} meses aguardam sua revisão.`,
+      chip: { label: "LGPD · revisão pendente", bg: "#FCF1DD", color: "#8A5B10" },
+      title: "Revisão de retenção de dados",
+      body: [
+        paragraph(
+          `<strong style="color:${INK}">${count} ${count === 1 ? "cadastro está" : "cadastros estão"}</strong> sem atividade há mais de ${months} meses, sem processo seletivo aberto e sem vínculo de contratação. Nada foi apagado: revise a lista e confirme a anonimização, ou bloqueie quem precisa ser mantido por motivo jurídico.`
+        ),
+        spacer(4),
+        button(`${getAppBaseUrl()}/configuracoes/privacidade`, "Revisar agora"),
+      ].join(""),
+    }),
+  };
+}

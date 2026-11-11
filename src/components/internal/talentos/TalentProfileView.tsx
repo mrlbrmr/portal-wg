@@ -5,10 +5,20 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import type { TagItem } from "@/lib/talentos/service";
 import { TalentWorkspace } from "./TalentWorkspace";
+import { TalentPrivacyPanel, type TalentPrivacyState } from "./TalentPrivacyPanel";
 import { useTalentProfile, useTalentTags, type ProfilePayload } from "./useTalentData";
 
 /** Página completa do talento: mesmo workspace do drawer, em layout de página. */
-export function TalentProfileView({ initial, tags: initialTags }: { initial: ProfilePayload; tags: TagItem[] }) {
+export function TalentProfileView({
+  initial,
+  tags: initialTags,
+  privacy,
+}: {
+  initial: ProfilePayload;
+  tags: TagItem[];
+  /** Só para ADMIN_RH; ausente para quem só lê. */
+  privacy?: TalentPrivacyState;
+}) {
   const router = useRouter();
   const { data, reload } = useTalentProfile(initial.profile.id, initial);
   const { tags, createTag } = useTalentTags(initialTags);
@@ -35,6 +45,7 @@ export function TalentProfileView({ initial, tags: initialTags }: { initial: Pro
           onOpenTalent={(id) => router.push(`/talentos/${id}`)}
         />
       </div>
+      {privacy && <TalentPrivacyPanel talentoId={payload.profile.id} state={privacy} />}
     </div>
   );
 }

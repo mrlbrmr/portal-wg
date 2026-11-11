@@ -46,10 +46,22 @@ export default async function TalentoPerfilPage({ params }: Props) {
     if (error) console.warn("[talentos] log de acesso", error.message);
   });
 
+  const isAdmin = session.user.role === "ADMIN_RH";
+  const privacy = isAdmin
+    ? (
+        await supabase
+          .from("talentos")
+          .select("anonimizadoEm, retencaoBloqueadaEm, retencaoBloqueioMotivo, retencaoBloqueadaPorNome")
+          .eq("id", id)
+          .maybeSingle()
+      ).data ?? undefined
+    : undefined;
+
   return (
     <TalentProfileView
-      initial={{ profile, currentUserId: session.user.id, canManage: session.user.role === "ADMIN_RH" }}
+      initial={{ profile, currentUserId: session.user.id, canManage: isAdmin }}
       tags={tags}
+      privacy={privacy}
     />
   );
 }

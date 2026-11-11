@@ -162,6 +162,16 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     salário direto na vaga), `cost_center` (a WG não usa) e `budget_status` (headcount é
     controlado fora do sistema). O gestor não informa nenhum desses no formulário.
   - `job_request_form_config` agora guarda só **perguntas complementares** (→ `extra_data`).
+- **Privacidade / retenção LGPD** (`/configuracoes/privacidade`, só ADMIN_RH): regras puras e testadas em
+  `src/lib/privacy/retention.ts` (elegível = parado além do prazo, sem processo aberto, não contratado, sem admissão
+  ligada, sem bloqueio jurídico); casos de uso em `retention-service.ts`, actions em `actions.ts`. **Modo revisão
+  manual:** o cron semanal `/api/cron/retencao` só AVISA o RH por e-mail; quem anonimiza é o RH (lote na página ou
+  "a pedido do titular" na ficha). Anonimizar = apaga arquivos (buckets `resumes`/`assessment-files`, antes de tocar
+  no banco), redige `talentos`/`applications`, apaga notas/pareceres/respostas de testes e MANTÉM as linhas do funil
+  (métricas); `talentos.anonimizadoEm` é gravado por último. Prazo em `retention_settings` (linha única, padrão 24
+  meses). Bloqueio jurídico: `talentos.retencaoBloqueadaEm`. Exportação do titular: `GET /api/talentos/[id]/export`.
+  Ações no `talento_audit_log`: ANONIMIZOU / EXPORTOU / BLOQUEOU_ANONIMIZACAO / LIBEROU_ANONIMIZACAO.
+  Adaptado do módulo de retenção do Harly (MIT). Migração `20261111120000` aplicada à mão ANTES do push.
 - **Banco de Talentos (CRM):** `src/app/(internal)/talentos/**`, `src/lib/talentos/**`, `src/components/internal/talentos/**`.
   **Talento (perfil) ≠ candidatura:** `talentos` 1 → N `applications.talentoId`; nunca duplique o perfil.
   - Listagem = view `talentos_crm` (situação CALCULADA, resumo do histórico, coluna `busca`) + RPC

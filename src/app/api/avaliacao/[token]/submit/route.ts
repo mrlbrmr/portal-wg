@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { scoreSession } from '@/lib/avaliacoes/scoring'
 import { resolveAssessmentType, type Question } from '@/lib/avaliacoes/schema'
 import { z } from 'zod'
+import { SUPERSEDED_REASON, supersededSessionIds, type SessionLinkInput } from '@/lib/avaliacoes/link-validity'
 
 const schema = z.object({
   answers: z.record(z.string(), z.string()),
@@ -92,6 +93,30 @@ export async function POST(
   }
   if (!updated) {
     return NextResponse.json({ error: 'Avaliação já enviada' }, { status: 409 })
+  }
+
+  // Outros envios pendentes do MESMO teste para a MESMA candidatura perdem o sentido:
+  // invalida (nunca apaga) para a fila "aguardando o candidato" não contá-los para sempre.
+  if (sess.applicationId) {
+    const { data: siblings } = await supabase
+      .from('assessment_sessions')
+      .select('id, applicationId, templateId, submittedAt, invalidadoEm')
+      .eq('applicationId', sess.applicationId)
+      .eq('templateId', sess.templateId)
+      .is('submittedAt', null)
+      .is('invalidadoEm', null)
+    const ids = supersededSessionIds(
+      { id: sess.id as string, applicationId: sess.applicationId as string, templateId: sess.templateId as string, submittedAt: now, invalidadoEm: null },
+      (siblings ?? []) as SessionLinkInput[],
+    )
+    if (ids.length > 0) {
+      const { error: invError } = await supabase
+        .from('assessment_sessions')
+        .update({ invalidadoEm: now, motivoInvalidacao: SUPERSEDED_REASON })
+        .in('id', ids)
+        .is('submittedAt', null)
+      if (invError) console.warn('[avaliacao/submit] invalidar envios duplicados:', invError.message)
+    }
   }
 
   // O resultado fica SÓ em assessment_sessions (fonte única): a candidatura lê o teste de lá

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { DEFAULT_TEST_LINK_DAYS, testLinkExpiresAt } from '@/lib/avaliacoes/link-validity'
 
 // GET ?applicationId=... → lista sessões de um candidato
 export async function GET(req: NextRequest) {
@@ -67,9 +68,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Template não encontrado ou inativo' }, { status: 404 })
   }
 
-  const expiresAt = expiresInDays
-    ? new Date(Date.now() + expiresInDays * 86_400_000).toISOString()
-    : null
+  // Todo link nasce com prazo (padrão de 7 dias — link-validity.ts).
+  const expiresAt = testLinkExpiresAt(new Date(), expiresInDays ?? DEFAULT_TEST_LINK_DAYS)
 
   const { data: newSession, error } = await supabase
     .from('assessment_sessions')

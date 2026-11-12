@@ -5,6 +5,7 @@
 
 import type { createClient } from "@/lib/supabase/server";
 import { isAutomationOn } from "./automations";
+import { testLinkExpiresAt } from "@/lib/avaliacoes/link-validity";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -50,7 +51,7 @@ export async function runStageEntryAutomations(
         const { error } = await supabase.from("assessment_sessions").insert({
           applicationId: input.applicationId,
           templateId: stage.templateId,
-          expiresAt: null,
+          expiresAt: testLinkExpiresAt(new Date()),
           sentBy: input.actorName,
         });
         if (!error) report.testLinkCreated = true;

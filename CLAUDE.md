@@ -202,6 +202,9 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     O valor por dimensão NÃO é percentil (média 1–5 → 20–100); textos em `big-five.ts`.
   - Rótulos/status únicos em `presentation.ts`; pontuação e correção manual em `scoring.ts` (puro, testado).
     Vocabulário: "Teste técnico", "Avaliação comportamental", "Resultado disponível", "Aguardando correção".
+  - **Link de teste sempre tem prazo** (padrão 7 dias, `src/lib/avaliacoes/link-validity.ts`, testado):
+    envio manual, automação da etapa e convite do Banco de Talentos. Ao concluir, os outros envios
+    pendentes do mesmo teste para a mesma candidatura são INVALIDADOS (nunca apagados) no submit.
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`
   (`DigitalForm` tem modo `preview` — usado na aba Visualização das Configurações, sem upload/envio).
   ⚠️ O documento do formulário é ligado ao cadastro "Tipos de documento" **pelo nome exato** (upload route).

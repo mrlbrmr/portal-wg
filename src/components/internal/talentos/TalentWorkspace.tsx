@@ -229,9 +229,13 @@ export function TalentWorkspace({
               </li>
               <li className="flex min-w-0 items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5 shrink-0 text-wg-ink-muted" aria-hidden />
-                <a href={`mailto:${profile.email}`} className="truncate hover:text-wg-ink hover:underline">
-                  {profile.email}
-                </a>
+                {profile.email ? (
+                  <a href={`mailto:${profile.email}`} className="truncate hover:text-wg-ink hover:underline">
+                    {profile.email}
+                  </a>
+                ) : (
+                  <Missing>E-mail não informado</Missing>
+                )}
               </li>
               <li className="flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5 text-wg-ink-muted" aria-hidden />

@@ -270,7 +270,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     { title: "Admissões", items: admissionQueue },
     { title: "Aguardando outras pessoas", items: waitingOthersQueue },
   ].filter((g) => g.items.length > 0);
-  const myActions = [...recruitmentQueue, ...admissionQueue].reduce((acc, i) => acc + i.count, 0);
+  // O banco contínuo aparece na fila, mas não infla a frase "pedindo a sua ação": é triagem
+  // sem prazo, de candidaturas espontâneas.
+  const myActions = [...recruitmentQueue, ...admissionQueue]
+    .filter((i) => i.key !== "banco-continuo")
+    .reduce((acc, i) => acc + i.count, 0);
 
   // ── Origem dos candidatos ──────────────────────────────────────────────────
   const sourceStats = ((sourceStatsRes.data ?? []) as Array<{ source: string; total: number; hired: number }>).map(

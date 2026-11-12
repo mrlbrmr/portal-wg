@@ -21,7 +21,7 @@ export const TALENT_PAGE_SIZE = 25;
 export interface TalentRow {
   id: string;
   nomeCompleto: string;
-  email: string;
+  email: string | null;
   telefone: string | null;
   cidade: string | null;
   estado: string | null;

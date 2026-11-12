@@ -23,11 +23,13 @@ const REASON_LABELS = new Set(
 );
 
 /** Sugestões de Empresa/Unidade e Área já usadas, para o gestor não inventar variações. */
-async function loadSuggestions(): Promise<{ units: string[]; departments: string[] }> {
+async function loadSuggestions(): Promise<{ units: string[]; departments: string[]; positions: string[] }> {
   const supabase = createAdminClient();
-  const [jobsRes, requestsRes] = await Promise.all([
+  const [jobsRes, requestsRes, positionsRes] = await Promise.all([
     supabase.from("jobs").select("company, department").limit(500),
     supabase.from("job_requests").select("location, department").limit(500),
+    // Cargos ativos do cadastro: o gestor escolhe o mesmo nome que a admissão vai usar.
+    supabase.from("admission_positions").select("name").eq("active", true).order("sortOrder", { ascending: true }),
   ]);
 
   const units = new Set<string>();
@@ -48,6 +50,7 @@ async function loadSuggestions(): Promise<{ units: string[]; departments: string
   }
 
   return {
+    positions: ((positionsRes.data ?? []) as Array<{ name: string }>).map((p) => p.name),
     units: [...units].sort((a, b) => a.localeCompare(b, "pt-BR")),
     departments: [...departments]
       .filter((d) => !REASON_LABELS.has(d.toLowerCase()))
@@ -94,6 +97,7 @@ export default async function SolicitarVagaPage() {
           config={config}
           unitOptions={suggestions.units}
           departmentOptions={suggestions.departments}
+          positionOptions={suggestions.positions}
           currentUser={
             session ? { name: session.user.name, email: session.user.email } : null
           }

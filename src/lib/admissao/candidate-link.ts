@@ -11,6 +11,7 @@
 //   • unificação: só COMPLETA dados vazios da admissão — nunca sobrescreve o que o RH gravou;
 //   • etapa: para onde o candidato vai no funil (Admissão/Contratado), só se ainda não está lá.
 
+import { isPlaceholderEmail } from "@/lib/email-placeholder";
 import { normalizeText } from "@/lib/utils";
 
 export type MatchReason = "CPF" | "EMAIL" | "PHONE" | "NAME" | "NAME_PARTIAL";
@@ -48,7 +49,8 @@ export function maskCpf(v: string | null | undefined): string | null {
 
 export function normalizeEmail(v: string | null | undefined): string | null {
   const e = (v ?? "").trim().toLowerCase();
-  return e.includes("@") ? e : null;
+  // Fictício (email@email.com) não identifica ninguém: nunca serve de chave de vínculo.
+  return e.includes("@") && !isPlaceholderEmail(e) ? e : null;
 }
 
 /** Telefone sem DDI 55 e sem formatação; só compara a partir de 10 dígitos (DDD + número). */

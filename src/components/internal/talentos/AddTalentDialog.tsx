@@ -106,8 +106,8 @@ export function AddTalentDialog({ open, onClose, tags, onCreateTag, onOpenTalent
         <SettingsField id="t-nome" label="Nome completo" required className="sm:col-span-2">
           <input id="t-nome" required value={form.nomeCompleto} onChange={set("nomeCompleto")} className={settingsInputClass} autoComplete="off" />
         </SettingsField>
-        <SettingsField id="t-email" label="E-mail" required>
-          <input id="t-email" type="email" required value={form.email} onChange={set("email")} onBlur={check} className={settingsInputClass} autoComplete="off" />
+        <SettingsField id="t-email" label="E-mail">
+          <input id="t-email" type="email" placeholder="Opcional" value={form.email} onChange={set("email")} onBlur={check} className={settingsInputClass} autoComplete="off" />
         </SettingsField>
         <SettingsField id="t-tel" label="Telefone" hint="Opcional">
           <input

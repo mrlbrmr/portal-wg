@@ -6,7 +6,7 @@ import { DropdownMenu, type DropdownMenuItem } from "@/components/ui/DropdownMen
 import { whatsappUrl } from "./types";
 
 interface Props {
-  email: string;
+  email: string | null;
   phone: string;
   onCopy: (label: "E-mail" | "Telefone", value: string) => Promise<boolean>;
 }

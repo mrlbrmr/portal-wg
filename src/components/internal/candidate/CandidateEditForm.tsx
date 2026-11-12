@@ -7,7 +7,7 @@ import { formatPhoneMask, type CandidateDetail } from "./types";
 
 export interface CandidateProfilePatch {
   fullName: string;
-  email: string;
+  email: string | null;
   phone: string;
   country: string | null;
   candidateCity: string | null;
@@ -33,7 +33,7 @@ const labelCls = "mb-1 block text-label text-wg-ink-secondary";
 export function CandidateEditForm({ data, saving, onCancel, onSave, onInvalid }: Props) {
   const [f, setF] = useState({
     fullName: data.fullName,
-    email: data.email,
+    email: data.email ?? "",
     phone: formatPhoneMask(data.phone),
     candidateCity: data.candidateCity ?? "",
     candidateState: data.candidateState ?? "",
@@ -72,7 +72,7 @@ export function CandidateEditForm({ data, saving, onCancel, onSave, onInvalid }:
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="edit-email" className={labelCls}>E-mail</label>
-            <input id="edit-email" type="email" value={f.email} onChange={set("email")} required className={inputCls} />
+            <input id="edit-email" type="email" value={f.email} onChange={set("email")} placeholder="Opcional" className={inputCls} />
           </div>
           <div>
             <label htmlFor="edit-phone" className={labelCls}>Telefone (com DDD)</label>

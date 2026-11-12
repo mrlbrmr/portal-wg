@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { uploadResume, validateResumeFile } from "@/lib/storage";
-import { applicantContactSchema } from "@/lib/application-schema";
+import { applicantContactSchema, manualEmailSchema } from "@/lib/application-schema";
 import { BRAZIL_STATES } from "@/lib/utils";
 import { resolveManualSource } from "@/lib/application-sources";
 import { logConfigChange } from "@/lib/settings/audit";
@@ -18,6 +18,8 @@ import { logConfigChange } from "@/lib/settings/audit";
 // portal → consentAt = null; guarda-se a origem (source) e quem cadastrou (addedBy).
 
 const fieldsSchema = applicantContactSchema.extend({
+  // E-mail opcional no cadastro manual (vazio → null; fictício é recusado).
+  email: manualEmailSchema,
   source: z.string().trim().max(60).optional(),
   newSource: z.string().trim().max(120).optional(),
   // Localização opcional (mesmas colunas da candidatura pelo portal).
@@ -159,8 +161,9 @@ export async function POST(
 
       let syncedId = newTalento?.id;
 
-      // Talento já existe (e-mail duplicado) — reutiliza registro existente.
-      if (!syncedId && talentoError?.code === "23505") {
+      // Talento já existe (e-mail duplicado) — reutiliza registro existente. Sem e-mail
+      // não há chave segura: cria um perfil próprio (nunca junta pessoas diferentes).
+      if (!syncedId && email && talentoError?.code === "23505") {
         const { data: byEmail } = await admin
           .from("talentos")
           .select("id")

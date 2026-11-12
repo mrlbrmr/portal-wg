@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { manualEmailSchema } from "@/lib/application-schema";
 import { deleteResume } from "@/lib/storage";
 import { extractScreeningCriteria } from "@/lib/recruitment/screening";
 import { labelForSource } from "@/lib/application-sources";
@@ -63,7 +64,7 @@ const patchSchema = z.object({
   stageId: z.string().min(1).optional(),
   notes: z.string().max(5000).nullable().optional(),
   fullName: z.string().min(2).max(120).optional(),
-  email: z.string().email().optional(),
+  email: manualEmailSchema.optional(),
   phone: z.string().regex(/^\d{11}$/, "Telefone inválido").optional(),
   country: z.string().max(80).nullable().optional(),
   candidateCity: z.string().max(120).nullable().optional(),
@@ -124,7 +125,7 @@ export async function PATCH(
   }
   if (parsed.data.notes !== undefined) update.notes = parsed.data.notes;
   if (parsed.data.fullName !== undefined) update.fullName = parsed.data.fullName.trim();
-  if (parsed.data.email !== undefined) update.email = parsed.data.email.trim().toLowerCase();
+  if (parsed.data.email !== undefined) update.email = parsed.data.email;
   if (parsed.data.phone !== undefined) update.phone = parsed.data.phone;
   if (parsed.data.country !== undefined) update.country = parsed.data.country;
   if (parsed.data.candidateCity !== undefined) update.candidateCity = parsed.data.candidateCity;

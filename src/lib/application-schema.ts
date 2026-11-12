@@ -2,9 +2,25 @@
 // rota PÚBLICA (formulário do portal) quanto pela inserção MANUAL do RH.
 import { z } from "zod";
 import { isValidCpf } from "@/lib/cpf";
+import { isPlaceholderEmail, PLACEHOLDER_EMAIL_MESSAGE } from "@/lib/email-placeholder";
 
-// E-mail no formato xxxx@xxxx.com
-export const applicantEmailSchema = z.string().trim().email("E-mail inválido").max(150);
+// E-mail no formato xxxx@xxxx.com — nunca fictício (email@email.com etc.: email-placeholder.ts).
+export const applicantEmailSchema = z
+  .string()
+  .trim()
+  .email("E-mail inválido")
+  .max(150)
+  .refine((v) => !isPlaceholderEmail(v), PLACEHOLDER_EMAIL_MESSAGE);
+
+/**
+ * E-mail no cadastro MANUAL do RH (candidato que veio por WhatsApp, indicação, papel):
+ * opcional — vazio vira null. Fictício é recusado: juntaria pessoas diferentes no mesmo
+ * perfil do Banco de Talentos (o e-mail do talento é único).
+ */
+export const manualEmailSchema = z
+  .union([z.literal(""), applicantEmailSchema])
+  .nullish()
+  .transform((v) => (v ? v.toLowerCase() : null));
 
 // Celular: aceita a máscara (xx) x xxxx-xxxx — validamos pelos 11 dígitos.
 export const applicantPhoneSchema = z

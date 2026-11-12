@@ -5,6 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { manualEmailSchema } from "@/lib/application-schema";
 import { createClient } from "@/lib/supabase/server";
 import { logConfigChange } from "@/lib/settings/audit";
 import type { Session } from "@/lib/auth";
@@ -166,7 +167,8 @@ const optionalText = (max: number) =>
 
 const newTalentSchema = z.object({
   nomeCompleto: z.string().trim().min(3, "Informe o nome completo.").max(120),
-  email: z.string().trim().email("E-mail inválido.").max(150),
+  // Opcional: sem e-mail o RH deixa em branco (fictício é recusado — juntaria pessoas).
+  email: manualEmailSchema,
   telefone: optionalText(30).refine((v) => !v || v.replace(/\D/g, "").length >= 10, "Telefone inválido."),
   cidade: optionalText(80),
   estado: optionalText(2),

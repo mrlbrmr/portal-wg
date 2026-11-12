@@ -56,7 +56,7 @@ export function CandidateContact({
               <a href={`mailto:${data.email}`} className={link} title={`Escrever para ${data.email}`}>
                 {data.email}
               </a>
-              <CopyButton label="e-mail" onCopy={() => onCopy("E-mail", data.email)} />
+              <CopyButton label="e-mail" onCopy={() => onCopy("E-mail", data.email ?? "")} />
             </span>
           ) : (
             <Missing />

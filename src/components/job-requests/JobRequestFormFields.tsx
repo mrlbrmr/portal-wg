@@ -258,6 +258,8 @@ export interface Props {
   /** Sugestões de Empresa/Unidade e Área já usadas no sistema. */
   unitOptions?: string[];
   departmentOptions?: string[];
+  /** Cargos do cadastro (Configurações › Cadastros › Cargos) — o mesmo nome segue até a admissão. */
+  positionOptions?: string[];
   /** Trava o gestor requisitante (preenchido pela sessão). */
   lockRequester?: boolean;
   /** Campos críticos ficam sinalizados quando a solicitação já foi aprovada. */
@@ -271,6 +273,7 @@ export function JobRequestFormFields({
   extraFields = [],
   unitOptions = [],
   departmentOptions = [],
+  positionOptions = [],
   lockRequester = false,
   criticalHighlight = false,
 }: Props) {
@@ -306,8 +309,17 @@ export function JobRequestFormFields({
                 value={values.title}
                 onChange={(e) => onChange({ title: e.target.value })}
                 placeholder="Ex: Auxiliar de Estoque"
+                list={positionOptions.length > 0 ? "jr-position-options" : undefined}
+                autoComplete="off"
                 className={inputClass}
               />
+              {positionOptions.length > 0 && (
+                <datalist id="jr-position-options">
+                  {positionOptions.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              )}
               {criticalMark}
             </>
           </Field>

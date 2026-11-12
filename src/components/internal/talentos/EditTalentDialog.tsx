@@ -20,7 +20,7 @@ interface Props {
 function initial(p: TalentProfileData) {
   return {
     nomeCompleto: p.nomeCompleto,
-    email: p.email,
+    email: p.email ?? "",
     telefone: p.telefone ?? "",
     cidade: p.cidade ?? "",
     estado: p.estado ?? "",
@@ -107,7 +107,7 @@ export function EditTalentDialog({ open, onClose, profile, onSaved, onOpenTalent
         <SettingsField id="e-nome" label="Nome completo" required className="sm:col-span-2">
           <input id="e-nome" value={form.nomeCompleto} onChange={set("nomeCompleto")} className={settingsInputClass} />
         </SettingsField>
-        <SettingsField id="e-email" label="E-mail" required>
+        <SettingsField id="e-email" label="E-mail">
           <input id="e-email" type="email" value={form.email} onChange={set("email")} className={settingsInputClass} />
         </SettingsField>
         <SettingsField id="e-tel" label="Telefone">

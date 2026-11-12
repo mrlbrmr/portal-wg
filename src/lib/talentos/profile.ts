@@ -85,7 +85,7 @@ export interface TalentAuditEvent {
 export interface TalentProfileData {
   id: string;
   nomeCompleto: string;
-  email: string;
+  email: string | null;
   telefone: string | null;
   cpfMascarado: string | null;
   cidade: string | null;

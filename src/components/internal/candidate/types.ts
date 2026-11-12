@@ -16,7 +16,7 @@ export interface StageHistoryEntry {
 export interface CandidateDetail {
   id: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone: string;
   resumeName: string | null;
   stageId: string;

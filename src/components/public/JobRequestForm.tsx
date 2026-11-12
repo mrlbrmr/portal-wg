@@ -19,6 +19,7 @@ interface Props {
   config: FormConfig;
   unitOptions?: string[];
   departmentOptions?: string[];
+  positionOptions?: string[];
   /** Quando o gestor está logado, o requisitante já vem preenchido e travado. */
   currentUser?: { name: string | null; email: string | null } | null;
 }
@@ -27,6 +28,7 @@ export function JobRequestForm({
   config,
   unitOptions = [],
   departmentOptions = [],
+  positionOptions = [],
   currentUser = null,
 }: Props) {
   const [values, setValues] = useState<JobRequestFormValues>(() => ({
@@ -134,6 +136,7 @@ export function JobRequestForm({
         extraFields={config.fields}
         unitOptions={unitOptions}
         departmentOptions={departmentOptions}
+        positionOptions={positionOptions}
         lockRequester={Boolean(currentUser?.name && currentUser?.email)}
       />
 

@@ -251,7 +251,7 @@ export async function setFavorite(supabase: Supabase, actor: Actor, ids: string[
 export interface DuplicateMatch {
   id: string;
   nomeCompleto: string;
-  email: string;
+  email: string | null;
   matchedBy: "email" | "telefone";
 }
 
@@ -285,7 +285,7 @@ export async function findDuplicate(
 
 export interface NewTalentInput {
   nomeCompleto: string;
-  email: string;
+  email: string | null;
   telefone?: string | null;
   cidade?: string | null;
   estado?: string | null;
@@ -313,7 +313,7 @@ export async function createTalent(supabase: Supabase, actor: Actor, input: NewT
     .from("talentos")
     .insert({
       nomeCompleto: input.nomeCompleto.trim(),
-      email: input.email.trim(),
+      email: input.email?.trim().toLowerCase() || null,
       telefone: input.telefone?.trim() || null,
       cidade: input.cidade?.trim() || null,
       estado: input.estado?.trim().toUpperCase() || null,
@@ -400,7 +400,7 @@ export async function addTalentsToJob(
   const talents = (talentsData ?? []) as Array<{
     id: string;
     nomeCompleto: string;
-    email: string;
+    email: string | null;
     cpf: string | null;
     telefone: string | null;
     cidade: string | null;
@@ -410,7 +410,7 @@ export async function addTalentsToJob(
     pretensaoSalarial: number | null;
     statusBanco: string;
   }>;
-  const existing = (existingData ?? []) as Array<{ id: string; talentoId: string | null; email: string; cpf_digits: string | null }>;
+  const existing = (existingData ?? []) as Array<{ id: string; talentoId: string | null; email: string | null; cpf_digits: string | null }>;
 
   const outcomes: AddToJobOutcome[] = [];
   const added: Array<{ talentoId: string; applicationId: string }> = [];
@@ -429,7 +429,7 @@ export async function addTalentsToJob(
     const dup = existing.find(
       (a) =>
         a.talentoId === t.id ||
-        a.email?.trim().toLowerCase() === t.email.trim().toLowerCase() ||
+        (Boolean(t.email) && a.email?.trim().toLowerCase() === t.email?.trim().toLowerCase()) ||
         (cpfDigits !== "" && a.cpf_digits === cpfDigits)
     );
     if (dup) {

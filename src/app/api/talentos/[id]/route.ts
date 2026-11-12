@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { manualEmailSchema } from "@/lib/application-schema";
 import { createClient } from "@/lib/supabase/server";
 import { requireTalentoRead, requireTalentoWrite } from "@/lib/talentos/permissions";
 import { loadTalentProfile } from "@/lib/talentos/profile";
@@ -34,7 +35,7 @@ const text = (max: number) =>
 const updateSchema = z
   .object({
     nomeCompleto: z.string().trim().min(3, "Informe o nome completo.").max(120).optional(),
-    email: z.string().trim().email("E-mail inválido.").max(150).optional(),
+    email: manualEmailSchema.optional(),
     telefone: text(30),
     cidade: text(80),
     estado: text(2),

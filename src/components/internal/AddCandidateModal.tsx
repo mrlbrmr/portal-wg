@@ -195,15 +195,15 @@ export function AddCandidateModal({ jobId, sources }: Props) {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">E-mail *</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">E-mail</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                   placeholder="email@exemplo.com"
                   className={inputClass}
                 />
+                <p className="mt-1 text-xs text-gray-500">Opcional. Sem e-mail, deixe em branco — não use um e-mail fictício.</p>
               </div>
 
               <div>

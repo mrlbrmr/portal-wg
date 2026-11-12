@@ -321,7 +321,13 @@ function AttentionPanel({ items }: { items: AttentionItem[] }) {
   return (
     <Panel
       title="Atenção necessária"
-      meta={total > 0 ? plural(total, "admissão", "admissões") : undefined}
+      // Uma admissão pode ter mais de uma pendência: mostra as duas contagens para não parecer
+      // que o card "com pendência para o RH" e esta lista discordam.
+      meta={
+        total > 0
+          ? `${plural(total, "admissão", "admissões")} · ${plural(items.length, "pendência", "pendências")}`
+          : undefined
+      }
       description="Situações operacionais que pedem ação do RH."
       flush
     >

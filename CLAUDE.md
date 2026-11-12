@@ -184,6 +184,11 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
     `talentos_crm_facets()`; filtros/ordem/página no servidor (`list.ts`), regras puras em `crm.ts` (testado).
   - Situação: só Disponível/Indisponível e Arquivar são manuais; Em processo/Contratado vêm das candidaturas.
   - Adicionar à vaga: `service.ts#addTalentsToJob` (sem candidatura duplicada; origem `BANCO_TALENTOS`).
+  - **E-mail é OPCIONAL no cadastro manual** (decisão de 2026-11-12; `talentos.email`/`applications.email`
+    aceitam NULL desde a migração `20261112140000`): vazio vira null e e-mail FICTÍCIO é recusado
+    (`src/lib/email-placeholder.ts`, testado) — o e-mail do talento é único e um fictício repetido juntava
+    pessoas diferentes no mesmo perfil. Sem e-mail, nunca reutilize perfil pelo e-mail. O portal público
+    continua exigindo e-mail real (`applicantEmailSchema`); manual usa `manualEmailSchema`.
   - Tags = cadastro central `admission_tags` via `talento_tag_links` (`talento_tags` antigo não é usado).
   - Mutações em `actions.ts`; ações relevantes registradas em `talento_audit_log` (histórico somente leitura).
   - Drawer e `/talentos/[id]` usam o mesmo `TalentWorkspace`. Nada de score/"fit" no banco.

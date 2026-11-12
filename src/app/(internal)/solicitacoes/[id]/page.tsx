@@ -84,7 +84,7 @@ export default async function SolicitacaoPage({
       <PageHeader
         title={request.title ?? "Solicitação sem título"}
         subtitle={`${request.code ?? "sem número"} · solicitada por ${request.requesterName ?? "gestor não informado"}`}
-        action={<JobRequestStatusBadge status={request.status} variant="full" />}
+        action={<JobRequestStatusBadge status={request.status} jobStatus={request.jobStatus} variant="full" />}
       />
 
       {/* Vaga gerada a partir desta solicitação */}

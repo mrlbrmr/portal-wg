@@ -6,17 +6,23 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Clock, FileDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, FileDown, Hourglass, Inbox, Search, SlidersHorizontal, Target, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { JobRequestStatusBadge } from "@/components/internal/job-requests/JobRequestStatusBadge";
 import {
   JOB_REQUEST_REASON_LABELS,
   JOB_REQUEST_SLA_DAYS,
   JOB_REQUEST_STATUS_ORDER,
-  JOB_REQUEST_STATUS_SHORT,
   jobRequestAgeInDays,
   OPEN_JOB_REQUEST_STATUSES,
 } from "@/lib/job-requests/constants";
 import { formatDateBR } from "@/lib/job-requests/mapping";
+import {
+  displayStatusLabel,
+  isConcludedRequest,
+  requestDisplayStatus,
+  type JobRequestDisplayStatus,
+} from "@/lib/job-requests/outcome";
 import { normalizeText } from "@/lib/utils";
 import type { JobRequestStatus } from "@/types/domain";
 import {
@@ -31,17 +37,31 @@ interface Props {
   initialStatus?: string;
 }
 
-type QuickFilter = "OPEN" | "ALL" | JobRequestStatus;
+type QuickFilter = "OPEN" | "ALL" | "CONCLUDED" | JobRequestDisplayStatus;
 
 const QUICK_FILTERS: Array<{ value: QuickFilter; label: string }> = [
-  { value: "OPEN", label: "Em andamento" },
+  { value: "OPEN", label: "Aguardando ação" },
   { value: "PENDING_HR", label: "Aguardando RH" },
   { value: "PENDING_APPROVAL", label: "Aguardando aprovação" },
   { value: "RETURNED", label: "Devolvidas" },
   { value: "APPROVED", label: "Aprovadas" },
   { value: "RECRUITING", label: "Em recrutamento" },
+  { value: "CONCLUDED", label: "Concluídas" },
   { value: "ALL", label: "Todas" },
 ];
+
+/** Status do filtro "Status": os do workflow + os desfechos derivados da vaga. */
+const STATUS_FILTER_OPTIONS: JobRequestDisplayStatus[] = [
+  ...JOB_REQUEST_STATUS_ORDER,
+  "FULFILLED",
+  "CLOSED_UNFILLED",
+];
+
+const EMPTY_MESSAGES: Partial<Record<QuickFilter, string>> = {
+  OPEN: "Nenhuma solicitação aguardando ação do RH ou do aprovador.",
+  RECRUITING: "Nenhuma solicitação com processo seletivo em andamento.",
+  CONCLUDED: "Nenhuma solicitação concluída.",
+};
 
 const selectClass =
   "w-full bg-white border border-[#E7EEDD] rounded-lg px-2.5 py-1.5 text-[13px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-wg-green/40";
@@ -54,7 +74,9 @@ function uniqueSorted(values: Array<string | null>): string[] {
 
 export function JobRequestsExplorer({ requests, initialStatus }: Props) {
   const initialQuick: QuickFilter =
-    initialStatus === "ALL" || (JOB_REQUEST_STATUS_ORDER as string[]).includes(initialStatus ?? "")
+    initialStatus === "ALL" ||
+    initialStatus === "CONCLUDED" ||
+    (STATUS_FILTER_OPTIONS as string[]).includes(initialStatus ?? "")
       ? (initialStatus as QuickFilter)
       : "OPEN";
   const [quick, setQuick] = useState<QuickFilter>(initialQuick);
@@ -71,13 +93,20 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
     [requests]
   );
 
+  // Estado exibido: "Em recrutamento" vira Atendida/Encerrada conforme a vaga ligada (outcome.ts).
+  const rows = useMemo(
+    () => requests.map((r) => ({ ...r, display: requestDisplayStatus(r.status, r.jobStatus) })),
+    [requests]
+  );
+
   const visible = useMemo(() => {
     const q = normalizeText(query);
-    return requests.filter((r) => {
+    return rows.filter((r) => {
       if (quick === "OPEN" && !OPEN_JOB_REQUEST_STATUSES.includes(r.status)) return false;
-      if (quick !== "OPEN" && quick !== "ALL" && r.status !== quick) return false;
+      if (quick === "CONCLUDED" && !isConcludedRequest(r.display)) return false;
+      if (quick !== "OPEN" && quick !== "ALL" && quick !== "CONCLUDED" && r.display !== quick) return false;
 
-      if (filters.status && r.status !== filters.status) return false;
+      if (filters.status && r.display !== filters.status) return false;
       if (filters.requester && r.requesterName !== filters.requester) return false;
       if (filters.location && r.location !== filters.location) return false;
       if (filters.department && r.department !== filters.department) return false;
@@ -90,7 +119,7 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
         .filter(Boolean)
         .some((v) => normalizeText(String(v)).includes(q));
     });
-  }, [requests, quick, query, filters]);
+  }, [rows, quick, query, filters]);
 
   const counts = useMemo(() => {
     const open = requests.filter((r) => OPEN_JOB_REQUEST_STATUSES.includes(r.status));
@@ -98,21 +127,22 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
       pendingHr: requests.filter((r) => r.status === "PENDING_HR").length,
       pendingApproval: requests.filter((r) => r.status === "PENDING_APPROVAL").length,
       approved: requests.filter((r) => r.status === "APPROVED").length,
-      recruiting: requests.filter((r) => r.status === "RECRUITING").length,
+      recruiting: rows.filter((r) => r.display === "RECRUITING").length,
       late: open.filter((r) => jobRequestAgeInDays(r.createdAt) > JOB_REQUEST_SLA_DAYS).length,
     };
-  }, [requests]);
+  }, [requests, rows]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
-  const kpis = [
-    { emoji: "📥", bg: "#E9EDFA", value: counts.pendingHr, label: "Aguardando o RH" },
-    { emoji: "⏳", bg: "#FCF1DD", value: counts.pendingApproval, label: "Aguardando aprovação" },
-    { emoji: "✅", bg: "#EAF4DC", value: counts.approved, label: "Aprovadas sem vaga" },
-    { emoji: "🎯", bg: "#E2F0E4", value: counts.recruiting, label: "Em recrutamento" },
+  const kpis: Array<{ icon: LucideIcon; bg: string; fg: string; value: number; label: string }> = [
+    { icon: Inbox, bg: "#E9EDFA", fg: "#3C56A8", value: counts.pendingHr, label: "Aguardando o RH" },
+    { icon: Hourglass, bg: "#FCF1DD", fg: "#8A5B10", value: counts.pendingApproval, label: "Aguardando aprovação" },
+    { icon: CheckCircle2, bg: "#EAF4DC", fg: "#4F6930", value: counts.approved, label: "Aprovadas sem vaga" },
+    { icon: Target, bg: "#E2F0E4", fg: "#2F6B4F", value: counts.recruiting, label: "Em recrutamento" },
     {
-      emoji: "⏰",
+      icon: Clock,
       bg: "#FDECEC",
+      fg: "#A24B2B",
       value: counts.late,
       label: `Fora do SLA (${JOB_REQUEST_SLA_DAYS} dias)`,
     },
@@ -125,10 +155,10 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
         {kpis.map((k) => (
           <div key={k.label} className="bg-white border border-[#E7EEDD] rounded-2xl p-4">
             <div
-              className="w-8 h-8 rounded-[9px] flex items-center justify-center text-[15px] mb-2.5"
-              style={{ background: k.bg }}
+              className="w-8 h-8 rounded-[9px] flex items-center justify-center mb-2.5"
+              style={{ background: k.bg, color: k.fg }}
             >
-              {k.emoji}
+              <k.icon className="w-4 h-4" aria-hidden />
             </div>
             <div className="text-[#1A2213] text-2xl font-extrabold">{k.value}</div>
             <div className="text-[#55614A] text-[12.5px] mt-0.5">{k.label}</div>
@@ -197,9 +227,9 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
               className={`${selectClass} mt-1`}
             >
               <option value="">Todos</option>
-              {JOB_REQUEST_STATUS_ORDER.map((s) => (
+              {STATUS_FILTER_OPTIONS.map((s) => (
                 <option key={s} value={s}>
-                  {JOB_REQUEST_STATUS_SHORT[s]}
+                  {displayStatusLabel(s)}
                 </option>
               ))}
             </select>
@@ -303,11 +333,21 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
       {/* Tabela */}
       {visible.length === 0 ? (
         <div className="bg-white border border-[#E7EEDD] rounded-2xl p-10 text-center">
-          <p className="text-[#1A2213] font-semibold">Nenhuma solicitação por aqui.</p>
-          <p className="text-[#55614A] text-sm mt-1">
-            Os pedidos enviados pelos gestores em <code>/solicitar-vaga</code> aparecem nesta
-            fila.
+          <p className="text-[#1A2213] font-semibold">
+            {(!query && activeFilterCount === 0 && EMPTY_MESSAGES[quick]) || "Nenhuma solicitação encontrada."}
           </p>
+          <p className="text-[#55614A] text-sm mt-1">
+            Os pedidos que os gestores enviam pelo formulário de solicitação aparecem aqui.
+          </p>
+          {quick !== "ALL" && requests.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setQuick("ALL")}
+              className="mt-3 text-[13px] font-semibold text-[#4F6930] hover:underline"
+            >
+              Ver todas as {requests.length} solicitações
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-white border border-[#E7EEDD] rounded-2xl overflow-hidden">
@@ -374,7 +414,7 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
                         {formatDateBR(r.desiredStartDate)}
                       </td>
                       <td className="px-4 py-3">
-                        <JobRequestStatusBadge status={r.status} />
+                        <JobRequestStatusBadge status={r.status} jobStatus={r.jobStatus} />
                       </td>
                       <td className="px-4 py-3 text-[#55614A] hidden lg:table-cell">
                         {r.status === "PENDING_APPROVAL"

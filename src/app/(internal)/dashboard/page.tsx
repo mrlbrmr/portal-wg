@@ -30,7 +30,7 @@ import {
   ATTENTION_RULES,
   SITUATION_META,
 } from "@/lib/recruitment/attention";
-import { jobLifecycle } from "@/lib/recruitment/job-presentation";
+import { summarizeJobs } from "@/lib/recruitment/job-metrics";
 import { formatRelativeTime } from "@/lib/utils";
 import { PageHeader } from "@/components/internal/PageHeader";
 import { DashboardCard } from "@/components/internal/DashboardCard";
@@ -99,9 +99,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const now = new Date();
 
   // ── Recrutamento ───────────────────────────────────────────────────────────
-  const openJobs = jobs.filter((j) => !j.isTalentPool && jobLifecycle(j.status) === "OPEN");
-  const candidatesInProcess = openJobs.reduce((acc, j) => acc + j.candidateCount, 0);
-  const awaitingTriage = openJobs.reduce((acc, j) => acc + j.newCount, 0);
+  // Mesma regra da lista de Vagas e da home pública (job-metrics.ts): a vaga contínua do
+  // banco de talentos não é "vaga aberta" e tem triagem à parte.
+  const {
+    openJobs,
+    talentPools,
+    activeCandidates: candidatesInProcess,
+    awaitingTriage,
+    talentPoolAwaitingTriage,
+  } = summarizeJobs(jobs);
+  const poolWithNew = talentPools.find((j) => j.newCount > 0);
   const jobsWithNew = openJobs.filter((j) => j.newCount > 0);
 
   const attention = openJobs
@@ -148,6 +155,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         jobsWithNew.length === 1
           ? jobsWithNew[0].title
           : `Em ${jobsWithNew.length} ${plural(jobsWithNew.length, "vaga", "vagas")}`,
+    },
+    talentPoolAwaitingTriage > 0 && poolWithNew && {
+      key: "banco-continuo",
+      href: `/vagas/${poolWithNew.id}/candidatos`,
+      icon: UserCheck,
+      tone: "neutral" as const,
+      count: talentPoolAwaitingTriage,
+      title: plural(talentPoolAwaitingTriage, "cadastro novo no banco de talentos", "cadastros novos no banco de talentos"),
+      description: "Candidaturas espontâneas para triar quando houver vaga",
     },
     pendingHr > 0 && {
       key: "rh",
@@ -302,7 +318,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {/* Métricas compactas — contexto, não o foco da tela */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <DashboardCard icon={Briefcase} tone="success" value={openJobs.length} label="Vagas abertas" href="/vagas/gerenciar?status=OPEN" />
-        <DashboardCard icon={Users} tone="info" value={candidatesInProcess} label="Candidatos em processo" hint="Nas vagas abertas, sem descartados" />
+        <DashboardCard icon={Users} tone="info" value={candidatesInProcess} label="Candidatos ativos" hint="Nas vagas abertas, sem descartados e sem o banco de talentos" />
         <DashboardCard
           icon={UserCheck}
           tone={awaitingTriage > 0 ? "warning" : "neutral"}
@@ -511,7 +527,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <Panel
         id="origens"
         title="De onde vêm os candidatos"
-        description="Candidaturas recebidas no período, por origem. Contratados = candidatos que chegaram a uma etapa de contratação."
+        description="Candidaturas recebidas no período, por origem. Contratados = candidaturas na etapa Contratado ou com admissão vinculada (mesma regra do Banco de Talentos)."
         meta={
           sourceTotal > 0
             ? `${sourceTotal} ${plural(sourceTotal, "candidatura", "candidaturas")} · ${sourceHired} ${plural(sourceHired, "contratado", "contratados")}`

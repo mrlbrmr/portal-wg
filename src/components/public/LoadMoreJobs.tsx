@@ -31,7 +31,8 @@ export function LoadMoreJobs({ initialJobs, total, filters, config, pageSize }: 
     setLoading(true);
     setError(false);
     const nextPage = page + 1;
-    const params = new URLSearchParams({ page: String(nextPage), limit: String(pageSize) });
+    // scope=portal: mesmas regras da home (público, sem a vaga contínua), mesmo com o RH logado.
+    const params = new URLSearchParams({ page: String(nextPage), limit: String(pageSize), scope: "portal" });
     if (filters.city) params.set("city", filters.city);
     if (filters.department) params.set("department", filters.department);
     if (filters.query) params.set("query", filters.query);

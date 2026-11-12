@@ -4,13 +4,11 @@ export const revalidate = 60;
 import { createAnonClient } from "@/lib/supabase/anon";
 import { DEFAULT_CONFIG, type HomepageConfigData } from "@/lib/homepage-config";
 import type { Job } from "@/types/domain";
-import { PUBLIC_JOB_STATUSES } from "@/lib/utils";
-import { PORTAL_LISTED_VISIBILITIES } from "@/lib/jobs/publication";
 import { applyJobFilters, onlyPublicVisible, PUBLIC_JOB_COLUMNS } from "@/lib/jobs-query";
 import JobFilters from "@/components/public/JobFilters";
 import { LoadMoreJobs } from "@/components/public/LoadMoreJobs";
 import { AnimateIn } from "@/components/ui/AnimateIn";
-import { Zap, TrendingUp, Globe, Heart, Briefcase } from "lucide-react";
+import { Zap, TrendingUp, Globe, Heart, Briefcase, ArrowRight } from "lucide-react";
 
 const PAGE_SIZE = 9;
 
@@ -52,23 +50,28 @@ export default async function HomePage({
 
   const supabase = createAnonClient();
 
-  let listQuery = supabase.from("jobs").select(PUBLIC_JOB_COLUMNS, { count: "exact" });
+  // A vaga contínua do banco de talentos não entra na lista nem no contador de vagas abertas
+  // (mesma regra do painel, src/lib/recruitment/job-metrics.ts): aparece num bloco à parte.
+  let listQuery = supabase.from("jobs").select(PUBLIC_JOB_COLUMNS, { count: "exact" }).eq("isTalentPool", false);
   listQuery = onlyPublicVisible(listQuery);
   listQuery = applyJobFilters(listQuery, params);
 
-  const [listRes, activeRes, configRes] = await Promise.all([
+  const [listRes, activeRes, poolRes, configRes] = await Promise.all([
     listQuery.order("createdAt", { ascending: false }).range(0, PAGE_SIZE - 1),
-    supabase
-      .from("jobs")
-      .select("id", { count: "exact", head: true })
-      .in("status", PUBLIC_JOB_STATUSES as readonly string[])
-      .in("visibility", PORTAL_LISTED_VISIBILITIES as readonly string[]),
+    onlyPublicVisible(
+      supabase.from("jobs").select("id", { count: "exact", head: true }).eq("isTalentPool", false)
+    ),
+    onlyPublicVisible(supabase.from("jobs").select("id, slug").eq("isTalentPool", true))
+      .order("createdAt", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     supabase.from("homepage_config").select("*").eq("id", "singleton").maybeSingle(),
   ]);
 
   const jobs = (listRes.data ?? []) as unknown as Job[];
   const total = listRes.count ?? 0;
   const totalActive = activeRes.count ?? 0;
+  const talentPool = poolRes.data as { id: string; slug: string | null } | null;
   const config = (configRes.data as HomepageConfigData | null) ?? DEFAULT_CONFIG;
 
   const hasActiveFilters = Object.keys(params).length > 0;
@@ -207,6 +210,28 @@ export default async function HomePage({
               config={config}
               pageSize={PAGE_SIZE}
             />
+          )}
+
+          {/* Banco de talentos: candidatura espontânea, fora da lista de vagas abertas. */}
+          {talentPool && (
+            <AnimateIn>
+              <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-[20px] border border-dashed border-wg-border p-6 md:p-7">
+                <div>
+                  <p className="text-white text-[17px] font-semibold font-sora">Não encontrou sua vaga?</p>
+                  <p className="text-[#B8B8B8] text-sm mt-1 leading-relaxed">
+                    Cadastre seu currículo no nosso banco de talentos. Quando surgir uma oportunidade com o seu perfil,
+                    entramos em contato.
+                  </p>
+                </div>
+                <a
+                  href={`/vagas/${talentPool.slug ?? talentPool.id}`}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-wg-green px-6 py-3 text-[14px] font-bold text-black no-underline hover:brightness-95"
+                >
+                  Cadastrar currículo
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </a>
+              </div>
+            </AnimateIn>
           )}
         </div>
       </section>

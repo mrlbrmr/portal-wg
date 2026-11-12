@@ -8,6 +8,7 @@ import { PrimaryActionLink } from "@/components/internal/PrimaryActionLink";
 import { CompactMetrics } from "@/components/ui/CompactMetrics";
 import { loadJobRows } from "@/lib/recruitment/job-rows";
 import { jobLifecycle } from "@/lib/recruitment/job-presentation";
+import { summarizeJobs } from "@/lib/recruitment/job-metrics";
 import { jobAttentionReasons } from "@/lib/recruitment/attention";
 import type { Metadata } from "next";
 
@@ -25,6 +26,8 @@ export default async function GerenciarVagasPage({
   // Métricas compactas: a lista é a tarefa principal da página, não os números.
   const byLifecycle = (l: string) => rows.filter((j) => jobLifecycle(j.status) === l).length;
   const now = new Date();
+  // "Abertas" = vagas com posição; a vaga contínua do banco de talentos fica à parte (job-metrics.ts).
+  const { openJobs, talentPools } = summarizeJobs(rows);
   const needAttention = rows.filter((j) => jobAttentionReasons(j, now).length > 0).length;
 
   return (
@@ -52,7 +55,11 @@ export default async function GerenciarVagasPage({
         className="mb-2"
         total={{ value: rows.length, label: rows.length === 1 ? "vaga" : "vagas" }}
         items={[
-          { label: "abertas", value: byLifecycle("OPEN"), href: "/vagas/gerenciar?status=OPEN" },
+          {
+            label: talentPools.length > 0 ? "abertas + banco de talentos" : "abertas",
+            value: openJobs.length,
+            href: "/vagas/gerenciar?status=OPEN",
+          },
           { label: "precisam de atenção", value: needAttention, tone: "warning", weight: "strong", href: "/vagas/gerenciar?pendencia=atencao" },
           { label: "rascunhos", value: byLifecycle("DRAFT"), href: "/vagas/gerenciar?status=DRAFT" },
           { label: "pausadas", value: byLifecycle("PAUSED"), href: "/vagas/gerenciar?status=PAUSED" },

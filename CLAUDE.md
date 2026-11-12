@@ -83,6 +83,12 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   - `jobs.approvedScope` = snapshot do que a solicitação aprovou (comparação em `approved-scope.ts`).
   - Salário: `salaryRange` (lido por portal/feeds) é DERIVADO de `salary` + `salaryPublic` (`salary.ts`).
   - Público: use `PUBLIC_JOB_COLUMNS` (`src/lib/jobs-query.ts`), nunca `select("*")`.
+  - **Vaga contínua (`jobs.isTalentPool`) NÃO é "vaga aberta"** (decisão de 2026-11-12): contadores de
+    Visão geral, lista de Vagas e home pública usam `summarizeJobs()`/`isCountedOpenJob()`
+    (`src/lib/recruitment/job-metrics.ts`, testado); a home a mostra num bloco "Não encontrou sua vaga?";
+    a triagem dela é item à parte na fila. No Banco de Talentos, candidatura nela não é "Em processo"
+    (view `talentos_crm`). **Contratado** = etapa `WON` ou admissão vinculada — em `talentos_crm` e em
+    `application_source_stats` (migração `20261112120000`). "Carregar mais" da home usa `/api/jobs?scope=portal`.
   - **Publicação ≠ status** (`jobs.visibility`): `NONE` (Não publicar — processo aberto, só o painel),
     `BOTH` (Portal + Intranet, padrão), `PUBLIC` (só Portal), `INTERNAL` (só Intranet). Regra ÚNICA em
     `src/lib/jobs/publication.ts` (processo aberto + canal habilitado + prazo; testada). Consultas

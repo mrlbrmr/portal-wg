@@ -182,7 +182,8 @@ export function JobsExplorer({ jobs, canManage, initialParams }: Props) {
   const quickCounts = useMemo(
     () => ({
       atencao: baseFiltered.filter((j) => j.reasons.length > 0).length,
-      triagem: baseFiltered.filter((j) => j.newCount > 0).length,
+      // Triagem da vaga contínua (banco de talentos) é à parte — mesma regra da Visão geral.
+      triagem: baseFiltered.filter((j) => j.newCount > 0 && !j.isTalentPool).length,
     }),
     [baseFiltered]
   );
@@ -190,7 +191,7 @@ export function JobsExplorer({ jobs, canManage, initialParams }: Props) {
   const filtered = useMemo(() => {
     let result = baseFiltered;
     if (quick === "atencao") result = result.filter((j) => j.reasons.length > 0);
-    else if (quick === "triagem") result = result.filter((j) => j.newCount > 0);
+    else if (quick === "triagem") result = result.filter((j) => j.newCount > 0 && !j.isTalentPool);
     const sorted = sortJobs(result, quick === "atencao" && sort === "date_desc" ? "attention" : sort);
     // Banco de talentos fixo no topo (partição estável: mantém a ordem escolhida dentro de cada grupo).
     return [...sorted.filter((j) => j.isTalentPool), ...sorted.filter((j) => !j.isTalentPool)];

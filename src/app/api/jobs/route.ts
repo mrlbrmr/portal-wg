@@ -74,10 +74,17 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
   const offset = (page - 1) * limit;
 
-  // Público recebe só as colunas públicas; o painel (sessão) recebe a linha inteira.
-  let q = supabase.from("jobs").select(session ? "*" : PUBLIC_JOB_COLUMNS, { count: "exact" });
+  // "Carregar mais" da home pede scope=portal: visão do candidato mesmo com o RH logado
+  // (sem isso o RH veria rascunhos/encerradas na home) e sem a vaga contínua do banco de
+  // talentos, que a home mostra à parte.
+  const portal = searchParams.get("scope") === "portal";
+  const asPublic = !session || portal;
 
-  if (!session) {
+  // Público recebe só as colunas públicas; o painel (sessão) recebe a linha inteira.
+  let q = supabase.from("jobs").select(asPublic ? PUBLIC_JOB_COLUMNS : "*", { count: "exact" });
+  if (portal) q = q.eq("isTalentPool", false);
+
+  if (asPublic) {
     // Portal público: status "aberto" (ACTIVE + etapas legadas) e no prazo.
     // (RLS também garante isso para a chave anon; filtro explícito preserva o prazo.)
     q = onlyPublicVisible(q);

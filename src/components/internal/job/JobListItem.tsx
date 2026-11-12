@@ -147,7 +147,7 @@ function CandidateSummary({ job }: { job: JobRow }) {
   const total = job.candidateCount;
   const novos = job.newCount;
   const label =
-    `Ver ${total} ${total === 1 ? "candidato" : "candidatos"} de ${job.title}` +
+    `Ver ${total} ${total === 1 ? "candidato ativo" : "candidatos ativos"} de ${job.title}` +
     (novos > 0 ? `, ${novos} ${novos === 1 ? "novo" : "novos"}` : "");
 
   return (
@@ -170,7 +170,8 @@ function CandidateSummary({ job }: { job: JobRow }) {
           >
             {total}
           </span>
-          <span className="text-meta text-wg-ink-secondary">{total === 1 ? "candidato" : "candidatos"}</span>
+          {/* "Ativos" = sem os fora do funil (descartados), o mesmo número da Visão geral. */}
+          <span className="text-meta text-wg-ink-secondary">{total === 1 ? "ativo" : "ativos"}</span>
         </span>
         {/* "Novo" = novidade (verde da marca), não alerta: o âmbar fica com "aguardando triagem". */}
         {novos > 0 && (

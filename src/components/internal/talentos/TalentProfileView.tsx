@@ -31,7 +31,7 @@ export function TalentProfileView({
         className="mb-4 inline-flex items-center gap-1 rounded text-meta font-medium text-wg-ink-muted hover:text-wg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wg-green/50"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden />
-        Banco de Talentos
+        Banco de talentos
       </Link>
       <div className="overflow-hidden rounded-card border border-wg-border-lighter bg-white">
         <TalentWorkspace

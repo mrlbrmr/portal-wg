@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/internal/PageHeader'
 import { loadAssessmentSessions } from '@/lib/avaliacoes/sessions'
 import { AplicacoesClient } from './AplicacoesClient'
 
-export const metadata: Metadata = { title: 'Aplicações — Avaliações' }
+export const metadata: Metadata = { title: 'Envios de testes — Avaliações' }
 
 /** Acompanhamento dos testes enviados: quem recebeu, quando, prazo e em que ponto está. */
 export default async function AplicacoesPage({
@@ -19,7 +19,7 @@ export default async function AplicacoesPage({
   return (
     <div>
       <PageHeader
-        title="Aplicações"
+        title="Envios de testes"
         subtitle="Avaliações enviadas aos candidatos e o andamento de cada uma."
       />
       <AplicacoesClient

@@ -31,8 +31,8 @@ const FEATURES = [
   },
   {
     icon: Globe,
-    title: "Presença nacional",
-    desc: "Atuação em todo o território brasileiro com referência no setor.",
+    title: "Presença regional",
+    desc: "Unidades no Sul e no Sudeste, com referência no setor automotivo.",
   },
   {
     icon: Heart,

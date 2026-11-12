@@ -69,7 +69,7 @@ const FIELD_TYPE_ICONS: Record<FieldType, LucideIcon> = {
 // Espelha os campos fixos de src/components/job-requests/JobRequestFormFields.tsx
 // (colunas estruturadas de job_requests — não podem ser removidas nem alteradas aqui).
 const STANDARD_FIELDS: Array<{ section: string; label: string; type: FieldType; note?: string; required: boolean }> = [
-  { section: "Dados da solicitação", label: "Título da vaga", type: "text", required: true },
+  { section: "Dados da solicitação", label: "Cargo solicitado", type: "text", required: true },
   { section: "Dados da solicitação", label: "Área / Departamento", type: "text", required: true },
   { section: "Dados da solicitação", label: "Empresa / Unidade", type: "text", required: true },
   { section: "Dados da solicitação", label: "Gestor requisitante", type: "text", required: true },

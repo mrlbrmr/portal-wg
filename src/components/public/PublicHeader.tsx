@@ -35,16 +35,16 @@ export default function PublicHeader() {
         {/* Nav */}
         <nav className="flex items-center gap-7 text-[15px]">
           <Link
-            href="/"
+            href="/#vagas"
             className="text-[#E5E5E5] hover:text-wg-green-bright transition-colors duration-200"
           >
             Vagas
           </Link>
           <Link
-            href="/privacidade"
+            href="/vagas/status"
             className="text-[#E5E5E5] hover:text-wg-green-bright transition-colors duration-200"
           >
-            Privacidade
+            Minha candidatura
           </Link>
         </nav>
       </div>

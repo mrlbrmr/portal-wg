@@ -479,7 +479,7 @@ export function CandidatePipeline({ applications, stages, canManage, jobId, jobT
     const stage = stageById.get(c.stageId);
     if (!canManage || !stage || !/entrevista/i.test(stage.name)) return null;
     return {
-      label: "Registrar entrevista",
+      label: "Registrar parecer",
       icon: CalendarPlus,
       onClick: () => {
         setInterviewIntent(c.id);

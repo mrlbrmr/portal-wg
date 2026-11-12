@@ -70,7 +70,7 @@ export default async function SolicitarVagaPage() {
       <div className="relative w-full h-24 sm:h-32 bg-black overflow-hidden">
         <Image
           src="/hero-bg.png"
-          alt="WG Baterias"
+          alt=""
           fill
           className="object-cover object-center opacity-70"
           priority

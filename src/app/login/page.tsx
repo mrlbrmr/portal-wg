@@ -97,7 +97,7 @@ export default function LoginPage() {
             <Zap className="w-7 h-7 text-black" />
           </div>
           <h1 className="text-xl font-bold text-gray-900">Painel RH</h1>
-          <p className="text-sm text-gray-500 mt-1">WG Baterias — Gente &amp; Gestão</p>
+          <p className="text-sm text-gray-500 mt-1">Grupo WG — Gente &amp; Gestão</p>
         </div>
 
         <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-6">

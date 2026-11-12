@@ -19,12 +19,18 @@ export default function PublicFooter() {
           </div>
 
           {/* Links */}
-          <div className="flex items-center gap-6 text-sm">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             <Link
               href="/privacidade"
               className="text-[#B8B8B8] hover:text-wg-green transition-colors"
             >
               Aviso de Privacidade
+            </Link>
+            <Link
+              href="/termos"
+              className="text-[#B8B8B8] hover:text-wg-green transition-colors"
+            >
+              Termos de Uso
             </Link>
             <a
               href="https://www.wgbaterias.com.br"

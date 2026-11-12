@@ -401,7 +401,7 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
             Currículo <span className="text-red-500">*</span>
           </label>
           <p className="text-[12px] text-gray-400 mb-2">
-            Nossa IA lerá seu currículo e preencherá automaticamente seu perfil.
+            Seu currículo é lido automaticamente para agilizar a análise do RH.
           </p>
           <input
             ref={fileRef}

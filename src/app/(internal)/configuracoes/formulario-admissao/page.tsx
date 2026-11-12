@@ -7,7 +7,7 @@ import { getLastConfigChange } from "@/lib/settings/audit";
 import { FormConfigEditor } from "@/components/internal/admissao/FormConfigEditor";
 import { SettingsPage } from "@/components/internal/settings/SettingsPage";
 
-export const metadata: Metadata = { title: "Formulário de Admissão Digital — Configurações — RH" };
+export const metadata: Metadata = { title: "Formulário de admissão digital — Configurações — RH" };
 
 export default async function FormularioAdmissaoConfigPage() {
   const session = await auth();
@@ -22,8 +22,8 @@ export default async function FormularioAdmissaoConfigPage() {
 
   return (
     <SettingsPage
-      breadcrumb={[{ label: "Admissão" }, { label: "Formulário de Admissão Digital" }]}
-      title="Formulário de Admissão Digital"
+      breadcrumb={[{ label: "Admissão" }, { label: "Formulário de admissão digital" }]}
+      title="Formulário de admissão digital"
       description="Formulário que o candidato aprovado preenche pelo link. As alterações valem para os próximos links e para os links ainda não preenchidos."
       lastChange={lastChange}
     >

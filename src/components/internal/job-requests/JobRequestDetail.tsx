@@ -227,7 +227,7 @@ export function JobRequestDetail({
 
       <Card title="Dados da solicitação">
         <dl className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          <Row label="Título da vaga" value={request.title} />
+          <Row label="Cargo solicitado" value={request.title} />
           <Row label="Área / Departamento" value={request.department} />
           <Row label="Empresa / Unidade" value={request.location} />
           <Row

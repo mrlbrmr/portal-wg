@@ -276,7 +276,7 @@ export function candidateSignals(
   }
 
   if (input.bigFiveDone && !(stage?.kind === "TEST" && input.testStatus)) {
-    out.push({ key: "bigfive", icon: "brain", label: "Big Five concluído", tone: "success", attention: false });
+    out.push({ key: "bigfive", icon: "brain", label: "Avaliação comportamental concluída", tone: "success", attention: false });
   }
 
   return out;

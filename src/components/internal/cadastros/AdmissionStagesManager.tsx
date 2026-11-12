@@ -179,7 +179,7 @@ export function AdmissionStagesManager({ stages }: { stages: RegistryItem[] }) {
               </span>
             </div>
             <p className="mt-0.5 text-meta text-wg-ink-muted">
-              Arraste pela alça <span aria-hidden>⋮⋮</span> para definir a ordem das colunas no quadro de admissões.
+              Arraste pela alça <span aria-hidden>⋮⋮</span> para definir a ordem das etapas da admissão.
             </p>
           </div>
           <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
@@ -201,7 +201,7 @@ export function AdmissionStagesManager({ stages }: { stages: RegistryItem[] }) {
           />
         ) : (
           <SortableList
-            label="Etapas do quadro de admissões"
+            label="Etapas da admissão"
             items={items}
             getId={(s) => s.id}
             getLabel={(s) => `Etapa ${s.name}`}

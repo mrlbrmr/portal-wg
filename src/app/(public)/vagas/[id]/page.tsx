@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${job.title} — ${location}`,
     // "Somente Intranet": a página abre pelo link da Intranet, mas não vai para buscadores.
     ...(isInternalOnlyJob(job.visibility) ? { robots: { index: false, follow: false } } : {}),
-    description: `Vaga de ${job.title}${job.department ? ` em ${job.department}` : ""} no Grupo WG Baterias${job.city ? ` em ${location}` : ""}. Candidate-se agora!`,
+    description: `Vaga de ${job.title}${job.department ? ` em ${job.department}` : ""} no Grupo WG${job.city ? ` em ${location}` : ""}. Candidate-se agora!`,
     openGraph: {
       title: `${job.title} — Carreiras WG`,
       description: `Oportunidade${job.city ? ` em ${location}` : " no Banco de Talentos"}. Faça parte do Grupo WG!`,

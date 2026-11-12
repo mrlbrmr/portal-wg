@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { TestForm } from './TestForm'
 import type { Question } from '@/lib/avaliacoes/schema'
 
-export const metadata: Metadata = { title: 'Avaliação Online | WG Baterias' }
+export const metadata: Metadata = { title: 'Avaliação online' }
 
 function Banner({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (

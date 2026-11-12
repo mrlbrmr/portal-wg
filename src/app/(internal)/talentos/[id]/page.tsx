@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = await createClient();
   const { data } = await supabase.from("talentos").select("nomeCompleto").eq("id", id).maybeSingle();
-  return { title: `${data?.nomeCompleto ?? "Talento"} — Banco de Talentos — RH` };
+  return { title: `${data?.nomeCompleto ?? "Talento"} — Banco de talentos — RH` };
 }
 
 /**

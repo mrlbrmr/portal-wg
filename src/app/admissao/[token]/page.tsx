@@ -5,7 +5,7 @@ import { loadFormConfig } from '@/lib/admissao/form-config-loader'
 import { restoreFormUploads } from '@/lib/admissao/form-config'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'Admissão Digital | WG Baterias' }
+export const metadata: Metadata = { title: 'Admissão digital' }
 
 function Banner({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (

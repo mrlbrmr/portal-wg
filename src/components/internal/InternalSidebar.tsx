@@ -105,7 +105,7 @@ export default function InternalSidebar({ role, name, pendingRequests = 0, onNav
 
   const avaliacoesSub: NavLink[] = [
     { href: "/avaliacoes/banco", label: "Banco de testes", icon: BookOpen },
-    { href: "/avaliacoes/aplicacoes", label: "Aplicações", icon: Send },
+    { href: "/avaliacoes/aplicacoes", label: "Envios", icon: Send },
     { href: "/avaliacoes/resultados", label: "Resultados", icon: BarChart3 },
   ];
 
@@ -184,7 +184,7 @@ export default function InternalSidebar({ role, name, pendingRequests = 0, onNav
           href="/avaliacoes/banco"
           onClick={onNavClick}
           className={itemClass(avaliacoesActive)}
-          aria-expanded={avaliacoesActive}
+          aria-current={avaliacoesActive ? "true" : undefined}
         >
           <FlaskConical className="w-4 h-4 shrink-0" aria-hidden />
           <span className="flex-1">Avaliações</span>

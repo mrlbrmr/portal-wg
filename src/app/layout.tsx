@@ -22,26 +22,26 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Carreiras | WG Baterias",
-    template: "%s | Carreiras WG Baterias",
+    default: "Carreiras | Grupo WG",
+    template: "%s | Carreiras Grupo WG",
   },
   description:
-    "Trabalhe conosco. Confira as oportunidades abertas no Grupo WG / WG Baterias e faça parte do nosso time.",
+    "Trabalhe conosco. Confira as oportunidades abertas no Grupo WG e faça parte do nosso time.",
   robots: {
     index: true,
     follow: true,
   },
   openGraph: {
     type: "website",
-    siteName: "Carreiras WG Baterias",
-    title: "Carreiras WG Baterias — Faça parte do nosso time",
+    siteName: "Carreiras Grupo WG",
+    title: "Carreiras Grupo WG — Faça parte do nosso time",
     description:
       "Confira as vagas abertas no Grupo WG. Oportunidades nas regiões Sul e Sudeste do Brasil.",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Carreiras WG Baterias",
+    title: "Carreiras Grupo WG",
     description: "Confira as vagas abertas no Grupo WG.",
   },
 };

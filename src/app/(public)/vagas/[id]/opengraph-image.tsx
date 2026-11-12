@@ -102,7 +102,7 @@ export default async function OgImage({
               marginBottom: 20,
             }}
           >
-            Vaga aberta — Grupo WG Baterias
+            Vaga aberta — Grupo WG
           </span>
 
           <span

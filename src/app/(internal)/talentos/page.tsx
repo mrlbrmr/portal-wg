@@ -9,7 +9,7 @@ import { listTags } from "@/lib/talentos/service";
 import type { SegmentDto } from "@/lib/talentos/actions";
 import { TalentBank } from "@/components/internal/talentos/TalentBank";
 
-export const metadata: Metadata = { title: "Banco de Talentos — RH" };
+export const metadata: Metadata = { title: "Banco de talentos — RH" };
 
 interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

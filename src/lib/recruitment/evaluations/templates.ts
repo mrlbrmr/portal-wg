@@ -20,7 +20,7 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
       "Síntese do perfil",
       "Trajetória profissional",
       "Avaliação por critério",
-      "Teste comportamental",
+      "Avaliação comportamental",
       "Remuneração, jornada e logística",
       "Pontos fortes",
       "Pontos de atenção",

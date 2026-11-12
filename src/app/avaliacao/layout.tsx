@@ -5,7 +5,7 @@ export default function AvaliacaoLayout({ children }: { children: React.ReactNod
         <div className="w-8 h-8 bg-wg-green rounded-lg flex items-center justify-center">
           <span className="text-white text-xs font-bold">WG</span>
         </div>
-        <span className="text-sm font-semibold text-gray-800">Avaliação Online — WG Baterias</span>
+        <span className="text-sm font-semibold text-gray-800">Avaliação online — Grupo WG</span>
       </header>
       <main>{children}</main>
     </div>

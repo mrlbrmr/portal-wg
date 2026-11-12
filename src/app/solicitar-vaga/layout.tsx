@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Abertura de Vaga | WG Baterias",
+  title: "Solicitar contratação",
   description: "Formulário de solicitação de abertura de vaga para gestores do Grupo WG.",
 };
 

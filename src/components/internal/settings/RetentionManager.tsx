@@ -88,7 +88,7 @@ export function RetentionManager({ months: initialMonths, rows }: { months: numb
         }
       >
         {eligible.length === 0 ? (
-          <EmptyState compact icon={ShieldCheck} title="Nenhum cadastro venceu o prazo." description="Quando algum passar de um tempo sem atividade, ele aparece aqui." />
+          <EmptyState compact icon={ShieldCheck} title="Nenhum cadastro venceu o prazo." description="Quando algum cadastro passar do prazo sem atividade, ele aparece aqui para revisão." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-body">

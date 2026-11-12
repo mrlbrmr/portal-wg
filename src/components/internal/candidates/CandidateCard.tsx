@@ -111,7 +111,7 @@ function CandidateCardBase({
         >
           <ClipboardCheck className="h-3.5 w-3.5" aria-hidden />
           {c.assessmentCount}
-          <span className="sr-only"> avaliações</span>
+          <span className="sr-only"> {c.assessmentCount === 1 ? "avaliação" : "avaliações"}</span>
         </span>
       )}
       {resumeHref && !isOverlay && (

@@ -203,7 +203,7 @@ export function TemplateBancoList({ templates: initial, canManage }: Props) {
                 <th scope="col" className={cn(thClass, 'hidden lg:table-cell')}>Questões</th>
                 <th scope="col" className={cn(thClass, 'hidden lg:table-cell')}>Duração</th>
                 <th scope="col" className={cn(thClass, 'hidden md:table-cell')}>Critério</th>
-                <th scope="col" className={cn(thClass, 'hidden sm:table-cell text-right')}>Aplicações</th>
+                <th scope="col" className={cn(thClass, 'hidden sm:table-cell text-right')}>Envios</th>
                 <th scope="col" className={thClass}>Status</th>
                 <th scope="col" className={cn(thClass, 'w-12')}><span className="sr-only">Ações</span></th>
               </tr>

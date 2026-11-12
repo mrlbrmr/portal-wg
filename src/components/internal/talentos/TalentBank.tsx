@@ -499,7 +499,7 @@ export function TalentBank({
         <div className="min-w-0">
           <h1 className="flex items-center gap-2 font-sora text-2xl font-semibold tracking-tight text-wg-ink md:text-page-title">
             <Star className="h-6 w-6 text-wg-green-dark" aria-hidden />
-            Banco de Talentos
+            Banco de talentos
           </h1>
           <p className="mt-1 text-body text-wg-ink-muted">Encontre, organize e reutilize talentos em futuras oportunidades.</p>
         </div>
@@ -542,7 +542,7 @@ export function TalentBank({
         <div className="rounded-card border border-wg-border-lighter bg-white">
           <EmptyState
             icon={Star}
-            title="Seu Banco de Talentos está vazio"
+            title="Seu banco de talentos está vazio"
             description="Talentos adicionados para futuras oportunidades aparecerão aqui."
             action={
               canManage ? (

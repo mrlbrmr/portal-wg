@@ -8,7 +8,7 @@ export type DigitalFormState = "NOT_SENT" | "WAITING" | "EXPIRED" | "SUBMITTED";
 
 export const DIGITAL_FORM_META: Record<DigitalFormState, { label: string; tone: "neutral" | "warning" | "danger" | "success" }> = {
   NOT_SENT: { label: "Formulário não enviado", tone: "neutral" },
-  WAITING: { label: "Aguardando candidato", tone: "warning" },
+  WAITING: { label: "Aguardando formulário", tone: "warning" },
   EXPIRED: { label: "Link expirado", tone: "danger" },
   SUBMITTED: { label: "Formulário recebido", tone: "success" },
 };

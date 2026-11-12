@@ -293,7 +293,7 @@ export function JobRequestFormFields({
       <Section title="Dados da solicitação">
         <div className="grid md:grid-cols-2 gap-4">
           <Field
-            label="Título da vaga"
+            label="Cargo solicitado"
             htmlFor="jr-title"
             required
             error={errors.title}

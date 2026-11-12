@@ -308,7 +308,7 @@ export function EvaluationsHub(props: Props) {
         canManage &&
         groups.interviews.length > 0 && (
           <Button size="sm" variant="tertiary" icon={Plus} onClick={() => setDialog({ type: "interview", existing: null })}>
-            Registrar entrevista
+            Registrar parecer
           </Button>
         )
       }
@@ -334,7 +334,7 @@ export function EvaluationsHub(props: Props) {
           action={
             canManage && (
               <Button size="sm" variant="secondary" icon={Plus} onClick={() => setDialog({ type: "interview", existing: null })}>
-                Registrar entrevista
+                Registrar parecer
               </Button>
             )
           }

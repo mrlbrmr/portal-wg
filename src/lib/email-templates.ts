@@ -271,6 +271,37 @@ export function jobRequestReceivedEmail(input: {
   };
 }
 
+/** Confirmação ao GESTOR no envio do formulário público (ele não tem login no painel). */
+export function jobRequestSubmittedEmail(input: {
+  requesterName: string | null;
+  jobTitle: string;
+  requestCode?: string | null;
+  rows: Array<[string, string]>;
+}): { subject: string; html: string } {
+  const funcao = input.jobTitle || "vaga sem título";
+  const codigo = input.requestCode ? `${input.requestCode} · ` : "";
+  const saudacao = input.requesterName ? `Olá, ${escapeHtml(input.requesterName.split(" ")[0])}!` : "Olá!";
+
+  return {
+    subject: `Recebemos sua solicitação ${codigo}${funcao}`,
+    html: layout({
+      preview: `Sua solicitação de ${funcao} foi recebida e aguarda a validação do RH.`,
+      chip: { label: "Recebida", bg: "#E9EDFA", color: "#3C56A8" },
+      title: "Recebemos sua solicitação",
+      body: [
+        paragraph(`<strong style="color:${INK}">${saudacao}</strong>`),
+        paragraph(
+          `Sua solicitação de <strong style="color:${INK}">${escapeHtml(funcao)}</strong>${
+            input.requestCode ? ` (${escapeHtml(input.requestCode)})` : ""
+          } chegou ao time de Gente &amp; Gestão. Os próximos passos são a validação do RH e a aprovação; a vaga só é aberta depois disso. Você recebe um e-mail a cada etapa.`
+        ),
+        dataTable(input.rows),
+        spacer(8),
+      ].join(""),
+    }),
+  };
+}
+
 export type DecisionKind =
   | "IN_REVIEW"
   | "RETURNED"

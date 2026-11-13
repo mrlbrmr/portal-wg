@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useId } from "react";
+import { getRecaptchaToken } from "@/lib/recaptcha-client";
 import { Loader2, CheckCircle2, Upload, Paperclip } from "lucide-react";
 import { maskPhone, maskCpf, BRAZIL_STATES } from "@/lib/utils";
 import { COUNTRIES } from "@/lib/data/countries";
@@ -14,45 +15,6 @@ const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 const MAX_MB = 5;
 const ACCEPT = ".pdf,.doc,.docx";
 
-// Carrega o script do reCAPTCHA v3 sob demanda e devolve um token.
-let recaptchaLoading: Promise<void> | null = null;
-function loadRecaptcha(): Promise<void> {
-  if (!SITE_KEY) return Promise.resolve();
-  if (typeof window !== "undefined" && (window as unknown as { grecaptcha?: unknown }).grecaptcha) {
-    return Promise.resolve();
-  }
-  if (recaptchaLoading) return recaptchaLoading;
-  recaptchaLoading = new Promise<void>((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = `https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => {
-      recaptchaLoading = null;
-      reject(new Error("recaptcha_load_failed"));
-    };
-    document.head.appendChild(s);
-  });
-  return recaptchaLoading;
-}
-
-async function getRecaptchaToken(): Promise<string | null> {
-  if (!SITE_KEY) return null;
-  try {
-    await loadRecaptcha();
-    const grecaptcha = (window as unknown as {
-      grecaptcha?: { ready: (cb: () => void) => void; execute: (k: string, o: { action: string }) => Promise<string> };
-    }).grecaptcha;
-    if (!grecaptcha) return null;
-    return await new Promise<string>((resolve) => {
-      grecaptcha.ready(() => {
-        grecaptcha.execute(SITE_KEY as string, { action: "submit_application" }).then(resolve);
-      });
-    });
-  } catch {
-    return null;
-  }
-}
 
 const IBGE_CACHE_KEY = "wg_ibge_cities";
 const IBGE_CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -177,7 +139,7 @@ export function ApplicationForm({ jobId, jobTitle }: Props) {
 
     setIsLoading(true);
     try {
-      const token = await getRecaptchaToken();
+      const token = await getRecaptchaToken("submit_application");
 
       const data = new FormData(formEl);
       data.set("jobId", jobId);

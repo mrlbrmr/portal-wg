@@ -14,7 +14,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_FORM_CONFIG } from "@/lib/form-config-defaults";
 import { rateLimit } from "@/lib/rate-limit";
 import { isValidEmail, rhInboxEmail, sendEmail } from "@/lib/email";
-import { jobRequestReceivedEmail } from "@/lib/email-templates";
+import { jobRequestReceivedEmail, jobRequestSubmittedEmail } from "@/lib/email-templates";
+import { verifyRecaptcha } from "@/lib/recaptcha";
+import { isHoneypotFilled } from "@/lib/job-requests/submission-guard";
+import { formatDateBR } from "@/lib/job-requests/mapping";
 import { createJobRequest } from "@/lib/job-requests/service";
 import { jobRequestPayloadSchema } from "@/lib/job-requests/schema";
 import { pruneHiddenExtraData, validateExtraData } from "@/lib/job-requests/extra-fields";
@@ -49,6 +52,26 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Corpo da requisição inválido" }, { status: 400 });
+  }
+
+  // Campo-isca preenchido = robô. Responde como sucesso (não ensina o robô) e não grava nada.
+  if (isHoneypotFilled(body)) {
+    console.warn("[job-requests] campo-isca preenchido; ignorado", { ip });
+    return NextResponse.json({ success: true, requestId: null, requestCode: null }, { status: 201 });
+  }
+
+  // reCAPTCHA v3 consultivo: só barra bot evidente (token válido + score muito baixo).
+  const recaptchaToken =
+    body && typeof body === "object" ? (body as Record<string, unknown>).recaptchaToken : null;
+  const captcha = await verifyRecaptcha(typeof recaptchaToken === "string" ? recaptchaToken : null, {
+    expectedAction: "submit_job_request",
+    remoteIp: ip !== "unknown" ? ip : undefined,
+  });
+  if (!captcha.ok) {
+    return NextResponse.json(
+      { error: "Falha na verificação de segurança. Recarregue a página e tente novamente." },
+      { status: 400 }
+    );
   }
 
   const parsed = jobRequestPayloadSchema.safeParse(body);
@@ -101,7 +124,7 @@ export async function POST(req: NextRequest) {
       ...(payload.workSchedule
         ? ([["Horário / Jornada", payload.workSchedule]] as Array<[string, string]>)
         : []),
-      ["Data desejada para admissão", payload.desiredStartDate],
+      ["Data desejada para admissão", formatDateBR(payload.desiredStartDate)],
       ["Justificativa", payload.justification],
       ...extraFields
         .filter((f) => (payload.extraData[f.key] ?? "").trim())
@@ -121,6 +144,24 @@ export async function POST(req: NextRequest) {
       html,
       ...(isValidEmail(payload.requesterEmail) ? { replyTo: payload.requesterEmail } : {}),
     }).catch((err) => console.error("[email] nova solicitação:", err));
+  }
+
+  // Confirmação ao gestor: a tela promete "um e-mail a cada etapa" — este é o primeiro.
+  if (isValidEmail(payload.requesterEmail)) {
+    const { subject, html } = jobRequestSubmittedEmail({
+      requesterName: payload.requesterName,
+      jobTitle: payload.title,
+      requestCode: result.data.code,
+      rows: [
+        ["Filial", payload.location ?? ""],
+        ["Área", payload.department ?? ""],
+        ["Número de posições", String(payload.openings)],
+        ["Data desejada para admissão", formatDateBR(payload.desiredStartDate)],
+      ],
+    });
+    sendEmail({ to: payload.requesterEmail, subject, html }).catch((err) =>
+      console.error("[email] confirmação ao gestor:", err)
+    );
   }
 
   return NextResponse.json(

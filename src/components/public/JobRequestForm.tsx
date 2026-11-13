@@ -6,6 +6,8 @@
 // seletivo) só é aberta pelo RH depois que a solicitação for validada e aprovada.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getRecaptchaToken } from "@/lib/recaptcha-client";
+import { HONEYPOT_FIELD } from "@/lib/job-requests/submission-guard";
 import type { OrgUnit } from "@/lib/registries/org-units";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import {
@@ -42,6 +44,8 @@ export function JobRequestForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [errorTick, setErrorTick] = useState(0);
+  // Campo-isca: invisível para pessoas; robôs simples o preenchem.
+  const [honeypot, setHoneypot] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   // O aviso geral fica ao lado do botão, no fim do formulário; em celular o campo com
@@ -74,10 +78,11 @@ export function JobRequestForm({
     setIsLoading(true);
 
     try {
+      const recaptchaToken = await getRecaptchaToken("submit_job_request");
       const res = await fetch("/api/job-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(toPayload(values)),
+        body: JSON.stringify({ ...toPayload(values), recaptchaToken, [HONEYPOT_FIELD]: honeypot }),
       });
 
       if (!res.ok) {
@@ -130,6 +135,19 @@ export function JobRequestForm({
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-8">
+      {/* Campo-isca (anti-robô): fora da tela, sem tab e sem autocomplete. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+        <label htmlFor="jr-website">Não preencha este campo</label>
+        <input
+          id="jr-website"
+          name={HONEYPOT_FIELD}
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+        />
+      </div>
       <JobRequestFormFields
         values={values}
         onChange={patch}

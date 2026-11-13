@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Briefcase } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadOrgUnits } from "@/lib/registries/org-units-data";
 import { DEFAULT_FORM_CONFIG } from "@/lib/form-config-defaults";
 import { PageHeader } from "@/components/internal/PageHeader";
 import { JobRequestStatusBadge } from "@/components/internal/job-requests/JobRequestStatusBadge";
@@ -31,25 +32,7 @@ async function loadExtraFields(): Promise<FormFieldConfig[]> {
 }
 
 async function loadSuggestions() {
-  const supabase = createAdminClient();
-  const [jobsRes, reqRes] = await Promise.all([
-    supabase.from("jobs").select("company, department").limit(500),
-    supabase.from("job_requests").select("location, department").limit(500),
-  ]);
-  const units = new Set<string>();
-  const departments = new Set<string>();
-  for (const j of (jobsRes.data ?? []) as Array<{ company: string | null; department: string | null }>) {
-    if (j.company?.trim()) units.add(j.company.trim());
-    if (j.department?.trim()) departments.add(j.department.trim());
-  }
-  for (const r of (reqRes.data ?? []) as Array<{ location: string | null; department: string | null }>) {
-    if (r.location?.trim()) units.add(r.location.trim());
-    if (r.department?.trim()) departments.add(r.department.trim());
-  }
-  return {
-    units: [...units].sort((a, b) => a.localeCompare(b, "pt-BR")),
-    departments: [...departments].sort((a, b) => a.localeCompare(b, "pt-BR")),
-  };
+  return loadOrgUnits(createAdminClient());
 }
 
 export default async function SolicitacaoPage({
@@ -110,8 +93,8 @@ export default async function SolicitacaoPage({
             request={request}
             actor={actor}
             extraFields={extraFields}
-            unitOptions={suggestions.units}
-            departmentOptions={suggestions.departments}
+            branchOptions={suggestions.branches}
+            areaOptions={suggestions.areas}
           />
         </div>
 

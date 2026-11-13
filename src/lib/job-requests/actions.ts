@@ -146,7 +146,13 @@ export async function createJobRequestInternal(
     actorName: actor.name,
     asDraft,
   });
-  if (!res.ok) return { ok: false, error: res.error };
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: res.field ? "Revise os campos destacados." : res.error,
+      ...(res.field ? { fieldErrors: { [res.field]: [res.error] } } : {}),
+    };
+  }
   return { ok: true, id: res.data.id, code: res.data.code };
 }
 
@@ -180,7 +186,8 @@ export async function saveJobRequest(
   if (!res.ok) {
     return {
       ok: false,
-      error: res.error,
+      error: res.field ? "Revise os campos destacados." : res.error,
+      ...(res.field ? { fieldErrors: { [res.field]: [res.error] } } : {}),
       // A recusa por reaprovação é a única que o usuário pode "vencer" confirmando.
       needsConfirmation: res.error.includes("nova aprovação"),
     };

@@ -22,9 +22,13 @@ const isoDate = z
 export const jobRequestPayloadSchema = z
   .object({
     // ── Dados da solicitação ──
-    title: z.string().trim().min(2, "Informe o título da vaga"),
-    department: z.string().trim().min(2, "Informe a área / departamento"),
-    location: z.string().trim().min(2, "Informe a empresa / unidade"),
+    title: z.string().trim().min(2, "Informe o cargo solicitado"),
+    // Filial e área vêm dos cadastros (ids); o servidor grava o NOME em location/department.
+    // Os textos chegam só como legado de solicitação antiga sem cadastro.
+    branchId: z.string().trim().min(1).nullish().transform((v) => v || null),
+    areaId: z.string().trim().min(1).nullish().transform((v) => v || null),
+    department: optionalText(120),
+    location: optionalText(120),
     requesterName: z.string().trim().min(2, "Informe o gestor requisitante"),
     requesterEmail: z.string().trim().email("Informe um e-mail válido"),
     openings: z.coerce.number().int().min(1, "A quantidade deve ser ao menos 1").max(999),
@@ -64,6 +68,8 @@ export type JobRequestPayload = z.infer<typeof jobRequestPayloadSchema>;
 /** Campos que o solicitante pode salvar como rascunho sem passar pela validação completa. */
 export const jobRequestDraftSchema = z.object({
   title: optionalText(200),
+  branchId: z.string().trim().min(1).nullish().transform((v) => v || null),
+  areaId: z.string().trim().min(1).nullish().transform((v) => v || null),
   department: optionalText(120),
   location: optionalText(120),
   requesterName: optionalText(200),
@@ -94,6 +100,8 @@ export function payloadToColumns(data: JobRequestColumnsInput): Record<string, u
     title: data.title ?? null,
     department: data.department ?? null,
     location: data.location ?? null,
+    branch_id: data.branchId ?? null,
+    area_id: data.areaId ?? null,
     requester_name: data.requesterName ?? null,
     requester_email: data.requesterEmail ?? null,
     openings: data.openings ?? null,

@@ -5,6 +5,7 @@
 // rascunho em vez de já enviar para a fila do RH.
 
 import { useState, useTransition } from "react";
+import type { OrgUnit } from "@/lib/registries/org-units";
 import { useRouter } from "next/navigation";
 import { FileText, Loader2, Send } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -19,15 +20,15 @@ import type { FormFieldConfig } from "@/types/form-config";
 
 interface Props {
   extraFields: FormFieldConfig[];
-  unitOptions: string[];
-  departmentOptions: string[];
+  branchOptions: OrgUnit[];
+  areaOptions: OrgUnit[];
   currentUser: { name: string | null; email: string | null };
 }
 
 export function NewJobRequestForm({
   extraFields,
-  unitOptions,
-  departmentOptions,
+  branchOptions,
+  areaOptions,
   currentUser,
 }: Props) {
   const router = useRouter();
@@ -70,8 +71,8 @@ export function NewJobRequestForm({
         onChange={(p) => setValues((prev) => ({ ...prev, ...p }))}
         errors={errors}
         extraFields={extraFields}
-        unitOptions={unitOptions}
-        departmentOptions={departmentOptions}
+        branchOptions={branchOptions}
+        areaOptions={areaOptions}
       />
 
       <div className="mt-6 flex flex-wrap gap-2 border-t border-[#E7EEDD] pt-4">

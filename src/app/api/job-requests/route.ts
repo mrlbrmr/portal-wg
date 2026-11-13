@@ -79,6 +79,9 @@ export async function POST(req: NextRequest) {
   });
 
   if (!result.ok) {
+    if (result.field) {
+      return NextResponse.json({ fieldErrors: { [result.field]: [result.error] } }, { status: 422 });
+    }
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
@@ -87,8 +90,8 @@ export async function POST(req: NextRequest) {
   if (rhEmail) {
     const rows: Array<[string, string]> = [
       ["Gestor requisitante", payload.requesterName],
-      ["Área / Departamento", payload.department],
-      ["Empresa / Unidade", payload.location],
+      ["Área", payload.department ?? ""],
+      ["Filial", payload.location ?? ""],
       ["Número de posições", String(payload.openings)],
       ["Motivo da abertura", JOB_REQUEST_REASON_LABELS[payload.reasonType]],
       ...(payload.replacedEmployee

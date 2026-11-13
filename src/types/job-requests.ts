@@ -23,8 +23,11 @@ export interface JobRequestRow {
   // ── Dados da solicitação ──
   title: string | null;
   department: string | null;
-  /** Empresa / Unidade. */
+  /** Nome da filial (texto gravado; legado em solicitações antigas). */
   location: string | null;
+  /** Cadastros: null em solicitações antigas. */
+  branchId: string | null;
+  areaId: string | null;
   requesterName: string | null;
   requesterEmail: string | null;
   requestedByUserId: string | null;

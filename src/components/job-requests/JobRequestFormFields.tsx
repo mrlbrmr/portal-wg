@@ -9,6 +9,7 @@
 // encerramento): isso é decisão da VAGA, depois da aprovação.
 
 import { useCallback, type ReactNode } from "react";
+import { selectableOptions, type OrgUnit } from "@/lib/registries/org-units";
 import { ChevronDown } from "lucide-react";
 import type { FormFieldConfig } from "@/types/form-config";
 import { BOOLEAN_OPTIONS, isFieldVisible, parseMulti, serializeMulti } from "@/lib/job-requests/extra-fields";
@@ -23,8 +24,12 @@ import {
 
 export interface JobRequestFormValues {
   title: string;
+  /** Texto legado (solicitação antiga sem cadastro) — o servidor grava o nome da área/filial. */
   department: string;
   location: string;
+  /** Cadastros (Configurações › Cadastros). */
+  branchId: string;
+  areaId: string;
   requesterName: string;
   requesterEmail: string;
   openings: string;
@@ -41,6 +46,8 @@ export const EMPTY_JOB_REQUEST_FORM: JobRequestFormValues = {
   title: "",
   department: "",
   location: "",
+  branchId: "",
+  areaId: "",
   requesterName: "",
   requesterEmail: "",
   openings: "1",
@@ -57,8 +64,10 @@ export const EMPTY_JOB_REQUEST_FORM: JobRequestFormValues = {
 export function toPayload(v: JobRequestFormValues) {
   return {
     title: v.title.trim(),
-    department: v.department.trim(),
-    location: v.location.trim(),
+    department: v.department.trim() || null,
+    location: v.location.trim() || null,
+    branchId: v.branchId || null,
+    areaId: v.areaId || null,
     requesterName: v.requesterName.trim(),
     requesterEmail: v.requesterEmail.trim(),
     openings: Number(v.openings) || 0,
@@ -255,9 +264,9 @@ export interface Props {
   errors?: Record<string, string>;
   /** Perguntas extras configuradas pelo RH. */
   extraFields?: FormFieldConfig[];
-  /** Sugestões de Empresa/Unidade e Área já usadas no sistema. */
-  unitOptions?: string[];
-  departmentOptions?: string[];
+  /** Cadastros de Filiais e Áreas (o select mostra os ativos + o atual). */
+  branchOptions?: OrgUnit[];
+  areaOptions?: OrgUnit[];
   /** Cargos do cadastro (Configurações › Cadastros › Cargos) — o mesmo nome segue até a admissão. */
   positionOptions?: string[];
   /** Trava o gestor requisitante (preenchido pela sessão). */
@@ -271,8 +280,8 @@ export function JobRequestFormFields({
   onChange,
   errors = {},
   extraFields = [],
-  unitOptions = [],
-  departmentOptions = [],
+  branchOptions = [],
+  areaOptions = [],
   positionOptions = [],
   lockRequester = false,
   criticalHighlight = false,
@@ -324,38 +333,48 @@ export function JobRequestFormFields({
             </>
           </Field>
 
-          <Field label="Área / Departamento" htmlFor="jr-department" required error={errors.department}>
-            <input
-              id="jr-department"
-              type="text"
-              list="jr-department-options"
-              value={values.department}
-              onChange={(e) => onChange({ department: e.target.value })}
-              placeholder="Ex: Logística, Comercial, Financeiro"
+          <Field label="Área" htmlFor="jr-area" required error={errors.areaId}>
+            <select
+              id="jr-area"
+              value={values.areaId}
+              onChange={(e) => onChange({ areaId: e.target.value })}
               className={inputClass}
-            />
-            <datalist id="jr-department-options">
-              {departmentOptions.map((d) => (
-                <option key={d} value={d} />
+            >
+              <option value="">Selecione a área</option>
+              {selectableOptions(areaOptions, values.areaId || null).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {a.active ? "" : " (desativada)"}
+                </option>
               ))}
-            </datalist>
+            </select>
+            {!values.areaId && values.department && (
+              <p className="mt-1 text-xs text-amber-700">Valor antigo: {values.department}. Escolha a área para atualizar.</p>
+            )}
           </Field>
 
-          <Field label="Empresa / Unidade" htmlFor="jr-location" required error={errors.location}>
-            <input
-              id="jr-location"
-              type="text"
-              list="jr-unit-options"
-              value={values.location}
-              onChange={(e) => onChange({ location: e.target.value })}
-              placeholder="Ex: WG Baterias — Matriz"
-              className={inputClass}
-            />
-            <datalist id="jr-unit-options">
-              {unitOptions.map((u) => (
-                <option key={u} value={u} />
-              ))}
-            </datalist>
+          <Field label="Filial" htmlFor="jr-branch" required error={errors.branchId}>
+            <>
+              <select
+                id="jr-branch"
+                value={values.branchId}
+                onChange={(e) => onChange({ branchId: e.target.value })}
+                className={inputClass}
+              >
+                <option value="">Selecione a filial</option>
+                {selectableOptions(branchOptions, values.branchId || null).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                    {b.city ? ` — ${b.city}${b.state ? `/${b.state}` : ""}` : ""}
+                    {b.active ? "" : " (desativada)"}
+                  </option>
+                ))}
+              </select>
+              {!values.branchId && values.location && (
+                <p className="mt-1 text-xs text-amber-700">Valor antigo: {values.location}. Escolha a filial para atualizar.</p>
+              )}
+              
+            </>
           </Field>
 
           <Field

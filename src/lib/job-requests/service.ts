@@ -37,11 +37,15 @@ import {
   type WorkflowActor,
   type WorkflowRequest,
 } from "./workflow";
+import { loadOrgUnits } from "@/lib/registries/org-units-data";
+import { resolveOrgUnits } from "@/lib/registries/org-units";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { payloadToColumns, type JobRequestDraft, type JobRequestPayload } from "./schema";
 
 export type ServiceResult<T = undefined> =
   | { ok: true; data: T }
-  | { ok: false; error: string };
+  /** `field` = erro de um campo do formulário (ex.: filial inexistente). */
+  | { ok: false; error: string; field?: string };
 
 const LIST_PATH = "/solicitacoes";
 
@@ -79,7 +83,7 @@ export async function currentActor(): Promise<WorkflowActor | null> {
 const SELECT_COLUMNS = `
   id, code, status, title, department, location, requester_name, requester_email,
   requested_by_user_id, openings, reason_type, replaced_employee, justification,
-  desired_start_date, contract_type, work_schedule, extra_data,
+  desired_start_date, contract_type, work_schedule, extra_data, branch_id, area_id,
   submitted_at, hr_validated_at, hr_validated_by,
   current_approver_user_id, approved_at, approved_by_name, decision_note, decided_by,
   decided_at, job_id, created_at, updated_at
@@ -87,6 +91,8 @@ const SELECT_COLUMNS = `
 
 interface RawRequest {
   id: string;
+  branch_id?: string | null;
+  area_id?: string | null;
   code: string | null;
   status: JobRequestStatus;
   title: string | null;
@@ -137,6 +143,8 @@ function toRow(
     title: r.title,
     department: r.department,
     location: r.location,
+    branchId: r.branch_id ?? null,
+    areaId: r.area_id ?? null,
     requesterName: r.requester_name,
     requesterEmail: r.requester_email,
     requestedByUserId: r.requested_by_user_id,
@@ -680,6 +688,35 @@ export async function createJobFromRequest(
 
 // ─── Criação e edição ─────────────────────────────────────────────────────────
 
+/**
+ * Resolve filial e área pelos cadastros e grava o NOME em location/department do payload
+ * (o texto que vagas, feeds e e-mails leem). Erro vem com o campo para a tela destacar.
+ */
+async function applyOrgUnits(
+  client: SupabaseClient,
+  payload: { branchId?: string | null; areaId?: string | null; location?: string | null; department?: string | null },
+  opts: { requireIds: boolean; legacyLocation?: string | null; legacyDepartment?: string | null }
+): Promise<{ ok: true } | { ok: false; error: string; field: string }> {
+  const { branches, areas } = await loadOrgUnits(client);
+  const r = resolveOrgUnits(
+    {
+      branchId: payload.branchId,
+      areaId: payload.areaId,
+      legacyLocation: payload.location ?? opts.legacyLocation ?? null,
+      legacyDepartment: payload.department ?? opts.legacyDepartment ?? null,
+    },
+    branches,
+    areas,
+    { requireIds: opts.requireIds }
+  );
+  if (!r.ok) return { ok: false, error: r.message, field: r.field };
+  payload.branchId = r.branchId;
+  payload.areaId = r.areaId;
+  payload.location = r.location;
+  payload.department = r.department;
+  return { ok: true };
+}
+
 export interface CreateInput {
   payload: JobRequestPayload;
   /** Público (sem sessão) ou interno. */
@@ -702,6 +739,10 @@ export async function createJobRequest(
   // Sem sessão (formulário público) o insert vai pelo service-role: a RLS de job_requests
   // só permite escrita a ADMIN_RH, e o gestor que preenche o formulário não tem login.
   const supabase = input.requestedByUserId ? await createClient() : createAdminClient();
+
+  // Filial e área do cadastro: envio exige as duas (rascunho pode ficar sem).
+  const units = await applyOrgUnits(supabase, input.payload, { requireIds: !input.asDraft });
+  if (!units.ok) return units;
 
   const { data, error } = await supabase
     .from("job_requests")
@@ -778,6 +819,14 @@ export async function updateJobRequest(
 
   const raw = await loadRaw(requestId);
   if (!raw) return { ok: false, error: "Solicitação não encontrada." };
+
+  // Antes dos campos críticos: a troca de filial muda o texto de location e conta como crítica.
+  const units = await applyOrgUnits(await createClient(), payload, {
+    requireIds: false,
+    legacyLocation: raw.location,
+    legacyDepartment: raw.department,
+  });
+  if (!units.ok) return units;
 
   const before: Record<CriticalField, unknown> = {
     title: raw.title,

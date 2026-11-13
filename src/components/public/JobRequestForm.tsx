@@ -6,6 +6,7 @@
 // seletivo) só é aberta pelo RH depois que a solicitação for validada e aprovada.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { OrgUnit } from "@/lib/registries/org-units";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import {
   EMPTY_JOB_REQUEST_FORM,
@@ -17,8 +18,8 @@ import type { FormConfig } from "@/types/form-config";
 
 interface Props {
   config: FormConfig;
-  unitOptions?: string[];
-  departmentOptions?: string[];
+  branchOptions?: OrgUnit[];
+  areaOptions?: OrgUnit[];
   positionOptions?: string[];
   /** Quando o gestor está logado, o requisitante já vem preenchido e travado. */
   currentUser?: { name: string | null; email: string | null } | null;
@@ -26,8 +27,8 @@ interface Props {
 
 export function JobRequestForm({
   config,
-  unitOptions = [],
-  departmentOptions = [],
+  branchOptions = [],
+  areaOptions = [],
   positionOptions = [],
   currentUser = null,
 }: Props) {
@@ -134,8 +135,8 @@ export function JobRequestForm({
         onChange={patch}
         errors={errors}
         extraFields={config.fields}
-        unitOptions={unitOptions}
-        departmentOptions={departmentOptions}
+        branchOptions={branchOptions}
+        areaOptions={areaOptions}
         positionOptions={positionOptions}
         lockRequester={Boolean(currentUser?.name && currentUser?.email)}
       />

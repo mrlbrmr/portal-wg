@@ -1,10 +1,11 @@
 import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadOrgUnits } from "@/lib/registries/org-units-data";
+import type { OrgUnit } from "@/lib/registries/org-units";
 import { JobRequestForm } from "@/components/public/JobRequestForm";
 import { JobRequestIntro } from "@/components/job-requests/JobRequestIntro";
 import { loadJobRequestFormConfig } from "@/lib/job-requests/form-config-loader";
-import { JOB_REQUEST_REASON_LABELS } from "@/lib/job-requests/constants";
 import type { FormConfig } from "@/types/form-config";
 
 // Render dinâmico: a página lê a sessão (para pré-preencher o gestor requisitante) e as
@@ -16,45 +17,17 @@ async function loadConfig(): Promise<FormConfig> {
   return { title, description, fields };
 }
 
-// O fluxo antigo gravava o MOTIVO da abertura em jobs.department; sem este filtro esses
-// valores voltariam como sugestão de "Área / Departamento".
-const REASON_LABELS = new Set(
-  [...Object.values(JOB_REQUEST_REASON_LABELS), "Expansão de equipe"].map((l) => l.toLowerCase())
-);
-
-/** Sugestões de Empresa/Unidade e Área já usadas, para o gestor não inventar variações. */
-async function loadSuggestions(): Promise<{ units: string[]; departments: string[]; positions: string[] }> {
+/** Filiais e áreas dos cadastros e cargos sugeridos, para o gestor não inventar variações. */
+async function loadSuggestions(): Promise<{ branches: OrgUnit[]; areas: OrgUnit[]; positions: string[] }> {
   const supabase = createAdminClient();
-  const [jobsRes, requestsRes, positionsRes] = await Promise.all([
-    supabase.from("jobs").select("company, department").limit(500),
-    supabase.from("job_requests").select("location, department").limit(500),
+  const [orgUnits, positionsRes] = await Promise.all([
+    loadOrgUnits(supabase),
     // Cargos ativos do cadastro: o gestor escolhe o mesmo nome que a admissão vai usar.
     supabase.from("admission_positions").select("name").eq("active", true).order("sortOrder", { ascending: true }),
   ]);
-
-  const units = new Set<string>();
-  const departments = new Set<string>();
-  for (const j of (jobsRes.data ?? []) as Array<{
-    company: string | null;
-    department: string | null;
-  }>) {
-    if (j.company?.trim()) units.add(j.company.trim());
-    if (j.department?.trim()) departments.add(j.department.trim());
-  }
-  for (const r of (requestsRes.data ?? []) as Array<{
-    location: string | null;
-    department: string | null;
-  }>) {
-    if (r.location?.trim()) units.add(r.location.trim());
-    if (r.department?.trim()) departments.add(r.department.trim());
-  }
-
   return {
+    ...orgUnits,
     positions: ((positionsRes.data ?? []) as Array<{ name: string }>).map((p) => p.name),
-    units: [...units].sort((a, b) => a.localeCompare(b, "pt-BR")),
-    departments: [...departments]
-      .filter((d) => !REASON_LABELS.has(d.toLowerCase()))
-      .sort((a, b) => a.localeCompare(b, "pt-BR")),
   };
 }
 
@@ -95,8 +68,8 @@ export default async function SolicitarVagaPage() {
 
         <JobRequestForm
           config={config}
-          unitOptions={suggestions.units}
-          departmentOptions={suggestions.departments}
+          branchOptions={suggestions.branches}
+          areaOptions={suggestions.areas}
           positionOptions={suggestions.positions}
           currentUser={
             session ? { name: session.user.name, email: session.user.email } : null

@@ -6,6 +6,7 @@
 // As AÇÕES do workflow ficam em <JobRequestActions>; aqui cuidamos só dos dados.
 
 import { useMemo, useState, useTransition } from "react";
+import type { OrgUnit } from "@/lib/registries/org-units";
 import { AlertTriangle, Loader2, Pencil, Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -34,8 +35,8 @@ interface Props {
   request: JobRequestRow;
   actor: WorkflowActor;
   extraFields: FormFieldConfig[];
-  unitOptions: string[];
-  departmentOptions: string[];
+  branchOptions: OrgUnit[];
+  areaOptions: OrgUnit[];
 }
 
 function toFormValues(r: JobRequestRow): JobRequestFormValues {
@@ -43,6 +44,8 @@ function toFormValues(r: JobRequestRow): JobRequestFormValues {
     title: r.title ?? "",
     department: r.department ?? "",
     location: r.location ?? "",
+    branchId: r.branchId ?? "",
+    areaId: r.areaId ?? "",
     requesterName: r.requesterName ?? "",
     requesterEmail: r.requesterEmail ?? "",
     openings: String(r.openings ?? 1),
@@ -82,8 +85,8 @@ export function JobRequestDetail({
   request,
   actor,
   extraFields,
-  unitOptions,
-  departmentOptions,
+  branchOptions,
+  areaOptions,
 }: Props) {
   const router = useRouter();
   const { notify } = useToast();
@@ -170,8 +173,8 @@ export function JobRequestDetail({
             onChange={(p) => setValues((prev) => ({ ...prev, ...p }))}
             errors={errors}
             extraFields={extraFields}
-            unitOptions={unitOptions}
-            departmentOptions={departmentOptions}
+            branchOptions={branchOptions}
+            areaOptions={areaOptions}
             criticalHighlight={
               request.status === "APPROVED" || request.status === "PENDING_APPROVAL"
             }
@@ -228,8 +231,8 @@ export function JobRequestDetail({
       <Card title="Dados da solicitação">
         <dl className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
           <Row label="Cargo solicitado" value={request.title} />
-          <Row label="Área / Departamento" value={request.department} />
-          <Row label="Empresa / Unidade" value={request.location} />
+          <Row label="Área" value={request.department} />
+          <Row label="Filial" value={request.location} />
           <Row
             label="Gestor requisitante"
             value={

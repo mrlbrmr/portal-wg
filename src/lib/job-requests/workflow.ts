@@ -270,9 +270,9 @@ export const CRITICAL_FIELDS = [
 export type CriticalField = (typeof CRITICAL_FIELDS)[number];
 
 export const CRITICAL_FIELD_LABELS: Record<CriticalField, string> = {
-  title: "Título da vaga",
+  title: "Cargo solicitado",
   openings: "Número de posições",
-  location: "Empresa / Unidade",
+  location: "Filial",
   contractType: "Tipo de contratação",
   reasonType: "Motivo da abertura",
 };

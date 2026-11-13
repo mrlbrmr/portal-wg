@@ -4,6 +4,7 @@ import { uploadAdmissionAttachment, validateAttachmentFile } from '@/lib/admissa
 import { validateAttachmentWithAI } from '@/lib/admissao/ai-validation'
 import { loadFormConfig } from '@/lib/admissao/form-config-loader'
 import { advanceToDocumentIntake } from '@/lib/admissao/advance-document-intake'
+import { renewedFormExpiry } from '@/lib/admissao/form-config'
 
 export async function POST(
   req: NextRequest,
@@ -75,6 +76,18 @@ export async function POST(
     .single()
 
   if (attachment?.id) {
+    // Quem está enviando documentos não perde o link no meio: cada upload garante mais
+    // 7 dias a partir de agora (nunca encurta). Falha aqui não afeta o upload.
+    const renewed = renewedFormExpiry(admission.digitalFormExpiresAt as string | null)
+    if (renewed) {
+      const { error: renewError } = await supabase
+        .from('admissions')
+        .update({ digitalFormExpiresAt: renewed })
+        .eq('id', admission.id)
+        .is('digitalFormSubmittedAt', null)
+      if (renewError) console.warn('[admissao-upload] renovar prazo do link:', renewError.message)
+    }
+
     // Candidato começou a mandar documentos: a admissão vai para a etapa de recebimento.
     const admissionId = admission.id as string
     after(() => advanceToDocumentIntake(supabase, admissionId, 'upload'))

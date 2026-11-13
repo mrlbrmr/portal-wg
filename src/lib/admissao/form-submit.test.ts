@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { birthDateProblem, missingRequiredItems, type DocumentConfig } from './form-config'
+import { birthDateProblem, missingRequiredItems, renewedFormExpiry, type DocumentConfig } from './form-config'
 
 const documents: DocumentConfig[] = [
   { key: 'RG', label: 'RG/CNH', required: true, condition: { type: 'always' } },
@@ -67,4 +67,12 @@ describe('birthDateProblem', () => {
   it('recusa menos de 14 anos (faz 14 amanhã)', () => assert.match(birthDateProblem('2012-11-14', today) ?? '', /14 anos/))
   it('aceita quem faz 14 hoje', () => assert.equal(birthDateProblem('2012-11-13', today), null))
   it('recusa formato inválido', () => assert.ok(birthDateProblem('13/11/2000', today)))
+})
+
+describe('renewedFormExpiry', () => {
+  const now = new Date('2026-11-13T12:00:00Z')
+  it('estende para 7 dias a partir de agora quando falta menos', () =>
+    assert.equal(renewedFormExpiry('2026-11-14T12:00:00Z', now), '2026-11-20T12:00:00.000Z'))
+  it('não encurta um prazo maior', () => assert.equal(renewedFormExpiry('2026-11-30T00:00:00Z', now), null))
+  it('link sem prazo ganha prazo', () => assert.equal(renewedFormExpiry(null, now), '2026-11-20T12:00:00.000Z'))
 })

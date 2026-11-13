@@ -217,6 +217,9 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   (`missingRequiredItems()` em `form-config.ts`, testado; anexos do candidato e do RH contam, recusado e
   descartado não; documento sem tipo no cadastro não bloqueia), valida a data de nascimento
   (`birthDateProblem`) e grava com compare-and-swap (`digitalFormSubmittedAt is null`).
+  **Prazo do link renova por atividade:** cada upload garante 7 dias a partir de agora (`renewedFormExpiry`,
+  nunca encurta). **Rascunho das respostas só no aparelho** (`localStorage` `admissao-rascunho:<token>`,
+  apagado no envio, descartado após 30 dias) — o banco continua recebendo as respostas só no envio final.
 - **Configurações** (`src/app/(internal)/configuracoes/**`): mapa único de seções/páginas/cadastros em
   `src/lib/settings/registry.ts` (home, breadcrumbs e navegação de Cadastros leem dele). Toda página usa
   `SettingsPage` (breadcrumb + container 1180px + "Última alteração"); formulários usam

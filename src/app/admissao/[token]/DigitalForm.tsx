@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { CheckCircle2, Upload, Loader2, AlertTriangle, ChevronRight, ChevronLeft, X } from 'lucide-react'
 import {
   birthDateProblem,
@@ -103,6 +103,9 @@ async function fetchWithTimeout(input: string, init: RequestInit, ms: number): P
     clearTimeout(timer)
   }
 }
+
+/** Rascunho mais velho que isso é descartado (o link costuma vencer antes). */
+const DRAFT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 function labelCls(required: boolean) {
   return `block text-sm font-medium text-gray-700 mb-1 ${required ? "after:content-['*'] after:text-red-500 after:ml-0.5" : ''}`
@@ -369,6 +372,45 @@ export function DigitalForm({
   const [removedIds, setRemovedIds] = useState<string[]>([])
   const [extras, setExtras]       = useState<Record<string, string>>({})
 
+  // ── Rascunho no aparelho ────────────────────────────────────────────────────
+  // O banco só recebe as respostas no envio final (é o envio que avisa o RH). Para quem
+  // fecha a aba no meio não digitar tudo de novo, as respostas ficam neste aparelho
+  // (uma chave por link) e são apagadas no envio. Sem storage (aba anônima), segue normal.
+  const draftKey = `admissao-rascunho:${token}`
+  const [draftReady, setDraftReady] = useState(false)
+  const [draftRestored, setDraftRestored] = useState(false)
+
+  useEffect(() => {
+    if (preview) return
+    try {
+      const raw = window.localStorage.getItem(draftKey)
+      const draft = raw ? JSON.parse(raw) : null
+      if (draft?.v === 1 && Date.now() - Number(draft.savedAt) < DRAFT_MAX_AGE_MS) {
+        if (draft.personal) setPersonal(p => ({ ...p, ...draft.personal }))
+        if (draft.additional) setAdditional(a => ({ ...a, ...draft.additional }))
+        if (draft.extras) setExtras(draft.extras)
+        setDraftRestored(true)
+      } else if (raw) {
+        window.localStorage.removeItem(draftKey)
+      }
+    } catch {
+      // storage bloqueado: o formulário funciona sem rascunho
+    }
+    setDraftReady(true)
+  }, [draftKey, preview])
+
+  useEffect(() => {
+    if (preview || !draftReady) return
+    try {
+      window.localStorage.setItem(
+        draftKey,
+        JSON.stringify({ v: 1, savedAt: Date.now(), personal, additional, extras })
+      )
+    } catch {
+      // sem espaço ou bloqueado: ignora
+    }
+  }, [draftKey, draftReady, preview, personal, additional, extras])
+
   function addFile(key: string, item: UploadState) {
     setUploads(prev => ({ ...prev, [key]: [...(prev[key] ?? []), item] }))
   }
@@ -490,6 +532,10 @@ export function DigitalForm({
     return [...new Set([...hiddenIds, ...removedIds])]
   }
 
+  function clearDraft() {
+    try { window.localStorage.removeItem(draftKey) } catch { /* sem storage */ }
+  }
+
   async function handleSubmit() {
     if (preview) {
       setSubmitted(true)
@@ -533,6 +579,7 @@ export function DigitalForm({
         missingFields?: string[]
       }
       if (!res.ok) {
+        if (res.status === 409) clearDraft()
         // O servidor confere os documentos obrigatórios: volta para a etapa Documentos com
         // cada item que falta marcado, em vez de só uma mensagem no fim da página.
         const docs = body.missingDocuments ?? []
@@ -547,6 +594,7 @@ export function DigitalForm({
         setSubmitError(body.error ?? 'Erro ao enviar. Tente novamente.')
         return
       }
+      clearDraft()
       setSubmitted(true)
     } catch {
       setSubmitError('Erro de conexão. Verifique sua internet e tente novamente.')
@@ -587,14 +635,16 @@ export function DigitalForm({
 
       <StepBar current={step} />
 
-      {restoredCount > 0 && step < 3 && (
+      {(restoredCount > 0 || draftRestored) && step < 3 && (
         <div className="mb-4 flex gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-green-600" />
           <p>
-            {restoredCount === 1
-              ? 'Guardamos o arquivo que você já tinha enviado. '
-              : `Guardamos os ${restoredCount} arquivos que você já tinha enviado. `}
-            Preencha seus dados de novo, envie só o que falta e clique em <strong>Enviar</strong> no final.
+            {draftRestored
+              ? restoredCount > 0
+                ? `Recuperamos suas respostas e ${restoredCount === 1 ? 'o arquivo enviado' : `os ${restoredCount} arquivos enviados`}. Confira, `
+                : 'Recuperamos as respostas que você já tinha preenchido neste aparelho. Confira, '
+              : `${restoredCount === 1 ? 'Guardamos o arquivo que você já tinha enviado' : `Guardamos os ${restoredCount} arquivos que você já tinha enviado`}. Preencha seus dados de novo, `}
+            envie só o que falta e clique em <strong>Enviar</strong> no final.
           </p>
         </div>
       )}

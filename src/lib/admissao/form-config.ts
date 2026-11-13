@@ -308,3 +308,18 @@ export function birthDateProblem(iso: string, today: Date = new Date()): string 
   if (age > 100) return 'Confira a data de nascimento.'
   return null
 }
+
+/**
+ * Prazo do link renovado por ATIVIDADE: cada documento enviado garante pelo menos
+ * DIGITAL_FORM_EXPIRY_DAYS a partir de agora. Quem está enviando os documentos não perde
+ * o link no meio; quem nunca abriu continua vencendo no prazo original. Nunca encurta.
+ */
+export function renewedFormExpiry(
+  currentIso: string | null,
+  now: Date = new Date(),
+  days: number = DIGITAL_FORM_EXPIRY_DAYS
+): string | null {
+  const target = new Date(now.getTime() + days * 86_400_000)
+  if (currentIso && new Date(currentIso).getTime() >= target.getTime()) return null
+  return target.toISOString()
+}

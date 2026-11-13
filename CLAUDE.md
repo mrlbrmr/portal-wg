@@ -225,6 +225,12 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`
   (`DigitalForm` tem modo `preview` — usado na aba Visualização das Configurações, sem upload/envio).
   ⚠️ O documento do formulário é ligado ao cadastro "Tipos de documento" **pelo nome exato** (upload route).
+  **Validação por IA dos anexos** (`src/lib/admissao/ai-validation.ts`): erro passageiro do Gemini (5xx, 429,
+  rede) tenta de novo até 3 vezes (`AI_RETRY_DELAYS_MS`, `isTransientGeminiError` em `gemini.ts`, testados);
+  falha técnica, formato sem leitura ou chave ausente gravam `aiStatus = 'unavailable'` ("Não verificado pela
+  IA", não pede ação) — `needs_review` fica SÓ para problema que a IA viu. O cron diário
+  `/api/cron/formularios-parados` também reprocessa os `unavailable` dos últimos 14 dias (`ai-reprocess.ts`).
+  Migração `20261113140000` (CHECK da coluna + reclassificação dos antigos).
   **O cargo define uniforme e documentos** (`admission_positions."usesOperationalUniform"/"isDriver"/
   "isForkliftOperator"`, Cadastros › Cargos): com cargo, o formulário não pergunta "motorista/operador" nem
   "calça e bota" e o servidor grava os valores do cargo (`resolvePositionAnswers()` em `form-config.ts`, testada;

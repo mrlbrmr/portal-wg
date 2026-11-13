@@ -6,7 +6,7 @@ import type { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-export type CatEntity = "company" | "branch" | "position" | "documentType" | "tag" | "stage" | "applicationSource";
+export type CatEntity = "company" | "branch" | "position" | "documentType" | "tag" | "stage" | "applicationSource" | "area";
 
 export const CATEGORY_TABLE: Record<CatEntity, string> = {
   company: "admission_companies",
@@ -16,6 +16,7 @@ export const CATEGORY_TABLE: Record<CatEntity, string> = {
   tag: "admission_tags",
   stage: "admission_stages",
   applicationSource: "application_sources",
+  area: "admission_areas",
 };
 
 /** Cadastros que têm a coluna `active` (podem ser desativados em vez de excluídos). */
@@ -27,6 +28,7 @@ export const SUPPORTS_ACTIVE: Record<CatEntity, boolean> = {
   tag: false,
   stage: true,
   applicationSource: true,
+  area: true,
 };
 
 const SOURCES: Record<CatEntity, Array<{ table: string; column: string; label: [one: string, many: string] }>> = {
@@ -35,7 +37,15 @@ const SOURCES: Record<CatEntity, Array<{ table: string; column: string; label: [
     { table: "admission_template_positions", column: "positionId", label: ["modelo de checklist", "modelos de checklist"] },
   ],
   company: [{ table: "admissions", column: "companyId", label: ["admissão", "admissões"] }],
-  branch: [{ table: "admissions", column: "branchId", label: ["admissão", "admissões"] }],
+  branch: [
+    { table: "admissions", column: "branchId", label: ["admissão", "admissões"] },
+    { table: "jobs", column: "branchId", label: ["vaga", "vagas"] },
+    { table: "job_requests", column: "branch_id", label: ["solicitação", "solicitações"] },
+  ],
+  area: [
+    { table: "jobs", column: "areaId", label: ["vaga", "vagas"] },
+    { table: "job_requests", column: "area_id", label: ["solicitação", "solicitações"] },
+  ],
   documentType: [{ table: "admission_attachments", column: "documentTypeId", label: ["anexo", "anexos"] }],
   tag: [
     { table: "_AdmissionToAdmissionTag", column: "B", label: ["admissão", "admissões"] },

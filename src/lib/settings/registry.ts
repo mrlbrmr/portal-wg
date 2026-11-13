@@ -12,6 +12,7 @@ import {
   FilePlus2,
   Globe,
   KanbanSquare,
+  Layers,
   LayoutTemplate,
   Linkedin,
   ListChecks,
@@ -42,7 +43,7 @@ export interface SettingsSection {
 
 // ─── Cadastros ────────────────────────────────────────────────────────────────
 
-export type RegistryEntity = "position" | "company" | "branch" | "documentType" | "tag" | "applicationSource";
+export type RegistryEntity = "position" | "company" | "branch" | "documentType" | "tag" | "applicationSource" | "area";
 
 export interface RegistryDef extends SettingsItem {
   entity: RegistryEntity | "stage";
@@ -59,7 +60,7 @@ export const REGISTRIES: RegistryDef[] = [
     entity: "position",
     href: "/configuracoes/cadastros/cargos",
     title: "Cargos",
-    description: "Cargos usados nas admissões e nos modelos de checklist.",
+    description: "Cargos das admissões: uniforme e documentos de motorista ou operador.",
     icon: Briefcase,
     singular: "cargo",
     plural: "cargos",
@@ -81,10 +82,21 @@ export const REGISTRIES: RegistryDef[] = [
     entity: "branch",
     href: "/configuracoes/cadastros/filiais",
     title: "Filiais",
-    description: "Filiais e unidades onde o colaborador vai trabalhar.",
+    description: "Filiais e unidades, com a cidade que as vagas herdam.",
     icon: MapPin,
     singular: "filial",
     plural: "filiais",
+    article: "a",
+  },
+  {
+    key: "cadastros.areas",
+    entity: "area",
+    href: "/configuracoes/cadastros/areas",
+    title: "Áreas",
+    description: "Áreas usadas na solicitação de vaga e nas vagas.",
+    icon: Layers,
+    singular: "área",
+    plural: "áreas",
     article: "a",
   },
   {

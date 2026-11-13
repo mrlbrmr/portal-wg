@@ -8,6 +8,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SettingsField, settingsInputClass } from "@/components/internal/settings/fields";
 import { getRegistry } from "@/lib/settings/registry";
+import { BRAZIL_STATES } from "@/lib/utils";
 import { createCategory, updateCategory, type CatEntity } from "@/lib/admissao/config-actions";
 import type { RegistryItem } from "@/lib/admissao/registry-data";
 
@@ -31,6 +32,11 @@ export function RegistryItemDialog({ entity, item, open, onClose }: Props) {
   const [color, setColor] = useState(DEFAULT_COLOR[entity] ?? "#64748b");
   const [required, setRequired] = useState(false);
   const [active, setActive] = useState(true);
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [uniform, setUniform] = useState(false);
+  const [driver, setDriver] = useState(false);
+  const [forklift, setForklift] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,11 +45,23 @@ export function RegistryItemDialog({ entity, item, open, onClose }: Props) {
     setColor(item?.color ?? DEFAULT_COLOR[entity] ?? "#64748b");
     setRequired(item?.required ?? false);
     setActive(item?.active ?? true);
+    setCity(item?.city ?? "");
+    setState(item?.state ?? "");
+    setUniform(item?.usesOperationalUniform ?? false);
+    setDriver(item?.isDriver ?? false);
+    setForklift(item?.isForkliftOperator ?? false);
     setError(null);
   }, [open, item, entity]);
 
   const hasColor = entity === "tag" || entity === "stage";
   const hasRequired = entity === "documentType";
+  const isBranch = entity === "branch";
+  const isPosition = entity === "position";
+  const extras = isBranch
+    ? { city: city.trim() || null, state: state || null }
+    : isPosition
+      ? { usesOperationalUniform: uniform, isDriver: driver, isForkliftOperator: forklift }
+      : {};
   // Etapas têm fluxo próprio de desativação (etapa de conclusão, mover admissões) — botão olho.
   const hasActive = item !== null && item.active !== null && entity !== "stage";
   const dirty =
@@ -51,7 +69,10 @@ export function RegistryItemDialog({ entity, item, open, onClose }: Props) {
     name.trim() !== item.name ||
     (hasColor && color !== item.color) ||
     (hasRequired && required !== item.required) ||
-    (hasActive && active !== item.active);
+    (hasActive && active !== item.active) ||
+    (isBranch && ((city.trim() || null) !== item.city || (state || null) !== item.state)) ||
+    (isPosition &&
+      (uniform !== item.usesOperationalUniform || driver !== item.isDriver || forklift !== item.isForkliftOperator));
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,8 +88,9 @@ export function RegistryItemDialog({ entity, item, open, onClose }: Props) {
             ...(hasColor ? { color } : {}),
             ...(hasRequired ? { required } : {}),
             ...(hasActive ? { active } : {}),
+            ...extras,
           })
-        : await createCategory(entity, { name: clean, color: hasColor ? color : undefined, required });
+        : await createCategory(entity, { name: clean, color: hasColor ? color : undefined, required, ...extras });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -154,6 +176,54 @@ export function RegistryItemDialog({ entity, item, open, onClose }: Props) {
           </div>
         )}
 
+        {isBranch && (
+          <div className="grid gap-3 sm:grid-cols-[1fr_96px]">
+            <SettingsField id={`${formId}-city`} label="Cidade" hint="A vaga desta filial nasce com esta cidade.">
+              <input
+                id={`${formId}-city`}
+                value={city}
+                maxLength={120}
+                onChange={(e) => setCity(e.target.value)}
+                className={settingsInputClass}
+                placeholder="Ex.: Nova Iguaçu"
+              />
+            </SettingsField>
+            <SettingsField id={`${formId}-uf`} label="UF">
+              <select id={`${formId}-uf`} value={state} onChange={(e) => setState(e.target.value)} className={settingsInputClass}>
+                <option value="">—</option>
+                {BRAZIL_STATES.map((uf) => (
+                  <option key={uf} value={uf}>
+                    {uf}
+                  </option>
+                ))}
+              </select>
+            </SettingsField>
+          </div>
+        )}
+
+        {isPosition && (
+          <div className="divide-y divide-wg-border-lighter rounded-control border border-wg-border-lighter px-3">
+            <Toggle
+              label="Usa uniforme operacional (calça e bota)"
+              description="Pede o tamanho da calça e da bota no formulário de admissão."
+              checked={uniform}
+              onChange={() => setUniform((v) => !v)}
+            />
+            <Toggle
+              label="Motorista (pede MOPP)"
+              description="Pede o certificado MOPP e a CNH com observação."
+              checked={driver}
+              onChange={() => setDriver((v) => !v)}
+            />
+            <Toggle
+              label="Operador de empilhadeira"
+              description="Pede o certificado de operador de empilhadeira."
+              checked={forklift}
+              onChange={() => setForklift((v) => !v)}
+            />
+          </div>
+        )}
+
         {hasActive && (
           <div className="rounded-control border border-wg-border-lighter px-3">
             <Toggle
@@ -175,6 +245,7 @@ const PLACEHOLDERS: Record<CatEntity, string> = {
   position: "Ex.: Motorista de Caminhão",
   company: "Ex.: WG Baterias",
   branch: "Ex.: Matriz",
+  area: "Ex.: Logística",
   documentType: "Ex.: Comprovante de residência",
   tag: "Ex.: Prioritária",
   stage: "Ex.: Documentação",

@@ -209,6 +209,7 @@ export function RegistryTable({ entity, items }: { entity: Exclude<CatEntity, "s
                       )}
                       {item.name}
                     </button>
+                    {itemDetail(item) && <p className="mt-0.5 text-meta text-wg-ink-muted">{itemDetail(item)}</p>}
                   </td>
                   {hasRequired && (
                     <td className="px-3 py-2.5 text-meta text-wg-ink-secondary">{item.required ? "Sim" : "Não"}</td>
@@ -302,4 +303,15 @@ export function RegistryTable({ entity, items }: { entity: Exclude<CatEntity, "s
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Linha de apoio sob o nome: cidade/UF da filial e marcações do cargo. */
+function itemDetail(item: RegistryItem): string | null {
+  if (item.city || item.state) return [item.city, item.state].filter(Boolean).join("/");
+  const marks = [
+    item.usesOperationalUniform && "Calça e bota",
+    item.isDriver && "MOPP",
+    item.isForkliftOperator && "Empilhadeira",
+  ].filter(Boolean);
+  return marks.length ? marks.join(" · ") : null;
 }

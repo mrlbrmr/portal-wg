@@ -15,6 +15,34 @@ import { requireAdmissionConfig } from "./permissions";
 import { CATEGORY_TABLE, SUPPORTS_ACTIVE, countUsage, describeUsage, type CatEntity, type Usage } from "./registry-usage";
 import type { Session } from "@/lib/auth";
 import { sourceCodeFromName } from "@/lib/application-schema";
+import { BRAZIL_STATES } from "@/lib/utils";
+
+/** Campos extras por cadastro: cidade/UF da filial e marcações do cargo. */
+export interface CategoryExtras {
+  city?: string | null;
+  state?: string | null;
+  usesOperationalUniform?: boolean;
+  isDriver?: boolean;
+  isForkliftOperator?: boolean;
+}
+
+function extrasPatch(entity: CatEntity, input: CategoryExtras): { patch: Record<string, unknown> } | { error: string } {
+  const patch: Record<string, unknown> = {};
+  if (entity === "branch") {
+    if (input.city !== undefined) patch.city = input.city?.trim().slice(0, 120) || null;
+    if (input.state !== undefined) {
+      const uf = input.state?.trim().toUpperCase() || null;
+      if (uf && !(BRAZIL_STATES as readonly string[]).includes(uf)) return { error: "UF inválida." };
+      patch.state = uf;
+    }
+  }
+  if (entity === "position") {
+    if (input.usesOperationalUniform !== undefined) patch.usesOperationalUniform = !!input.usesOperationalUniform;
+    if (input.isDriver !== undefined) patch.isDriver = !!input.isDriver;
+    if (input.isForkliftOperator !== undefined) patch.isForkliftOperator = !!input.isForkliftOperator;
+  }
+  return { patch };
+}
 
 export type { CatEntity } from "./registry-usage";
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -32,6 +60,11 @@ async function requireConfig(): Promise<{ session: Session } | { error: string }
 
 function revalidate(entity: CatEntity) {
   revalidatePath(getRegistry(entity).href);
+  if (entity === "area" || entity === "branch") {
+    // Filial e área aparecem na solicitação e na vaga.
+    revalidatePath("/solicitacoes", "layout");
+    revalidatePath("/vagas", "layout");
+  }
   if (entity === "applicationSource") {
     revalidatePath("/vagas", "layout");
     revalidatePath("/dashboard");
@@ -51,7 +84,7 @@ function label(entity: CatEntity) {
 
 export async function createCategory(
   entity: CatEntity,
-  input: { name: string; color?: string; required?: boolean }
+  input: { name: string; color?: string; required?: boolean } & CategoryExtras
 ): Promise<ActionResult> {
   const a = await requireConfig();
   if ("error" in a) return { ok: false, error: a.error };
@@ -74,6 +107,9 @@ export async function createCategory(
     row.sortOrder = ((max?.sortOrder as number | undefined) ?? 0) + 1;
     if (entity === "stage") row.color = HEX.test(input.color ?? "") ? input.color : DEFAULT_STAGE_COLOR;
     if (entity === "documentType") row.required = !!input.required;
+    const extras = extrasPatch(entity, input);
+    if ("error" in extras) return { ok: false, error: extras.error };
+    Object.assign(row, extras.patch);
   }
 
   let error: { code?: string } | null = null;
@@ -100,7 +136,7 @@ export async function createCategory(
 export async function updateCategory(
   entity: CatEntity,
   id: string,
-  input: { name?: string; color?: string; required?: boolean; active?: boolean }
+  input: { name?: string; color?: string; required?: boolean; active?: boolean } & CategoryExtras
 ): Promise<ActionResult> {
   const a = await requireConfig();
   if ("error" in a) return { ok: false, error: a.error };
@@ -116,6 +152,9 @@ export async function updateCategory(
   }
   if (input.required !== undefined && entity === "documentType") patch.required = input.required;
   if (input.active !== undefined && SUPPORTS_ACTIVE[entity]) patch.active = input.active;
+  const extras = extrasPatch(entity, input);
+  if ("error" in extras) return { ok: false, error: extras.error };
+  Object.assign(patch, extras.patch);
   if (Object.keys(patch).length === 0) return { ok: true };
 
   const supabase = await createClient();

@@ -143,3 +143,31 @@ describe('documento do cônjuge', () => {
     assert.ok(!visible('Solteiro(a)').includes('RG_CNH_CONJUGE'))
   })
 })
+
+describe('documentos condicionais obrigatórios (decisão de 2026-11-13)', () => {
+  const required = (key: string) => DEFAULT_FORM_CONFIG.documents.find((d) => d.key === key)?.required
+  it('MOPP, conta Itaú, certidão civil, certidão dos filhos e reservista são obrigatórios quando a condição vale', () => {
+    for (const key of ['MOPP', 'CONTA_ITAU', 'CERTIDAO_CIV', 'CERT_FILHOS', 'RESERVISTA']) assert.equal(required(key), true, key)
+  })
+  it('empilhadeira, vacinação, matrícula e documento do cônjuge continuam opcionais', () => {
+    for (const key of ['EMPILHADEIRA', 'VACINACAO', 'MATRICULA', 'RG_CNH_CONJUGE']) assert.equal(required(key), false, key)
+  })
+})
+
+describe('reservista: homem de 18 a 45 anos', () => {
+  const now = new Date(2026, 10, 13)
+  it('homem de 30 anos: sim', () => {
+    assert.equal(matchesCondition({ type: 'militaryAge' }, { gender: 'Masculino', birthDate: '1996-05-01' }, now), true)
+  })
+  it('homem de 17 ou de 46 anos: não', () => {
+    assert.equal(matchesCondition({ type: 'militaryAge' }, { gender: 'Masculino', birthDate: '2009-01-01' }, now), false)
+    assert.equal(matchesCondition({ type: 'militaryAge' }, { gender: 'Masculino', birthDate: '1980-01-01' }, now), false)
+  })
+  it('mulher: não; sem data de nascimento: segue o gênero (pede)', () => {
+    assert.equal(matchesCondition({ type: 'militaryAge' }, { gender: 'Feminino', birthDate: '1996-05-01' }, now), false)
+    assert.equal(matchesCondition({ type: 'militaryAge' }, { gender: 'Masculino' }, now), true)
+  })
+  it('a configuração padrão continua passando pela validação do editor', () => {
+    assert.equal(FormConfigSchema.safeParse(DEFAULT_FORM_CONFIG).success, true)
+  })
+})

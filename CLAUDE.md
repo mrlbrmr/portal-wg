@@ -225,6 +225,10 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`
   (`DigitalForm` tem modo `preview` — usado na aba Visualização das Configurações, sem upload/envio).
   ⚠️ O documento do formulário é ligado ao cadastro "Tipos de documento" **pelo nome exato** (upload route).
+  **Documentos condicionais obrigatórios** (decisão de 2026-11-13, padrão em `DEFAULT_FORM_CONFIG`): MOPP (cargo
+  motorista), comprovante Itaú (tem conta), certidão civil (casado/união estável/divorciado), certidão dos filhos
+  e reservista (condição `militaryAge`: homem de 18 a 45 anos pela data de nascimento). Empilhadeira, vacinação,
+  matrícula e documento do cônjuge seguem opcionais. Sem linha em `admission_form_config`, vale o padrão do código.
   **Validação por IA dos anexos** (`src/lib/admissao/ai-validation.ts`): erro passageiro do Gemini (5xx, 429,
   rede) tenta de novo até 3 vezes (`AI_RETRY_DELAYS_MS`, `isTransientGeminiError` em `gemini.ts`, testados);
   falha técnica, formato sem leitura ou chave ausente gravam `aiStatus = 'unavailable'` ("Não verificado pela

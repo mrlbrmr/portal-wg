@@ -18,6 +18,7 @@ export const CONDITION_TYPES = [
   'isDriverOperator',
   'positionDriver',
   'positionForkliftOperator',
+  'militaryAge',
 ] as const
 
 export type ConditionType = (typeof CONDITION_TYPES)[number]
@@ -32,6 +33,8 @@ export type DocCondition =
   /** Pelo cargo da admissão (cadastro de Cargos); sem cargo, pela resposta do candidato. */
   | { type: 'positionDriver' }
   | { type: 'positionForkliftOperator' }
+  /** Homem de 18 a 45 anos (reservista), pelo gênero e pela data de nascimento informados. */
+  | { type: 'militaryAge' }
 
 export const CONDITION_LABELS: Record<ConditionType, string> = {
   always:           'Sempre visível',
@@ -42,6 +45,7 @@ export const CONDITION_LABELS: Record<ConditionType, string> = {
   isDriverOperator: 'Se é Motorista/Operador/Encarregado',
   positionDriver:   'Se o cargo é motorista',
   positionForkliftOperator: 'Se o cargo é operador de empilhadeira',
+  militaryAge:      'Se é homem de 18 a 45 anos',
 }
 
 // ─── Campos extras (texto) anexados a um documento ────────────────────────────
@@ -99,9 +103,22 @@ export interface FormAnswers {
   /** Do cargo da admissão; ausentes quando a admissão não tem cargo. */
   isDriver?: boolean
   isForkliftOperator?: boolean
+  /** AAAA-MM-DD — usada pela condição de idade militar. */
+  birthDate?: string
 }
 
-export function matchesCondition(cond: DocCondition, a: Partial<FormAnswers>): boolean {
+/** Faixa de idade em que se pede o certificado de reservista. */
+export const MILITARY_AGE = { min: 18, max: 45 } as const
+
+function ageOn(birthIso: string, now: Date): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthIso)) return null
+  const [y, m, d] = birthIso.split('-').map(Number)
+  let age = now.getFullYear() - y
+  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) age -= 1
+  return age
+}
+
+export function matchesCondition(cond: DocCondition, a: Partial<FormAnswers>, now: Date = new Date()): boolean {
   switch (cond.type) {
     case 'always':           return true
     case 'gender':           return !!a.gender && cond.values.includes(a.gender)
@@ -111,6 +128,12 @@ export function matchesCondition(cond: DocCondition, a: Partial<FormAnswers>): b
     case 'isDriverOperator': return !!a.isDriverOperator
     case 'positionDriver':   return a.isDriver ?? !!a.isDriverOperator
     case 'positionForkliftOperator': return a.isForkliftOperator ?? !!a.isDriverOperator
+    case 'militaryAge': {
+      if (a.gender !== 'Masculino') return false
+      // Sem data ainda (preenchida na etapa 1), segue só o gênero.
+      const age = a.birthDate ? ageOn(a.birthDate, now) : null
+      return age === null || (age >= MILITARY_AGE.min && age <= MILITARY_AGE.max)
+    }
     default:                 return false
   }
 }
@@ -169,14 +192,14 @@ export const DEFAULT_FORM_CONFIG: FormConfig = {
     { key: 'RESIDENCIA',   label: 'Comprovante de residência',                                 required: true,  condition: { type: 'always' } },
     { key: 'ESCOLARIDADE', label: 'Comprovante de escolaridade',                               required: true,  condition: { type: 'always' } },
     { key: 'TITULO',       label: 'Título de Eleitor',                                          required: true,  condition: { type: 'always' } },
-    { key: 'RESERVISTA',   label: 'Certificado de reservista/dispensa do Exército',            required: false, condition: { type: 'gender', values: ['Masculino'] } },
+    { key: 'RESERVISTA',   label: 'Certificado de reservista/dispensa do Exército',            required: true,  condition: { type: 'militaryAge' } },
     { key: 'RG_CNH_CONJUGE', label: 'RG/CNH do Cônjuge - Frente e verso',                      required: false, condition: { type: 'marital', values: ['Casado(a)', 'União Estável'] } },
-    { key: 'CERTIDAO_CIV', label: 'Certidão de casamento/união estável/averbação de divórcio', required: false, condition: { type: 'marital', values: ['Casado(a)', 'União Estável', 'Divorciado(a)'] } },
-    { key: 'CERT_FILHOS',  label: 'Certidão de nascimento/RG dos filhos',                       required: false, condition: { type: 'hasChildren' } },
+    { key: 'CERTIDAO_CIV', label: 'Certidão de casamento/união estável/averbação de divórcio', required: true,  condition: { type: 'marital', values: ['Casado(a)', 'União Estável', 'Divorciado(a)'] } },
+    { key: 'CERT_FILHOS',  label: 'Certidão de nascimento/RG dos filhos',                       required: true,  condition: { type: 'hasChildren' } },
     { key: 'VACINACAO',    label: 'Carteira de vacinação (filhos até 5 anos)',                 required: false, condition: { type: 'hasChildren' } },
     { key: 'MATRICULA',    label: 'Comprovante de matrícula (filhos 6-14 anos)',               required: false, condition: { type: 'hasChildren' } },
-    { key: 'CONTA_ITAU',   label: 'Comprovante de conta Itaú',                                 required: false, condition: { type: 'hasItauAccount' } },
-    { key: 'MOPP',         label: 'Certificado MOPP + CNH com observação',                     required: false, condition: { type: 'positionDriver' } },
+    { key: 'CONTA_ITAU',   label: 'Comprovante de conta Itaú',                                 required: true,  condition: { type: 'hasItauAccount' } },
+    { key: 'MOPP',         label: 'Certificado MOPP + CNH com observação',                     required: true,  condition: { type: 'positionDriver' } },
     { key: 'EMPILHADEIRA', label: 'Certificado Operador de Empilhadeira',                       required: false, condition: { type: 'positionForkliftOperator' } },
   ],
 }
@@ -192,6 +215,7 @@ const conditionSchema = z.union([
   z.object({ type: z.literal('isDriverOperator') }),
   z.object({ type: z.literal('positionDriver') }),
   z.object({ type: z.literal('positionForkliftOperator') }),
+  z.object({ type: z.literal('militaryAge') }),
 ])
 
 const extraFieldSchema = z.object({

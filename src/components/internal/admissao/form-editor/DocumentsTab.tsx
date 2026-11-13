@@ -50,6 +50,8 @@ export function buildCondition(type: ConditionType, values: string[]): DocCondit
       return { type: "positionDriver" };
     case "positionForkliftOperator":
       return { type: "positionForkliftOperator" };
+    case "militaryAge":
+      return { type: "militaryAge" };
     default:
       return { type: "always" };
   }

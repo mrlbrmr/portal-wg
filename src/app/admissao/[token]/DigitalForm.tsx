@@ -440,6 +440,7 @@ export function DigitalForm({
 
   const visibleDocs: DocumentConfig[] = getVisibleDocuments(config, {
     gender:           personal.gender,
+    birthDate:        personal.birthDate,
     maritalStatus:    additional.maritalStatus,
     hasChildren:      additional.hasChildren ?? false,
     hasItauAccount:   additional.hasItauAccount ?? false,

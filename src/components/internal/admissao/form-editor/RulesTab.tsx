@@ -11,11 +11,12 @@ import { conditionAnswer, conditionQuestion } from "./shared";
 import { buildCondition } from "./DocumentsTab";
 
 type Setter = (fn: (c: FormConfig) => FormConfig) => void;
-type RuleQuestion = Exclude<ConditionType, "always" | "positionDriver" | "positionForkliftOperator">;
+type RuleQuestion = Exclude<ConditionType, "always" | "positionDriver" | "positionForkliftOperator" | "militaryAge">;
 
 // As condições do cargo vêm do cadastro de Cargos, não de uma pergunta ao candidato.
 const RULE_QUESTIONS = CONDITION_TYPES.filter(
-  (t): t is RuleQuestion => t !== "always" && t !== "positionDriver" && t !== "positionForkliftOperator"
+  (t): t is RuleQuestion =>
+    t !== "always" && t !== "positionDriver" && t !== "positionForkliftOperator" && t !== "militaryAge"
 );
 
 function Rule({ when, is, then, children }: { when: string; is: string; then: string; children?: React.ReactNode }) {

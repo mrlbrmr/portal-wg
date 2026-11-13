@@ -109,6 +109,7 @@ export async function POST(
     config,
     {
       gender: d.gender,
+      birthDate: d.birthDate,
       maritalStatus: d.maritalStatus,
       hasChildren: d.hasChildren,
       hasItauAccount: d.hasItauAccount,

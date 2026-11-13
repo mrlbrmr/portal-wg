@@ -23,6 +23,8 @@ export function conditionQuestion(type: Exclude<DocCondition["type"], "always">,
       return "Cargo é motorista (cadastro de Cargos)";
     case "positionForkliftOperator":
       return "Cargo é operador de empilhadeira (cadastro de Cargos)";
+    case "militaryAge":
+      return "Homem de 18 a 45 anos (gênero e data de nascimento)";
   }
 }
 

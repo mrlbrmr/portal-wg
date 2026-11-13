@@ -45,10 +45,15 @@ async function fetchAll<T>(
   }
 }
 
-async function loadInput(): Promise<{ input: ReportInput; labels: Record<string, string>; error: boolean }> {
+async function loadInput(): Promise<{
+  input: ReportInput;
+  labels: Record<string, string>;
+  jobMeta: Record<string, string>;
+  error: boolean;
+}> {
   const supabase = await createClient();
   const [jobsRes, stagesRes, appsRes, historyRes, admissionsRes, positionsRes, statusRes, labels] = await Promise.all([
-    supabase.from("jobs").select("id, title, isTalentPool, createdAt").limit(2000),
+    supabase.from("jobs").select("id, code, title, city, state, isTalentPool, createdAt").limit(2000),
     supabase.from("application_stages").select("id, kind"),
     fetchAll<ReportInput["applications"][number]>((a, b) =>
       supabase.from("applications").select("id, jobId, source, createdAt, stageId").order("id").range(a, b)
@@ -64,7 +69,13 @@ async function loadInput(): Promise<{ input: ReportInput; labels: Record<string,
   const error =
     appsRes.error || historyRes.error || [jobsRes, stagesRes, admissionsRes, positionsRes, statusRes].some((r) => r.error);
 
-  const jobs = (jobsRes.data ?? []) as Array<{ id: string; title: string; isTalentPool: boolean; createdAt: string }>;
+  const jobs = (jobsRes.data ?? []) as Array<{
+    id: string; code: string | null; title: string; city: string | null; state: string | null; isTalentPool: boolean; createdAt: string;
+  }>;
+  // Processos com o mesmo título se distinguem pelo código e pela cidade.
+  const jobMeta: Record<string, string> = Object.fromEntries(
+    jobs.map((j) => [j.id, [j.code, j.city ? `${j.city}${j.state ? `/${j.state}` : ""}` : null].filter(Boolean).join(" · ")])
+  );
   // Abertura = 1ª passagem para um status aberto; sem histórico, a criação da vaga.
   const jobOpenedAt: Record<string, string> = Object.fromEntries(jobs.map((j) => [j.id, j.createdAt]));
   const seen = new Set<string>();
@@ -77,6 +88,7 @@ async function loadInput(): Promise<{ input: ReportInput; labels: Record<string,
   return {
     error,
     labels,
+    jobMeta,
     input: {
       jobs,
       stages: (stagesRes.data ?? []) as ReportInput["stages"],
@@ -96,7 +108,7 @@ export default async function RecruitmentReportsPage({
 }) {
   const params = await searchParams;
   const period: ReportPeriod = PERIODS.some((p) => p.value === params.periodo) ? (params.periodo as ReportPeriod) : "90d";
-  const { input, labels, error } = await loadInput();
+  const { input, labels, jobMeta, error } = await loadInput();
   const r = buildRecruitmentReport(input, period, new Date());
   const hiredCount = r.funnel.find((f) => f.key === "hired")?.count ?? 0;
   const smallBase = r.received < MIN_BASE_RATE;
@@ -230,9 +242,12 @@ export default async function RecruitmentReportsPage({
               <ReportTable
                 headers={["Vaga", "Candidaturas", "Contratadas", "Preenchidas", "Dias até preencher"]}
                 rows={r.byJob.map((j) => [
-                  <Link key={j.jobId} href={`/vagas/${j.jobId}/candidatos`} className="font-medium text-wg-ink hover:underline">
-                    {j.title}
-                  </Link>,
+                  <span key={j.jobId} className="block">
+                    <Link href={`/vagas/${j.jobId}/candidatos`} className="font-medium text-wg-ink hover:underline">
+                      {j.title}
+                    </Link>
+                    {jobMeta[j.jobId] && <span className="block text-meta text-wg-ink-muted">{jobMeta[j.jobId]}</span>}
+                  </span>,
                   j.received,
                   j.hired,
                   j.filled,

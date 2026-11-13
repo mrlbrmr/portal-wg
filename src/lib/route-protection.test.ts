@@ -47,3 +47,7 @@ test("sem sessão: link aberto no navegador e páginas vão ao /login", () => {
   // Não confunde páginas que só começam com "api".
   assert.equal(unauthenticatedAction("/apis-internas", null), "login");
 });
+
+test("relatórios de recrutamento exigem sessão", () => {
+  assert.equal(isProtectedRoute("/recrutamento/relatorios", "GET"), true);
+});

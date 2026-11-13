@@ -18,6 +18,7 @@ export function isProtectedRoute(pathname: string, method: string): boolean {
     pathname.startsWith("/perfil") ||
     pathname.startsWith("/usuarios") ||
     pathname.startsWith("/admissoes") ||
+    pathname.startsWith("/recrutamento") ||
     pathname.startsWith("/api/admissoes") ||
     // GET /api/jobs (lista) é PÚBLICO: o "Carregar mais" do portal usa; sem sessão a rota
     // devolve só colunas públicas de vagas publicadas (onlyPublicVisible). O resto é interno.

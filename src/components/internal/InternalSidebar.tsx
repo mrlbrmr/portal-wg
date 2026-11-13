@@ -85,6 +85,7 @@ export default function InternalSidebar({ role, name, pendingRequests = 0, onNav
     { href: "/solicitacoes",    label: "Solicitações de vaga", icon: Inbox, badge: pendingRequests, badgeLabel: "aguardando ação" },
     { href: "/vagas",           label: "Vagas",                icon: Briefcase },
     { href: "/talentos",        label: "Banco de talentos",    icon: Star },
+    { href: "/recrutamento/relatorios", label: "Relatórios",   icon: BarChart3 },
   ];
 
   const admissaoLinks: NavLink[] = [

@@ -64,6 +64,11 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   desligada até definir `EXPERIENCE_CHECKPOINT_DAYS`; o banco não guarda horário.
 - **Relatórios** (`/admissoes/relatorios`): recorte/indicadores/alertas em `src/lib/admissao/reports.ts` (testado);
   filtros na URL, os mesmos aceitos por `/api/admissoes/export`. Nunca mostre comparação/indicador sem base real.
+- **Relatórios de recrutamento** (`/recrutamento/relatorios`, menu Recrutamento › Relatórios): funil do período,
+  contratações, dias até preencher (mediana), por origem e por vaga. Regras puras em
+  `src/lib/recruitment/recruitment-report.ts` (testadas): banco de talentos fora do funil, "contratado" = etapa WON
+  ou admissão ligada, percentuais/medianas só acima de `MIN_BASE_*` (senão "base pequena"). Leituras grandes
+  paginadas (o Supabase devolve no máximo 1000 linhas). Tempo por etapa NÃO fica aqui — é do WG Jornada.
 - **Atividades** (rota `/admissoes/historico`): feed unificado em `src/lib/activity/feed.ts`, tipos em `catalog.ts`.
   Registre ações novas com `logActivity()` (`src/lib/activity/log.ts`, tabela `admission_activity_log`) e mapeie o
   `action` em `ADMISSION_LOG_ACTIONS` — ação não mapeada não aparece.

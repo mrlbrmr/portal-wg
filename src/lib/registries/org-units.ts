@@ -81,3 +81,18 @@ export function resolveOrgUnits(
     state: branch.unit?.state ?? null,
   };
 }
+
+/**
+ * Antes de a solicitação seguir no fluxo (enviar, validar, aprovar): precisa ter filial e área —
+ * do cadastro ou, em solicitação antiga, o texto legado. Rascunho pode ter sido salvo sem elas.
+ */
+export function missingOrgUnitsMessage(r: {
+  branchId: string | null;
+  location: string | null;
+  areaId: string | null;
+  department: string | null;
+}): string | null {
+  const hasBranch = Boolean(r.branchId || r.location?.trim());
+  const hasArea = Boolean(r.areaId || r.department?.trim());
+  return hasBranch && hasArea ? null : "Escolha a filial e a área antes de enviar.";
+}

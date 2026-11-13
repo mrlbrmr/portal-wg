@@ -81,6 +81,13 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   - Contratar = `job_position_fill` (modal do pipeline → `POST /api/admissoes` com `jobPositionId`);
     desistência = `job_position_release`. Cancelar/liberar nunca apaga; tudo vai para `job_events`.
   - `jobs.approvedScope` = snapshot do que a solicitação aprovou (comparação em `approved-scope.ts`).
+  - **Filial e área vêm dos cadastros** (decisão de 2026-11-13; migração `20261113120000`): solicitação e vaga
+    guardam `branch_id`/`area_id` (`jobs."branchId"/"areaId"`) E o NOME copiado em `location`/`company`/`department`
+    (texto que portal, feeds, Intranet e WG Jornada leem). Regra pura `resolveOrgUnits()`/`selectableOptions()` em
+    `src/lib/registries/org-units.ts` (testada); leitura `loadOrgUnits()` e, na vaga, `applyJobOrgUnits()` em
+    `org-units-data.ts`. Envio novo de solicitação exige filial e área ativas; registro antigo sem id mantém o
+    texto. A filial (cadastro com cidade/UF) preenche a cidade da vaga e `create_job_from_request()` a herda;
+    o "Contratar" do pipeline abre com a filial da vaga. Banco de talentos não tem filial.
   - Salário: `salaryRange` (lido por portal/feeds) é DERIVADO de `salary` + `salaryPublic` (`salary.ts`).
   - Público: use `PUBLIC_JOB_COLUMNS` (`src/lib/jobs-query.ts`), nunca `select("*")`.
   - **Vaga contínua (`jobs.isTalentPool`) NÃO é "vaga aberta"** (decisão de 2026-11-12): contadores de
@@ -213,6 +220,11 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`
   (`DigitalForm` tem modo `preview` — usado na aba Visualização das Configurações, sem upload/envio).
   ⚠️ O documento do formulário é ligado ao cadastro "Tipos de documento" **pelo nome exato** (upload route).
+  **O cargo define uniforme e documentos** (`admission_positions."usesOperationalUniform"/"isDriver"/
+  "isForkliftOperator"`, Cadastros › Cargos): com cargo, o formulário não pergunta "motorista/operador" nem
+  "calça e bota" e o servidor grava os valores do cargo (`resolvePositionAnswers()` em `form-config.ts`, testada;
+  perfil em `position-profile.ts`). Condições `positionDriver`/`positionForkliftOperator` (MOPP / empilhadeira);
+  sem cargo caem na resposta do candidato; a antiga `isDriverOperator` segue aceita.
   O **submit confere no servidor** os documentos/campos obrigatórios visíveis pelas respostas
   (`missingRequiredItems()` em `form-config.ts`, testado; anexos do candidato e do RH contam, recusado e
   descartado não; documento sem tipo no cadastro não bloqueia), valida a data de nascimento
@@ -227,7 +239,8 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
   (dnd-kit acessível). Componentes em `src/components/internal/settings/`.
   - **Histórico de alterações:** `config_change_log` via `logConfigChange()` (`src/lib/settings/audit.ts`) —
     chame em toda ação que salva configuração.
-  - **Cadastros** (`/configuracoes/cadastros/<slug>`; "Categorias" redireciona): item EM USO nunca é excluído
+  - **Cadastros** (`/configuracoes/cadastros/<slug>`; "Categorias" redireciona; inclui **Áreas**, Filiais com
+    cidade/UF e Cargos com marcações): item EM USO nunca é excluído
     (`src/lib/admissao/registry-usage.ts`) — cargos/empresas/filiais/etapas são desativados, tags só com
     "desvincular", tipos de documento em uso ficam. Etapa de conclusão da admissão é ÚNICA (`setConclusionStage`).
   - **Funil:** automações de entrada na etapa em `src/lib/selection-funnel/automations.ts` (puro, testado) +

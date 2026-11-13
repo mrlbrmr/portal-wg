@@ -38,7 +38,7 @@ import {
   type WorkflowRequest,
 } from "./workflow";
 import { loadOrgUnits } from "@/lib/registries/org-units-data";
-import { resolveOrgUnits } from "@/lib/registries/org-units";
+import { missingOrgUnitsMessage, resolveOrgUnits } from "@/lib/registries/org-units";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { payloadToColumns, type JobRequestDraft, type JobRequestPayload } from "./schema";
 
@@ -445,6 +445,18 @@ export async function runWorkflowAction(
   const comment = (input.comment ?? "").trim();
   const verdict = canRunAction(actionId, asWorkflowRequest(raw), actor, comment);
   if (!verdict.ok) return { ok: false, error: verdict.message };
+
+  // Rascunho pode ter sido salvo sem filial/área; daqui para frente elas são obrigatórias
+  // (a vaga gerada herda filial, área, cidade e UF).
+  if (actionId === "SUBMIT" || actionId === "HR_VALIDATE" || actionId === "APPROVE") {
+    const missing = missingOrgUnitsMessage({
+      branchId: raw.branch_id ?? null,
+      location: raw.location,
+      areaId: raw.area_id ?? null,
+      department: raw.department,
+    });
+    if (missing) return { ok: false, error: missing };
+  }
 
   if (actionId === "START_RECRUITMENT") {
     const res = await startRecruitment(requestId, actor, raw);

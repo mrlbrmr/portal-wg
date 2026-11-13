@@ -190,6 +190,8 @@ const conditionSchema = z.union([
   z.object({ type: z.literal('hasChildren') }),
   z.object({ type: z.literal('hasItauAccount') }),
   z.object({ type: z.literal('isDriverOperator') }),
+  z.object({ type: z.literal('positionDriver') }),
+  z.object({ type: z.literal('positionForkliftOperator') }),
 ])
 
 const extraFieldSchema = z.object({

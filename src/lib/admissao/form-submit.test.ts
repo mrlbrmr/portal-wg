@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { birthDateProblem, matchesCondition, missingRequiredItems, renewedFormExpiry, resolvePositionAnswers, type DocumentConfig } from './form-config'
+import { birthDateProblem, DEFAULT_FORM_CONFIG, FormConfigSchema, matchesCondition, missingRequiredItems, renewedFormExpiry, resolvePositionAnswers, type DocumentConfig } from './form-config'
 
 const documents: DocumentConfig[] = [
   { key: 'RG', label: 'RG/CNH', required: true, condition: { type: 'always' } },
@@ -125,5 +125,11 @@ describe('condições do cargo nos documentos', () => {
   it('configuração antiga com isDriverOperator continua funcionando', () => {
     assert.equal(matchesCondition({ type: 'isDriverOperator' }, { isDriverOperator: true }), true)
     assert.equal(matchesCondition({ type: 'isDriverOperator' }, { isDriverOperator: false }), false)
+  })
+})
+
+describe('FormConfigSchema aceita as condições do cargo', () => {
+  it('a configuração padrão passa pela validação do editor (salvar não pode falhar)', () => {
+    assert.equal(FormConfigSchema.safeParse(DEFAULT_FORM_CONFIG).success, true)
   })
 })

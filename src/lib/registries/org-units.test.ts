@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveOrgUnits, selectableOptions, type OrgUnit } from "./org-units";
+import { missingOrgUnitsMessage, resolveOrgUnits, selectableOptions, type OrgUnit } from "./org-units";
 
 const branches: OrgUnit[] = [
   { id: "b-sjp", name: "Matriz (SJP)", active: true, city: "São José dos Pinhais", state: "PR" },
@@ -68,5 +68,22 @@ describe("resolveOrgUnits", () => {
       ok: true, branchId: null, areaId: null, location: "WG Baterias Maringá", department: "logistica",
       city: null, state: null,
     });
+  });
+});
+
+describe("missingOrgUnitsMessage (envio do rascunho exige filial e área)", () => {
+  it("rascunho sem filial ou sem área não pode seguir", () => {
+    assert.equal(
+      missingOrgUnitsMessage({ branchId: null, location: null, areaId: "a-log", department: "Logística" }),
+      "Escolha a filial e a área antes de enviar."
+    );
+    assert.equal(
+      missingOrgUnitsMessage({ branchId: "b-sjp", location: "Matriz (SJP)", areaId: null, department: "  " }),
+      "Escolha a filial e a área antes de enviar."
+    );
+  });
+  it("com cadastro ou com texto legado, segue", () => {
+    assert.equal(missingOrgUnitsMessage({ branchId: "b-sjp", location: "Matriz (SJP)", areaId: "a-log", department: "Logística" }), null);
+    assert.equal(missingOrgUnitsMessage({ branchId: null, location: "WG Baterias Maringá", areaId: null, department: "logistica" }), null);
   });
 });

@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { loadOrgUnits } from "@/lib/registries/org-units-data";
 import type { Job, JobPublication } from "@/types/domain";
 import { redirect, notFound } from "next/navigation";
 import type { PublicationView } from "@/components/internal/DistributionPanel";
@@ -215,6 +216,7 @@ export default async function EditarVagaPage({ params, searchParams }: Props) {
         announcementText,
         jobUrl: jobPublicUrl(job.slug ?? job.id),
         templates,
+        orgUnits: await loadOrgUnits(supabase),
       }}
     />
   );

@@ -1,4 +1,6 @@
 import { auth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { loadOrgUnits } from "@/lib/registries/org-units-data";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import JobForm from "@/components/internal/JobForm";
@@ -33,6 +35,7 @@ export default async function NovaVagaPage() {
       </p>
       <JobForm
         currentUserName={session.user.name}
+        orgUnits={await loadOrgUnits(await createClient())}
         templates={await loadJobTemplates()}
         processModels={(await loadProcessTemplates())
           .filter((t) => t.active)

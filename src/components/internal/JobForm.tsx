@@ -8,6 +8,7 @@
 // posições muda só por "Adicionar posição" / "Cancelar posição", com histórico.
 
 import { useCallback, useState } from "react";
+import type { OrgUnit } from "@/lib/registries/org-units";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { Panel } from "@/components/ui/Panel";
@@ -46,9 +47,11 @@ interface Props {
   templates?: JobTemplate[];
   /** Modelos de processo ativos (Configurações › Modelos de processo). */
   processModels?: ProcessModelOption[];
+  /** Cadastros de Filiais e Áreas. */
+  orgUnits?: { branches: OrgUnit[]; areas: OrgUnit[] };
 }
 
-export default function JobForm({ currentUserName, templates = [], processModels = [] }: Props) {
+export default function JobForm({ currentUserName, templates = [], processModels = [], orgUnits }: Props) {
   const router = useRouter();
   const { notify } = useToast();
   const [draft, setDraft] = useState<JobDraft>(() => jobToDraft(null, { responsible: currentUserName }));
@@ -119,7 +122,7 @@ export default function JobForm({ currentUserName, templates = [], processModels
         <div className="mb-4">
           <JobTemplatePicker templates={templates} draft={draft} onDraftChange={setDraft} defaults={NEW_JOB_DEFAULTS} />
         </div>
-        <OpportunityFields draft={draft} patch={patch} />
+        <OpportunityFields draft={draft} patch={patch} branchOptions={orgUnits?.branches} areaOptions={orgUnits?.areas} />
         {!draft.isTalentPool && (
           <div className="mt-4 max-w-xs">
             <Field

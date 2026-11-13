@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyJobOrgUnits } from "@/lib/registries/org-units-data";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +21,9 @@ const jobSchema = z
   title: z.string().min(2, "Título obrigatório"),
   department: z.string().optional(),
   company: z.string().optional(),
+  // Cadastros: com id, o servidor grava o NOME em company/department (lido por portal e feeds).
+  branchId: z.string().min(1).nullish(),
+  areaId: z.string().min(1).nullish(),
   isTalentPool: z.boolean().optional().default(false),
   city: z.string().min(2, "Cidade obrigatória").optional().nullable(),
   state: z.string().length(2, "UF deve ter 2 caracteres").optional().nullable(),
@@ -152,6 +156,9 @@ export async function POST(req: NextRequest) {
   if (rest.isTalentPool) delete rest.openings;
 
   const supabase = await createClient();
+
+  const units = await applyJobOrgUnits(supabase, rest);
+  if (!units.ok) return NextResponse.json({ error: units.error }, { status: 400 });
 
   // Gerar slug único (checa colisão no banco); city é null p/ banco de talentos
   const baseSlug = generateSlug(title, city);

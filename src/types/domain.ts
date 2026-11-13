@@ -142,6 +142,9 @@ export interface Job {
   title: string;
   department: string | null;
   company: string | null;
+  /** Cadastros (Filiais/Áreas); null em vagas antigas. */
+  branchId?: string | null;
+  areaId?: string | null;
   city: string | null;
   state: string | null;
   isTalentPool: boolean;

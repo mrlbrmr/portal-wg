@@ -15,6 +15,9 @@ export interface JobDraft {
   isTalentPool: boolean;
   department: string;
   company: string;
+  /** Cadastros; "" = não escolhido (vaga antiga mantém o texto). */
+  branchId: string;
+  areaId: string;
   city: string;
   state: string;
   contractType: string;
@@ -49,6 +52,8 @@ export function jobToDraft(job: Job | null | undefined, defaults: { responsible?
     isTalentPool: job?.isTalentPool ?? false,
     department: job?.department ?? "",
     company: job?.company ?? "",
+    branchId: job?.branchId ?? "",
+    areaId: job?.areaId ?? "",
     city: job?.city ?? "",
     state: job?.state ?? (job ? "" : "SP"),
     contractType: job?.contractType ?? NEW_JOB_DEFAULTS.contractType,
@@ -79,6 +84,8 @@ export function draftToPayload(d: JobDraft) {
     title: d.title.trim(),
     department: d.department.trim() || null,
     company: d.company.trim() || null,
+    branchId: d.isTalentPool ? null : d.branchId || null,
+    areaId: d.areaId || null,
     isTalentPool: d.isTalentPool,
     city: d.isTalentPool ? null : d.city.trim(),
     state: d.isTalentPool ? null : d.state,

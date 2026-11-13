@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyJobOrgUnits } from "@/lib/registries/org-units-data";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +21,9 @@ const updateJobSchema = z.object({
   title: z.string().min(2).optional(),
   department: z.string().optional().nullable(),
   company: z.string().optional().nullable(),
+  // Cadastros: com id, o servidor grava o NOME em company/department.
+  branchId: z.string().min(1).nullish(),
+  areaId: z.string().min(1).nullish(),
   isTalentPool: z.boolean().optional(),
   city: z.string().min(2).optional().nullable(),
   state: z.string().length(2).optional().nullable(),
@@ -133,6 +137,9 @@ export async function PATCH(
     salaryRange: string | null;
     salaryPublic: boolean | null;
   };
+
+  const units = await applyJobOrgUnits(supabase, rest);
+  if (!units.ok) return NextResponse.json({ error: units.error }, { status: 400 });
 
   // Vaga específica → banco de talentos: não pode haver contratado ocupando posição.
   const becomingTalentPool = rest.isTalentPool === true && !current.isTalentPool;

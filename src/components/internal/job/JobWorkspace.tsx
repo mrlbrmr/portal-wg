@@ -10,6 +10,7 @@
 // pode registrar o motivo. Posições têm ações próprias (nunca um número editável solto).
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import type { OrgUnit } from "@/lib/registries/org-units";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Copy, ExternalLink, Eye, FileText, LayoutTemplate, MoreHorizontal, Save, Users } from "lucide-react";
@@ -86,6 +87,8 @@ export interface JobWorkspaceData {
   jobUrl: string;
   /** Modelos de vaga (para completar o rascunho e mostrar a procedência). */
   templates: JobTemplate[];
+  /** Cadastros de Filiais e Áreas. */
+  orgUnits: { branches: OrgUnit[]; areas: OrgUnit[] };
 }
 
 /**
@@ -501,6 +504,8 @@ export function JobWorkspace({ data, initialTab }: { data: JobWorkspaceData; ini
                   approved={approved}
                   hints={hints}
                   talentPoolDisabledReason={summary.filled > 0 ? "Há posições preenchidas nesta vaga." : null}
+                  branchOptions={data.orgUnits.branches}
+                  areaOptions={data.orgUnits.areas}
                 />
               </Panel>
 

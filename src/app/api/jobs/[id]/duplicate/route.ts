@@ -20,7 +20,7 @@ export async function POST(
   const { data: originalRaw } = await supabase
     .from("jobs")
     .select(
-      "title, department, company, city, state, modality, contractType, description, " +
+      "title, department, company, branchId, areaId, city, state, modality, contractType, description, " +
         "responsibilities, requiredRequirements, desiredRequirements, benefits, " +
         "workSchedule, salaryRange, salary, salaryPublic, openings, highlightBenefit, responsible, isTalentPool, visibility"
     )

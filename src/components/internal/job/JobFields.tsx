@@ -5,6 +5,7 @@
 // saber o que mudou (estado sujo + aviso de alteração de escopo aprovado).
 
 import { useId, type ReactNode } from "react";
+import { selectableOptions, type OrgUnit } from "@/lib/registries/org-units";
 import { BadgeCheck, Eye, Pencil } from "lucide-react";
 import { cn, BRAZIL_STATES } from "@/lib/utils";
 import { JOB_REQUEST_REASON_LABELS, JOB_REQUEST_REASON_ORDER } from "@/lib/job-requests/constants";
@@ -130,9 +131,14 @@ export function OpportunityFields({
   approved,
   hints,
   talentPoolDisabledReason,
+  branchOptions = [],
+  areaOptions = [],
 }: {
   draft: JobDraft;
   patch: Patch;
+  /** Cadastros de Filiais e Áreas (Configurações › Cadastros). */
+  branchOptions?: OrgUnit[];
+  areaOptions?: OrgUnit[];
   approved?: Set<string>;
   hints?: Partial<Record<string, string | null>>;
   /** Motivo para não permitir virar banco de talentos (ex.: posições preenchidas). */
@@ -166,17 +172,51 @@ export function OpportunityFields({
           <input id={`${id}-title`} value={draft.title} onChange={(e) => patch({ title: e.target.value })} className={inputClass} />
         </Field>
         <Field label="Área / departamento" htmlFor={`${id}-dep`} approved={a("department")} approvedHint={hints?.department}>
-          <input id={`${id}-dep`} value={draft.department} onChange={(e) => patch({ department: e.target.value })} className={inputClass} />
-        </Field>
-        <Field label="Empresa / unidade" htmlFor={`${id}-co`} approved={a("company")} approvedHint={hints?.company}>
-          <input
-            id={`${id}-co`}
-            value={draft.company}
-            onChange={(e) => patch({ company: e.target.value })}
-            placeholder="Ex.: WG Baterias SP"
+          <select
+            id={`${id}-dep`}
+            value={draft.areaId}
+            onChange={(e) => {
+              const area = areaOptions.find((o) => o.id === e.target.value);
+              patch({ areaId: e.target.value, department: area?.name ?? draft.department });
+            }}
             className={inputClass}
-          />
+          >
+            <option value="">{draft.department && !draft.areaId ? `${draft.department} (valor antigo)` : "Selecione"}</option>
+            {selectableOptions(areaOptions, draft.areaId || null).map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+                {o.active ? "" : " (desativada)"}
+              </option>
+            ))}
+          </select>
         </Field>
+        {!draft.isTalentPool && (
+          <Field label="Filial" htmlFor={`${id}-co`} approved={a("company")} approvedHint={hints?.company}>
+            <select
+              id={`${id}-co`}
+              value={draft.branchId}
+              onChange={(e) => {
+                const branch = branchOptions.find((o) => o.id === e.target.value);
+                // A filial preenche cidade/UF; o RH ainda pode ajustar (ex.: CD em outra cidade).
+                patch({
+                  branchId: e.target.value,
+                  company: branch?.name ?? draft.company,
+                  ...(branch?.city ? { city: branch.city } : {}),
+                  ...(branch?.state ? { state: branch.state } : {}),
+                });
+              }}
+              className={inputClass}
+            >
+              <option value="">{draft.company && !draft.branchId ? `${draft.company} (valor antigo)` : "Selecione"}</option>
+              {selectableOptions(branchOptions, draft.branchId || null).map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                  {o.active ? "" : " (desativada)"}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
         {!draft.isTalentPool && (
           <>
             <Field label="Cidade" htmlFor={`${id}-city`} required>

@@ -16,6 +16,8 @@ export const CONDITION_TYPES = [
   'hasChildren',
   'hasItauAccount',
   'isDriverOperator',
+  'positionDriver',
+  'positionForkliftOperator',
 ] as const
 
 export type ConditionType = (typeof CONDITION_TYPES)[number]
@@ -27,6 +29,9 @@ export type DocCondition =
   | { type: 'hasChildren' }
   | { type: 'hasItauAccount' }
   | { type: 'isDriverOperator' }
+  /** Pelo cargo da admissão (cadastro de Cargos); sem cargo, pela resposta do candidato. */
+  | { type: 'positionDriver' }
+  | { type: 'positionForkliftOperator' }
 
 export const CONDITION_LABELS: Record<ConditionType, string> = {
   always:           'Sempre visível',
@@ -35,6 +40,8 @@ export const CONDITION_LABELS: Record<ConditionType, string> = {
   hasChildren:      'Se possui filhos',
   hasItauAccount:   'Se possui conta Itaú',
   isDriverOperator: 'Se é Motorista/Operador/Encarregado',
+  positionDriver:   'Se o cargo é motorista',
+  positionForkliftOperator: 'Se o cargo é operador de empilhadeira',
 }
 
 // ─── Campos extras (texto) anexados a um documento ────────────────────────────
@@ -89,6 +96,9 @@ export interface FormAnswers {
   hasChildren: boolean
   hasItauAccount: boolean
   isDriverOperator: boolean
+  /** Do cargo da admissão; ausentes quando a admissão não tem cargo. */
+  isDriver?: boolean
+  isForkliftOperator?: boolean
 }
 
 export function matchesCondition(cond: DocCondition, a: Partial<FormAnswers>): boolean {
@@ -99,6 +109,8 @@ export function matchesCondition(cond: DocCondition, a: Partial<FormAnswers>): b
     case 'hasChildren':      return !!a.hasChildren
     case 'hasItauAccount':   return !!a.hasItauAccount
     case 'isDriverOperator': return !!a.isDriverOperator
+    case 'positionDriver':   return a.isDriver ?? !!a.isDriverOperator
+    case 'positionForkliftOperator': return a.isForkliftOperator ?? !!a.isDriverOperator
     default:                 return false
   }
 }
@@ -164,8 +176,8 @@ export const DEFAULT_FORM_CONFIG: FormConfig = {
     { key: 'VACINACAO',    label: 'Carteira de vacinação (filhos até 5 anos)',                 required: false, condition: { type: 'hasChildren' } },
     { key: 'MATRICULA',    label: 'Comprovante de matrícula (filhos 6-14 anos)',               required: false, condition: { type: 'hasChildren' } },
     { key: 'CONTA_ITAU',   label: 'Comprovante de conta Itaú',                                 required: false, condition: { type: 'hasItauAccount' } },
-    { key: 'MOPP',         label: 'Certificado MOPP + CNH com observação',                     required: false, condition: { type: 'isDriverOperator' } },
-    { key: 'EMPILHADEIRA', label: 'Certificado Operador de Empilhadeira',                       required: false, condition: { type: 'isDriverOperator' } },
+    { key: 'MOPP',         label: 'Certificado MOPP + CNH com observação',                     required: false, condition: { type: 'positionDriver' } },
+    { key: 'EMPILHADEIRA', label: 'Certificado Operador de Empilhadeira',                       required: false, condition: { type: 'positionForkliftOperator' } },
   ],
 }
 
@@ -322,4 +334,43 @@ export function renewedFormExpiry(
   const target = new Date(now.getTime() + days * 86_400_000)
   if (currentIso && new Date(currentIso).getTime() >= target.getTime()) return null
   return target.toISOString()
+}
+
+// ─── O cargo define uniforme e motorista/operador ─────────────────────────────
+// Com cargo na admissão, o formulário não pergunta ao candidato o que o cadastro de Cargos
+// já diz (calça e bota; motorista; operador de empilhadeira). Sem cargo, tudo como antes.
+
+export interface PositionProfile {
+  usesOperationalUniform: boolean
+  isDriver: boolean
+  isForkliftOperator: boolean
+}
+
+export function resolvePositionAnswers(
+  profile: PositionProfile | null,
+  candidate: { isDriverOperator: boolean | null; noOperationalUniform: boolean }
+): {
+  isDriverOperator: boolean
+  isDriver?: boolean
+  isForkliftOperator?: boolean
+  noOperationalUniform: boolean
+  asksDriverQuestion: boolean
+  asksUniformQuestion: boolean
+} {
+  if (!profile) {
+    return {
+      isDriverOperator: !!candidate.isDriverOperator,
+      noOperationalUniform: candidate.noOperationalUniform,
+      asksDriverQuestion: true,
+      asksUniformQuestion: true,
+    }
+  }
+  return {
+    isDriverOperator: profile.isDriver || profile.isForkliftOperator,
+    isDriver: profile.isDriver,
+    isForkliftOperator: profile.isForkliftOperator,
+    noOperationalUniform: !profile.usesOperationalUniform,
+    asksDriverQuestion: false,
+    asksUniformQuestion: false,
+  }
 }

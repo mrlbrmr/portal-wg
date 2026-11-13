@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { DigitalForm } from './DigitalForm'
 import { loadFormConfig } from '@/lib/admissao/form-config-loader'
 import { restoreFormUploads } from '@/lib/admissao/form-config'
+import { loadPositionProfile } from '@/lib/admissao/position-profile'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Admissão digital' }
@@ -23,7 +24,7 @@ export default async function AdmissaoPage({ params }: { params: Promise<{ token
 
   const { data: admission } = await supabase
     .from('admissions')
-    .select('id, fullName, digitalFormExpiresAt, digitalFormSubmittedAt')
+    .select('id, fullName, digitalFormExpiresAt, digitalFormSubmittedAt, positionId')
     .eq('digitalFormToken', token)
     .maybeSingle()
 
@@ -60,7 +61,7 @@ export default async function AdmissaoPage({ params }: { params: Promise<{ token
   }
 
   // Retomada: arquivos que o candidato já enviou por este link (anexos do RH têm usuário).
-  const [config, attachmentsRes, typesRes] = await Promise.all([
+  const [config, attachmentsRes, typesRes, positionProfile] = await Promise.all([
     loadFormConfig(),
     supabase
       .from('admission_attachments')
@@ -69,6 +70,7 @@ export default async function AdmissaoPage({ params }: { params: Promise<{ token
       .is('uploadedById', null)
       .order('createdAt', { ascending: true }),
     supabase.from('admission_document_types').select('id, name'),
+    loadPositionProfile(supabase, admission.positionId as string | null),
   ])
   const initialUploads = restoreFormUploads(
     config,
@@ -82,6 +84,7 @@ export default async function AdmissaoPage({ params }: { params: Promise<{ token
       candidateName={admission.fullName as string}
       config={config}
       initialUploads={initialUploads}
+      positionProfile={positionProfile}
     />
   )
 }

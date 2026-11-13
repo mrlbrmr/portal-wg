@@ -46,6 +46,10 @@ export function buildCondition(type: ConditionType, values: string[]): DocCondit
       return { type: "hasItauAccount" };
     case "isDriverOperator":
       return { type: "isDriverOperator" };
+    case "positionDriver":
+      return { type: "positionDriver" };
+    case "positionForkliftOperator":
+      return { type: "positionForkliftOperator" };
     default:
       return { type: "always" };
   }

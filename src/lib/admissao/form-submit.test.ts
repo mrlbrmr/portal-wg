@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { birthDateProblem, missingRequiredItems, renewedFormExpiry, type DocumentConfig } from './form-config'
+import { birthDateProblem, matchesCondition, missingRequiredItems, renewedFormExpiry, resolvePositionAnswers, type DocumentConfig } from './form-config'
 
 const documents: DocumentConfig[] = [
   { key: 'RG', label: 'RG/CNH', required: true, condition: { type: 'always' } },
@@ -75,4 +75,55 @@ describe('renewedFormExpiry', () => {
     assert.equal(renewedFormExpiry('2026-11-14T12:00:00Z', now), '2026-11-20T12:00:00.000Z'))
   it('não encurta um prazo maior', () => assert.equal(renewedFormExpiry('2026-11-30T00:00:00Z', now), null))
   it('link sem prazo ganha prazo', () => assert.equal(renewedFormExpiry(null, now), '2026-11-20T12:00:00.000Z'))
+})
+
+describe('resolvePositionAnswers (o cargo define uniforme e motorista/operador)', () => {
+  const motorista = { usesOperationalUniform: true, isDriver: true, isForkliftOperator: false }
+  const nada = { usesOperationalUniform: false, isDriver: false, isForkliftOperator: false }
+
+  it('com cargo motorista: não pergunta e usa o cargo', () => {
+    const r = resolvePositionAnswers(motorista, { isDriverOperator: false, noOperationalUniform: true })
+    assert.deepEqual(r, {
+      isDriverOperator: true, isDriver: true, isForkliftOperator: false, noOperationalUniform: false,
+      asksDriverQuestion: false, asksUniformQuestion: false,
+    })
+  })
+
+  it('cargo sem nenhuma marcação: sem calça e bota e não é motorista/operador', () => {
+    const r = resolvePositionAnswers(nada, { isDriverOperator: true, noOperationalUniform: false })
+    assert.equal(r.noOperationalUniform, true)
+    assert.equal(r.isDriverOperator, false)
+  })
+
+  it('sem cargo: repete a resposta do candidato e continua perguntando', () => {
+    const r = resolvePositionAnswers(null, { isDriverOperator: true, noOperationalUniform: false })
+    assert.deepEqual(r, {
+      isDriverOperator: true, noOperationalUniform: false, asksDriverQuestion: true, asksUniformQuestion: true,
+    })
+  })
+})
+
+describe('condições do cargo nos documentos', () => {
+  const docs: DocumentConfig[] = [
+    { key: 'MOPP', label: 'MOPP', required: true, condition: { type: 'positionDriver' } },
+    { key: 'EMP', label: 'Empilhadeira', required: true, condition: { type: 'positionForkliftOperator' } },
+  ]
+  const docTypes = [{ id: 't-mopp', name: 'MOPP' }, { id: 't-emp', name: 'Empilhadeira' }]
+
+  it('operador não precisa de MOPP; motorista precisa', () => {
+    const operador = missingRequiredItems({ documents: docs }, { isDriver: false, isForkliftOperator: true }, docTypes, [])
+    assert.deepEqual(operador.documents.map((d) => d.key), ['EMP'])
+    const motorista = missingRequiredItems({ documents: docs }, { isDriver: true, isForkliftOperator: false }, docTypes, [])
+    assert.deepEqual(motorista.documents.map((d) => d.key), ['MOPP'])
+  })
+
+  it('sem cargo, as condições novas caem na resposta motorista/operador do candidato', () => {
+    assert.equal(matchesCondition({ type: 'positionDriver' }, { isDriverOperator: true }), true)
+    assert.equal(matchesCondition({ type: 'positionForkliftOperator' }, { isDriverOperator: false }), false)
+  })
+
+  it('configuração antiga com isDriverOperator continua funcionando', () => {
+    assert.equal(matchesCondition({ type: 'isDriverOperator' }, { isDriverOperator: true }), true)
+    assert.equal(matchesCondition({ type: 'isDriverOperator' }, { isDriverOperator: false }), false)
+  })
 })

@@ -7,7 +7,8 @@ import { advanceToDocumentIntake } from '@/lib/admissao/advance-document-intake'
 import { z } from 'zod'
 import { isValidCpf } from '@/lib/cpf'
 import { loadFormConfig } from '@/lib/admissao/form-config-loader'
-import { birthDateProblem, missingRequiredItems } from '@/lib/admissao/form-config'
+import { birthDateProblem, missingRequiredItems, resolvePositionAnswers } from '@/lib/admissao/form-config'
+import { loadPositionProfile } from '@/lib/admissao/position-profile'
 
 // Nomes dos campos como o candidato os vê, para o erro dizer O QUE corrigir.
 const FIELD_LABELS: Record<string, string> = {
@@ -54,7 +55,7 @@ export async function POST(
 
   const { data: admission } = await supabase
     .from('admissions')
-    .select('id, digitalFormExpiresAt, digitalFormSubmittedAt')
+    .select('id, digitalFormExpiresAt, digitalFormSubmittedAt, positionId')
     .eq('digitalFormToken', token)
     .maybeSingle()
 
@@ -87,6 +88,13 @@ export async function POST(
 
   const d = parsed.data
 
+  // Com cargo na admissão, uniforme e motorista/operador vêm do cadastro de Cargos — o
+  // que o navegador mandar para esses campos é ignorado.
+  const pos = resolvePositionAnswers(
+    await loadPositionProfile(supabase, admission.positionId as string | null),
+    { isDriverOperator: d.isDriverOperator, noOperationalUniform: d.noOperationalUniform }
+  )
+
   // A tela já exige os documentos obrigatórios, mas a regra não pode morar só no navegador:
   // recalcula o que é exigido pelas respostas e confere os anexos desta admissão.
   const [config, typesRes, attachmentsRes] = await Promise.all([
@@ -104,7 +112,9 @@ export async function POST(
       maritalStatus: d.maritalStatus,
       hasChildren: d.hasChildren,
       hasItauAccount: d.hasItauAccount,
-      isDriverOperator: d.isDriverOperator,
+      isDriverOperator: pos.isDriverOperator,
+      isDriver: pos.isDriver,
+      isForkliftOperator: pos.isForkliftOperator,
     },
     (typesRes.data ?? []) as Array<{ id: string; name: string }>,
     (attachmentsRes.data ?? []) as Array<{ id: string; fileName: string; documentTypeId: string | null; reviewStatus: string | null }>,
@@ -142,11 +152,11 @@ export async function POST(
     bankAgency:             d.bankAgency ?? null,
     bankAccount:            d.bankAccount ?? null,
     colorDeclaration:       d.colorDeclaration,
-    isDriverOperator:       d.isDriverOperator,
+    isDriverOperator:       pos.isDriverOperator,
     uniformShirt:           d.uniformShirt,
-    noOperationalUniform:   d.noOperationalUniform,
-    uniformPants:           d.uniformPants ?? null,
-    uniformShoe:            d.uniformShoe ?? null,
+    noOperationalUniform:   pos.noOperationalUniform,
+    uniformPants:           pos.noOperationalUniform ? null : (d.uniformPants ?? null),
+    uniformShoe:            pos.noOperationalUniform ? null : (d.uniformShoe ?? null),
     formExtras:             d.formExtras ?? null,
     digitalFormSubmittedAt: new Date().toISOString(),
   })

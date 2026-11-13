@@ -5,6 +5,8 @@ import { CheckCircle2, Upload, Loader2, AlertTriangle, ChevronRight, ChevronLeft
 import {
   birthDateProblem,
   getVisibleDocuments,
+  resolvePositionAnswers,
+  type PositionProfile,
   type FormConfig,
   type RestoredUpload,
   type DocumentConfig,
@@ -330,11 +332,13 @@ function StepBar({ current }: { current: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function DigitalForm({
-  token, candidateName, config, initialUploads, preview = false,
+  token, candidateName, config, initialUploads, preview = false, positionProfile = null,
 }: {
   token: string
   candidateName: string
   config: FormConfig
+  /** Marcações do cargo da admissão; null = sem cargo (pergunta ao candidato). */
+  positionProfile?: PositionProfile | null
   /** Arquivos já enviados por este link (retomada após fechar a página). */
   initialUploads?: Record<string, RestoredUpload[]>
   /**
@@ -428,12 +432,20 @@ export function DigitalForm({
     setUploads(prev => ({ ...prev, [key]: (prev[key] ?? []).filter(f => f.id !== id) }))
   }
 
+  // O cargo define uniforme e motorista/operador; sem cargo, vale a resposta do candidato.
+  const pos = resolvePositionAnswers(positionProfile, {
+    isDriverOperator: additional.isDriverOperator,
+    noOperationalUniform: additional.noOperationalUniform,
+  })
+
   const visibleDocs: DocumentConfig[] = getVisibleDocuments(config, {
     gender:           personal.gender,
     maritalStatus:    additional.maritalStatus,
     hasChildren:      additional.hasChildren ?? false,
     hasItauAccount:   additional.hasItauAccount ?? false,
-    isDriverOperator: additional.isDriverOperator ?? false,
+    isDriverOperator: pos.isDriverOperator,
+    isDriver:         pos.isDriver,
+    isForkliftOperator: pos.isForkliftOperator,
   })
 
   // ── Validation ──────────────────────────────────────────────────────────────
@@ -467,9 +479,9 @@ export function DigitalForm({
       if (!additional.bankAccount.trim()) e.bankAccount = 'Informe o número da conta.'
     }
     if (!additional.colorDeclaration) e.colorDeclaration = 'Selecione a autodeclaração de cor.'
-    if (additional.isDriverOperator === null) e.isDriverOperator = 'Responda sobre o cargo.'
+    if (pos.asksDriverQuestion && additional.isDriverOperator === null) e.isDriverOperator = 'Responda sobre o cargo.'
     if (!additional.shirtSize) e.shirtSize = 'Selecione o tamanho da camiseta.'
-    if (!additional.noOperationalUniform) {
+    if (!pos.noOperationalUniform) {
       if (!additional.pantsSize) e.pantsSize = 'Selecione o tamanho da calça.'
       if (!additional.bootSize) e.bootSize = 'Selecione o número da bota.'
     }
@@ -564,11 +576,11 @@ export function DigitalForm({
           bankAgency:             additional.bankAgency || null,
           bankAccount:            additional.bankAccount || null,
           colorDeclaration:       additional.colorDeclaration,
-          isDriverOperator:       additional.isDriverOperator ?? false,
+          isDriverOperator:       pos.isDriverOperator,
           uniformShirt:           additional.shirtSize,
-          noOperationalUniform:   additional.noOperationalUniform,
-          uniformPants:           additional.noOperationalUniform ? null : additional.pantsSize,
-          uniformShoe:            additional.noOperationalUniform ? null : additional.bootSize,
+          noOperationalUniform:   pos.noOperationalUniform,
+          uniformPants:           pos.noOperationalUniform ? null : additional.pantsSize,
+          uniformShoe:            pos.noOperationalUniform ? null : additional.bootSize,
           formExtras:             Object.keys(formExtras).length ? formExtras : null,
           abandonedAttachmentIds: abandoned.length ? abandoned : null,
         }),
@@ -756,12 +768,16 @@ export function DigitalForm({
             onChange={v => setAdditional(a => ({ ...a, colorDeclaration: v }))} />
           {errors.colorDeclaration && <p className="text-xs text-red-500">{errors.colorDeclaration}</p>}
 
-          <YesNo label={config.labels.isDriverOperator} required
-            value={additional.isDriverOperator}
-            onChange={v => setAdditional(a => ({ ...a, isDriverOperator: v }))} />
-          {errors.isDriverOperator && <p className="text-xs text-red-500">{errors.isDriverOperator}</p>}
+          {pos.asksDriverQuestion && (
+            <>
+              <YesNo label={config.labels.isDriverOperator} required
+                value={additional.isDriverOperator}
+                onChange={v => setAdditional(a => ({ ...a, isDriverOperator: v }))} />
+              {errors.isDriverOperator && <p className="text-xs text-red-500">{errors.isDriverOperator}</p>}
+            </>
+          )}
 
-          {additional.isDriverOperator && (
+          {pos.isDriverOperator && (
             <p className="text-sm text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
               {config.messages.driverInfo}
             </p>
@@ -779,6 +795,7 @@ export function DigitalForm({
             />
             {errors.shirtSize && <p className="text-xs text-red-500">{errors.shirtSize}</p>}
 
+            {pos.asksUniformQuestion && (
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -795,8 +812,9 @@ export function DigitalForm({
                 Não utilizarei calça e bota <span className="text-gray-400">(cargo administrativo)</span>
               </span>
             </label>
+            )}
 
-            {!additional.noOperationalUniform && (
+            {!pos.noOperationalUniform && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls(true)}>Tamanho da calça</label>
@@ -901,9 +919,9 @@ export function DigitalForm({
               <Row label="Conta"   value={additional.bankAccount} />
             </>}
             <Row label="Cor"        value={additional.colorDeclaration} />
-            <Row label="Motorista/Op." value={additional.isDriverOperator ? 'Sim' : 'Não'} />
+            {pos.asksDriverQuestion && <Row label="Motorista/Op." value={pos.isDriverOperator ? 'Sim' : 'Não'} />}
             <Row label="Camiseta"   value={additional.shirtSize} />
-            {additional.noOperationalUniform
+            {pos.noOperationalUniform
               ? <Row label="Calça / Bota" value="Não utiliza (adm.)" />
               : <>
                   <Row label="Calça" value={additional.pantsSize} />

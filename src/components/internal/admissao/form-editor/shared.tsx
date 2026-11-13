@@ -19,6 +19,10 @@ export function conditionQuestion(type: Exclude<DocCondition["type"], "always">,
       return config.labels.hasItauAccount;
     case "isDriverOperator":
       return config.labels.isDriverOperator;
+    case "positionDriver":
+      return "Cargo é motorista (cadastro de Cargos)";
+    case "positionForkliftOperator":
+      return "Cargo é operador de empilhadeira (cadastro de Cargos)";
   }
 }
 

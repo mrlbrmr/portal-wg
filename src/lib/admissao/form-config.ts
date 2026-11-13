@@ -255,3 +255,56 @@ export function restoreFormUploads(
   }
   return out
 }
+
+// ─── Conferência no SERVIDOR do envio final ───────────────────────────────────
+// A tela já bloqueia o envio sem documento obrigatório, mas a regra não pode morar só no
+// navegador (aconteceram envios sem nenhum anexo). O submit recalcula os documentos
+// visíveis pelas respostas recebidas e confere os anexos da admissão — os do candidato e
+// os que o RH subiu por ele. Anexo recusado pelo RH ou descartado no envio não conta.
+
+export interface MissingItem {
+  key: string
+  label: string
+}
+
+export function missingRequiredItems(
+  config: Pick<FormConfig, 'documents'>,
+  answers: Partial<FormAnswers>,
+  documentTypes: Array<{ id: string; name: string }>,
+  attachments: Array<{ id: string; fileName: string; documentTypeId: string | null; reviewStatus?: string | null }>,
+  options: { abandonedIds?: readonly string[]; extras?: Record<string, string> | null } = {}
+): { documents: MissingItem[]; fields: MissingItem[] } {
+  const abandoned = new Set(options.abandonedIds ?? [])
+  const uploads = restoreFormUploads(
+    config,
+    documentTypes,
+    attachments.filter((a) => !abandoned.has(a.id))
+  )
+  const visible = getVisibleDocuments(config as FormConfig, answers)
+  // Documento sem tipo correspondente no cadastro (vínculo é pelo nome exato) não dá para
+  // conferir: o upload fica sem tipo. Nesse caso não bloqueia — senão o candidato travaria.
+  const typeNames = new Set(documentTypes.map((t) => t.name))
+  const documents = visible
+    .filter((d) => d.required && typeNames.has(d.label) && !(uploads[d.key]?.length))
+    .map((d) => ({ key: d.key, label: d.label }))
+  const fields = visible.flatMap((d) =>
+    (d.extraFields ?? [])
+      .filter((f) => f.required && !(options.extras?.[f.key] ?? '').trim())
+      .map((f) => ({ key: f.key, label: f.label }))
+  )
+  return { documents, fields }
+}
+
+/** Data de nascimento plausível para admissão: não futura e idade de 14 a 100 anos. */
+export function birthDateProblem(iso: string, today: Date = new Date()): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return 'Informe a data de nascimento.'
+  const [y, m, d] = iso.split('-').map(Number)
+  const ty = today.getFullYear(), tm = today.getMonth() + 1, td = today.getDate()
+  // Comparação por AAAAMMDD: sem fuso nem horário.
+  if (y * 10000 + m * 100 + d > ty * 10000 + tm * 100 + td) return 'A data de nascimento não pode ser no futuro.'
+  let age = ty - y
+  if (tm < m || (tm === m && td < d)) age -= 1
+  if (age < 14) return 'Confira a data de nascimento: a idade mínima para admissão é 14 anos.'
+  if (age > 100) return 'Confira a data de nascimento.'
+  return null
+}

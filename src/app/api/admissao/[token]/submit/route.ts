@@ -6,13 +6,27 @@ import { notifyAdmissionSubmitted } from '@/lib/admissao/notify-submitted'
 import { advanceToDocumentIntake } from '@/lib/admissao/advance-document-intake'
 import { z } from 'zod'
 import { isValidCpf } from '@/lib/cpf'
+import { loadFormConfig } from '@/lib/admissao/form-config-loader'
+import { birthDateProblem, missingRequiredItems } from '@/lib/admissao/form-config'
+
+// Nomes dos campos como o candidato os vê, para o erro dizer O QUE corrigir.
+const FIELD_LABELS: Record<string, string> = {
+  fullName: 'Nome completo', cpf: 'CPF', birthDate: 'Data de nascimento', email: 'E-mail',
+  phone: 'Telefone / WhatsApp', gender: 'Gênero', maritalStatus: 'Estado civil',
+  colorDeclaration: 'Autodeclaração de cor', uniformShirt: 'Tamanho da camiseta',
+  bankAgency: 'Agência', bankAccount: 'Conta',
+}
 
 const schema = z.object({
   fullName:               z.string().trim().min(3).max(120),
   cpf:                    z.string().min(11).max(14).refine(isValidCpf, 'CPF inválido'),
-  birthDate:              z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  birthDate:              z.string().superRefine((v, ctx) => {
+    const problem = birthDateProblem(v)
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem })
+  }),
   email:                  z.string().email(),
-  phone:                  z.string().min(8).max(20),
+  // Mesma regra da tela: DDD + número (10 ou 11 dígitos).
+  phone:                  z.string().refine((v) => /^\d{10,11}$/.test(v.replace(/\D/g, '')), 'Telefone inválido'),
   gender:                 z.string().min(1),
   maritalStatus:          z.string().min(1),
   hasChildren:            z.boolean(),
@@ -56,12 +70,64 @@ export async function POST(
   catch { return NextResponse.json({ error: 'Corpo inválido.' }, { status: 400 }) }
 
   const parsed = schema.safeParse(body)
-  if (!parsed.success)
-    return NextResponse.json({ error: 'Dados inválidos.', issues: parsed.error.flatten() }, { status: 422 })
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors as Record<string, string[] | undefined>
+    const fields = Object.keys(fieldErrors).map((k) => FIELD_LABELS[k] ?? k)
+    const birth = fieldErrors.birthDate?.[0]
+    return NextResponse.json(
+      {
+        error: birth && fields.length === 1
+          ? birth
+          : `Confira ${fields.length === 1 ? 'o campo' : 'os campos'}: ${fields.join(', ')}.`,
+        fields: Object.keys(fieldErrors),
+      },
+      { status: 422 }
+    )
+  }
 
   const d = parsed.data
 
-  const { error } = await supabase.from('admissions').update({
+  // A tela já exige os documentos obrigatórios, mas a regra não pode morar só no navegador:
+  // recalcula o que é exigido pelas respostas e confere os anexos desta admissão.
+  const [config, typesRes, attachmentsRes] = await Promise.all([
+    loadFormConfig(),
+    supabase.from('admission_document_types').select('id, name'),
+    supabase
+      .from('admission_attachments')
+      .select('id, fileName, documentTypeId, reviewStatus')
+      .eq('admissionId', admission.id),
+  ])
+  const missing = missingRequiredItems(
+    config,
+    {
+      gender: d.gender,
+      maritalStatus: d.maritalStatus,
+      hasChildren: d.hasChildren,
+      hasItauAccount: d.hasItauAccount,
+      isDriverOperator: d.isDriverOperator,
+    },
+    (typesRes.data ?? []) as Array<{ id: string; name: string }>,
+    (attachmentsRes.data ?? []) as Array<{ id: string; fileName: string; documentTypeId: string | null; reviewStatus: string | null }>,
+    { abandonedIds: d.abandonedAttachmentIds ?? [], extras: d.formExtras ?? null }
+  )
+  if (missing.documents.length || missing.fields.length) {
+    const parts = [
+      ...(missing.documents.length ? [`documentos: ${missing.documents.map((m) => m.label).join(', ')}`] : []),
+      ...(missing.fields.length ? [`campos: ${missing.fields.map((m) => m.label).join(', ')}`] : []),
+    ]
+    return NextResponse.json(
+      {
+        error: `Faltam itens obrigatórios — ${parts.join('; ')}. Volte à etapa Documentos e envie o que falta.`,
+        missingDocuments: missing.documents.map((m) => m.key),
+        missingFields: missing.fields.map((m) => m.key),
+      },
+      { status: 422 }
+    )
+  }
+
+  // Compare-and-swap: só grava se ainda não foi enviado (clique duplo ou dois aparelhos
+  // não geram dois envios, dois e-mails ao RH nem dois registros de atividade).
+  const { data: saved, error } = await supabase.from('admissions').update({
     fullName:               d.fullName,
     cpf:                    d.cpf,
     birthDate:              d.birthDate,
@@ -83,12 +149,17 @@ export async function POST(
     uniformShoe:            d.uniformShoe ?? null,
     formExtras:             d.formExtras ?? null,
     digitalFormSubmittedAt: new Date().toISOString(),
-  }).eq('id', admission.id)
+  })
+    .eq('id', admission.id)
+    .is('digitalFormSubmittedAt', null)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     console.error('[admissao-submit]', error)
     return NextResponse.json({ error: 'Erro ao salvar dados.' }, { status: 500 })
   }
+  if (!saved) return NextResponse.json({ error: 'Formulário já enviado.' }, { status: 409 })
 
   await logActivity(supabase, {
     action: 'FORM_SUBMITTED',

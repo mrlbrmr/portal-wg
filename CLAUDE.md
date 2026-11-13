@@ -213,6 +213,10 @@ Produção: **carreiras.wgbaterias.com.br** (deploy na Vercel).
 - **Admissão digital (candidato, por token):** `src/app/admissao/[token]`, `src/app/api/admissao/[token]/**`
   (`DigitalForm` tem modo `preview` — usado na aba Visualização das Configurações, sem upload/envio).
   ⚠️ O documento do formulário é ligado ao cadastro "Tipos de documento" **pelo nome exato** (upload route).
+  O **submit confere no servidor** os documentos/campos obrigatórios visíveis pelas respostas
+  (`missingRequiredItems()` em `form-config.ts`, testado; anexos do candidato e do RH contam, recusado e
+  descartado não; documento sem tipo no cadastro não bloqueia), valida a data de nascimento
+  (`birthDateProblem`) e grava com compare-and-swap (`digitalFormSubmittedAt is null`).
 - **Configurações** (`src/app/(internal)/configuracoes/**`): mapa único de seções/páginas/cadastros em
   `src/lib/settings/registry.ts` (home, breadcrumbs e navegação de Cadastros leem dele). Toda página usa
   `SettingsPage` (breadcrumb + container 1180px + "Última alteração"); formulários usam

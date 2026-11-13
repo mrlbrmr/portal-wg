@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { CheckCircle2, Upload, Loader2, AlertTriangle, ChevronRight, ChevronLeft, X } from 'lucide-react'
 import {
+  birthDateProblem,
   getVisibleDocuments,
   type FormConfig,
   type RestoredUpload,
@@ -402,7 +403,8 @@ export function DigitalForm({
     const digits = personal.cpf.replace(/\D/g, '')
     if (digits.length !== 11) e.cpf = 'CPF deve ter 11 dígitos.'
     else if (!isValidCpf(digits)) e.cpf = 'CPF inválido. Confira os números.'
-    if (!personal.birthDate) e.birthDate = 'Informe a data de nascimento.'
+    const birthProblem = birthDateProblem(personal.birthDate)
+    if (birthProblem) e.birthDate = birthProblem
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email)) e.email = 'E-mail inválido.'
     if (personal.phone.replace(/\D/g, '').length < 10) e.phone = 'Telefone inválido.'
     if (!personal.gender) e.gender = 'Selecione o gênero.'
@@ -458,6 +460,7 @@ export function DigitalForm({
     if (step === 0 && !validateStep0()) return
     if (step === 1 && !validateStep1()) return
     if (step === 2 && !validateStep2()) return
+    setSubmitError(null)
     setStep(s => s + 1)
   }
 
@@ -524,8 +527,26 @@ export function DigitalForm({
           abandonedAttachmentIds: abandoned.length ? abandoned : null,
         }),
       }, 30_000)
-      const body = await res.json().catch(() => ({})) as { error?: string }
-      if (!res.ok) { setSubmitError(body.error ?? 'Erro ao enviar. Tente novamente.'); return }
+      const body = await res.json().catch(() => ({})) as {
+        error?: string
+        missingDocuments?: string[]
+        missingFields?: string[]
+      }
+      if (!res.ok) {
+        // O servidor confere os documentos obrigatórios: volta para a etapa Documentos com
+        // cada item que falta marcado, em vez de só uma mensagem no fim da página.
+        const docs = body.missingDocuments ?? []
+        const fields = body.missingFields ?? []
+        if (docs.length || fields.length) {
+          setErrors({
+            ...Object.fromEntries(docs.map((k) => [k, 'Documento obrigatório não enviado.'])),
+            ...Object.fromEntries(fields.map((k) => [`extra:${k}`, 'Campo obrigatório.'])),
+          })
+          setStep(2)
+        }
+        setSubmitError(body.error ?? 'Erro ao enviar. Tente novamente.')
+        return
+      }
       setSubmitted(true)
     } catch {
       setSubmitError('Erro de conexão. Verifique sua internet e tente novamente.')
@@ -768,6 +789,10 @@ export function DigitalForm({
             <h2 className="font-semibold text-gray-900">Envio de documentos</h2>
             <p className="text-xs text-gray-500 mt-0.5">Campos marcados com * são obrigatórios. Pode enviar PDF ou foto — fotos do celular são otimizadas automaticamente.</p>
           </div>
+
+          {submitError && (
+            <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{submitError}</p>
+          )}
 
           {visibleDocs.map(doc => (
             <div key={doc.key}>

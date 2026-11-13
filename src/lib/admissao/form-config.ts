@@ -129,7 +129,7 @@ export const DIGITAL_FORM_EXPIRY_DAYS = 7
 
 export const DEFAULT_FORM_CONFIG: FormConfig = {
   header: {
-    title: 'Admissão Digital',
+    title: 'Admissão digital',
     subtitle: 'Preencha com atenção.',
   },
   success: {
@@ -170,7 +170,7 @@ export const DEFAULT_FORM_CONFIG: FormConfig = {
     { key: 'ESCOLARIDADE', label: 'Comprovante de escolaridade',                               required: true,  condition: { type: 'always' } },
     { key: 'TITULO',       label: 'Título de Eleitor',                                          required: true,  condition: { type: 'always' } },
     { key: 'RESERVISTA',   label: 'Certificado de reservista/dispensa do Exército',            required: false, condition: { type: 'gender', values: ['Masculino'] } },
-    { key: 'RG_CNH_CONJUGE', label: 'RG/CNH do Cônjuge - Frente e verso',                      required: false, condition: { type: 'marital', values: ['Casado(a)'] } },
+    { key: 'RG_CNH_CONJUGE', label: 'RG/CNH do Cônjuge - Frente e verso',                      required: false, condition: { type: 'marital', values: ['Casado(a)', 'União Estável'] } },
     { key: 'CERTIDAO_CIV', label: 'Certidão de casamento/união estável/averbação de divórcio', required: false, condition: { type: 'marital', values: ['Casado(a)', 'União Estável', 'Divorciado(a)'] } },
     { key: 'CERT_FILHOS',  label: 'Certidão de nascimento/RG dos filhos',                       required: false, condition: { type: 'hasChildren' } },
     { key: 'VACINACAO',    label: 'Carteira de vacinação (filhos até 5 anos)',                 required: false, condition: { type: 'hasChildren' } },

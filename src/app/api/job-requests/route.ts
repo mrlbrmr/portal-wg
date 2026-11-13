@@ -18,6 +18,7 @@ import { jobRequestReceivedEmail, jobRequestSubmittedEmail } from "@/lib/email-t
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { isHoneypotFilled } from "@/lib/job-requests/submission-guard";
 import { formatDateBR } from "@/lib/job-requests/mapping";
+import { desiredStartDateProblem } from "@/lib/job-requests/dates";
 import { createJobRequest } from "@/lib/job-requests/service";
 import { jobRequestPayloadSchema } from "@/lib/job-requests/schema";
 import { pruneHiddenExtraData, validateExtraData } from "@/lib/job-requests/extra-fields";
@@ -82,6 +83,11 @@ export async function POST(req: NextRequest) {
     );
   }
   const payload = parsed.data;
+
+  const dateProblem = desiredStartDateProblem(payload.desiredStartDate);
+  if (dateProblem) {
+    return NextResponse.json({ fieldErrors: { desiredStartDate: [dateProblem] } }, { status: 422 });
+  }
 
   // Perguntas complementares obrigatórias ainda valem (só as visíveis pelas condições).
   const extraFields = await loadExtraFields();

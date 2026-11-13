@@ -21,6 +21,9 @@ function Banner({ icon, title, body }: { icon: React.ReactNode; title: string; b
 export default async function AdmissaoPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
   const supabase  = createAdminClient()
+  // Telefone de contato configurável (Configurações › Formulário de admissão digital).
+  const contactPhone = (await loadFormConfig()).success.contactPhone
+  const contact = contactPhone ? ` pelo ${contactPhone}` : ''
 
   const { data: admission } = await supabase
     .from('admissions')
@@ -33,7 +36,7 @@ export default async function AdmissaoPage({ params }: { params: Promise<{ token
       <Banner
         icon={<AlertTriangle className="w-10 h-10 text-red-400" />}
         title="Link inválido"
-        body="Este link não existe ou foi removido. Entre em contato com o time de Gente & Gestão pelo (41) 99817-0054."
+        body={`Este link não existe ou foi removido. Entre em contato com o time de Gente & Gestão${contact}.`}
       />
     )
   }
@@ -43,7 +46,7 @@ export default async function AdmissaoPage({ params }: { params: Promise<{ token
       <Banner
         icon={<AlertTriangle className="w-10 h-10 text-yellow-400" />}
         title="Link expirado"
-        body="Este link não está mais disponível. Solicite um novo link ao time de Gente & Gestão pelo (41) 99817-0054."
+        body={`Este link não está mais disponível. Solicite um novo link ao time de Gente & Gestão${contact}.`}
       />
     )
   }

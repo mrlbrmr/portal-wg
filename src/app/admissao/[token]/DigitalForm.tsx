@@ -505,15 +505,23 @@ export function DigitalForm({
     return Object.keys(e).length === 0
   }
 
+  // No celular o campo com erro costuma estar fora da tela: leva até o primeiro aviso.
+  const formTopRef = useRef<HTMLDivElement>(null)
+  function scrollToFirstError() {
+    requestAnimationFrame(() => {
+      formTopRef.current?.querySelector('p.text-red-500')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }
+
   function handleNext() {
     if (preview) {
       setErrors({})
       setStep(s => s + 1)
       return
     }
-    if (step === 0 && !validateStep0()) return
-    if (step === 1 && !validateStep1()) return
-    if (step === 2 && !validateStep2()) return
+    if (step === 0 && !validateStep0()) return scrollToFirstError()
+    if (step === 1 && !validateStep1()) return scrollToFirstError()
+    if (step === 2 && !validateStep2()) return scrollToFirstError()
     setSubmitError(null)
     setStep(s => s + 1)
   }
@@ -637,7 +645,7 @@ export function DigitalForm({
   // ── Form ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-8">
+    <div ref={formTopRef} className="max-w-xl mx-auto px-4 py-8">
       <div className="text-center mb-6">
         <h1 className="text-xl font-bold text-gray-900">{config.header.title}</h1>
         <p className="text-sm text-gray-500 mt-1">
@@ -667,36 +675,36 @@ export function DigitalForm({
           <h2 className="font-semibold text-gray-900">Dados pessoais</h2>
 
           <div>
-            <label className={labelCls(true)}>Nome completo</label>
-            <input className={inputCls} value={personal.fullName}
+            <label htmlFor="adm-name" className={labelCls(true)}>Nome completo</label>
+            <input id="adm-name" autoComplete="name" className={inputCls} value={personal.fullName}
               onChange={e => setPersonal(p => ({ ...p, fullName: e.target.value }))} />
             {errors.fullName && <p className="text-xs text-red-500 mt-1">{errors.fullName}</p>}
           </div>
 
           <div>
-            <label className={labelCls(true)}>CPF</label>
-            <input className={inputCls} value={personal.cpf} placeholder="000.000.000-00"
+            <label htmlFor="adm-cpf" className={labelCls(true)}>CPF</label>
+            <input id="adm-cpf" inputMode="numeric" autoComplete="off" className={inputCls} value={personal.cpf} placeholder="000.000.000-00"
               onChange={e => setPersonal(p => ({ ...p, cpf: maskCpf(e.target.value) }))} />
             {errors.cpf && <p className="text-xs text-red-500 mt-1">{errors.cpf}</p>}
           </div>
 
           <div>
-            <label className={labelCls(true)}>Data de nascimento</label>
-            <input type="date" className={inputCls} value={personal.birthDate}
+            <label htmlFor="adm-birth" className={labelCls(true)}>Data de nascimento</label>
+            <input id="adm-birth" type="date" autoComplete="bday" className={inputCls} value={personal.birthDate}
               onChange={e => setPersonal(p => ({ ...p, birthDate: e.target.value }))} />
             {errors.birthDate && <p className="text-xs text-red-500 mt-1">{errors.birthDate}</p>}
           </div>
 
           <div>
-            <label className={labelCls(true)}>E-mail</label>
-            <input type="email" className={inputCls} value={personal.email}
+            <label htmlFor="adm-email" className={labelCls(true)}>E-mail</label>
+            <input id="adm-email" type="email" autoComplete="email" className={inputCls} value={personal.email}
               onChange={e => setPersonal(p => ({ ...p, email: e.target.value }))} />
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
 
           <div>
-            <label className={labelCls(true)}>Telefone / WhatsApp</label>
-            <input className={inputCls} value={personal.phone} placeholder="(00) 00000-0000"
+            <label htmlFor="adm-phone" className={labelCls(true)}>Telefone / WhatsApp</label>
+            <input id="adm-phone" type="tel" inputMode="tel" autoComplete="tel" className={inputCls} value={personal.phone} placeholder="(00) 00000-0000"
               onChange={e => setPersonal(p => ({ ...p, phone: maskPhone(e.target.value) }))} />
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
           </div>

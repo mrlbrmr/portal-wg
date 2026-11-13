@@ -1,5 +1,7 @@
 "use server";
 
+import { desiredStartDateProblem } from "./dates";
+
 // Server actions da solicitação de vaga — casca fina sobre src/lib/job-requests/service.ts.
 //
 // Nenhuma regra de negócio aqui: a validação de status, permissão e comentário obrigatório
@@ -124,6 +126,13 @@ export async function createJobRequestInternal(
       error: "Revise os campos destacados.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
+  }
+
+  if (!asDraft) {
+    const dateProblem = desiredStartDateProblem(parsed.data.desiredStartDate);
+    if (dateProblem) {
+      return { ok: false, error: "Revise os campos destacados.", fieldErrors: { desiredStartDate: [dateProblem] } };
+    }
   }
 
   // Rascunho pode ficar incompleto; ao enviar, as perguntas obrigatórias visíveis valem.

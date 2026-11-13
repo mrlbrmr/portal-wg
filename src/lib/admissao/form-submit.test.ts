@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { birthDateProblem, DEFAULT_FORM_CONFIG, FormConfigSchema, matchesCondition, missingRequiredItems, renewedFormExpiry, resolvePositionAnswers, type DocumentConfig } from './form-config'
+import { birthDateProblem, DEFAULT_FORM_CONFIG, FormConfigSchema, getVisibleDocuments, matchesCondition, missingRequiredItems, renewedFormExpiry, resolvePositionAnswers, type DocumentConfig } from './form-config'
 
 const documents: DocumentConfig[] = [
   { key: 'RG', label: 'RG/CNH', required: true, condition: { type: 'always' } },
@@ -131,5 +131,15 @@ describe('condições do cargo nos documentos', () => {
 describe('FormConfigSchema aceita as condições do cargo', () => {
   it('a configuração padrão passa pela validação do editor (salvar não pode falhar)', () => {
     assert.equal(FormConfigSchema.safeParse(DEFAULT_FORM_CONFIG).success, true)
+  })
+})
+
+describe('documento do cônjuge', () => {
+  it('é pedido também em União Estável, como a certidão', () => {
+    const visible = (marital: string) =>
+      getVisibleDocuments(DEFAULT_FORM_CONFIG, { maritalStatus: marital }).map((d) => d.key)
+    assert.ok(visible('União Estável').includes('RG_CNH_CONJUGE'))
+    assert.ok(visible('Casado(a)').includes('RG_CNH_CONJUGE'))
+    assert.ok(!visible('Solteiro(a)').includes('RG_CNH_CONJUGE'))
   })
 })

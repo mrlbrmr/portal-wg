@@ -9,6 +9,7 @@
 // encerramento): isso é decisão da VAGA, depois da aprovação.
 
 import { useCallback, type ReactNode } from "react";
+import { todayIsoInBrazil } from "@/lib/job-requests/dates";
 import { selectableOptions, type OrgUnit } from "@/lib/registries/org-units";
 import { ChevronDown } from "lucide-react";
 import type { FormFieldConfig } from "@/types/form-config";
@@ -402,12 +403,12 @@ export function JobRequestFormFields({
               value={values.requesterEmail}
               onChange={(e) => onChange({ requesterEmail: e.target.value })}
               readOnly={lockRequester}
-              placeholder="nome@wgbaterias.com.br"
+              placeholder="Seu e-mail de trabalho"
               className={`${inputClass} ${lockRequester ? "bg-gray-50 text-gray-500" : ""}`}
             />
           </Field>
 
-          <Field label="Número de posições (profissionais)" htmlFor="jr-openings" required error={errors.openings}>
+          <Field label="Número de posições" htmlFor="jr-openings" required error={errors.openings}>
             <>
               <input
                 id="jr-openings"
@@ -497,6 +498,7 @@ export function JobRequestFormFields({
             <input
               id="jr-start"
               type="date"
+              min={todayIsoInBrazil()}
               value={values.desiredStartDate}
               onChange={(e) => onChange({ desiredStartDate: e.target.value })}
               className={inputClass}

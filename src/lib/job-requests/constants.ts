@@ -94,11 +94,13 @@ export const JOB_REQUEST_REASON_LABELS: Record<JobRequestReason, string> = {
   OTHER: "Outro",
 };
 
+// Motivos oferecidos nos formulários e filtros. "Temporária" saiu (decisão de 2026-11-13): o
+// tipo de contratação "Temporário" já diz isso. O valor segue no enum e no rótulo acima só
+// para exibir algum registro antigo — nenhum usava em 2026-11-13.
 export const JOB_REQUEST_REASON_ORDER: JobRequestReason[] = [
   "REPLACEMENT",
   "HEADCOUNT_INCREASE",
   "NEW_POSITION",
-  "TEMPORARY",
   "OTHER",
 ];
 

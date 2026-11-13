@@ -11,6 +11,7 @@ import type { LucideIcon } from "lucide-react";
 import { JobRequestStatusBadge } from "@/components/internal/job-requests/JobRequestStatusBadge";
 import {
   JOB_REQUEST_REASON_LABELS,
+  JOB_REQUEST_REASON_ORDER,
   JOB_REQUEST_SLA_DAYS,
   JOB_REQUEST_STATUS_ORDER,
   jobRequestAgeInDays,
@@ -291,9 +292,9 @@ export function JobRequestsExplorer({ requests, initialStatus }: Props) {
               className={`${selectClass} mt-1`}
             >
               <option value="">Todos</option>
-              {Object.entries(JOB_REQUEST_REASON_LABELS).map(([k, label]) => (
+              {JOB_REQUEST_REASON_ORDER.map((k) => (
                 <option key={k} value={k}>
-                  {label}
+                  {JOB_REQUEST_REASON_LABELS[k]}
                 </option>
               ))}
             </select>

@@ -25,6 +25,8 @@ export interface AdmissionMeta {
   companies: MetaOption[];
   branches: MetaOption[];
   intakeStageId: string | null;
+  /** Filial da vaga (cadastro): o modal já abre com ela marcada; o RH pode trocar. */
+  defaultBranchId?: string | null;
 }
 
 /** Posição da vaga, como o modal precisa dela. */
@@ -94,10 +96,10 @@ export function AdmissionLinkModal({ open, candidate, meta, positions = null, on
       setStartDate("");
       setPositionId("");
       setCompanyId("");
-      setBranchId("");
+      setBranchId(meta?.defaultBranchId ?? "");
       setJobPositionId("");
     }
-  }, [open]);
+  }, [open, meta?.defaultBranchId]);
 
   if (!open || !candidate || !meta) return null;
 

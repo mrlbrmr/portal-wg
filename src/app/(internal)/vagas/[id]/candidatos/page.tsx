@@ -55,7 +55,7 @@ export default async function CandidatosPage({ params }: Props) {
     auth(),
     supabase
       .from("jobs")
-      .select("id, code, title, city, state, isTalentPool, requestId, status, visibility, processTemplateId")
+      .select("id, code, title, city, state, isTalentPool, requestId, status, visibility, processTemplateId, branchId")
       .eq("id", id)
       .maybeSingle(),
   ]);
@@ -172,6 +172,8 @@ export default async function CandidatosPage({ params }: Props) {
           companies: (coR.data ?? []) as MetaItem[],
           branches: (brR.data ?? []) as MetaItem[],
           intakeStageId: intakeR.data?.id ?? null,
+          // Só pré-seleciona se a filial da vaga estiver ativa (está na lista do select).
+          defaultBranchId: ((brR.data ?? []) as MetaItem[]).some((b) => b.id === job.branchId) ? (job.branchId as string) : null,
         }))
       : null,
     // Candidaturas desta vaga que já viraram admissão (o card troca "Contratar" por "Abrir admissão").

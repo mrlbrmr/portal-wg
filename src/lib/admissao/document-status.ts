@@ -2,7 +2,8 @@
 // existência do anexo + validação automática por IA (aiStatus/aiReason) + revisão manual do
 // RH (reviewStatus/reviewReason). A decisão humana SEMPRE prevalece sobre o parecer da IA.
 
-export type AiStatus = "pending" | "approved" | "needs_review" | "rejected";
+/** `unavailable` = a IA não conseguiu verificar (instabilidade/limite) — NÃO é problema no documento. */
+export type AiStatus = "pending" | "approved" | "needs_review" | "rejected" | "unavailable";
 export type ReviewStatus = "approved" | "rejected";
 
 export type DocumentStatus =
@@ -11,6 +12,7 @@ export type DocumentStatus =
   | "SENT"
   | "IN_REVIEW"
   | "AI_APPROVED"
+  | "AI_UNAVAILABLE"
   | "NEEDS_REVIEW"
   | "AI_REJECTED"
   | "HR_APPROVED"
@@ -25,6 +27,11 @@ export const DOCUMENT_STATUS_META: Record<
   SENT: { label: "Enviado", tone: "info", hint: "Arquivo recebido, sem validação automática" },
   IN_REVIEW: { label: "Em análise", tone: "info", hint: "Validação automática em andamento" },
   AI_APPROVED: { label: "Validado pela IA", tone: "success", hint: "A validação automática não encontrou problemas" },
+  AI_UNAVAILABLE: {
+    label: "Não verificado pela IA",
+    tone: "neutral",
+    hint: "A IA estava instável e não conseguiu olhar o arquivo. O sistema tenta de novo sozinho; isto não indica problema no documento.",
+  },
   NEEDS_REVIEW: { label: "Revisar", tone: "warning", hint: "A validação automática pediu conferência humana" },
   AI_REJECTED: { label: "Recusado pela IA", tone: "danger", hint: "A validação automática encontrou um problema" },
   HR_APPROVED: { label: "Aprovado", tone: "success", hint: "Aprovado manualmente pelo RH" },
@@ -44,6 +51,8 @@ export function fileStatus(f: FileStatusInput): DocumentStatus {
       return "IN_REVIEW";
     case "approved":
       return "AI_APPROVED";
+    case "unavailable":
+      return "AI_UNAVAILABLE";
     case "needs_review":
       return "NEEDS_REVIEW";
     case "rejected":

@@ -49,6 +49,22 @@ export async function generateJson<T>(opts: {
   }
 }
 
+/** Esperas entre tentativas quando o Gemini falha de forma passageira (plano gratuito). */
+export const AI_RETRY_DELAYS_MS = [0, 3000, 8000]
+
+/**
+ * Falha passageira — vale tentar de novo: sobrecarga (5xx), limite (429) ou rede/timeout.
+ * Chave ausente, inválida ou sem permissão NÃO é passageira.
+ */
+export function isTransientGeminiError(err: unknown): boolean {
+  const status = (err as { status?: number })?.status
+  if (status === 429 || (status !== undefined && status >= 500)) return true
+  if (status !== undefined) return false
+  const message = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? err)
+  if (/GEMINI_API_KEY/.test(message)) return false
+  return /fetch failed|timeout|timed out|aborted|ECONNRESET|ETIMEDOUT|ENOTFOUND|socket|network|overloaded|unavailable/i.test(message)
+}
+
 /** Traduz falhas da API do Gemini em um motivo que o RH entende. */
 export function describeGeminiError(err: unknown): string {
   const status = (err as { status?: number })?.status
